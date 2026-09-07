@@ -45,7 +45,7 @@ Changelog = "https://github.com/sachncs/fully-dynamic-maximal-matching/blob/mast
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "mypy>=1.0",
+    "mypy>=2.3.1",
     "hypothesis>=6.0",
     "ruff>=0.4.0",
 ]
