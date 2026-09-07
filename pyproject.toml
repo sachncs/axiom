@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axiom"
+version = "0.5.0"
+description = "A Faster Deterministic Fully Dynamic Maximal Matching Algorithm — pure-Python reproduction of Chuzhoy, Khanna, and Song (arXiv:2605.00797v1, STOC 2026)."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Sachin", email = "sachncs@gmail.com"},
+]
+keywords = [
+    "algorithm",
+    "graph",
+    "matching",
+    "dynamic",
+    "maximal-matching",
+    "data-structures",
+    "complexity",
+    "theoretical-computer-science",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
+]
+[project.urls]
+Homepage = "https://github.com/sachncs/fully-dynamic-maximal-matching"
+Repository = "https://github.com/sachncs/fully-dynamic-maximal-matching"
+Issues = "https://github.com/sachncs/fully-dynamic-maximal-matching/issues"
+Documentation = "https://github.com/sachncs/fully-dynamic-maximal-matching/blob/master/docs/index.md"
+Changelog = "https://github.com/sachncs/fully-dynamic-maximal-matching/blob/master/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.0",
+    "hypothesis>=6.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+axiom = "axiom.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["axiom*"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+ignore = [
+    "N802",  # Function names use mathematical notation from the paper (P1, P2, M, S, etc.)
+    "N803",  # Argument names use mathematical notation from the paper (M, deg_M, etc.)
+    "N806",  # Variable names use mathematical notation from the paper (M, A, B, U, S, etc.)
+    "SIM102",  # Nested ifs are sometimes clearer for readability
+    "SIM110",  # Loop form preferred for complex comprehensions
+    "SIM300",  # Yoda conditions sometimes used for clarity
+    "B904",  # raise from not always needed in except clauses
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["axiom"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["E501"]
+"benchmarks/*.py" = ["E501"]
