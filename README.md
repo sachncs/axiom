@@ -137,7 +137,7 @@ Each Axiom module owns one clear responsibility:
 | `axiom.hierarchy` | `Hierarchy`: the *k*-level system + `build_hierarchy` + (I3) `check_i3`, `maintain_i3` |
 | `axiom.color` | `Colorer` Protocol + `Greedy` and `Vizing` implementations + alternating-path helpers |
 | `axiom.matching` | Pure helpers: `greedy`, `partner`, `partners`, `canonical` |
-| `axiom.repair` | `Repair`: encapsulates insertion/deletion local handling and rematch dispatch |
+| `axiom.core` | `Matcher`: insertion/deletion local handling and rematch dispatch (private `__handle_insertion`, `__handle_deletion`, `__rematch_*`) |
 | `axiom.rebuild` | `Rebuild` Protocol + `Basic` and `Tiered` strategy implementations |
 | `axiom.augment` | `augment`, `flip`: alternating-path search over a matching |
 | `axiom.ledger` | `Ledger`: explicit counters for amortised-cost diagnostics |
