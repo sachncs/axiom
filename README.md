@@ -4,10 +4,10 @@
   <p align="center">
     <a href="#installation"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue" alt="Python"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
-    <a href="https://github.com/sachncs/fully-dynamic-maximal-matching/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/fully-dynamic-maximal-matching/ci.yml?branch=master" alt="CI"></a>
-    <a href="https://github.com/sachncs/fully-dynamic-maximal-matching"><img src="https://img.shields.io/badge/arXiv-2605.00797v1-b31b1b" alt="arXiv"></a>
+    <a href="https://github.com/sachncs/axiom/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/axiom/ci.yml?branch=master" alt="CI"></a>
+    <a href="https://github.com/sachncs/axiom"><img src="https://img.shields.io/badge/arXiv-2605.00797v1-b31b1b" alt="arXiv"></a>
     <a href="https://mypy-lang.org/"><img src="https://img.shields.io/badge/mypy-strict-green.svg" alt="Checked with mypy"></a>
-    <a href="https://github.com/sachncs/fully-dynamic-maximal-matching/stargazers"><img src="https://img.shields.io/github/stars/sachncs/fully-dynamic-maximal-matching" alt="Stars"></a>
+    <a href="https://github.com/sachncs/axiom/stargazers"><img src="https://img.shields.io/github/stars/sachncs/axiom" alt="Stars"></a>
   </p>
 </p>
 
