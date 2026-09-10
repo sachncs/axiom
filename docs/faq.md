@@ -7,8 +7,8 @@ Axiom is a pure-Python reproduction of *A Faster Deterministic Algorithm for Ful
 ## How do I install it?
 
 ```bash
-git clone https://github.com/sachncs/fully-dynamic-maximal-matching.git
-cd fully-dynamic-maximal-matching
+git clone https://github.com/sachncs/axiom.git
+cd axiom
 pip install -e ".[dev]"
 ```
 
