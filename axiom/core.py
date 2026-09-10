@@ -373,22 +373,40 @@ class Matcher:
         self.__advance_update_counter()
 
     def __handle_insertion(self, u: Vertex, v: Vertex) -> None:
-        if self.system is not None:
-            a = u if u in self.system.A else (v if v in self.system.A else None)
-            u_vert = v if a == u else (u if v in self.system.A else None)
-            if a is not None and u_vert is not None and u_vert in self.system.U:
-                if u_vert in self.matched_vertices and a not in self.matched_vertices:
-                    partner_of_u = self.partner(u_vert)
-                    if partner_of_u is not None:
-                        self.drop_match(u_vert, partner_of_u)
-                        self.add_match(a, u_vert)
-                        self.accountant.record_insertion()
-                        return
-                    else:
-                        self.accountant.record_greedy_rebuild()
+        if self.system is not None and self.__try_fast_insert(u, v):
+            return
 
         self.refresh()
         self.accountant.record_insertion()
+
+    def __try_fast_insert(self, u: Vertex, v: Vertex) -> bool:
+        """Attempt the (A, U) fast path for inserting (u, v).
+
+        Returns ``True`` if the fast path was taken and the matcher state
+        was updated accordingly; ``False`` if the caller should fall back
+        to a full refresh.
+        """
+        system = self.system
+        assert system is not None
+        in_a = (u in system.A, v in system.A)
+        if in_a == (True, False):
+            a, u_vert = u, v
+        elif in_a == (False, True):
+            a, u_vert = v, u
+        else:
+            return False
+        if u_vert not in system.U:
+            return False
+        if u_vert not in self.matched_vertices or a in self.matched_vertices:
+            return False
+        partner_of_u = self.partner(u_vert)
+        if partner_of_u is None:
+            self.accountant.record_greedy_rebuild()
+            return False
+        self.drop_match(u_vert, partner_of_u)
+        self.add_match(a, u_vert)
+        self.accountant.record_insertion()
+        return True
 
     def __handle_deletion(self, u: Vertex, v: Vertex) -> None:
         if canonical(u, v) in self.matched_edges:
