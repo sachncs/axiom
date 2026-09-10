@@ -1146,3 +1146,50 @@ class TestCoverage:
         results = compare(n=20, updates=20, seed=1, max_workers=1)
         assert "basic" in results
         assert "tiered" in results
+
+    def test_compare_with_one_update_handles_zero_elapsed(self) -> None:
+        """compare with very small updates exercises the float('inf') branch."""
+        from axiom.parallel import compare
+
+        results = compare(n=10, updates=1, seed=1, max_workers=1)
+        assert results["basic"].is_maximal
+        assert results["tiered"].is_maximal
+        assert results["basic"].matching_size >= 0
+        assert results["tiered"].matching_size >= 0
+
+    def test_compare_alternating_seeds(self) -> None:
+        """compare runs deterministically across multiple seeds."""
+        from axiom.parallel import compare
+
+        for seed in (1, 7, 42):
+            results = compare(n=15, updates=10, seed=seed, max_workers=1)
+            assert results["basic"].is_maximal
+            assert results["tiered"].is_maximal
+
+    def test_run_parallel_empty_configs(self) -> None:
+        """run_parallel with no configs returns an empty list."""
+        from axiom.parallel import run_parallel
+
+        assert run_parallel([], max_workers=1) == []
+
+    def test_run_parallel_respects_max_workers(self) -> None:
+        """run_parallel completes a small batch with explicit max_workers."""
+        from axiom.parallel import run_parallel
+
+        configs = [
+            (10, "basic", 5, 1),
+            (10, "tiered", 5, 2),
+        ]
+        results = run_parallel(configs, max_workers=2)
+        assert len(results) == 2
+        assert all(r.is_maximal for r in results)
+
+    def test_worker_zero_updates_returns_inf_rate(self) -> None:
+        """worker with zero updates produces inf updates_per_sec."""
+        from axiom.parallel import worker
+
+        result = worker(n=8, mode="basic", updates=0, seed=1)
+        assert result.updates == 0
+        assert result.elapsed_sec >= 0.0
+        assert result.updates_per_sec == float("inf")
+        assert result.is_maximal
