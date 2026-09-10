@@ -59,10 +59,11 @@ class Matcher:
     * ``"multilevel"`` --- the :math:`n^{1/2+o(1)}` version with
       :math:`k = \Theta(\log n)` levels.
 
-    The instance is stateful: every :meth:`insert_edge` and
-    :meth:`delete_edge` mutates the graph and matching and may trigger
+    The instance is stateful: every :meth:`insert` and
+    :meth:`delete` mutates the graph and matching and may trigger
     a full rebuild of the supporting :math:`z`-system.  Use
-    :meth:`statistics` to inspect the amortised cost.
+    :attr:`accountant` (or the convenience :attr:`stats`) to inspect
+    the amortised cost.
 
     Attributes:
         n: Number of vertices (fixed).
@@ -72,7 +73,7 @@ class Matcher:
         matched_edges: The maintained maximal matching.
         matched_vertices: Convenience cache of vertices incident to
             some edge of the matching.
-        partners: Bidirectional partner map for O(1) partner lookup.
+        partner_map: Bidirectional partner map for O(1) partner lookup.
         z: Degree parameter of the active :math:`z`-system.
         phase_length: Number of updates between full rebuilds.
         subphase_length: Number of updates between lightweight seed
@@ -85,7 +86,8 @@ class Matcher:
         multi: Multi-level system, present in ``"multilevel"`` mode.
         level_zs: Per-level :math:`z` values in decreasing order.
         k: Number of levels in ``multi``.
-        accountant: Bookkeeping counters.
+        accountant: Bookkeeping counters (Ledger).
+        stats: Snapshot of :attr:`accountant` counters as a dict.
 
     Args:
         n: Number of vertices (fixed for the lifetime of the instance).
