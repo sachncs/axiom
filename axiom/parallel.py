@@ -83,12 +83,16 @@ def worker(
     elapsed = time.perf_counter() - start
 
     stats = algo.stats()
+    if updates == 0 or elapsed == 0.0:
+        updates_per_sec = float("inf")
+    else:
+        updates_per_sec = updates / elapsed
     return Benchmark(
         n=n,
         mode=mode,
         updates=updates,
         elapsed_sec=elapsed,
-        updates_per_sec=updates / elapsed if elapsed > 0 else float("inf"),
+        updates_per_sec=updates_per_sec,
         matching_size=stats["matching_size"],
         is_maximal=algo.maximal(),
         phase_rebuilds=stats.get("phase_rebuilds", 0),
