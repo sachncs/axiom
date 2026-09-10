@@ -254,6 +254,6 @@ the algorithm pipeline traceable: every phase boundary hits
 | Type vocabulary | `axiom.types` |
 | CLI entry point | `axiom.cli` |
 
-Pure logic is kept separate from I/O. The CLI module does no work
-besitself the orch argument and to print; the benchmark module is the
-only one that does parallel I/O.
+Pure logic is kept separate from I/O. The CLI module does no work besides
+parsing arguments and printing results; the benchmark module is the only one
+that drives parallel I/O.
