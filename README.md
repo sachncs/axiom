@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="assets/logo.svg" alt="axiom logo" width="160" />
   <h1 align="center">axiom</h1>
   <p align="center">A Faster Deterministic Fully Dynamic Maximal Matching Algorithm &mdash; pure-Python reproduction of Chuzhoy, Khanna, and Song (arXiv:2605.00797v1, STOC 2026).</p>
   <p align="center">
