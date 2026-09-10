@@ -22,7 +22,7 @@ purpose:
 - `axiom.hierarchy` &mdash; `Hierarchy`: the k-level system plus `build_hierarchy`, `check_i3`, `maintain_i3`.
 - `axiom.color` &mdash; `Colorer` Protocol, `Greedy`, `Vizing`, and alternating-path helpers.
 - `axiom.matching` &mdash; `greedy`, `partner`, `partners`, `canonical`.
-- `axiom.repair` &mdash; `Repair`: local insertion/deletion handler.
+- `axiom.core` &mdash; `Matcher`: insertion/deletion local handling and rematch dispatch (private `__handle_insertion`, `__handle_deletion`, `__rematch_*`).
 - `axiom.rebuild` &mdash; `Rebuild` Protocol, `Basic`, `Tiered`.
 - `axiom.augment` &mdash; alternating-path search over a matching.
 - `axiom.ledger` &mdash; `Ledger`: explicit counters for amortised-cost diagnostics.

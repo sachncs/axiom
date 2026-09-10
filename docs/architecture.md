@@ -25,11 +25,11 @@ data flow through the algorithm.
                   └───────┬───────┘          │
                           │                  │
                           ▼                  ▼
-                  ┌───────────────┐  ┌─────────────────┐
-                  │ axiom.hierarchy│  │ axiom.repair     │
-                  │ Hierarchy +   │  │ local insert /   │
-                  │ check_i3 /    │  │ delete / rematch │
-                  │ maintain_i3   │  └─────────────────┘
+                   ┌───────────────┐  ┌─────────────────┐
+                   │ axiom.hierarchy│  │ axiom.core       │
+                   │ Hierarchy +   │  │ Matcher: local   │
+                   │ check_i3 /    │  │ insert/delete/   │
+                   │ maintain_i3   │  │ rematch dispatch │
                   └───────┬───────┘
                           │
                           ▼
@@ -244,7 +244,7 @@ the algorithm pipeline traceable: every phase boundary hits
 | Multi-level hierarchy | `axiom.hierarchy` |
 | Edge colouring | `axiom.color` |
 | Phase rebuild policy | `axiom.rebuild` |
-| Local repair | `axiom.repair` |
+| Local repair | `axiom.core` (private `__handle_insertion`, `__handle_deletion`, `__rematch_*`) |
 | Augmenting-path search | `axiom.augment` |
 | Empirical counters | `axiom.ledger` |
 | Invariant validation | `axiom.invariant` |
