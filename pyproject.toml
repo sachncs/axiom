@@ -38,7 +38,7 @@ classifiers = [
 Homepage = "https://github.com/sachncs/axiom"
 Repository = "https://github.com/sachncs/axiom"
 Issues = "https://github.com/sachncs/axiom/issues"
-Documentation = "https://github.com/sachncs/axiom/blob/master/docs/index.md"
+Documentation = "https://sachncs.github.io/axiom/"
 Changelog = "https://github.com/sachncs/axiom/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
