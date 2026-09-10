@@ -23,8 +23,8 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 1. **Fork** the repository on GitHub
 2. **Clone** your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/fully-dynamic-maximal-matching.git
-   cd fully-dynamic-maximal-matching
+   git clone https://github.com/<your-username>/axiom.git
+   cd axiom
    ```
 3. **Set up** the development environment (see below)
 4. Create a feature branch and start contributing
@@ -116,7 +116,7 @@ chore: update pytest to 8.x
 
 1. **Update your fork** to the latest upstream:
    ```bash
-   git remote add upstream https://github.com/sachncs/fully-dynamic-maximal-matching.git
+   git remote add upstream https://github.com/sachncs/axiom.git
    git fetch upstream
    git checkout master
    git merge upstream/master
@@ -253,4 +253,4 @@ The test suite includes Hypothesis-based property tests. These run automatically
 
 ## Questions?
 
-If you have questions about contributing, feel free to open a [Discussion](https://github.com/sachncs/fully-dynamic-maximal-matching/discussions) or reach out to the maintainers.
+If you have questions about contributing, feel free to open a [Discussion](https://github.com/sachncs/axiom/discussions) or reach out to the maintainers.

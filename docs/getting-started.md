@@ -3,8 +3,8 @@
 ## Install
 
 ```bash
-git clone https://github.com/sachncs/fully-dynamic-maximal-matching.git
-cd fully-dynamic-maximal-matching
+git clone https://github.com/sachncs/axiom.git
+cd axiom
 pip install -e .
 ```
 
