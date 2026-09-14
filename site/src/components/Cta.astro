@@ -1,0 +1,109 @@
+---
+import { INSTALL, SITE } from "@/lib/data";
+---
+
+<section class="section--tight shell" id="install">
+  <div class="cta card" data-reveal>
+    <div class="cta__glow" aria-hidden="true"></div>
+    <div class="cta__inner">
+      <span class="eyebrow"><span class="dot" aria-hidden="true"></span>Ready for the stream</span>
+      <h2>
+        Your matching deserves
+        <br />
+        <span class="serif gradient-text">deterministic excellence.</span>
+      </h2>
+      <p>
+        One import, zero dependencies, every invariant verified. Clone the repo,
+        run the demo, and break it — the checkers will thank you.
+      </p>
+
+      <div class="cta__cmd mono" data-copy={INSTALL.pip}>
+        <span class="cta__ps" aria-hidden="true">$</span>
+        <code>{INSTALL.pip}</code>
+      </div>
+
+      <div class="cta__actions">
+        <a class="btn btn--primary" href={SITE.repo} target="_blank" rel="noopener">
+          Star on GitHub
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+        </a>
+        <a class="btn btn--ghost" href={`${SITE.docs}/getting-started.md`} target="_blank" rel="noopener">
+          Read the docs
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cta {
+    padding: clamp(56px, 8vw, 108px);
+    overflow: hidden;
+    text-align: center;
+    display: grid;
+    justify-items: center;
+  }
+  .cta__glow {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(58% 60% at 50% -20%, rgba(91, 140, 255, 0.22), transparent 70%),
+      radial-gradient(40% 46% at 82% 120%, rgba(160, 107, 255, 0.16), transparent 72%);
+    pointer-events: none;
+  }
+  .cta__inner {
+    position: relative;
+    display: grid;
+    gap: 18px;
+    justify-items: center;
+    max-width: 720px;
+  }
+  .cta h2 {
+    margin: 0;
+    font-size: clamp(34px, 5.2vw, 58px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    font-weight: 690;
+  }
+  .cta p {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 17px;
+    line-height: 1.62;
+    max-width: 560px;
+  }
+
+  .cta__cmd {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 520px;
+    padding: 16px 22px;
+    border-radius: 14px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    box-shadow: var(--ring);
+    text-align: left;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .cta__ps {
+    color: var(--mint);
+    font-weight: 700;
+  }
+  .cta__cmd code {
+    font-size: 14px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .cta__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 10px;
+  }
+</style>

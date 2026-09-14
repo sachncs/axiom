@@ -1,0 +1,65 @@
+---
+import "@fontsource-variable/inter";
+import "@fontsource/instrument-serif/400-italic.css";
+import "@/styles/global.css";
+
+import Nav from "@/components/Nav.astro";
+import Footer from "@/components/Footer.astro";
+import { SITE } from "@/lib/data";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description = SITE.description } = Astro.props;
+const OG = (file: string) => new URL(`${import.meta.env.BASE_URL}/${file}`, Astro.site);
+const ogImage = OG("og.png");
+const favicon = OG("favicon.svg");
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title ? `${title} · ${SITE.title}` : `${SITE.title} — ${SITE.tagline}`}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#05070c" />
+
+    <link rel="icon" href={favicon} type="image/svg+xml" />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.title} />
+    <meta property="og:title" content={`${SITE.title} — ${SITE.tagline}`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={`${SITE.title} — ${SITE.tagline}`} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+  </head>
+  <body>
+    <div class="bg-field" aria-hidden="true"></div>
+    <Nav />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+    <script>
+      import { initTheme } from "@/scripts/theme";
+      initTheme();
+    </script>
+    <script>
+      import { initReveal } from "@/scripts/reveal";
+      initReveal();
+    </script>
+    <script>
+      import "@/scripts/copy";
+    </script>
+  </body>
+</html>

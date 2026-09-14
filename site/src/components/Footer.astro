@@ -1,0 +1,183 @@
+---
+import { FOOTER_LINKS, SITE } from "@/lib/data";
+---
+
+<footer class="footer">
+  <div class="shell">
+    <div class="footer__main">
+      <div class="footer__brand">
+        <a class="brand" href="#top" aria-label="Axiom — back to top">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect x="1.5" y="1.5" width="29" height="29" rx="9" stroke="url(#foot1)" stroke-width="1.6" />
+              <path d="M10 21 13 11l3 6 3-6 3 10" stroke="url(#foot2)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
+              <defs>
+                <linearGradient id="foot1" x1="0" y1="0" x2="32" y2="32">
+                  <stop stop-color="#6ea1ff" /><stop offset="1" stop-color="#a06bff" />
+                </linearGradient>
+                <linearGradient id="foot2" x1="10" y1="11" x2="22" y2="21">
+                  <stop stop-color="#4fd7ff" /><stop offset="1" stop-color="#a06bff" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </span>
+          <span class="brand__name">axiom</span>
+        </a>
+        <p>
+          A pure-Python reproduction of the Chuzhoy–Khanna–Song algorithm for
+          fully dynamic maximal matching. Built for the STOC 2026 community and
+          anyone who loves a good invariant.
+        </p>
+        <a class="footer__paper mono" href={SITE.paper} target="_blank" rel="noopener">
+          arXiv:2605.00797v1
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11l6-6M6.5 5H11v4.5"/></svg>
+        </a>
+      </div>
+
+      {
+        FOOTER_LINKS.map((group) => (
+          <nav class="footer__col" aria-label={group.group}>
+            <h4>{group.group}</h4>
+            <ul>
+              {
+                group.links.map((l) => (
+                  <li><a href={l.href} target="_blank" rel="noopener">{l.label}</a></li>
+                ))
+              }
+            </ul>
+          </nav>
+        ))
+      }
+
+      <div class="footer__col footer__cite">
+        <h4>Cite</h4>
+        <blockquote class="mono" data-copy={SITE.citation}>{SITE.citation}</blockquote>
+      </div>
+    </div>
+
+    <div class="footer__bottom">
+      <span class="mono">© 2026 · Axiom</span>
+      <span class="footer__status">
+        <span class="dot" aria-hidden="true"></span>
+        matching stays maximal in every section
+      </span>
+      <span class="mono">MIT licensed · pure Python 3.10+</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--line);
+    background: linear-gradient(180deg, transparent, var(--surface));
+    margin-top: clamp(48px, 6vw, 80px);
+  }
+
+  .footer__main {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
+    gap: 40px;
+    padding-block: clamp(48px, 6vw, 76px) 40px;
+  }
+
+  .footer__brand p {
+    margin: 16px 0;
+    font-size: 14.5px;
+    line-height: 1.66;
+    color: var(--ink-dim);
+    max-width: 300px;
+  }
+
+  .footer__paper {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--cobalt);
+    transition: color var(--t-fast) var(--ease-out);
+  }
+  .footer__paper:hover {
+    color: var(--ink);
+  }
+  .footer__paper svg {
+    width: 13px;
+    height: 13px;
+    transform: translateY(1px);
+  }
+
+  .footer__col h4 {
+    margin: 0 0 16px;
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .footer__col ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+  }
+  .footer__col a {
+    font-size: 14.5px;
+    color: var(--ink-dim);
+    transition: color var(--t-fast) var(--ease-out);
+  }
+  .footer__col a:hover {
+    color: var(--ink);
+  }
+
+  .footer__cite blockquote {
+    margin: 0;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--ink-dim);
+  }
+
+  .footer__bottom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 22px;
+    padding-block: 22px 30px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  .footer__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin-inline: auto;
+    color: var(--ink-faint);
+  }
+  .footer__status .dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  @media (max-width: 920px) {
+    .footer__main {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (max-width: 560px) {
+    .footer__main {
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+    .footer__bottom {
+      justify-content: center;
+      text-align: center;
+    }
+    .footer__status {
+      margin-inline: 0;
+    }
+  }
+</style>

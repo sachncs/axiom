@@ -1,0 +1,134 @@
+---
+import { FEATURES } from "@/lib/data";
+
+const ICONS: Record<string, string> = {
+  layers: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>`,
+  graph: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6.6 7.4 10.8 16M17.4 7.4 13.2 16M7 6h10"/></svg>`,
+  palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-2 0-.6-.3-1-.8-1.4-.5-.4-.8-.8-.8-1.6 0-1.1.9-2 2-2H17a4 4 0 0 0 4-4c0-4.4-4.4-7-9-7Z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/></svg>`,
+  invariant: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5c0 4.6 3.1 8 7.5 10 4.4-2 7.5-5.4 7.5-10V6L12 3Z"/><path d="m8.8 12 2.2 2.2 4.4-4.4"/></svg>`,
+  path: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M5 17 17 5M7 19h4a4 4 0 0 0 4-4v-4"/></svg>`,
+  ledger: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h5"/><path d="M16 16h.01"/></svg>`,
+};
+---
+
+<section class="section shell features" id="features">
+  <div class="section-head" data-reveal>
+    <span class="eyebrow">Capabilities</span>
+    <h2>
+      Engineered to hold one promise:
+      <br />
+      <span class="serif gradient-text">maximal, always.</span>
+    </h2>
+    <p>
+      Every subsystem earns its place. Nothing is stubbed, nothing is decor —
+      each piece of the paper's construction is implemented, maintained, and
+      provably checked.
+    </p>
+  </div>
+
+  <div class="features__grid">
+    {
+      FEATURES.map((f, i) => (
+        <article class="card card-hover feature" data-reveal style={`--reveal-delay: ${(i % 3) * 90}ms`}>
+          <div class="feature__icon" aria-hidden="true" set:html={ICONS[f.icon]}></div>
+          <h3>{f.title}</h3>
+          <p>{f.body}</p>
+        </article>
+      ))
+    }
+  </div>
+
+  <div class="features__chips mono" data-reveal>
+    <span>deterministic</span>
+    <span>pure python</span>
+    <span>zero deps</span>
+    <span>mypy · strict</span>
+    <span>typed protocols</span>
+    <span>seeded ≈ reproducible</span>
+  </div>
+</section>
+
+<style>
+  .features__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  .feature {
+    padding: clamp(24px, 2.8vw, 34px);
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .feature__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    background: linear-gradient(180deg, var(--surface-3), var(--surface));
+    color: var(--cobalt);
+    margin-bottom: 6px;
+  }
+  .feature__icon svg {
+    width: 21px;
+    height: 21px;
+  }
+  .feature:nth-child(2) .feature__icon,
+  .feature:nth-child(5) .feature__icon {
+    color: var(--violet);
+  }
+  .feature:nth-child(3) .feature__icon,
+  .feature:nth-child(6) .feature__icon {
+    color: var(--cyan);
+  }
+
+  .feature h3 {
+    margin: 0;
+    font-size: 18.5px;
+    font-weight: 650;
+    letter-spacing: -0.014em;
+  }
+  .feature p {
+    margin: 0;
+    font-size: 14.8px;
+    line-height: 1.66;
+    color: var(--ink-dim);
+  }
+
+  .features__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 42px;
+    justify-content: center;
+  }
+  .features__chips span {
+    padding: 8px 16px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-dim);
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+  }
+  .features__chips span:hover {
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+
+  @media (max-width: 900px) {
+    .features__grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 620px) {
+    .features__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

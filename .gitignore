@@ -68,3 +68,8 @@ Thumbs.db
 
 # Docs build
 docs/_build/
+
+# Site
+site/node_modules/
+site/dist/
+site/.astro/

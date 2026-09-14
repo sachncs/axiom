@@ -1,0 +1,228 @@
+---
+import { NAV, SITE } from "@/lib/data";
+---
+
+<header class="nav">
+  <div class="shell nav__inner" data-nav-inner>
+    <a class="brand" href="#top" aria-label="Axiom — home">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <rect x="1.5" y="1.5" width="29" height="29" rx="9" stroke="url(#navg1)" stroke-width="1.6" />
+          <path d="M10 21 13 11l3 6 3-6 3 10" stroke="url(#navg2)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
+          <defs>
+            <linearGradient id="navg1" x1="0" y1="0" x2="32" y2="32">
+              <stop stop-color="#6ea1ff" /><stop offset="1" stop-color="#a06bff" />
+            </linearGradient>
+            <linearGradient id="navg2" x1="10" y1="11" x2="22" y2="21">
+              <stop stop-color="#4fd7ff" /><stop offset="1" stop-color="#a06bff" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </span>
+      <span class="brand__name">axiom</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Primary">
+      {
+        NAV.map((item) => (
+          <a href={item.href}>{item.label}</a>
+        ))
+      }
+    </nav>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M17 12.5A7.5 7.5 0 0 1 7.5 3a7.5 7.5 0 1 0 9.5 9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.5" />
+          <path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M3.9 3.9l1.4 1.4M14.7 14.7l1.4 1.4M16.1 3.9l-1.4 1.4M5.3 14.7l-1.4 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+      </button>
+      <a class="btn btn--ghost nav-ghost" href={SITE.repo} target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        <span class="gh-text">GitHub</span>
+      </a>
+      <button class="nav-burger" type="button" data-nav-burger aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="nav-mobile" data-nav-mobile>
+    <nav class="nav-mobile__links" aria-label="Mobile">
+      {
+        NAV.map((item) => (
+          <a href={item.href}>{item.label}</a>
+        ))
+      }
+    </nav>
+    <a class="btn btn--ghost" href={SITE.repo} target="_blank" rel="noopener">View on GitHub</a>
+  </div>
+</header>
+
+<style is:global>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--t-med) var(--ease-out), background var(--t-med) var(--ease-out);
+  }
+  .nav.is-scrolled {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border-bottom-color: var(--line);
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  }
+  .nav__inner {
+    height: var(--nav-h);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+  }
+  .brand__mark svg {
+    width: 30px;
+    height: 30px;
+  }
+  .brand__name {
+    font-variant-numeric: tabular-nums;
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .nav-links a {
+    padding: 8px 13px;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink-dim);
+    border-radius: 9px;
+    transition: color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+  }
+  .nav-links a:hover {
+    color: var(--ink);
+    background: var(--surface);
+  }
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-ghost {
+    padding: 9px 16px;
+  }
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-dim);
+    transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+  }
+  .theme-toggle:hover {
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .theme-toggle svg {
+    width: 17px;
+    height: 17px;
+  }
+  html[data-theme="dark"] .icon-sun {
+    display: none;
+  }
+  html[data-theme="light"] .icon-moon {
+    display: none;
+  }
+  .nav-burger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    align-items: center;
+  }
+  .nav-burger span {
+    width: 15px;
+    height: 1.6px;
+    background: var(--ink);
+    border-radius: 2px;
+    transition: transform var(--t-med) var(--ease-io);
+  }
+  .nav-burger[aria-expanded="true"] span:first-child {
+    transform: translateY(3.3px) rotate(45deg);
+  }
+  .nav-burger[aria-expanded="true"] span:last-child {
+    transform: translateY(-3.3px) rotate(-45deg);
+  }
+  .nav-mobile {
+    display: grid;
+    gap: 18px;
+    padding: 20px var(--gutter) 26px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(18px) saturate(1.5);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+    border-bottom: 1px solid var(--line);
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height var(--t-med) var(--ease-io), opacity var(--t-med) var(--ease-out);
+  }
+  .nav-mobile.is-open {
+    max-height: 520px;
+    opacity: 1;
+  }
+  .nav-mobile__links {
+    display: grid;
+  }
+  .nav-mobile__links a {
+    padding: 12px 4px;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .nav-mobile .btn {
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  @media (max-width: 860px) {
+    .nav-links,
+    .nav-ghost,
+    .gh-text {
+      display: none;
+    }
+    .nav-burger {
+      display: inline-flex;
+    }
+  }
+  @media (max-width: 480px) {
+    .nav-actions .theme-toggle {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import "@/scripts/nav";
+</script>

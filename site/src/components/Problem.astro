@@ -1,0 +1,85 @@
+---
+import { PROBLEM } from "@/lib/data";
+---
+
+<section class="section shell problem" id="product">
+  <div class="section-head" data-reveal>
+    <span class="eyebrow">The problem</span>
+    <h2>
+      Graphs change every second.
+      <br />
+      The answer is <span class="serif gradient-text">always current.</span>
+    </h2>
+    <p>
+      Fully dynamic maximal matching is the workhorse at the heart of scheduling,
+      real-time routing, and large-graph approximation. The hard part isn't finding
+      a matching — it's that the graph refuses to stay still.
+    </p>
+  </div>
+
+  <div class="problem__grid">
+    {
+      PROBLEM.map((p, i) => (
+        <article class="card card-hover problem__card" data-reveal style={`--reveal-delay: ${i * 90}ms`}>
+          <div class="problem__step mono">{p.step}</div>
+          <h3>{p.title}</h3>
+          <p>{p.body}</p>
+          <span class="problem__accent" aria-hidden="true"></span>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .problem__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .problem__card {
+    padding: clamp(26px, 3vw, 38px);
+    display: grid;
+    gap: 14px;
+    align-content: start;
+    overflow: hidden;
+  }
+  .problem__step {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--cobalt);
+    font-weight: 600;
+  }
+  .problem__card h3 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+  }
+  .problem__card p {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 15.5px;
+    line-height: 1.62;
+  }
+  .problem__accent {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 2px;
+    background: var(--brand-grad);
+    opacity: 0;
+    transform: scaleX(0.4);
+    transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
+  }
+  .problem__card:hover .problem__accent {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  @media (max-width: 900px) {
+    .problem__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
