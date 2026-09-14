@@ -73,3 +73,7 @@ docs/_build/
 site/node_modules/
 site/dist/
 site/.astro/
+
+# Re-include the site's src/lib/ (the Python-style lib/ pattern above ignores it)
+!site/src/lib/
+!site/src/lib/**
