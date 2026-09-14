@@ -1,11 +1,11 @@
 ---
 import "@fontsource-variable/inter";
 import "@fontsource/instrument-serif/400-italic.css";
-import "@/styles/global.css";
+import "../styles/global.css";
 
-import Nav from "@/components/Nav.astro";
-import Footer from "@/components/Footer.astro";
-import { SITE } from "@/lib/data";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { SITE } from "../lib/data";
 
 interface Props {
   title?: string;
@@ -51,15 +51,15 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     </main>
     <Footer />
     <script>
-      import { initTheme } from "@/scripts/theme";
+      import { initTheme } from "../scripts/theme";
       initTheme();
     </script>
     <script>
-      import { initReveal } from "@/scripts/reveal";
+      import { initReveal } from "../scripts/reveal";
       initReveal();
     </script>
     <script>
-      import "@/scripts/copy";
+      import "../scripts/copy";
     </script>
   </body>
 </html>

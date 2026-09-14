@@ -1,5 +1,5 @@
 ---
-import { SITE } from "@/lib/data";
+import { SITE } from "../lib/data";
 ---
 
 <section class="hero shell" id="top" data-reveal>
@@ -321,7 +321,7 @@ import { SITE } from "@/lib/data";
 </style>
 
 <script>
-  import { initDemo } from "@/scripts/demo";
+  import { initDemo } from "../scripts/demo";
   document.addEventListener("astro:page-load", () => {
     const host = document.querySelector<HTMLElement>("[data-demo]");
     if (host) initDemo(host);
