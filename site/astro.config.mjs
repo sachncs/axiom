@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
@@ -8,4 +9,11 @@ export default defineConfig({
     inlineStylesheets: "auto",
   },
   output: "static",
+  vite: {
+    resolve: {
+      alias: {
+        "@": fileURLToPath(new URL("./src", import.meta.url)),
+      },
+    },
+  },
 });
