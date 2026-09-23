@@ -142,7 +142,7 @@ def test_relevant_paths_use_matching_color_offsets() -> None:
     assert [target for _, _, target in paths] == [15, 10, 10]
 
 
-def test_amplify_keeps_small_collection_explicitly_bounded() -> None:
+def test_amplify_relabels_small_collection_deterministically() -> None:
     graph = Adjacency(3)
     graph.add_edge(0, 1)
     graph.add_edge(0, 2)
@@ -153,7 +153,8 @@ def test_amplify_keeps_small_collection_explicitly_bounded() -> None:
     groups, social = amplify(coloring, fans, 10)
 
     assert len(groups) == 10
-    assert len(social) == 0
+    assert len(social) == 1
+    assert next(iter(social)).type == frozenset({0, 1})
 
 
 def test_amplify_socializes_a_full_deterministic_batch() -> None:

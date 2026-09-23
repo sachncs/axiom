@@ -118,6 +118,14 @@ class PartialColoring:
     def edges(self) -> set[Edge]:
         return set(self._colors)
 
+    def relabel(self, mapping: dict[Color, Color]) -> None:
+        """Apply a validated global permutation to every assigned color."""
+        expected = set(range(self.color_count))
+        if set(mapping) != expected or set(mapping.values()) != expected:
+            raise ValueError("color relabeling must be a permutation of the palette")
+        self._colors = {edge: mapping[color] for edge, color in self._colors.items()}
+        self.validate()
+
     def missing(self, vertex: Vertex) -> list[Color]:
         used = {
             color
@@ -270,6 +278,31 @@ class SeparableFans:
                 members.discard(fan)
                 if not members:
                     self._vertices.pop(vertex)
+
+    def relabel(self, mapping: dict[Color, Color]) -> None:
+        """Apply a global color permutation while preserving all indexes."""
+        current = tuple(self)
+        for fan in current:
+            self.discard(fan)
+        try:
+            for fan in current:
+                self.add(
+                    UFan(
+                        fan.center,
+                        fan.first_leaf,
+                        fan.second_leaf,
+                        mapping[fan.center_color],
+                        mapping[fan.first_color],
+                        mapping[fan.second_color],
+                    )
+                )
+        except (KeyError, ValueError):
+            self._fans.clear()
+            self._edges.clear()
+            self._colors.clear()
+            self._vertices.clear()
+            raise
+        self.assert_valid()
 
     def at(self, vertex: Vertex) -> tuple[UFan, ...]:
         """Return fans containing ``vertex`` in deterministic order."""
@@ -737,8 +770,16 @@ def amplify(
     separate input-stage operation; callers must provide a separable fan
     collection.
     """
-    blocks, pairs = color_blocks(coloring.color_count, eta)
     initial = len(fans)
+    counts = {color: 0 for color in range(coloring.color_count)}
+    for fan in fans:
+        for color in fan.type:
+            counts[color] += 1
+    order = sorted(counts, key=lambda color: (-counts[color], color))
+    mapping = {old: new for new, old in enumerate(order)}
+    coloring.relabel(mapping)
+    fans.relabel(mapping)
+    blocks, pairs = color_blocks(coloring.color_count, eta)
     for fan in tuple(fans):
         try:
             for color in fan.type:
