@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from axiom.graph import Adjacency
@@ -228,6 +230,43 @@ def test_sparsify_types_socializes_a_full_deterministic_batch() -> None:
     assert len(social) == fan_count
     assert all(fan_is_social(fan, color_blocks(100, 10)[0]) for fan in social)
     coloring.validate()
+
+
+def test_sparsify_types_preserves_invariants_on_cross_block_batches() -> None:
+    blocks, _ = color_blocks(100, 10)
+    for seed in range(5):
+        rng = random.Random(seed)
+        fan_count = 120
+        graph = Adjacency(3 * fan_count)
+        fans = SeparableFans()
+        for index in range(fan_count):
+            center = 3 * index
+            graph.add_edge(center, center + 1)
+            graph.add_edge(center, center + 2)
+            center_color = rng.randrange(100)
+            leaf_color = rng.randrange(100)
+            if center_color == leaf_color:
+                leaf_color = (leaf_color + 1) % 100
+            fans.add(
+                UFan(
+                    center,
+                    center + 1,
+                    center + 2,
+                    center_color,
+                    leaf_color,
+                    leaf_color,
+                )
+            )
+        coloring = PartialColoring(graph, 100)
+        colored_before = coloring.edges()
+
+        _, social = sparsify_types(coloring, fans, 10)
+
+        assert len(social) >= 2
+        assert all(fan_is_social(fan, blocks) for fan in social)
+        assert coloring.edges() == colored_before
+        coloring.validate()
+        social.assert_valid()
 
 
 def test_shift_edge_to_fan_preserves_partial_coloring() -> None:
