@@ -168,7 +168,7 @@ $\tilde O\bigl(n^2 + n^{1+o(1)}z + r(z + r/z)\bigr)$. Dividing by $r$ and substi
 
 ## 9. Edge-Colouring / Auxiliary Mechanisms
 
-Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)})$ time. The paper uses this to split $M$ (max degree $\le z$) into $z+1$ matchings. This repository now contains the explicit u-fan, `Color-Small`, and recursive `Extend` state boundaries; the ABB+26 `Sparsify-Types` construction and its asymptotic data structures remain an implementation gap.
+Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)})$ time. The paper uses this to split $M$ (max degree $\le z$) into $z+1$ matchings. This repository now contains the explicit u-fan, `Color-Small`, recursive `Extend`, `Sparsify-Types`, and `Modify-Types` state boundaries; the complete ABB+26 construction and its asymptotic data structures remain an implementation gap.
 
 ---
 
@@ -219,9 +219,9 @@ Each item below is tagged with one of:
 - **ACCEPTED-HEURISTIC** &mdash; the implementation substitutes a documented alternative algorithm with the same correctness contract.
 
 1. **Theorem 2.4 full statement and algorithm** &mdash; IMPLEMENTATION-GAP. The
-   repository now has the paper's explicit fan-shift/activation path and
-   bounded deterministic search, but not the ABB+26 type-sparsification
-   construction or its asymptotic bound.
+   repository now has deterministic fan-shift/activation, `Modify-Types`, and
+   local `Sparsify-Types` operations with explicit invariant checks, but not
+   the complete ABB+26 construction, data structures, or asymptotic bound.
 2. **Sections 3-6** &mdash; IMPLEMENTATION-GAP. The full construction and update
    procedures are available; the repository has not yet completed a
    proof-level implementation and verification of every transition.
@@ -237,9 +237,9 @@ Each item below is tagged with one of:
    verification of every construction transition remains a release gate.
 7. **Exact partition rule for $A_i/N_i/R_i$** &mdash; RESOLVED. The full paper's recursive construction is implemented: prior $A_i/N_i/R_i$ sets are inherited, prior $B$ is partitioned by the selected matching, and the new $N_{h+1}=B$, $R_{h+1}=U$ sets are maintained through promotion.
 8. **ABB+26 edge-colouring** &mdash; IMPLEMENTATION-GAP. The local
-   implementation uses the explicit paper fan-shift/activation pipeline with
-   bounded deterministic search; the cited ABB+26 almost-linear algorithm is
-   not implemented.
+   implementation uses deterministic fan-shift/activation, `Modify-Types`, and
+   `Sparsify-Types` with bounded deterministic completion; the cited ABB+26
+   almost-linear algorithm and its data structures are not implemented.
 9. **Auxiliary graph $H$ update rules** &mdash; IMPLEMENTATION-GAP. The runtime
    maintains directed `H`, reverse-$H$, and `$\tilde H$` indexes from the
    live matching and inserted-edge state. The paper's complete
