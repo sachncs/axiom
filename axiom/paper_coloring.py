@@ -623,11 +623,10 @@ def _complete_partial_coloring(
     start: PartialColoring, all_edges: set[Edge], delta: int
 ) -> dict[Edge, Color]:
     """Complete a partial ABB coloring through Extend and fan operations."""
-    if start.color_count > 10 * 10:
-        direct_fans = collect_direct_fans(start, all_edges - start.edges())
-        if len(direct_fans) >= 100:
-            extend_recursive(start, direct_fans, 10)
-            start.validate()
+    direct_fans = collect_direct_fans(start, all_edges - start.edges())
+    if direct_fans:
+        extend_recursive(start, direct_fans, 10)
+        start.validate()
     state_limit = max(1024, len(all_edges) * max(1, delta + 1) * 32)
     solution = _search_fan_coloring(
         start, SeparableFans(), all_edges, set(), state_limit
