@@ -789,7 +789,15 @@ def amplify(
 
     target = initial // 100
     social = {fan for fan in fans if fan_is_social(fan, blocks)}
+    iterations = 0
+    max_iterations = max(1, 100 * eta * eta)
     while len(social) < target:
+        iterations += 1
+        if iterations > max_iterations:
+            raise RuntimeError(
+                "Amplify exceeded its deterministic iteration bound without "
+                "reaching the required social-fan mass"
+            )
         pair_counts = [
             sum(
                 1
@@ -831,11 +839,10 @@ def amplify(
             good_by_type,
             key=lambda key: (len(good_by_type[key]), tuple(-value for value in key)),
         )
-        batch = good_by_type[batch_key]
+        batch = tuple(good_by_type[batch_key])
         fan_paths: dict[UFan, tuple[tuple[tuple[Vertex, ...], Color, Color], ...]] = {}
         for fan in batch:
             fan_paths[fan] = relevant_paths(coloring, fan, blocks, pair_index)
-            fans.discard(fan)
         paths_to_flip = [path for paths in fan_paths.values() for path in paths]
         unique_paths: list[tuple[tuple[Vertex, ...], Color, Color]] = []
         seen_edges: set[Edge] = set()
@@ -849,6 +856,23 @@ def amplify(
             unique_paths.append((path, source, target_color))
         for path, source, target_color in unique_paths:
             fans.flip_path(coloring, list(path), source, target_color)
+
+        # ModifyB changes the selected batch's types and may damage at most
+        # three other fans per selected fan.  A non-batch fan remains in the
+        # separable collection only when all of its previously assigned
+        # missing colors are still missing after the simultaneous flips.
+        # This is the paper's explicit damaged-fan removal step; retaining a
+        # stale fan here would corrupt both type counts and path witnesses.
+        for fan in tuple(fans):
+            if fan in fan_paths:
+                fans.discard(fan)
+                continue
+            if any(
+                fan.color_at(vertex) not in coloring.missing(vertex)
+                for vertex in fan.vertices
+            ):
+                fans.discard(fan)
+
         for fan, paths in fan_paths.items():
             center_color = paths[0][2]
             first_color = paths[1][2]

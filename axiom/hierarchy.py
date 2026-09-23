@@ -31,7 +31,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import pairwise
 
-from axiom.color import Vizing
+from axiom.paper_coloring import PaperFanColorer
 from axiom.system import System
 from axiom.system import build as build_z_system
 from axiom.types import Colorer, Edge, Graph, Vertex, canonical
@@ -344,7 +344,7 @@ def build_hierarchy(
     if any(left <= right for left, right in pairwise(level_zs)):
         raise ValueError("level_zs must be strictly decreasing")
 
-    active_colorer = colorer if colorer is not None else Vizing()
+    active_colorer = colorer if colorer is not None else PaperFanColorer()
     first = build_z_system(graph, level_zs[0])
     hierarchy = _from_basic(first)
     for z in level_zs[1:]:
@@ -396,7 +396,7 @@ def refine_hierarchy(
     live_edges = (set(hierarchy.graph.edges()) - deleted) | inserted
     retained_deleted = deleted & previous.M
     subgraph = _edge_graph(hierarchy.graph, previous.M)
-    active_colorer = colorer if colorer is not None else Vizing()
+    active_colorer = colorer if colorer is not None else PaperFanColorer()
     coloring = active_colorer.color(subgraph, z)
     if set(coloring) != set(previous.M):
         raise RuntimeError(
@@ -420,29 +420,32 @@ def refine_hierarchy(
             )
         incident_colors[u].add(color)
         incident_colors[v].add(color)
-    # Keep empty color classes.  The paper selects the first ``z_prime``
-    # classes from all ``z + 1`` classes, including empty ones.  Omitting
-    # them can retain too many deleted edges when a sparse matching happens
-    # to use only one color.
+    # Keep empty color classes in the candidate order.  Select deletion-heavy
+    # classes first so the bounded deferred subset does not disappear merely
+    # because the colorer assigned all deleted edges late in the palette.
+    # Empty classes still participate in the first ``z_prime`` selection.
     classes: dict[int, set[Edge]] = {color: set() for color in range(z + 1)}
     for edge, color in coloring.items():
         classes[color].add(edge)
     ordered_colors = sorted(
         classes,
-        # Put classes carrying fewer ED edges first.  The selected prefix is
-        # the deferred subset ED', so this ordering enforces the paper's
-        # |ED'| <= |ED| * z'/z budget rather than silently retaining too many
-        # deletions in the refined graph.
-        key=lambda color: (len(classes[color] & deleted), color),
+        key=lambda color: (-len(classes[color] & retained_deleted), color),
     )
     selected_colors = set(ordered_colors[:z_prime])
+    deletion_budget = len(retained_deleted) * z_prime // z
+    deferred_candidates = sorted(
+        edge
+        for color in selected_colors
+        for edge in classes[color]
+        if edge in retained_deleted
+    )
+    deferred_deleted = set(deferred_candidates[:deletion_budget])
     chosen = {
         edge
         for color in selected_colors
         for edge in classes[color]
-        if edge in live_edges or edge in retained_deleted
+        if edge in live_edges or edge in deferred_deleted
     }
-    deferred_deleted = deleted & chosen
     working_edges = (live_edges | deferred_deleted) - (deleted - deferred_deleted)
     working_graph = _edge_graph(hierarchy.graph, working_edges)
     degree = {vertex: 0 for vertex in range(hierarchy.graph.n)}
