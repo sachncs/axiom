@@ -206,3 +206,14 @@ def test_paper_fan_colorer_colors_complete_graphs() -> None:
                 for neighbor in graph.neighbors(vertex)
             ]
             assert len(incident) == len(set(incident))
+
+
+def test_paper_fan_colorer_runs_extend_for_large_fan_batches() -> None:
+    graph = Adjacency(201)
+    for leaf in range(1, 201):
+        graph.add_edge(0, leaf)
+
+    coloring = PaperFanColorer().color(graph, 200)
+
+    assert set(coloring) == set(graph.edges())
+    assert len({coloring[(0, leaf)] for leaf in range(1, 201)}) == 200

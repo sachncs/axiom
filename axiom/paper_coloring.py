@@ -547,6 +547,11 @@ class PaperFanColorer:
             raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
         all_edges = set(graph.edges())
         start = PartialColoring(graph, delta + 1)
+        if start.color_count > 10 * 10:
+            direct_fans = collect_direct_fans(start, all_edges)
+            if len(direct_fans) >= 100:
+                extend_recursive(start, direct_fans, 10)
+                start.validate()
         state_limit = max(1024, len(all_edges) * max(1, delta + 1) * 32)
         solution = _search_fan_coloring(
             start, SeparableFans(), all_edges, set(), state_limit
