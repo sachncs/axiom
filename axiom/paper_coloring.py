@@ -413,10 +413,13 @@ def activate_fan(coloring: PartialColoring, fans: SeparableFans, fan: UFan) -> E
     for leaf, leaf_color in paths:
         path = coloring.alternating_path(leaf, leaf_color, fan.center_color)
         if fan.center not in path:
+            # Remove the activated fan before flipping.  Otherwise
+            # ``flip_path`` may replace its endpoint assignment in the
+            # collection, leaving a stale fan whose spoke is now colored.
+            fans.discard(fan)
             fans.flip_path(coloring, path, leaf_color, fan.center_color)
             edge = canonical(fan.center, leaf)
             coloring.assign(edge, fan.center_color)
-            fans.discard(fan)
             return edge
     raise RuntimeError("both u-fan alternating paths reach the center")
 
