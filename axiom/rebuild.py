@@ -157,6 +157,14 @@ class Multilevel:
             eta *= 2
 
         edge_count = matcher.graph.num_edges()
+        if edge_count <= matcher.n * root_n:
+            # Type-1 phases use the one-level construction with z=sqrt(n)
+            # and span n updates.  Recursive refinement is reserved for the
+            # dense type-2 regime, where rebuilding from the average degree
+            # can be amortized over the longer phase hierarchy.
+            z = max(1, math.ceil(root_n))
+            return [z], [max(1, matcher.n)], eta
+
         average_degree = (2 * edge_count) / matcher.n
         required_z = max(1, math.ceil(average_degree))
         z = 1

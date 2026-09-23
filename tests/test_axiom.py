@@ -541,9 +541,9 @@ class TestMatcher:
     def test_multilevel_scheduler_tracks_finest_level_budget(self) -> None:
         algo = Matcher(16, mode="multilevel")
         assert algo.eta == 4
-        assert algo.level_zs == [1]
-        assert algo.level_phase_lengths == [4]
-        assert algo.phase_length == 4
+        assert algo.level_zs == [4]
+        assert algo.level_phase_lengths == [16]
+        assert algo.phase_length == 16
 
         dense = Adjacency(16)
         for u in range(16):
