@@ -13,6 +13,7 @@ from collections.abc import ItemsView, Iterator
 from dataclasses import dataclass
 from itertools import pairwise
 
+from axiom.graph import Adjacency
 from axiom.types import Color, Edge, Graph, Vertex, canonical
 
 
@@ -579,23 +580,169 @@ class PaperFanColorer:
         if maximum > delta:
             raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
         all_edges = set(graph.edges())
+        if delta >= 32 and all_edges:
+            return _recursive_paper_seed(graph, delta)
         start = PartialColoring(graph, delta + 1)
-        if start.color_count > 10 * 10:
-            direct_fans = collect_direct_fans(start, all_edges)
-            if len(direct_fans) >= 100:
-                extend_recursive(start, direct_fans, 10)
-                start.validate()
-        state_limit = max(1024, len(all_edges) * max(1, delta + 1) * 32)
-        solution = _search_fan_coloring(
-            start, SeparableFans(), all_edges, set(), state_limit
+        return _complete_partial_coloring(start, all_edges, delta)
+
+
+def _complete_partial_coloring(
+    start: PartialColoring, all_edges: set[Edge], delta: int
+) -> dict[Edge, Color]:
+    """Complete a partial ABB coloring through Extend and fan operations."""
+    if start.color_count > 10 * 10:
+        direct_fans = collect_direct_fans(start, all_edges - start.edges())
+        if len(direct_fans) >= 100:
+            extend_recursive(start, direct_fans, 10)
+            start.validate()
+    state_limit = max(1024, len(all_edges) * max(1, delta + 1) * 32)
+    solution = _search_fan_coloring(
+        start, SeparableFans(), all_edges, set(), state_limit
+    )
+    if solution is None:
+        raise RuntimeError(
+            "paper fan coloring exhausted its deterministic fan-chain search "
+            "without coloring every edge"
         )
-        if solution is None:
-            raise RuntimeError(
-                "paper fan coloring exhausted its deterministic fan-chain search "
-                "without coloring every edge"
-            )
-        solution.validate()
-        return dict(solution.items())
+    solution.validate()
+    return dict(solution.items())
+
+
+def _euler_partition(graph: Graph) -> tuple[Adjacency, Adjacency]:
+    """Split edges into two balanced Euler-tour parity subgraphs.
+
+    Odd-degree vertices are paired with deterministic auxiliary edges.  An
+    Euler circuit in each augmented component is alternated, then auxiliary
+    edges are discarded.  Every original vertex therefore receives the two
+    subgraph degrees differing by at most one, which is the recursive ABB
+    partition invariant.
+    """
+    original_edges = sorted(graph.edges())
+    components: list[set[Vertex]] = []
+    unseen = set(range(graph.n))
+    while unseen:
+        root = min(unseen)
+        component: set[Vertex] = set()
+        visit_stack = [root]
+        unseen.remove(root)
+        while visit_stack:
+            vertex = visit_stack.pop()
+            component.add(vertex)
+            for neighbor in graph.neighbors(vertex):
+                if neighbor in unseen:
+                    unseen.remove(neighbor)
+                    visit_stack.append(neighbor)
+        if any(graph.degree(vertex) for vertex in component):
+            components.append(component)
+
+    augmented: list[tuple[Vertex, Vertex, int | None]] = [
+        (left, right, index) for index, (left, right) in enumerate(original_edges)
+    ]
+    next_auxiliary = graph.n
+    for component in components:
+        odd = sorted(vertex for vertex in component if graph.degree(vertex) % 2)
+        if len(odd) % 2:
+            raise RuntimeError("Euler partition found an odd number of odd vertices")
+        if odd:
+            dummy = next_auxiliary
+            next_auxiliary += 1
+            augmented.extend((vertex, dummy, None) for vertex in odd)
+            augmented_edges = sum(graph.degree(vertex) for vertex in component) // 2
+            augmented_edges += len(odd)
+            if augmented_edges % 2:
+                # The loop is incident only to the auxiliary vertex, so it
+                # changes the circuit parity without affecting any original
+                # vertex's partition degree.
+                augmented.append((dummy, dummy, None))
+
+    incident: dict[Vertex, list[tuple[int, Vertex]]] = {}
+    for edge_id, (left, right, _) in enumerate(augmented):
+        incident.setdefault(left, []).append((edge_id, right))
+        incident.setdefault(right, []).append((edge_id, left))
+    for vertex in incident:
+        incident[vertex].sort(reverse=True)
+
+    partition: dict[int, int] = {}
+    used: set[int] = set()
+    for component in components:
+        root = min(component)
+        trail_stack: list[tuple[Vertex, int | None]] = [(root, None)]
+        circuit: list[int] = []
+        while trail_stack:
+            vertex, incoming = trail_stack[-1]
+            while incident[vertex] and incident[vertex][-1][0] in used:
+                incident[vertex].pop()
+            if incident[vertex]:
+                edge_id, neighbor = incident[vertex].pop()
+                if edge_id in used:
+                    continue
+                used.add(edge_id)
+                trail_stack.append((neighbor, edge_id))
+            else:
+                trail_stack.pop()
+                if incoming is not None:
+                    circuit.append(incoming)
+        for position, edge_id in enumerate(reversed(circuit)):
+            original_index = augmented[edge_id][2]
+            if original_index is not None:
+                partition[original_index] = position % 2
+
+    if len(partition) != len(original_edges):
+        raise RuntimeError("Euler partition did not assign every graph edge")
+    parts = (Adjacency(graph.n), Adjacency(graph.n))
+    for index, edge in enumerate(original_edges):
+        parts[partition[index]].add_edge(*edge)
+    maximum = max((graph.degree(vertex) for vertex in range(graph.n)), default=0)
+    # An odd Euler circuit can leave one vertex with one extra edge in a
+    # subgraph.  The recursive construction therefore uses the standard
+    # ``ceil((Delta + 1) / 2)`` bound, not ``floor((Delta + 1) / 2)``.
+    bound = (maximum + 2) // 2
+    if any(part.degree(vertex) > bound for part in parts for vertex in range(graph.n)):
+        raise RuntimeError("Euler partition violated the balanced-degree bound")
+    return parts
+
+
+def _recursive_paper_seed(graph: Graph, delta: int) -> dict[Edge, Color]:
+    """Build the ABB recursive seed, then reduce and extend its palette."""
+    if delta < 32:
+        start = PartialColoring(graph, delta + 1)
+        return _complete_partial_coloring(start, set(graph.edges()), delta)
+    left, right = _euler_partition(graph)
+    left_delta = max((left.degree(vertex) for vertex in range(graph.n)), default=0)
+    right_delta = max((right.degree(vertex) for vertex in range(graph.n)), default=0)
+    left_coloring = _recursive_paper_seed(left, left_delta) if left.num_edges() else {}
+    right_coloring = (
+        _recursive_paper_seed(right, right_delta) if right.num_edges() else {}
+    )
+    left_palette = left_delta + 1
+    combined: dict[Edge, Color] = dict(left_coloring)
+    combined.update(
+        {edge: color + left_palette for edge, color in right_coloring.items()}
+    )
+    palette_size = left_palette + right_delta + 1
+    if palette_size <= delta + 1:
+        remap = {
+            color: index for index, color in enumerate(sorted(set(combined.values())))
+        }
+        return {edge: remap[color] for edge, color in combined.items()}
+
+    counts = {
+        color: sum(1 for edge_color in combined.values() if edge_color == color)
+        for color in range(palette_size)
+    }
+    removed = {
+        color
+        for color, _ in sorted(counts.items(), key=lambda item: (item[1], item[0]))[:2]
+    }
+    retained = {edge: color for edge, color in combined.items() if color not in removed}
+    remap = {
+        color: index
+        for index, color in enumerate(sorted({color for color in retained.values()}))
+    }
+    start = PartialColoring(graph, delta + 1)
+    for edge, color in sorted(retained.items()):
+        start.assign(edge, remap[color])
+    return _complete_partial_coloring(start, set(graph.edges()), delta)
 
 
 def _copy_coloring(source: PartialColoring) -> PartialColoring:
