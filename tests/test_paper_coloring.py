@@ -9,6 +9,8 @@ from axiom.paper_coloring import (
     UFan,
     activate_fan,
     collect_direct_fans,
+    color_blocks,
+    extend_recursive,
     small_extend,
 )
 
@@ -92,3 +94,28 @@ def test_collect_direct_fans_uses_only_supplied_uncolored_edges() -> None:
     fans.assert_valid()
     assert len(fans) == 1
     assert next(iter(fans)).edges == {(0, 1), (0, 2)}
+
+
+def test_extend_recursive_uses_small_base_case() -> None:
+    graph = Adjacency(4)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    graph.add_edge(1, 3)
+    coloring = PartialColoring(graph, 2)
+    coloring.assign((1, 3), 0)
+    fans = SeparableFans()
+    fans.add(UFan(0, 1, 2, 0, 1, 1))
+
+    assert extend_recursive(coloring, fans, 10) == 1
+    coloring.validate()
+    assert coloring[(0, 1)] == 0
+
+
+def test_color_blocks_are_ordered_and_disjoint() -> None:
+    blocks, pairs = color_blocks(100, 10)
+
+    assert len(blocks) == 20
+    assert len(pairs) == 10
+    assert all(len(block) == 5 for block in blocks)
+    assert set().union(*blocks) == set(range(100))
+    assert all(len(pair) == 10 for pair in pairs)

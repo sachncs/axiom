@@ -126,6 +126,23 @@ class PartialColoring:
         }
         return [color for color in range(self.color_count) if color not in used]
 
+    def validate(self) -> None:
+        """Validate that every stored edge color is proper and in range."""
+        seen: dict[Vertex, set[Color]] = {
+            vertex: set() for vertex in range(self.graph.n)
+        }
+        graph_edges = set(self.graph.edges())
+        for edge, color in self._colors.items():
+            if edge not in graph_edges:
+                raise AssertionError(f"colored edge is outside graph: {edge}")
+            if not 0 <= color < self.color_count:
+                raise AssertionError(f"color is outside palette: {edge}={color}")
+            left, right = edge
+            if color in seen[left] or color in seen[right]:
+                raise AssertionError(f"improper coloring at edge {edge}")
+            seen[left].add(color)
+            seen[right].add(color)
+
     def assign(self, edge: Edge, color: Color) -> None:
         edge = canonical(*edge)
         if edge not in set(self.graph.edges()):
@@ -601,3 +618,88 @@ def amplify(
     for fan in social:
         result.add(fan)
     return pairs, result
+
+
+def _project_subproblem(
+    coloring: PartialColoring,
+    fans: SeparableFans,
+    color_group: frozenset[Color],
+) -> tuple[PartialColoring, SeparableFans, set[Edge], tuple[Color, ...]]:
+    """Project one paper ``Extend`` subproblem onto local color numbers."""
+    ordered = tuple(sorted(color_group))
+    to_local = {color: index for index, color in enumerate(ordered)}
+    edge_scope = {edge for edge, color in coloring.items() if color in color_group}
+    selected_fans = [fan for fan in fans if fan.type <= color_group]
+    for fan in selected_fans:
+        edge_scope.update(fan.edges)
+    child = PartialColoring(coloring.graph, len(ordered))
+    for edge in edge_scope:
+        if edge in coloring:
+            color = coloring[edge]
+            if color not in to_local:
+                raise RuntimeError("subproblem projection crossed a color group")
+            child._colors[edge] = to_local[color]
+    child.validate()
+    child_fans = SeparableFans()
+    for fan in selected_fans:
+        child_fans.add(
+            UFan(
+                fan.center,
+                fan.first_leaf,
+                fan.second_leaf,
+                to_local[fan.center_color],
+                to_local[fan.first_color],
+                to_local[fan.second_color],
+            )
+        )
+    return child, child_fans, edge_scope, ordered
+
+
+def _merge_subproblem(
+    parent: PartialColoring,
+    child: PartialColoring,
+    edge_scope: set[Edge],
+    local_colors: tuple[Color, ...],
+) -> None:
+    """Merge a completed isolated subproblem into its parent coloring."""
+    for edge in edge_scope:
+        if edge not in child:
+            continue
+        local = child[edge]
+        if not 0 <= local < len(local_colors):
+            raise RuntimeError("subproblem returned an invalid local color")
+        parent._colors[edge] = local_colors[local]
+    parent.validate()
+
+
+def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -> int:
+    """Recursively execute the paper's ``Extend`` decomposition.
+
+    ``Amplify`` supplies disjoint color groups and social fans.  Each group is
+    projected to local color numbers, processed independently, and merged back
+    only after its properness has been validated.  If amplification cannot
+    produce a valid recursive split, this function raises instead of invoking
+    a classical-coloring fallback.
+    """
+    coloring.validate()
+    fans.assert_valid()
+    if not fans:
+        return 0
+    if coloring.color_count <= 10 * eta:
+        return small_extend(coloring, fans)
+
+    groups, social = amplify(coloring, fans, eta)
+    if not social:
+        raise RuntimeError("Extend received no social fans after Amplify")
+    total = 0
+    for group in groups:
+        selected = [fan for fan in social if fan.type <= group]
+        if not selected:
+            continue
+        child, child_fans, edge_scope, local_colors = _project_subproblem(
+            coloring, social, group
+        )
+        total += extend_recursive(child, child_fans, eta)
+        _merge_subproblem(coloring, child, edge_scope, local_colors)
+    coloring.validate()
+    return total
