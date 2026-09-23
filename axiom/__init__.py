@@ -19,8 +19,8 @@ The supporting modules provide:
 * The :math:`z`-system construction primitives
   :func:`build`, :func:`build_hierarchy`,
   :func:`switch`, and :func:`promote`.
-* The edge colouring utilities :class:`Greedy`,
-  :class:`Vizing`, and the matching augment/flip helpers.
+* The edge colouring utilities :class:`Greedy`, :class:`Vizing`, and
+  :class:`PaperFanColorer`, plus the matching augment/flip helpers.
 * :class:`Ledger` and the :mod:`axiom.simulation` /
   :mod:`axiom.parallel` modules -- engineering utilities for empirical
   benchmarking and reproducibility.
@@ -45,6 +45,7 @@ from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy, build_hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import greedy, partner_in, partners
+from axiom.paper_coloring import PaperFanColorer
 from axiom.parallel import compare, run_parallel
 from axiom.simulation import random_updates, replay
 from axiom.system import (
@@ -67,6 +68,7 @@ __all__ = [
     "Adjacency",
     "Greedy",
     "Vizing",
+    "PaperFanColorer",
     "System",
     "Hierarchy",
     "Edge",

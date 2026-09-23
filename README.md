@@ -24,7 +24,7 @@
 - **Two canonical modes** &mdash; select `basic` or `multilevel` with the `mode=` string.
 - **z-subgraph system** &mdash; the (*A*, *B*, *U*) partition, *S* = *A* &cup; *B* saturation, &Lambda;(*u*) and *L*(*a*) index lists, and their implemented validators.
 - **Multi-level hierarchy** &mdash; the recursive hierarchy and I3 repair path are implemented and checked, without claiming the paper's complete dynamic theorem.
-- **Deterministic edge colouring** &mdash; fan-based Vizing (&Delta;+1)-colouring used to partition *M* into colour classes.
+- **Deterministic edge colouring** &mdash; `basic` uses fan-based Vizing colouring; `multilevel` uses the explicit paper fan-shift/activation colourer, with no silent fallback.
 - **Comprehensive invariant checks** &mdash; `Matcher.maximal()`, `System.check()`, and `Hierarchy.check()` expose the canonical state validators.
 - **Empirical ledger** &mdash; explicit counters for phase/subphase rebuilds, rematch scan sizes, and stale cleanups. Useful for diagnosing where time is spent; **not** a proof of the amortised bound.
 - **Reproducible simulation** &mdash; seeded random update sequences with replay utilities for stress tests and benchmarks.
@@ -135,7 +135,7 @@ Each Axiom module owns one clear responsibility:
 | `axiom.graph` | `Adjacency`: the dynamic undirected graph (BST-replacement: hash sets) |
 | `axiom.system` | `System`: the single-level z-subgraph system + `build`, `promote`, `switch` |
 | `axiom.hierarchy` | `Hierarchy`: the *k*-level system + `build_hierarchy` + (I3) `check_i3`, `maintain_i3` |
-| `axiom.color` | `Colorer` Protocol + deterministic `Greedy` and fan-based `Vizing` implementations |
+| `axiom.color` / `axiom.paper_coloring` | `Colorer` Protocol, classical utilities, and deterministic paper fan primitives |
 | `axiom.matching` | Pure helpers: `greedy`, `partner`, `partners`, `canonical` |
 | `axiom.core` | `Matcher`: insertion/deletion local handling and rematch dispatch (private `__handle_insertion`, `__handle_deletion`, `__rematch_*`) |
 | `axiom.rebuild` | Internal `Basic` and `Multilevel` rebuild strategies |
@@ -161,7 +161,7 @@ algo = Matcher(
     n=100,
     mode="basic",  # or "multilevel"
     graph=None,  # default Adjacency(100)
-    colorer=None,  # default Vizing()
+    colorer=None,  # Vizing for basic; PaperFanColorer for multilevel
 )
 
 algo.insert(u, v)  # insert edge (u, v)
@@ -179,7 +179,8 @@ from axiom import (
     System,
     Hierarchy,  # z-system / multi-level
     Greedy,
-    Vizing,  # edge colorers
+    Vizing,
+    PaperFanColorer,  # edge colorers
     Ledger,  # accounting
     random_updates,
     replay,
@@ -272,9 +273,10 @@ algo = Matcher(n=100, mode="multilevel")  # Multilevel policy
 ### Limitations
 
 - **Empirical counters vs asymptotic guarantees.** The `Ledger` reports what actually happened in Python. The paper's bounds rely on a specific model and construction; use the counters and benchmarks to evaluate this implementation independently.
-- **ABB+26 colouring.** The implementation uses a deterministic fan-based Vizing
-  (&Delta;+1)-colouring algorithm. The paper's faster ABB+26 colouring is not
-  included, so the paper's colouring and end-to-end asymptotic bounds are not
+- **ABB+26 colouring.** `multilevel` now uses the explicit paper fan-shift,
+  alternating-path, and activation pipeline with bounded deterministic search.
+  The cited ABB+26 almost-linear type-sparsification construction is still not
+  included, so its asymptotic bound and the paper's end-to-end theorem are not
   claimed.
 - **Multi-level derivation.** Each multilevel rebuild recursively derives the next z-system from the previous level, retaining level partitions, regions, and inherited lists.
 

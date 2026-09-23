@@ -39,6 +39,7 @@ from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import is_maximal_matching, partners
+from axiom.paper_coloring import PaperFanColorer
 from axiom.rebuild import Basic, Multilevel
 from axiom.system import System
 from axiom.types import (
@@ -92,7 +93,8 @@ class Matcher:
         n: Number of vertices (fixed for the lifetime of the instance).
         mode: Either ``"basic"`` or ``"multilevel"``.
         graph: Optional graph implementation (defaults to ``Adjacency``).
-        colorer: Optional edge colorer (defaults to ``Vizing``).
+        colorer: Optional edge colorer.  The default is ``Vizing`` for
+            ``basic`` and the paper fan colorer for ``multilevel``.
 
     Raises:
         ValueError: If ``n`` is negative or ``mode`` is unknown.
@@ -128,7 +130,13 @@ class Matcher:
         self.mode = mode
         self.graph = graph if graph is not None else Adjacency(n)
         self.__validate_graph(self.graph, n)
-        self.colorer = colorer if colorer is not None else Vizing()
+        self.colorer = (
+            colorer
+            if colorer is not None
+            else PaperFanColorer()
+            if mode == "multilevel"
+            else Vizing()
+        )
         self.matched_edges: Matching = set()
         self.matched_vertices: set[Vertex] = set()
         self.partner_map: dict[Vertex, Vertex] = {}

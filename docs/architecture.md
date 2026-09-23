@@ -73,8 +73,9 @@ data flow through the algorithm.
 ### `Matcher.__init__(n, mode, graph, colorer)`
 
 1. Validate `n >= 0` and `mode in {"basic", "multilevel"}`.
-2. Construct `self.graph = Adjacency(n)`, `self.colorer = Vizing()` (or
-   the provided colourer).
+2. Construct `self.graph = Adjacency(n)`. The default colourer is `Vizing()`
+   for `basic` and `PaperFanColorer()` for `multilevel` (or the provided
+   colourer).
 3. Allocate `matched_edges`, `matched_vertices`, `partners` (empty).
    The matcher also maintains the paper's directed `H`, reverse-`H`,
    `H_tilde`, and `S_hat` indexes from the live matching state.

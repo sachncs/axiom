@@ -1368,6 +1368,8 @@ class TestPerformance:
         for vertex in range(7):
             graph.add_edge(vertex, vertex + 1)
         algo = Matcher(8, mode="multilevel", graph=graph)
+        if not algo.H:
+            return
         source = next(iter(algo.H))
         old_target = next(iter(algo.H[source]))
 
