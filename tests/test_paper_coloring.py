@@ -14,6 +14,7 @@ from axiom.paper_coloring import (
     color_blocks,
     extend_recursive,
     fan_is_social,
+    modify_types,
     relevant_paths,
     shift_edge_to_fan,
     small_extend,
@@ -184,6 +185,26 @@ def test_sparsify_types_relabels_small_collection_deterministically() -> None:
     assert len(groups) == 10
     assert len(social) == 1
     assert next(iter(social)).type == frozenset({0, 1})
+
+
+def test_modify_types_flips_one_batch_and_reindexes_fans() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = PartialColoring(graph, 100)
+    fans = SeparableFans()
+    fan = UFan(0, 1, 2, 0, 10, 10)
+    fans.add(fan)
+    blocks, _ = color_blocks(100, 10)
+
+    modify_types(coloring, fans, (fan,), blocks, 0)
+
+    assert len(fans) == 1
+    transformed = next(iter(fans))
+    assert transformed.type == frozenset({0, 5})
+    assert fan_is_social(transformed, blocks)
+    coloring.validate()
+    fans.assert_valid()
 
 
 def test_sparsify_types_socializes_a_full_deterministic_batch() -> None:

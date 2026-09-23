@@ -1011,6 +1011,76 @@ def relevant_paths(
     )
 
 
+def modify_types(
+    coloring: PartialColoring,
+    fans: SeparableFans,
+    batch: tuple[UFan, ...],
+    blocks: tuple[frozenset[Color], ...],
+    pair_index: int,
+) -> None:
+    """Apply one paper ``Modify-Types`` batch in place.
+
+    Every selected fan is transformed with its pair-index-relevant paths.
+    Relevant paths are flipped only once when two fans share the same path;
+    any other edge overlap is an invariant violation and raises.  The fan
+    index is rebuilt around the simultaneous operation, and stale fans whose
+    assigned missing colors were damaged are removed explicitly.
+    """
+    coloring.validate()
+    fans.assert_valid()
+    if not batch:
+        raise ValueError("Modify-Types requires a non-empty fan batch")
+    if any(fan not in set(fans) for fan in batch):
+        raise ValueError("Modify-Types batch must belong to the fan collection")
+    if len(set(batch)) != len(batch):
+        raise ValueError("Modify-Types batch must not contain duplicate fans")
+
+    fan_paths: dict[UFan, tuple[tuple[tuple[Vertex, ...], Color, Color], ...]] = {
+        fan: relevant_paths(coloring, fan, blocks, pair_index) for fan in batch
+    }
+    for fan in batch:
+        # Keep selected fans out of the index while their three paths are
+        # being flipped; otherwise endpoint repair can create an intermediate
+        # fan with the same spokes.
+        fans.discard(fan)
+
+    unique_paths: list[tuple[tuple[Vertex, ...], Color, Color]] = []
+    seen_edges: set[Edge] = set()
+    for path, source, target_color in (
+        path for paths in fan_paths.values() for path in paths
+    ):
+        edges = {canonical(left, right) for left, right in pairwise(path)}
+        if edges and edges <= seen_edges:
+            continue
+        if edges & seen_edges:
+            raise RuntimeError("Modify-Types produced overlapping relevant paths")
+        seen_edges.update(edges)
+        unique_paths.append((path, source, target_color))
+    for path, source, target_color in unique_paths:
+        fans.flip_path(coloring, list(path), source, target_color)
+
+    for fan in tuple(fans):
+        if any(
+            fan.color_at(vertex) not in coloring.missing(vertex)
+            for vertex in fan.vertices
+        ):
+            fans.discard(fan)
+
+    for fan, paths in fan_paths.items():
+        fans.add(
+            UFan(
+                fan.center,
+                fan.first_leaf,
+                fan.second_leaf,
+                paths[0][2],
+                paths[1][2],
+                paths[2][2],
+            )
+        )
+    coloring.validate()
+    fans.assert_valid()
+
+
 def sparsify_types(
     coloring: PartialColoring, fans: SeparableFans, eta: int
 ) -> tuple[tuple[frozenset[Color], ...], SeparableFans]:
@@ -1100,55 +1170,7 @@ def sparsify_types(
             key=lambda key: (len(good_by_type[key]), tuple(-value for value in key)),
         )
         batch = tuple(good_by_type[batch_key])
-        fan_paths: dict[UFan, tuple[tuple[tuple[Vertex, ...], Color, Color], ...]] = {}
-        for fan in batch:
-            fan_paths[fan] = relevant_paths(coloring, fan, blocks, pair_index)
-            # The selected batch is replaced by its transformed types after
-            # all relevant paths are flipped.  Keeping it indexed during the
-            # flips would let endpoint repair create a second intermediate
-            # fan with the same spokes.
-            fans.discard(fan)
-        paths_to_flip = [path for paths in fan_paths.values() for path in paths]
-        unique_paths: list[tuple[tuple[Vertex, ...], Color, Color]] = []
-        seen_edges: set[Edge] = set()
-        for path, source, target_color in paths_to_flip:
-            edges = {canonical(left, right) for left, right in pairwise(path)}
-            if edges and edges <= seen_edges:
-                continue
-            if edges & seen_edges:
-                raise RuntimeError("Sparsify-Types produced overlapping relevant paths")
-            seen_edges.update(edges)
-            unique_paths.append((path, source, target_color))
-        for path, source, target_color in unique_paths:
-            fans.flip_path(coloring, list(path), source, target_color)
-
-        # ModifyB changes the selected batch's types and may damage at most
-        # three other fans per selected fan.  A non-batch fan remains in the
-        # separable collection only when all of its previously assigned
-        # missing colors are still missing after the simultaneous flips.
-        # This is the paper's explicit damaged-fan removal step; retaining a
-        # stale fan here would corrupt both type counts and path witnesses.
-        for fan in tuple(fans):
-            if any(
-                fan.color_at(vertex) not in coloring.missing(vertex)
-                for vertex in fan.vertices
-            ):
-                fans.discard(fan)
-
-        for fan, paths in fan_paths.items():
-            center_color = paths[0][2]
-            first_color = paths[1][2]
-            second_color = paths[2][2]
-            fans.add(
-                UFan(
-                    fan.center,
-                    fan.first_leaf,
-                    fan.second_leaf,
-                    center_color,
-                    first_color,
-                    second_color,
-                )
-            )
+        modify_types(coloring, fans, batch, blocks, pair_index)
         social = {fan for fan in fans if fan_is_social(fan, blocks)}
         if not social and target > 0:
             raise RuntimeError("Sparsify-Types made no progress")
