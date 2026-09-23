@@ -337,7 +337,7 @@ class Matcher:
             neighbours = {
                 v
                 for v in self.system.lambda_lists.get(u, [])
-                if self.system.graph.has_edge(u, v)
+                if self.graph.has_edge(u, v)
             }
             if u not in self.matched_vertices:
                 self.H[u] = neighbours
@@ -371,7 +371,7 @@ class Matcher:
                 targets = {
                     target
                     for target in self.system.lambda_lists.get(vertex, [])
-                    if self.system.graph.has_edge(vertex, target)
+                    if self.graph.has_edge(vertex, target)
                 }
                 self.H[vertex] = targets
                 for target in targets:

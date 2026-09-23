@@ -20,7 +20,7 @@ import math
 from typing import TYPE_CHECKING, Protocol
 
 from axiom.graph import Adjacency
-from axiom.hierarchy import build_hierarchy
+from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
 from axiom.system import System, build
 from axiom.types import Graph
 
@@ -187,14 +187,38 @@ class Multilevel:
         matcher.eta = eta
         matcher.k = len(level_zs)
         matcher.phase_length = self._phase_budget(matcher)
-        # A phase boundary is the authoritative recursive construction point.
-        # Rebuild every level from the live graph so inherited M/A/B/U/L state
-        # cannot retain an edge deleted during the phase.  Incremental
-        # ``refine_hierarchy`` remains the explicit theorem construction API;
-        # the dynamic matcher never installs an unproven partial hierarchy.
-        matcher.multi = build_hierarchy(
-            matcher.graph, matcher.level_zs, colorer=matcher.colorer
-        )
+        previous = matcher.multi
+        if (
+            previous is not None
+            and previous.levels
+            and len(matcher.level_zs) > 1
+            and (matcher.inserted_edges or matcher.deleted_edges)
+        ):
+            old_graph, base_system = _base_snapshot(matcher)
+            matcher.multi = Hierarchy(
+                graph=old_graph,
+                k=1,
+                levels=[base_system],
+                A_levels=[set(base_system.A)],
+                N_levels=[set(base_system.B)],
+                R_levels=[set(base_system.U)],
+                L_levels=[dict(base_system.L_lists)],
+            )
+            deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
+            inserted = set(matcher.inserted_edges)
+            for z in matcher.level_zs[1:]:
+                matcher.multi = refine_hierarchy(
+                    matcher.multi,
+                    z,
+                    deleted=deleted,
+                    inserted=inserted,
+                    colorer=matcher.colorer,
+                )
+                deleted = set(matcher.multi.deferred_deletions)
+        else:
+            matcher.multi = build_hierarchy(
+                matcher.graph, matcher.level_zs, colorer=matcher.colorer
+            )
         matcher.inserted_edges.clear()
         matcher.deleted_edges.clear()
         matcher.inserted_incident_counts = {vertex: 0 for vertex in range(matcher.n)}
