@@ -522,6 +522,8 @@ class PaperFanColorer:
     This implementation uses the paper's explicit fan-shift and activation
     interface.  It intentionally has no Vizing/greedy fallback: if the
     bounded fan construction cannot progress, it raises a diagnostic error.
+    The finite fan search is correctness-oriented and does not claim the
+    ABB+26 near-linear running time.
     """
 
     def color(self, graph: Graph, delta: int) -> dict[Edge, Color]:
@@ -532,7 +534,10 @@ class PaperFanColorer:
             raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
         all_edges = set(graph.edges())
         start = PartialColoring(graph, delta + 1)
-        solution = _search_fan_coloring(start, SeparableFans(), all_edges, set())
+        state_limit = max(1024, len(all_edges) * max(1, delta + 1) * 32)
+        solution = _search_fan_coloring(
+            start, SeparableFans(), all_edges, set(), state_limit
+        )
         if solution is None:
             raise RuntimeError(
                 "paper fan coloring exhausted its deterministic fan-chain search "
@@ -592,6 +597,7 @@ def _search_fan_coloring(
     fans: SeparableFans,
     all_edges: set[Edge],
     seen: set[tuple[tuple[tuple[Edge, Color], ...], tuple[UFan, ...]]],
+    state_limit: int,
 ) -> PartialColoring | None:
     """Search the finite deterministic fan-chain state graph."""
     if coloring.edges() == all_edges:
@@ -599,13 +605,19 @@ def _search_fan_coloring(
     state = (tuple(sorted(coloring.items())), tuple(fans))
     if state in seen:
         return None
+    if len(seen) >= state_limit:
+        raise RuntimeError(
+            "paper fan coloring reached its deterministic fan-search state limit"
+        )
     seen.add(state)
     edge = min(all_edges - coloring.edges())
     common = sorted(set(coloring.missing(edge[0])) & set(coloring.missing(edge[1])))
     for color in common:
         child = _copy_coloring(coloring)
         child.assign(edge, color)
-        result = _search_fan_coloring(child, _copy_fans(fans), all_edges, seen)
+        result = _search_fan_coloring(
+            child, _copy_fans(fans), all_edges, seen, state_limit
+        )
         if result is not None:
             return result
     for witness, candidate in _fan_candidates(coloring, edge, fans):
@@ -617,7 +629,9 @@ def _search_fan_coloring(
             activate_fan(child_coloring, child_fans, candidate)
         except (RuntimeError, ValueError):
             continue
-        result = _search_fan_coloring(child_coloring, child_fans, all_edges, seen)
+        result = _search_fan_coloring(
+            child_coloring, child_fans, all_edges, seen, state_limit
+        )
         if result is not None:
             return result
     return None
