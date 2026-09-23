@@ -255,6 +255,13 @@ class SeparableFans:
             )
         )
 
+    def with_vertices(self, vertices: tuple[Vertex, Vertex, Vertex]) -> UFan | None:
+        """Return the fan with exactly ``vertices`` in stored order."""
+        for fan in self._vertices.get(vertices[0], set()):
+            if fan.vertices == vertices:
+                return fan
+        return None
+
     def update_vertex_color(
         self, fan: UFan, vertex: Vertex, color: Color
     ) -> UFan | None:
@@ -434,3 +441,163 @@ def collect_direct_fans(
                     break
     fans.assert_valid()
     return fans
+
+
+def color_blocks(
+    color_count: int, eta: int
+) -> tuple[tuple[frozenset[Color], ...], tuple[frozenset[Color], ...]]:
+    """Return the paper's ordered ``C_i`` blocks and paired ``𝒞_k`` blocks."""
+    if not isinstance(eta, int) or isinstance(eta, bool) or eta < 10:
+        raise ValueError("eta must be an integer at least 10")
+    if color_count < 10 * eta:
+        raise ValueError("color_count must be at least 10*eta")
+    width = color_count // (2 * eta)
+    blocks = tuple(
+        frozenset(range(index * width, (index + 1) * width)) for index in range(2 * eta)
+    )
+    pairs = tuple(blocks[index] | blocks[index + 1] for index in range(0, 2 * eta, 2))
+    return blocks, pairs
+
+
+def _block_index(blocks: tuple[frozenset[Color], ...], color: Color) -> int:
+    for index, block in enumerate(blocks):
+        if color in block:
+            return index
+    raise ValueError(f"color {color} is outside the amplified color range")
+
+
+def _color_in_block(
+    blocks: tuple[frozenset[Color], ...], block_index: int, color: Color
+) -> Color:
+    source = blocks[_block_index(blocks, color)]
+    offset = color - min(source)
+    target = sorted(blocks[block_index])
+    return target[offset]
+
+
+def fan_is_social(fan: UFan, blocks: tuple[frozenset[Color], ...]) -> bool:
+    """Return whether a fan is uniform or aligned in the paper partition."""
+    center_block = _block_index(blocks, fan.center_color)
+    leaf_block = _block_index(blocks, fan.first_color)
+    if center_block == leaf_block:
+        return True
+    return center_block // 2 == leaf_block // 2
+
+
+def relevant_paths(
+    coloring: PartialColoring,
+    fan: UFan,
+    blocks: tuple[frozenset[Color], ...],
+    pair_index: int,
+) -> tuple[tuple[tuple[Vertex, ...], Color, Color], ...]:
+    """Compute the paper's three pair-index-relevant alternating paths."""
+    if fan_is_social(fan, blocks):
+        raise ValueError("relevant paths require a non-social fan")
+    center_block = _block_index(blocks, fan.center_color)
+    leaf_block = _block_index(blocks, fan.first_color)
+    left_block = 2 * pair_index
+    right_block = left_block + 1
+    if center_block == right_block or leaf_block == left_block:
+        left_block, right_block = right_block, left_block
+
+    def path(
+        start: Vertex, source: Color, target_block: int
+    ) -> tuple[tuple[Vertex, ...], Color, Color]:
+        target = _color_in_block(blocks, target_block, source)
+        if source == target:
+            return (start,), source, target
+        return tuple(coloring.alternating_path(start, source, target)), source, target
+
+    return (
+        path(fan.center, fan.center_color, left_block),
+        path(fan.first_leaf, fan.first_color, right_block),
+        path(fan.second_leaf, fan.second_color, right_block),
+    )
+
+
+def amplify(
+    coloring: PartialColoring, fans: SeparableFans, eta: int
+) -> tuple[tuple[frozenset[Color], ...], SeparableFans]:
+    """Run the deterministic socialization phase of paper ``Amplify``.
+
+    The routine implements the paper's type partition, relevant-path flips,
+    good-fan selection, and damaged-fan removal.  Fan-chain construction is a
+    separate input-stage operation; callers must provide a separable fan
+    collection.
+    """
+    blocks, pairs = color_blocks(coloring.color_count, eta)
+    initial = len(fans)
+    for fan in tuple(fans):
+        try:
+            for color in fan.type:
+                _block_index(blocks, color)
+        except ValueError:
+            fans.discard(fan)
+
+    target = initial // 100
+    social = {fan for fan in fans if fan_is_social(fan, blocks)}
+    while len(social) < target:
+        pair_counts = [
+            sum(
+                1
+                for fan in fans
+                if fan_is_social(fan, blocks) and fan.type <= pair_colors
+            )
+            for pair_colors in pairs
+        ]
+        pair_index = min(
+            range(len(pairs)), key=lambda index: (pair_counts[index], index)
+        )
+        good_by_type: dict[tuple[int, int], list[UFan]] = {}
+        for fan in fans:
+            if fan_is_social(fan, blocks):
+                continue
+            try:
+                paths = relevant_paths(coloring, fan, blocks, pair_index)
+            except ValueError:
+                continue
+            damages_social = any(
+                endpoint in other.vertices
+                and other.color_at(endpoint) in {source, target}
+                for path_vertices, source, target in paths
+                for endpoint in (path_vertices[0], path_vertices[-1])
+                for other in social
+                if other is not fan
+            )
+            if damages_social:
+                continue
+            center_block = _block_index(blocks, fan.center_color)
+            leaf_block = _block_index(blocks, fan.first_color)
+            key = (center_block, leaf_block)
+            good_by_type.setdefault(key, []).append(fan)
+        if not good_by_type:
+            raise RuntimeError(
+                "Amplify could not find a good fan for the selected color pair"
+            )
+        batch_key = max(
+            good_by_type,
+            key=lambda key: (len(good_by_type[key]), tuple(-value for value in key)),
+        )
+        batch = good_by_type[batch_key]
+        paths_to_flip: list[tuple[tuple[Vertex, ...], Color, Color]] = []
+        for fan in batch:
+            paths_to_flip.extend(relevant_paths(coloring, fan, blocks, pair_index))
+        unique_paths: list[tuple[tuple[Vertex, ...], Color, Color]] = []
+        seen_edges: set[Edge] = set()
+        for path, source, target_color in paths_to_flip:
+            edges = {canonical(left, right) for left, right in pairwise(path)}
+            if edges and edges <= seen_edges:
+                continue
+            if edges & seen_edges:
+                raise RuntimeError("Amplify produced overlapping relevant paths")
+            seen_edges.update(edges)
+            unique_paths.append((path, source, target_color))
+        for path, source, target_color in unique_paths:
+            fans.flip_path(coloring, list(path), source, target_color)
+        social = {fan for fan in fans if fan_is_social(fan, blocks)}
+        if not social and target > 0:
+            raise RuntimeError("Amplify made no progress")
+    result = SeparableFans()
+    for fan in social:
+        result.add(fan)
+    return pairs, result
