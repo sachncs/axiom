@@ -142,7 +142,12 @@ class Multilevel:
 
     @staticmethod
     def _schedule(matcher: Matcher) -> tuple[list[int], list[int], int]:
-        """Return the paper's type-1 or type-2 level and phase schedule."""
+        """Return the paper's density-sensitive recursive level schedule.
+
+        The starting degree is the least power of two at least the current
+        average degree.  Refinement then halves it until the finest level
+        reaches the paper's ``sqrt(n) / (4 log n)`` threshold.
+        """
         if matcher.n <= 1:
             return [1], [1], 1
 
@@ -151,14 +156,18 @@ class Multilevel:
         while eta < root_n:
             eta *= 2
 
-        # The recursive theorem fixes the hierarchy from n, not from the
-        # current average degree.  Start with the greatest power of two no
-        # larger than n, then halve until the finest level is within one
-        # power-of-two step of sqrt(n).  This keeps the schedule stable when
-        # updates change density during a phase.
-        z = 1 << (matcher.n.bit_length() - 1)
+        edge_count = matcher.graph.num_edges()
+        average_degree = (2 * edge_count) / matcher.n
+        required_z = max(1, math.ceil(average_degree))
+        z = 1
+        while z < required_z:
+            z *= 2
+        # The maximum degree is at most n-1, so n is a safe cap for the
+        # non-power-of-two sizes supported by this implementation.
+        z = min(z, matcher.n)
+        threshold = root_n / (4 * max(1.0, math.log2(matcher.n)))
         level_zs = [z]
-        while z // 2 >= root_n:
+        while z // 2 >= threshold and z > 1:
             z //= 2
             level_zs.append(z)
 
@@ -188,9 +197,13 @@ class Multilevel:
         matcher.k = len(level_zs)
         matcher.phase_length = self._phase_budget(matcher)
         previous = matcher.multi
+        previous_level_zs = (
+            [level.z for level in previous.levels] if previous is not None else []
+        )
         if (
             previous is not None
             and previous.levels
+            and previous_level_zs == matcher.level_zs
             and len(matcher.level_zs) > 1
             and (matcher.inserted_edges or matcher.deleted_edges)
         ):

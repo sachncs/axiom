@@ -541,9 +541,9 @@ class TestMatcher:
     def test_multilevel_scheduler_tracks_finest_level_budget(self) -> None:
         algo = Matcher(16, mode="multilevel")
         assert algo.eta == 4
-        assert algo.level_zs == [16, 8, 4]
-        assert algo.level_phase_lengths == [64, 32, 16]
-        assert algo.phase_length == 16
+        assert algo.level_zs == [1]
+        assert algo.level_phase_lengths == [4]
+        assert algo.phase_length == 4
 
         dense = Adjacency(16)
         for u in range(16):
@@ -551,9 +551,9 @@ class TestMatcher:
                 dense.add_edge(u, v)
         dense_algo = Matcher(16, mode="multilevel", graph=dense)
         assert dense_algo.eta == 4
-        assert dense_algo.level_zs == [16, 8, 4]
-        assert dense_algo.level_phase_lengths == [64, 32, 16]
-        assert dense_algo.phase_length == 16
+        assert dense_algo.level_zs == [16, 8, 4, 2, 1]
+        assert dense_algo.level_phase_lengths == [64, 32, 16, 8, 4]
+        assert dense_algo.phase_length == 4
 
     def test_removed_mode_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="basic.*multilevel"):
