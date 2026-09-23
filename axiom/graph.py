@@ -182,7 +182,7 @@ class Adjacency:
             :math:`O(\deg(v))` to drain the iterator.
         """
         self.validate_vertex(v)
-        yield from self.adj[v]
+        yield from sorted(self.adj[v])
 
     def edges(self) -> Iterator[Edge]:
         """Iterate over all edges in the graph exactly once.
@@ -195,7 +195,7 @@ class Adjacency:
             The ``u < v`` guard avoids double-counting symmetric pairs.
         """
         for u in range(self.n):
-            for v in self.adj[u]:
+            for v in sorted(self.adj[u]):
                 if u < v:
                     yield (u, v)
 

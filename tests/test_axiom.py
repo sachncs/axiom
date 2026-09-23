@@ -65,16 +65,15 @@ class TestAdjacency:
 
     def test_neighbors(self) -> None:
         g = Adjacency(4)
-        g.add_edge(0, 1)
         g.add_edge(0, 2)
-        assert set(g.neighbors(0)) == {1, 2}
+        g.add_edge(0, 1)
+        assert list(g.neighbors(0)) == [1, 2]
 
     def test_edges_iterator(self) -> None:
         g = Adjacency(4)
-        g.add_edge(0, 1)
         g.add_edge(1, 2)
-        edges = set(g.edges())
-        assert edges == {(0, 1), (1, 2)}
+        g.add_edge(0, 1)
+        assert list(g.edges()) == [(0, 1), (1, 2)]
 
     def test_invalid_vertex(self) -> None:
         g = Adjacency(3)
