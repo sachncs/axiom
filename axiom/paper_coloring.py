@@ -1055,6 +1055,16 @@ def _project_subproblem(
     selected_fans = [fan for fan in fans if fan.type <= color_group]
     for fan in selected_fans:
         edge_scope.update(fan.edges)
+    degree: dict[Vertex, int] = {vertex: 0 for vertex in range(coloring.graph.n)}
+    for left, right in edge_scope:
+        degree[left] += 1
+        degree[right] += 1
+    maximum_degree = max(degree.values(), default=0)
+    if maximum_degree > len(ordered):
+        raise RuntimeError(
+            "Extend projected an infeasible subproblem: "
+            f"maximum degree {maximum_degree} exceeds palette size {len(ordered)}"
+        )
     child = PartialColoring(coloring.graph, len(ordered))
     for edge in edge_scope:
         if edge in coloring:
@@ -1115,6 +1125,7 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
     if not social:
         raise RuntimeError("Extend received no social fans after Amplify")
     total = 0
+    scoped_edges: set[Edge] = set()
     for group in groups:
         selected = [fan for fan in social if fan.type <= group]
         if not selected:
@@ -1122,6 +1133,9 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
         child, child_fans, edge_scope, local_colors = _project_subproblem(
             coloring, social, group
         )
+        if scoped_edges & edge_scope:
+            raise RuntimeError("Extend produced overlapping recursive edge scopes")
+        scoped_edges.update(edge_scope)
         total += extend_recursive(child, child_fans, eta)
         _merge_subproblem(coloring, child, edge_scope, local_colors)
     coloring.validate()
