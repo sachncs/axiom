@@ -293,9 +293,9 @@ class Hierarchy:
         # not 2*floor(tau), which is stricter for non-integral tau.
         bound = (64 * r) // z
         offenders: list[tuple[int, int]] = []
-        for u, v in matching:
+        for u, v in sorted(matching):
             if (u in self.A1 and v in self.R1) or (v in self.A1 and u in self.R1):
-                offenders.append((u, v))
+                offenders.append((min(u, v), max(u, v)))
         # Keep at most ``bound`` crossing edges.  Slicing to ``bound`` would
         # remove the wrong number when the violation is larger than the
         # allowed budget and could leave I3 false after repair.
