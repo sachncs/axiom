@@ -33,6 +33,10 @@ Thread-safety:
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 from axiom.augment import augment as _augment
 from axiom.color import Vizing
 from axiom.graph import Adjacency
@@ -548,25 +552,26 @@ class Matcher:
             # do not constitute graph updates.  Validate endpoints through
             # has_edge above, then leave all dynamic state untouched.
             return
-        self.graph.add_edge(u, v)
-        if self.mode == "multilevel":
-            edge = canonical(u, v)
-            self.inserted_edges.add(edge)
-            self.deleted_edges.discard(edge)
-            for vertex in edge:
-                self.inserted_incident_counts[vertex] += 1
-                # The paper promotes a good vertex to bad at z + 1
-                # incident inserted edges, not at the z-th edge.
-                if self.inserted_incident_counts[vertex] >= self.z + 1:
-                    self.bad_vertices.add(vertex)
-        if self.multi is not None:
-            self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
-        else:
-            self.__update_cached_lists(u, v, added=True)
-        self.__proc_update(u)
-        self.__proc_update(v)
-        self.__handle_insertion(u, v)
-        self.__advance_update_counter()
+        with self.__atomic_update():
+            self.graph.add_edge(u, v)
+            if self.mode == "multilevel":
+                edge = canonical(u, v)
+                self.inserted_edges.add(edge)
+                self.deleted_edges.discard(edge)
+                for vertex in edge:
+                    self.inserted_incident_counts[vertex] += 1
+                    # The paper promotes a good vertex to bad at z + 1
+                    # incident inserted edges, not at the z-th edge.
+                    if self.inserted_incident_counts[vertex] >= self.z + 1:
+                        self.bad_vertices.add(vertex)
+            if self.multi is not None:
+                self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
+            else:
+                self.__update_cached_lists(u, v, added=True)
+            self.__proc_update(u)
+            self.__proc_update(v)
+            self.__handle_insertion(u, v)
+            self.__advance_update_counter()
 
     def delete(self, u: Vertex, v: Vertex) -> None:
         """Delete edge ``(u, v)`` and repair the maximal matching.
@@ -580,21 +585,56 @@ class Matcher:
         if not self.graph.has_edge(u, v):
             self.accountant.record_deletion()
             return
-        if self.mode == "multilevel":
-            edge = canonical(u, v)
-            if edge in self.inserted_edges:
-                self.inserted_edges.remove(edge)
+        with self.__atomic_update():
+            if self.mode == "multilevel":
+                edge = canonical(u, v)
+                if edge in self.inserted_edges:
+                    self.inserted_edges.remove(edge)
+                else:
+                    self.deleted_edges.add(edge)
+            self.graph.remove_edge(u, v)
+            if self.multi is not None:
+                self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
             else:
-                self.deleted_edges.add(edge)
-        self.graph.remove_edge(u, v)
+                self.__update_cached_lists(u, v, added=False)
+            self.__proc_update(u)
+            self.__proc_update(v)
+            self.__handle_deletion(u, v)
+            self.__advance_update_counter()
+
+    @contextmanager
+    def __atomic_update(self) -> Iterator[None]:
+        """Make one accepted graph update all-or-nothing.
+
+        Dynamic repair touches the live graph, matching views, recursive
+        hierarchy, auxiliary indexes, and accounting counters.  A failed
+        coloring or invariant check must not leave those structures split
+        across two states.  Graph objects are preserved by identity so a
+        caller-supplied implementation remains the authoritative storage.
+        """
+        original_edges = set(self.graph.edges())
+        graph_objects = [self.graph, self.phase_graph]
+        if self.system is not None:
+            graph_objects.append(self.system.graph)
         if self.multi is not None:
-            self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
-        else:
-            self.__update_cached_lists(u, v, added=False)
-        self.__proc_update(u)
-        self.__proc_update(v)
-        self.__handle_deletion(u, v)
-        self.__advance_update_counter()
+            graph_objects.append(self.multi.graph)
+            graph_objects.extend(level.graph for level in self.multi.levels)
+        memo = {id(graph): graph for graph in graph_objects if graph is not None}
+        snapshot = {
+            name: copy.deepcopy(value, memo)
+            for name, value in self.__dict__.items()
+            if name not in {"graph", "colorer", "policy"}
+        }
+        try:
+            yield
+        except BaseException:
+            current_edges = set(self.graph.edges())
+            for left, right in current_edges - original_edges:
+                self.graph.remove_edge(left, right)
+            for left, right in original_edges - current_edges:
+                self.graph.add_edge(left, right)
+            self.__dict__.update(snapshot)
+            raise
 
     def __handle_insertion(self, u: Vertex, v: Vertex) -> None:
         if self.system is not None and self.__try_fast_insert(u, v):

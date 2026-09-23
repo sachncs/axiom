@@ -1000,6 +1000,33 @@ class TestMatcher:
         with pytest.raises(RuntimeError):
             algo.policy.rebuild(algo)
 
+    def test_failed_update_rolls_back_all_mutable_state(self) -> None:
+        """A failed repair cannot expose a partially applied update."""
+        algo = Matcher(2, mode="basic")
+        algo.phase_length = 1
+        before = {
+            "edges": set(algo.graph.edges()),
+            "matching": algo.matching(),
+            "matched_vertices": set(algo.matched_vertices),
+            "partners": dict(algo.partner_map),
+            "stats": algo.stats,
+            "update_count": algo.update_count,
+        }
+
+        def fail_color(graph: object, delta: int) -> dict[tuple[int, int], int]:
+            raise RuntimeError("injected rebuild failure")
+
+        algo.colorer.color = fail_color  # type: ignore[assignment]
+        with pytest.raises(RuntimeError, match="injected rebuild failure"):
+            algo.insert(0, 1)
+
+        assert set(algo.graph.edges()) == before["edges"]
+        assert algo.matching() == before["matching"]
+        assert algo.matched_vertices == before["matched_vertices"]
+        assert algo.partner_map == before["partners"]
+        assert algo.stats == before["stats"]
+        assert algo.update_count == before["update_count"]
+
 
 # ------------------------------------------------------------------
 # Multi-level system
