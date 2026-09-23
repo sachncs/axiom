@@ -1021,6 +1021,31 @@ def modify_types(
     blocks: tuple[frozenset[Color], ...],
     pair_index: int,
 ) -> None:
+    """Apply one ``Modify-Types`` batch atomically."""
+    coloring.validate()
+    fans.assert_valid()
+    colors_before = dict(coloring._colors)
+    fans_before = tuple(fans)
+    try:
+        _modify_types_unchecked(coloring, fans, batch, blocks, pair_index)
+    except BaseException:
+        coloring._colors = colors_before
+        for fan in tuple(fans):
+            fans.discard(fan)
+        for fan in fans_before:
+            fans.add(fan)
+        coloring.validate()
+        fans.assert_valid()
+        raise
+
+
+def _modify_types_unchecked(
+    coloring: PartialColoring,
+    fans: SeparableFans,
+    batch: tuple[UFan, ...],
+    blocks: tuple[frozenset[Color], ...],
+    pair_index: int,
+) -> None:
     """Apply one paper ``Modify-Types`` batch in place.
 
     Every selected fan is transformed with its pair-index-relevant paths.

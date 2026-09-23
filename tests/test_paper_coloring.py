@@ -211,6 +211,27 @@ def test_modify_types_flips_one_batch_and_reindexes_fans() -> None:
     fans.assert_valid()
 
 
+def test_modify_types_restores_state_on_explicit_failure() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = PartialColoring(graph, 100)
+    fans = SeparableFans()
+    fan = UFan(0, 1, 2, 0, 10, 10)
+    fans.add(fan)
+    blocks, _ = color_blocks(100, 10)
+    colors_before = dict(coloring.items())
+    fans_before = tuple(fans)
+
+    with pytest.raises(IndexError):
+        modify_types(coloring, fans, (fan,), blocks, 10)
+
+    assert dict(coloring.items()) == colors_before
+    assert tuple(fans) == fans_before
+    coloring.validate()
+    fans.assert_valid()
+
+
 def test_sparsify_types_socializes_a_full_deterministic_batch() -> None:
     fan_count = 100
     graph = Adjacency(3 * fan_count)
