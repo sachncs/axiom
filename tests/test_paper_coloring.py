@@ -12,12 +12,12 @@ from axiom.paper_coloring import (
     classify_type_sparsification,
     collect_direct_fans,
     color_blocks,
+    color_small,
     extend_recursive,
     fan_is_social,
     modify_types,
     relevant_paths,
     shift_edge_to_fan,
-    small_extend,
     sparsify_types,
 )
 
@@ -73,7 +73,7 @@ def test_activate_fan_extends_one_uncolored_spoke() -> None:
     fans.assert_valid()
 
 
-def test_small_extend_activates_deterministic_common_type() -> None:
+def test_color_small_activates_deterministic_common_type() -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)
     graph.add_edge(0, 2)
@@ -84,7 +84,7 @@ def test_small_extend_activates_deterministic_common_type() -> None:
     fan = UFan(0, 1, 2, 0, 1, 1)
     fans.add(fan)
 
-    assert small_extend(coloring, fans) == 1
+    assert color_small(coloring, fans) == 1
     assert coloring[(0, 1)] == 0
     assert len(fans) == 0
 

@@ -454,8 +454,8 @@ def activate_fan(coloring: PartialColoring, fans: SeparableFans, fan: UFan) -> E
     raise RuntimeError("both u-fan alternating paths reach the center")
 
 
-def small_extend(coloring: PartialColoring, fans: SeparableFans) -> int:
-    """Run the paper's deterministic most-common-type ``Small`` step.
+def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
+    """Run the paper's deterministic most-common-type ``Color-Small`` step.
 
     The routine repeatedly selects the lexicographically first most-common
     u-fan type and activates all currently matching fans.  A fan that cannot
@@ -1267,7 +1267,7 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
     if not fans:
         return 0
     if coloring.color_count <= 10 * eta:
-        return small_extend(coloring, fans)
+        return color_small(coloring, fans)
 
     groups, social = sparsify_types(coloring, fans, eta)
     if not social:
