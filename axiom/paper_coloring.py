@@ -416,6 +416,22 @@ class SeparableFans:
         if rebuilt_vertices != self._vertices:
             raise AssertionError("u-fan vertex index is stale")
 
+    def discard_damaged(self, coloring: PartialColoring) -> int:
+        """Remove fans whose spokes or assigned colors are no longer valid."""
+        damaged = [
+            fan
+            for fan in self
+            if any(
+                fan.color_at(vertex) not in coloring.missing(vertex)
+                for vertex in fan.vertices
+            )
+            or fan.edges & coloring.edges()
+        ]
+        for fan in damaged:
+            self.discard(fan)
+        self.assert_valid()
+        return len(damaged)
+
 
 def activate_fan(coloring: PartialColoring, fans: SeparableFans, fan: UFan) -> Edge:
     """Activate one u-fan, extending the coloring to one spoke."""
@@ -458,28 +474,48 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
     """Run the paper's deterministic most-common-type ``Color-Small`` step.
 
     The routine repeatedly selects the lexicographically first most-common
-    u-fan type and activates all currently matching fans.  A fan that cannot
-    be activated is removed explicitly as a damaged fan; no alternate
-    coloring algorithm is substituted.
+    u-fan type and activates all currently matching fans.  Fans damaged by a
+    successful path flip are removed explicitly.  A failure to activate a
+    valid fan is an invariant failure and is reported; no alternate coloring
+    algorithm is substituted.
     """
+    coloring.validate()
+    fans.assert_valid()
+    colors_before = dict(coloring._colors)
+    fans_before = tuple(fans)
     extended = 0
-    while len(fans):
-        counts: dict[frozenset[Color], int] = {}
-        for fan in fans:
-            counts[fan.type] = counts.get(fan.type, 0) + 1
-        target = min(counts, key=lambda value: (-counts[value], tuple(sorted(value))))
-        batch = [fan for fan in fans if fan.type == target]
-        for fan in batch:
-            if fan not in set(fans):
-                continue
-            try:
-                activate_fan(coloring, fans, fan)
-            except (RuntimeError, ValueError):
-                fans.discard(fan)
-            else:
+    try:
+        while len(fans):
+            counts: dict[frozenset[Color], int] = {}
+            for fan in fans:
+                counts[fan.type] = counts.get(fan.type, 0) + 1
+            target = min(
+                counts, key=lambda value: (-counts[value], tuple(sorted(value)))
+            )
+            batch = [fan for fan in fans if fan.type == target]
+            for fan in batch:
+                if fan not in set(fans):
+                    continue
+                try:
+                    activate_fan(coloring, fans, fan)
+                except (RuntimeError, ValueError) as error:
+                    raise RuntimeError(
+                        f"Color-Small could not activate valid fan {fan}"
+                    ) from error
                 extended += 1
+                fans.discard_damaged(coloring)
+            fans.assert_valid()
+        coloring.validate()
+        return extended
+    except BaseException:
+        coloring._colors = colors_before
+        for fan in tuple(fans):
+            fans.discard(fan)
+        for fan in fans_before:
+            fans.add(fan)
+        coloring.validate()
         fans.assert_valid()
-    return extended
+        raise
 
 
 def collect_direct_fans(
