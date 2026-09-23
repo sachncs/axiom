@@ -1212,7 +1212,11 @@ def sparsify_types(
     target = max(1, (initial + 99) // 100)
     social = {fan for fan in fans if fan_is_social(fan, blocks)}
     iterations = 0
-    max_iterations = max(1, 100 * eta * eta)
+    # A successful iteration adds at least one previously non-social fan to
+    # ``social``.  The input collection is finite, so its size is the exact
+    # progress bound; this guard protects against a broken path/index
+    # invariant without imposing a heuristic iteration budget.
+    max_iterations = max(1, len(fans))
     while len(social) < target:
         iterations += 1
         if iterations > max_iterations:
@@ -1251,7 +1255,9 @@ def sparsify_types(
                 continue
             center_block = _block_index(blocks, fan.center_color)
             leaf_block = _block_index(blocks, fan.first_color)
-            key = (center_block, leaf_block)
+            # A fan type is an unordered pair of color blocks.  Canonicalize
+            # the pair so opposite orientations share one paper batch.
+            key = (min(center_block, leaf_block), max(center_block, leaf_block))
             good_by_type.setdefault(key, []).append(fan)
         if not good_by_type:
             raise RuntimeError(
@@ -1262,10 +1268,11 @@ def sparsify_types(
             key=lambda key: (len(good_by_type[key]), tuple(-value for value in key)),
         )
         batch = tuple(good_by_type[batch_key])
+        social_before = len(social)
         modify_types(coloring, fans, batch, blocks, pair_index)
         social = {fan for fan in fans if fan_is_social(fan, blocks)}
-        if not social and target > 0:
-            raise RuntimeError("Sparsify-Types made no progress")
+        if len(social) <= social_before:
+            raise RuntimeError("Sparsify-Types made no social-fan progress")
     result = SeparableFans()
     for fan in social:
         result.add(fan)
