@@ -1173,6 +1173,25 @@ def _modify_types_unchecked(
 def sparsify_types(
     coloring: PartialColoring, fans: SeparableFans, eta: int
 ) -> tuple[tuple[frozenset[Color], ...], SeparableFans]:
+    """Run ``Sparsify-Types`` atomically over the coloring and fan index."""
+    colors_before = dict(coloring._colors)
+    fans_before = tuple(fans)
+    try:
+        return _sparsify_types_unchecked(coloring, fans, eta)
+    except BaseException:
+        coloring._colors = colors_before
+        for fan in tuple(fans):
+            fans.discard(fan)
+        for fan in fans_before:
+            fans.add(fan)
+        coloring.validate()
+        fans.assert_valid()
+        raise
+
+
+def _sparsify_types_unchecked(
+    coloring: PartialColoring, fans: SeparableFans, eta: int
+) -> tuple[tuple[frozenset[Color], ...], SeparableFans]:
     """Run the deterministic ``Sparsify-Types`` fan transformation.
 
     The routine implements the paper's type partition, relevant-path flips,

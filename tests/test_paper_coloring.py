@@ -307,6 +307,38 @@ def test_sparsify_types_preserves_invariants_on_cross_block_batches() -> None:
         social.assert_valid()
 
 
+def test_sparsify_types_restores_state_on_batch_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import axiom.paper_coloring as paper_coloring
+
+    fan_count = 100
+    graph = Adjacency(3 * fan_count)
+    fans = SeparableFans()
+    for index in range(fan_count):
+        center = 3 * index
+        graph.add_edge(center, center + 1)
+        graph.add_edge(center, center + 2)
+        low = index % 50
+        high = low + 50
+        fans.add(UFan(center, center + 1, center + 2, low, high, high))
+    coloring = PartialColoring(graph, 100)
+    colors_before = dict(coloring.items())
+    fans_before = tuple(fans)
+
+    def fail_batch(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("injected sparsification failure")
+
+    monkeypatch.setattr(paper_coloring, "modify_types", fail_batch)
+    with pytest.raises(RuntimeError, match="injected sparsification failure"):
+        sparsify_types(coloring, fans, 10)
+
+    assert dict(coloring.items()) == colors_before
+    assert tuple(fans) == fans_before
+    coloring.validate()
+    fans.assert_valid()
+
+
 def test_shift_edge_to_fan_preserves_partial_coloring() -> None:
     graph = Adjacency(3)
     graph.add_edge(0, 1)
