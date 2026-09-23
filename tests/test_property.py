@@ -82,3 +82,24 @@ def test_long_adversarial_multilevel_sequence_stays_consistent() -> None:
         assert partners(matcher.matching()) == matcher.partner_map
         assert matcher.multi is not None
         assert matcher.multi.check()
+
+
+def test_phase_boundaries_preserve_deferred_edge_state() -> None:
+    """Repeated phase rebuilds keep E_I/E_D' synchronized with the live graph."""
+    rng = random.Random(20260924)
+    matcher = Matcher(32, mode="multilevel")
+
+    for _ in range(600):
+        left, right = sorted(rng.sample(range(matcher.n), 2))
+        if rng.random() < 0.5:
+            matcher.insert(left, right)
+        else:
+            matcher.delete(left, right)
+
+        assert matcher.multi is not None
+        expected = (set(matcher.graph.edges()) - set(matcher.inserted_edges)) | set(
+            matcher.multi.deferred_deletions
+        )
+        assert set(matcher.multi.graph.edges()) == expected
+        assert matcher.multi.check()
+        assert matcher.maximal()
