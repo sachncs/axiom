@@ -9,7 +9,6 @@ from axiom.paper_coloring import (
     SeparableFans,
     UFan,
     activate_fan,
-    amplify,
     classify_type_sparsification,
     collect_direct_fans,
     color_blocks,
@@ -18,6 +17,7 @@ from axiom.paper_coloring import (
     relevant_paths,
     shift_edge_to_fan,
     small_extend,
+    sparsify_types,
 )
 
 
@@ -171,7 +171,7 @@ def test_relevant_paths_use_matching_color_offsets() -> None:
     assert [target for _, _, target in paths] == [15, 10, 10]
 
 
-def test_amplify_relabels_small_collection_deterministically() -> None:
+def test_sparsify_types_relabels_small_collection_deterministically() -> None:
     graph = Adjacency(3)
     graph.add_edge(0, 1)
     graph.add_edge(0, 2)
@@ -179,14 +179,14 @@ def test_amplify_relabels_small_collection_deterministically() -> None:
     fans = SeparableFans()
     fans.add(UFan(0, 1, 2, 0, 10, 10))
 
-    groups, social = amplify(coloring, fans, 10)
+    groups, social = sparsify_types(coloring, fans, 10)
 
     assert len(groups) == 10
     assert len(social) == 1
     assert next(iter(social)).type == frozenset({0, 1})
 
 
-def test_amplify_socializes_a_full_deterministic_batch() -> None:
+def test_sparsify_types_socializes_a_full_deterministic_batch() -> None:
     fan_count = 100
     graph = Adjacency(3 * fan_count)
     fans = SeparableFans()
@@ -199,7 +199,7 @@ def test_amplify_socializes_a_full_deterministic_batch() -> None:
         fans.add(UFan(center, first_leaf, second_leaf, 0, 10, 10))
     coloring = PartialColoring(graph, 100)
 
-    groups, social = amplify(coloring, fans, 10)
+    groups, social = sparsify_types(coloring, fans, 10)
 
     assert len(groups) == 10
     assert len(social) == fan_count

@@ -1011,17 +1011,26 @@ def relevant_paths(
     )
 
 
-def amplify(
+def sparsify_types(
     coloring: PartialColoring, fans: SeparableFans, eta: int
 ) -> tuple[tuple[frozenset[Color], ...], SeparableFans]:
-    """Run the deterministic socialization phase of paper ``Amplify``.
+    """Run the deterministic ``Sparsify-Types`` fan transformation.
 
     The routine implements the paper's type partition, relevant-path flips,
-    good-fan selection, and damaged-fan removal.  Fan-chain construction is a
-    separate input-stage operation; callers must provide a separable fan
-    collection.
+    good-fan selection, and damaged-fan removal.  It changes only colors on
+    alternating paths and the fan index; it never changes which graph edges
+    are colored.  Fan-chain construction is a separate input-stage operation;
+    callers must provide a valid separable fan collection.
     """
+    if not isinstance(eta, int) or isinstance(eta, bool) or eta < 10:
+        raise ValueError("eta must be an integer at least 10")
+    if coloring.color_count < 10 * eta:
+        raise ValueError("color_count must be at least 10*eta")
+    coloring.validate()
+    fans.assert_valid()
     initial = len(fans)
+    if initial == 0:
+        raise ValueError("sparsify_types requires at least one u-fan")
     counts = {color: 0 for color in range(coloring.color_count)}
     for fan in fans:
         for color in fan.type:
@@ -1046,7 +1055,7 @@ def amplify(
         iterations += 1
         if iterations > max_iterations:
             raise RuntimeError(
-                "Amplify exceeded its deterministic iteration bound without "
+                "Sparsify-Types exceeded its deterministic iteration bound without "
                 "reaching the required social-fan mass"
             )
         pair_counts = [
@@ -1084,7 +1093,7 @@ def amplify(
             good_by_type.setdefault(key, []).append(fan)
         if not good_by_type:
             raise RuntimeError(
-                "Amplify could not find a good fan for the selected color pair"
+                "Sparsify-Types could not find a good fan for the selected color pair"
             )
         batch_key = max(
             good_by_type,
@@ -1107,7 +1116,7 @@ def amplify(
             if edges and edges <= seen_edges:
                 continue
             if edges & seen_edges:
-                raise RuntimeError("Amplify produced overlapping relevant paths")
+                raise RuntimeError("Sparsify-Types produced overlapping relevant paths")
             seen_edges.update(edges)
             unique_paths.append((path, source, target_color))
         for path, source, target_color in unique_paths:
@@ -1142,7 +1151,7 @@ def amplify(
             )
         social = {fan for fan in fans if fan_is_social(fan, blocks)}
         if not social and target > 0:
-            raise RuntimeError("Amplify made no progress")
+            raise RuntimeError("Sparsify-Types made no progress")
     result = SeparableFans()
     for fan in social:
         result.add(fan)
@@ -1214,7 +1223,7 @@ def _merge_subproblem(
 def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -> int:
     """Recursively execute the paper's ``Extend`` decomposition.
 
-    ``Amplify`` supplies disjoint color groups and social fans.  Each group is
+    ``Sparsify-Types`` supplies disjoint color groups and social fans.  Each group is
     projected to local color numbers, processed independently, and merged back
     only after its properness has been validated.  If amplification cannot
     produce a valid recursive split, this function raises instead of invoking
@@ -1227,9 +1236,9 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
     if coloring.color_count <= 10 * eta:
         return small_extend(coloring, fans)
 
-    groups, social = amplify(coloring, fans, eta)
+    groups, social = sparsify_types(coloring, fans, eta)
     if not social:
-        raise RuntimeError("Extend received no social fans after Amplify")
+        raise RuntimeError("Extend received no social fans after Sparsify-Types")
     total = 0
     scoped_edges: set[Edge] = set()
     for group in groups:
