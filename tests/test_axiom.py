@@ -1046,6 +1046,62 @@ class TestMatcher:
         assert algo.stats == before["stats"]
         assert algo.update_count == before["update_count"]
 
+    def test_failed_multilevel_update_rolls_back_hierarchy_state(self) -> None:
+        """A failed recursive rebuild cannot leak a partial phase update."""
+        algo = Matcher(16, mode="multilevel")
+        assert algo.multi is not None
+        algo.phase_length = 1
+        before = {
+            "edges": set(algo.graph.edges()),
+            "matching": algo.matching(),
+            "matched_vertices": set(algo.matched_vertices),
+            "partners": dict(algo.partner_map),
+            "stats": algo.stats,
+            "update_count": algo.update_count,
+            "subphase_count": algo.subphase_count,
+            "inserted": set(algo.inserted_edges),
+            "deleted": set(algo.deleted_edges),
+            "phase_edges": set(algo.phase_graph.edges())
+            if algo.phase_graph is not None
+            else set(),
+            "hierarchy_edges": set(algo.multi.graph.edges()),
+            "levels": [
+                (
+                    set(level.A),
+                    set(level.B),
+                    set(level.U),
+                    set(level.M),
+                )
+                for level in algo.multi.levels
+            ],
+        }
+
+        def fail_color(graph: object, delta: int) -> dict[tuple[int, int], int]:
+            raise RuntimeError("injected multilevel rebuild failure")
+
+        algo.colorer.color = fail_color  # type: ignore[assignment]
+        with pytest.raises(RuntimeError, match="injected multilevel rebuild failure"):
+            algo.insert(0, 1)
+
+        assert set(algo.graph.edges()) == before["edges"]
+        assert algo.matching() == before["matching"]
+        assert algo.matched_vertices == before["matched_vertices"]
+        assert algo.partner_map == before["partners"]
+        assert algo.stats == before["stats"]
+        assert algo.update_count == before["update_count"]
+        assert algo.subphase_count == before["subphase_count"]
+        assert algo.inserted_edges == before["inserted"]
+        assert algo.deleted_edges == before["deleted"]
+        assert algo.phase_graph is not None
+        assert set(algo.phase_graph.edges()) == before["phase_edges"]
+        assert algo.multi is not None
+        assert set(algo.multi.graph.edges()) == before["hierarchy_edges"]
+        assert [
+            (set(level.A), set(level.B), set(level.U), set(level.M))
+            for level in algo.multi.levels
+        ] == before["levels"]
+        assert algo.multi.check()
+
 
 # ------------------------------------------------------------------
 # Multi-level system
