@@ -152,3 +152,24 @@ def test_amplify_keeps_small_collection_explicitly_bounded() -> None:
 
     assert len(groups) == 10
     assert len(social) == 0
+
+
+def test_amplify_socializes_a_full_deterministic_batch() -> None:
+    fan_count = 100
+    graph = Adjacency(3 * fan_count)
+    fans = SeparableFans()
+    for index in range(fan_count):
+        center = 3 * index
+        first_leaf = center + 1
+        second_leaf = center + 2
+        graph.add_edge(center, first_leaf)
+        graph.add_edge(center, second_leaf)
+        fans.add(UFan(center, first_leaf, second_leaf, 0, 10, 10))
+    coloring = PartialColoring(graph, 100)
+
+    groups, social = amplify(coloring, fans, 10)
+
+    assert len(groups) == 10
+    assert len(social) == fan_count
+    assert all(fan_is_social(fan, color_blocks(100, 10)[0]) for fan in social)
+    coloring.validate()

@@ -596,9 +596,11 @@ def amplify(
             key=lambda key: (len(good_by_type[key]), tuple(-value for value in key)),
         )
         batch = good_by_type[batch_key]
-        paths_to_flip: list[tuple[tuple[Vertex, ...], Color, Color]] = []
+        fan_paths: dict[UFan, tuple[tuple[tuple[Vertex, ...], Color, Color], ...]] = {}
         for fan in batch:
-            paths_to_flip.extend(relevant_paths(coloring, fan, blocks, pair_index))
+            fan_paths[fan] = relevant_paths(coloring, fan, blocks, pair_index)
+            fans.discard(fan)
+        paths_to_flip = [path for paths in fan_paths.values() for path in paths]
         unique_paths: list[tuple[tuple[Vertex, ...], Color, Color]] = []
         seen_edges: set[Edge] = set()
         for path, source, target_color in paths_to_flip:
@@ -611,6 +613,20 @@ def amplify(
             unique_paths.append((path, source, target_color))
         for path, source, target_color in unique_paths:
             fans.flip_path(coloring, list(path), source, target_color)
+        for fan, paths in fan_paths.items():
+            center_color = paths[0][2]
+            first_color = paths[1][2]
+            second_color = paths[2][2]
+            fans.add(
+                UFan(
+                    fan.center,
+                    fan.first_leaf,
+                    fan.second_leaf,
+                    center_color,
+                    first_color,
+                    second_color,
+                )
+            )
         social = {fan for fan in fans if fan_is_social(fan, blocks)}
         if not social and target > 0:
             raise RuntimeError("Amplify made no progress")
