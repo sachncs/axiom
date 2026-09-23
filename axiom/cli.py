@@ -1,6 +1,6 @@
 """Command-line interface for Axiom.
 
-A thin wrapper around :class:`axiom.core.Matcher` plus the
+The command-line entry point for :class:`axiom.core.Matcher` plus the
 :func:`axiom.simulation.random_updates` generator. Useful as a smoke
 test: it runs a fixed number of random updates, asserts maximality
 after each one, and prints timing statistics on exit.

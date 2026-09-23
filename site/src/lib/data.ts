@@ -75,7 +75,7 @@ export const FEATURES = [
   {
     icon: "palette",
     title: "Deterministic colouring",
-    body: "Deterministic fan-based Vizing recolouring delivers (Δ+1)-colours for rematch dispatch; the paper's faster ABB+26 colouring is not claimed.",
+    body: "Basic uses deterministic Vizing colouring; multilevel uses the paper-oriented recursive fan colourer with explicit failure diagnostics. The ABB+26 asymptotic bound is not claimed.",
   },
   {
     icon: "invariant",
