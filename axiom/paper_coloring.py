@@ -306,6 +306,7 @@ class SeparableFans:
         self._fans: set[UFan] = set()
         self._edges: set[Edge] = set()
         self._colors: dict[tuple[Vertex, Color], UFan] = {}
+        self._fan_colors: dict[Vertex, set[Color]] = {}
         self._vertices: dict[Vertex, set[UFan]] = {}
         self._types: dict[frozenset[Color], set[UFan]] = {}
 
@@ -334,6 +335,7 @@ class SeparableFans:
         self._types.setdefault(fan.type, set()).add(fan)
         for vertex in fan.vertices:
             self._colors[(vertex, fan.color_at(vertex))] = fan
+            self._fan_colors.setdefault(vertex, set()).add(fan.color_at(vertex))
             self._vertices.setdefault(vertex, set()).add(fan)
 
     def discard(self, fan: UFan) -> None:
@@ -347,7 +349,13 @@ class SeparableFans:
             if not typed:
                 self._types.pop(fan.type)
         for vertex in fan.vertices:
-            self._colors.pop((vertex, fan.color_at(vertex)), None)
+            color = fan.color_at(vertex)
+            self._colors.pop((vertex, color), None)
+            assigned = self._fan_colors.get(vertex)
+            if assigned is not None:
+                assigned.discard(color)
+                if not assigned:
+                    self._fan_colors.pop(vertex)
             members = self._vertices.get(vertex)
             if members is not None:
                 members.discard(fan)
@@ -375,6 +383,7 @@ class SeparableFans:
             self._fans.clear()
             self._edges.clear()
             self._colors.clear()
+            self._fan_colors.clear()
             self._vertices.clear()
             self._types.clear()
             raise
@@ -449,7 +458,7 @@ class SeparableFans:
         return {fan_type: len(members) for fan_type, members in self._types.items()}
 
     def missing(self, coloring: PartialColoring, vertex: Vertex) -> Color:
-        used = {fan.color_at(vertex) for fan in self if vertex in fan.vertices}
+        used = self._fan_colors.get(vertex, set())
         available = [color for color in coloring.missing(vertex) if color not in used]
         if not available:
             raise RuntimeError("no missing color remains outside the fan collection")
@@ -467,6 +476,12 @@ class SeparableFans:
                 rebuilt[key] = fan
         if rebuilt != self._colors:
             raise AssertionError("u-fan color index is stale")
+        rebuilt_fan_colors: dict[Vertex, set[Color]] = {}
+        for fan in self._fans:
+            for vertex in fan.vertices:
+                rebuilt_fan_colors.setdefault(vertex, set()).add(fan.color_at(vertex))
+        if rebuilt_fan_colors != self._fan_colors:
+            raise AssertionError("u-fan assigned-color index is stale")
         rebuilt_vertices: dict[Vertex, set[UFan]] = {}
         for fan in self._fans:
             for vertex in fan.vertices:
