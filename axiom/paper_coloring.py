@@ -652,22 +652,18 @@ class PaperFanColorer:
 def _complete_partial_coloring(
     start: PartialColoring, all_edges: set[Edge], delta: int
 ) -> dict[Edge, Color]:
-    """Complete a partial ABB coloring through Extend and fan operations."""
+    """Complete a partial coloring through Extend and deterministic fan chains."""
     separable_fans = collect_separable_fans(start, all_edges - start.edges())
     if separable_fans:
         extend_recursive(start, separable_fans, 10)
         start.validate()
-    state_limit = max(1024, len(all_edges) * max(1, delta + 1) * 32)
-    solution = _search_fan_coloring(
-        start, SeparableFans(), all_edges, set(), state_limit
-    )
-    if solution is None:
-        raise RuntimeError(
-            "paper fan coloring exhausted its deterministic fan-chain search "
-            "without coloring every edge"
-        )
-    solution.validate()
-    return dict(solution.items())
+    for edge in sorted(all_edges - start.edges()):
+        if edge not in start:
+            _extend_edge_by_fan_chain(start, edge, delta + 1)
+            start.validate()
+    if start.edges() != all_edges:
+        raise RuntimeError("fan-chain completion left edges uncolored")
+    return dict(start.items())
 
 
 def _euler_partition(graph: Graph) -> tuple[Adjacency, Adjacency]:
@@ -807,94 +803,126 @@ def _recursive_paper_seed(graph: Graph, delta: int) -> dict[Edge, Color]:
     return _complete_partial_coloring(start, set(graph.edges()), delta)
 
 
-def _copy_coloring(source: PartialColoring) -> PartialColoring:
-    result = PartialColoring(source.graph, source.color_count)
-    result._colors = dict(source._colors)
-    return result
+def _edge_color_at(
+    coloring: PartialColoring, left: Vertex, right: Vertex
+) -> Color | None:
+    return coloring._colors.get(canonical(left, right))
 
 
-def _copy_fans(source: SeparableFans) -> SeparableFans:
-    result = SeparableFans()
-    for fan in source:
-        result.add(fan)
-    return result
-
-
-def _fan_candidates(
-    coloring: PartialColoring, edge: Edge, fans: SeparableFans
-) -> list[tuple[Edge, UFan]]:
-    """Enumerate all deterministic one-witness fan shifts for ``edge``."""
-    candidates: list[tuple[Edge, UFan]] = []
-    for center, leaf in (edge, (edge[1], edge[0])):
-        center_missing = set(coloring.missing(center))
-        for leaf_color in sorted(coloring.missing(leaf)):
-            if leaf_color in center_missing:
+def _invert_color_component(
+    coloring: PartialColoring, start: Vertex, first: Color, second: Color
+) -> None:
+    if first == second:
+        raise ValueError("component colors must differ")
+    component: set[Edge] = set()
+    visited = {start}
+    stack = [start]
+    while stack:
+        vertex = stack.pop()
+        for neighbor in sorted(coloring.graph.neighbors(vertex)):
+            edge = canonical(vertex, neighbor)
+            color = _edge_color_at(coloring, *edge)
+            if color not in {first, second}:
                 continue
-            witnesses = sorted(
-                canonical(center, neighbor)
-                for neighbor in coloring.graph.neighbors(center)
-                if coloring._colors.get(canonical(center, neighbor)) == leaf_color
-            )
-            for witness in witnesses:
-                other = witness[1] if witness[0] == center else witness[0]
-                for center_color in sorted(center_missing - {leaf_color}):
-                    candidate = UFan(
-                        center,
-                        leaf,
-                        other,
-                        center_color,
-                        leaf_color,
-                        leaf_color,
-                    )
-                    if candidate.edges & set(fans._edges):
-                        continue
-                    candidates.append((witness, candidate))
-    return candidates
+            component.add(edge)
+            if neighbor not in visited:
+                visited.add(neighbor)
+                stack.append(neighbor)
+    for edge in sorted(component):
+        coloring._colors[edge] = second if coloring._colors[edge] == first else first
 
 
-def _search_fan_coloring(
-    coloring: PartialColoring,
-    fans: SeparableFans,
-    all_edges: set[Edge],
-    seen: set[tuple[tuple[tuple[Edge, Color], ...], tuple[UFan, ...]]],
-    state_limit: int,
-) -> PartialColoring | None:
-    """Search the finite deterministic fan-chain state graph."""
-    if coloring.edges() == all_edges:
-        return coloring
-    state = (tuple(sorted(coloring.items())), tuple(fans))
-    if state in seen:
-        return None
-    if len(seen) >= state_limit:
-        raise RuntimeError(
-            "paper fan coloring reached its deterministic fan-search state limit"
+def _maximal_fan(
+    coloring: PartialColoring, center: Vertex, first_leaf: Vertex
+) -> list[Vertex]:
+    fan = [first_leaf]
+    while True:
+        last = fan[-1]
+        used_at_last = {
+            color
+            for neighbor in coloring.graph.neighbors(last)
+            if (color := _edge_color_at(coloring, last, neighbor)) is not None
+        }
+        extension = next(
+            (
+                neighbor
+                for neighbor in sorted(coloring.graph.neighbors(center))
+                if neighbor not in fan
+                and (edge_color := _edge_color_at(coloring, center, neighbor))
+                is not None
+                and edge_color not in used_at_last
+            ),
+            None,
         )
-    seen.add(state)
-    edge = min(all_edges - coloring.edges())
-    common = sorted(set(coloring.missing(edge[0])) & set(coloring.missing(edge[1])))
-    for color in common:
-        child = _copy_coloring(coloring)
-        child.assign(edge, color)
-        result = _search_fan_coloring(
-            child, _copy_fans(fans), all_edges, seen, state_limit
-        )
-        if result is not None:
-            return result
-    for witness, candidate in _fan_candidates(coloring, edge, fans):
-        child_coloring = _copy_coloring(coloring)
-        child_fans = _copy_fans(fans)
-        child_coloring.unassign(witness)
-        try:
-            child_fans.add(candidate)
-            activate_fan(child_coloring, child_fans, candidate)
-        except (RuntimeError, ValueError):
+        if extension is None:
+            return fan
+        fan.append(extension)
+
+
+def _rotatable_fan_prefix(
+    coloring: PartialColoring, center: Vertex, fan: list[Vertex], color: Color
+) -> int:
+    def used(vertex: Vertex) -> set[Color]:
+        return {
+            value
+            for neighbor in coloring.graph.neighbors(vertex)
+            if (value := _edge_color_at(coloring, vertex, neighbor)) is not None
+        }
+
+    for width, endpoint in enumerate(fan):
+        if color in used(endpoint):
             continue
-        result = _search_fan_coloring(
-            child_coloring, child_fans, all_edges, seen, state_limit
-        )
-        if result is not None:
-            return result
-    return None
+        if all(
+            (edge_color := _edge_color_at(coloring, center, fan[index + 1])) is not None
+            and edge_color not in used(fan[index])
+            for index in range(width)
+        ):
+            return width
+    raise RuntimeError("maximal fan has no rotatable prefix")
+
+
+def _rotate_fan(
+    coloring: PartialColoring, center: Vertex, fan: list[Vertex], width: int
+) -> None:
+    old_colors = [coloring[canonical(center, fan[index + 1])] for index in range(width)]
+    for index, color in enumerate(old_colors):
+        coloring._colors[canonical(center, fan[index])] = color
+    if width > 0:
+        coloring.unassign(canonical(center, fan[width]))
+
+
+def _extend_edge_by_fan_chain(
+    coloring: PartialColoring, edge: Edge, color_count: int
+) -> None:
+    if color_count != coloring.color_count:
+        raise ValueError("fan-chain palette size does not match the coloring")
+    center, first = edge
+    common = sorted(set(coloring.missing(center)) & set(coloring.missing(first)))
+    if common:
+        coloring.assign(edge, common[0])
+        return
+    missing_center = coloring.missing(center)
+    if not missing_center:
+        raise RuntimeError(f"no missing color available at fan center {center}")
+    before = dict(coloring._colors)
+    try:
+        fan = _maximal_fan(coloring, center, first)
+        missing_end = coloring.missing(fan[-1])
+        if not missing_end:
+            raise RuntimeError(f"no missing color available at fan endpoint {fan[-1]}")
+        first_color = missing_center[0]
+        second_color = missing_end[0]
+        if first_color != second_color:
+            _invert_color_component(coloring, center, first_color, second_color)
+        width = _rotatable_fan_prefix(coloring, center, fan, second_color)
+        _rotate_fan(coloring, center, fan, width)
+        coloring.assign(canonical(center, fan[width]), second_color)
+        if not 0 <= second_color < color_count:
+            raise RuntimeError("fan chain produced a color outside its palette")
+    except BaseException:
+        coloring._colors = before
+        coloring.validate()
+        raise
 
 
 def color_blocks(
