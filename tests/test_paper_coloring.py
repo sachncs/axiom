@@ -10,6 +10,7 @@ from axiom.paper_coloring import (
     UFan,
     activate_fan,
     amplify,
+    classify_type_sparsification,
     collect_direct_fans,
     color_blocks,
     extend_recursive,
@@ -124,6 +125,34 @@ def test_color_blocks_are_ordered_and_disjoint() -> None:
     assert all(len(block) == 5 for block in blocks)
     assert set().union(*blocks) == set(range(100))
     assert all(len(pair) == 10 for pair in pairs)
+
+
+def test_type_sparsification_certificate_is_deterministic_and_non_mutating() -> None:
+    graph = Adjacency(4)
+    graph.add_edge(0, 1)
+    graph.add_edge(2, 3)
+    coloring = PartialColoring(graph, 4)
+    coloring.assign((0, 1), 0)
+    before = dict(coloring.items())
+
+    first = classify_type_sparsification(coloring, {(2, 3)}, 2)
+    second = classify_type_sparsification(coloring, {(2, 3)}, 2)
+
+    assert first == second
+    assert first.blocks == (frozenset({0, 1}), frozenset({2, 3}))
+    assert first.diagonal_edges == {(2, 3)}
+    assert first.diagonal_fraction == 1.0
+    assert dict(coloring.items()) == before
+
+
+def test_type_sparsification_rejects_non_matching_uncolored_edges() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(1, 2)
+    coloring = PartialColoring(graph, 2)
+
+    with pytest.raises(ValueError, match="matching"):
+        classify_type_sparsification(coloring, {(0, 1), (1, 2)}, 2)
 
 
 def test_relevant_paths_use_matching_color_offsets() -> None:

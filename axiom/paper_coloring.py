@@ -95,6 +95,32 @@ class UFan:
         raise KeyError(vertex)
 
 
+@dataclass(frozen=True, slots=True)
+class TypeSparsification:
+    """Deterministic type accounting for a matching of uncolored edges.
+
+    The ABB sparsification theorem is stated for an uncolored matching.  This
+    value object keeps that boundary explicit: it records the equal palette
+    blocks, every feasible type of each uncolored edge, and the edges whose
+    feasible types intersect the diagonal block union.  It is deliberately a
+    certificate, not a silent replacement for the theorem's alternating-path
+    sparsifier; callers that need to change the coloring must perform that
+    operation explicitly and revalidate the certificate.
+    """
+
+    blocks: tuple[frozenset[Color], ...]
+    edge_types: dict[Edge, frozenset[tuple[Color, Color]]]
+    diagonal_edges: frozenset[Edge]
+    block_counts: tuple[tuple[int, ...], ...]
+
+    @property
+    def diagonal_fraction(self) -> float:
+        """Return the fraction of uncolored edges with a diagonal type."""
+        if not self.edge_types:
+            return 1.0
+        return len(self.diagonal_edges) / len(self.edge_types)
+
+
 class PartialColoring:
     """A deterministic proper partial ``(delta + 1)`` edge coloring."""
 
@@ -852,6 +878,81 @@ def color_blocks(
     )
     pairs = tuple(blocks[index] | blocks[index + 1] for index in range(0, 2 * eta, 2))
     return blocks, pairs
+
+
+def classify_type_sparsification(
+    coloring: PartialColoring,
+    uncolored_edges: set[Edge],
+    eta: int,
+) -> TypeSparsification:
+    """Build the paper's diagonal type-sparsification certificate.
+
+    ``uncolored_edges`` must be a matching, and the palette must divide into
+    ``eta`` equal blocks.  No edge is recolored by this function.  That
+    separation is intentional: the paper's ``Sparsify-Types`` procedure is a
+    sequence of certified alternating-path operations, so a caller must not
+    treat classification as if it had achieved the theorem's progress.
+
+    The returned matrix counts an edge once for every feasible ordered pair of
+    missing endpoint colors.  Its diagonal survivor set is therefore exactly
+    the set of uncolored edges whose type belongs to
+    ``union_k (C_k x C_k)``.  All iteration and tie handling is deterministic.
+    """
+    if not isinstance(eta, int) or isinstance(eta, bool) or eta <= 0:
+        raise ValueError("eta must be a positive integer")
+    if coloring.color_count % eta:
+        raise ValueError("color_count must be divisible by eta")
+
+    graph_edges = set(coloring.graph.edges())
+    normalized = {canonical(*edge) for edge in uncolored_edges}
+    if normalized != uncolored_edges:
+        raise ValueError("uncolored_edges must contain canonical edges")
+    if not normalized <= graph_edges:
+        raise ValueError("uncolored_edges must be edges of the graph")
+    if normalized & coloring.edges():
+        raise ValueError("uncolored_edges must not contain colored edges")
+
+    endpoints: dict[Vertex, Edge] = {}
+    for edge in sorted(normalized):
+        for vertex in edge:
+            if vertex in endpoints:
+                raise ValueError("uncolored_edges must form a matching")
+            endpoints[vertex] = edge
+
+    width = coloring.color_count // eta
+    blocks = tuple(
+        frozenset(range(index * width, (index + 1) * width)) for index in range(eta)
+    )
+    color_block = {
+        color: index for index, block in enumerate(blocks) for color in block
+    }
+    counts = [[0 for _ in range(eta)] for _ in range(eta)]
+    edge_types: dict[Edge, frozenset[tuple[Color, Color]]] = {}
+    diagonal: set[Edge] = set()
+    for edge in sorted(normalized):
+        left_missing = coloring.missing(edge[0])
+        right_missing = coloring.missing(edge[1])
+        if not left_missing or not right_missing:
+            raise RuntimeError(f"uncolored edge has no missing endpoint color: {edge}")
+        types = frozenset(
+            (left_color, right_color)
+            for left_color in left_missing
+            for right_color in right_missing
+        )
+        edge_types[edge] = types
+        for left_color, right_color in sorted(types):
+            left_block = color_block[left_color]
+            right_block = color_block[right_color]
+            counts[left_block][right_block] += 1
+            if left_block == right_block:
+                diagonal.add(edge)
+
+    return TypeSparsification(
+        blocks=blocks,
+        edge_types=edge_types,
+        diagonal_edges=frozenset(diagonal),
+        block_counts=tuple(tuple(row) for row in counts),
+    )
 
 
 def _block_index(blocks: tuple[frozenset[Color], ...], color: Color) -> int:
