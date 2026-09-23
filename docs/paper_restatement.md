@@ -44,7 +44,7 @@ Maintain a **maximal matching** in an $n$-vertex simple undirected graph $G$ und
 | $H$ | Directed auxiliary graph on $B\cup U$ |
 | $A_1,A_2$ | Split of level-1 $A$ in multi-level system |
 | $N_1,R_1$ | Subsets for level-1 restriction |
-| $z_i$ | Level-$i$ degree parameter ($z_1\le n$ is within a factor of two, $z_i=z_{i-1}/2$, $z_k\approx\sqrt n$) |
+| $z_i$ | Type-2 level-$i$ degree parameter ($z_1$ is the least power of two above the phase-start average degree, $z_i=z_{i-1}/2$, down to $\sqrt n/(4\log n)$) |
 | $k$ | Number of levels, $\Theta(\log n)$ |
 
 ---
@@ -118,7 +118,10 @@ Invariants enforced throughout a subphase:
 
 ### 6.2 Multi-level algorithm
 
-Choose decreasing power-of-two sequence $z_1>z_2>\dots>z_k$ with $z_1\le n$ within a factor of two, $z_i=z_{i-1}/2$, and $z_k\approx\sqrt n$. Then $k=\Theta(\log n)$.
+For a dense type-2 phase, choose $z_1$ as the least power of two at least
+the phase-start average degree, then set $z_i=z_{i-1}/2$ until
+$z_k\ge\sqrt n/(4\log n)$. Sparse type-1 phases use the single value
+$z=\lceil\sqrt n\rceil$ instead.
 
 Level-1 phases of length $r_1$ begin with full $z_1$-system built in $\tilde O(m+n)$ time.
 Rather than using it directly, construct a $z_2$-system from it in $O(n^{1+o(1)}z_1)$ time, faster than rebuilding when graph is dense.
@@ -133,7 +136,10 @@ Given $z_1$-system $\mathcal S$ and deleted-edge set $E_D$ not yet applied to $\
 - For $a\in A_2$, standard requirement $L(a)=N_G(a)\cap U$ holds.
 - **Invariant I3:** At most $2\tau$ vertices of $A_1$ are matched by $M^*$ into $R_1$.
 
-Extending to $k=O(\log n)$ levels with $z_k\approx\sqrt n$ and level-$k$ phases of roughly $n$ updates achieves $n^{1/2+o(1)}$ amortized bound.
+Extending the dense regime to $k=O(\log n)$ levels with
+$z_k=\tilde\Theta(\sqrt n)$ and level-$k$ phases of
+$z_k\eta$ updates is the paper's route to the
+$n^{1/2+o(1)}$ amortized bound.
 
 ---
 
@@ -191,7 +197,7 @@ Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)}
 
 Parameters:
 - Basic: $z=n^{2/3}$, $r=n^{4/3}$, subphase length $r/z=n^{2/3}$.
-- Multi-level: power-of-two $z_1\le n$ within a factor of two, $z_i=z_{i-1}/2$, $z_k\approx\sqrt n$, $k=\Theta(\log n)$.
+- Multi-level: type-1 phases use $z=\lceil\sqrt n\rceil$ for $m\le n^{3/2}$; type-2 phases use the density-sensitive power-of-two sequence $z_i=z_{i-1}/2$ down to $\sqrt n/(4\log n)$.
 
 ---
 

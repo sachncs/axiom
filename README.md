@@ -236,11 +236,14 @@ colouring and update machinery is complete.
 
 ### `multilevel`
 
-A *k*-level recursive construction with:
-
-- *z*<sub>1</sub> = *n*, *z*<sub>*i*</sub> = *z*<sub>*i*-1</sub> / 2
-- *k* = &lceil;log<sub>2</sub> &radic;*n*&rceil; &asymp;; &half; log *n*
-- level *k*'s *z*<sub>*k*</sub> &asymp;; &radic;*n*
+A density-sensitive construction with two phase regimes. When the phase-start
+graph has at most *n*<sup>3/2</sup> edges it uses one level with
+*z* = &lceil;&radic;*n*&rceil;. In the denser regime it chooses *z*<sub>1</sub>
+as the least power of two at least the average degree, then derives
+*z*<sub>*i*</sub> = *z*<sub>*i*-1</sub> / 2 down to the paper's
+*&radic;*n* /(4 log *n*)* threshold. Each level-*i* phase has length
+*z*<sub>*i*</sub>&middot;*eta*, where *eta* is the power of two in
+[*&radic;*n*, 2&radic;*n*).
 
 Paper target: *n*<sup>1/2+o(1)</sup> amortised in the paper's model. This
 implementation exposes the recursive construction and validates its matching

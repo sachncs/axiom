@@ -18,8 +18,10 @@ matcher = Matcher(n=100, mode="basic")
 
 The recursive multi-level algorithm. It derives each finer z-system from the
 previous level and uses the level structure `(A_i, N_i, R_i)` defined by the
-paper. Parameters decrease geometrically from the largest power of two at
-most `n` toward `sqrt(n)`.
+paper. Type-1 phases use one system with `z = ceil(sqrt(n))` when the
+phase-start graph has at most `n^(3/2)` edges. Type-2 phases choose the first
+`z` value from the phase-start average degree and halve it geometrically to
+the paper's `sqrt(n)/(4 log n)` threshold.
 
 ```python
 from axiom import Matcher
