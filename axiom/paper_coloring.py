@@ -993,6 +993,11 @@ def amplify(
         fan_paths: dict[UFan, tuple[tuple[tuple[Vertex, ...], Color, Color], ...]] = {}
         for fan in batch:
             fan_paths[fan] = relevant_paths(coloring, fan, blocks, pair_index)
+            # The selected batch is replaced by its transformed types after
+            # all relevant paths are flipped.  Keeping it indexed during the
+            # flips would let endpoint repair create a second intermediate
+            # fan with the same spokes.
+            fans.discard(fan)
         paths_to_flip = [path for paths in fan_paths.values() for path in paths]
         unique_paths: list[tuple[tuple[Vertex, ...], Color, Color]] = []
         seen_edges: set[Edge] = set()
@@ -1014,9 +1019,6 @@ def amplify(
         # This is the paper's explicit damaged-fan removal step; retaining a
         # stale fan here would corrupt both type counts and path witnesses.
         for fan in tuple(fans):
-            if fan in fan_paths:
-                fans.discard(fan)
-                continue
             if any(
                 fan.color_at(vertex) not in coloring.missing(vertex)
                 for vertex in fan.vertices
