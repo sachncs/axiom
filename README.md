@@ -274,7 +274,7 @@ algo = Matcher(n=100, mode="multilevel")  # Multilevel policy
 
 - **Empirical counters vs asymptotic guarantees.** The `Ledger` reports what actually happened in Python. The paper's bounds rely on a specific model and construction; use the counters and benchmarks to evaluate this implementation independently.
 - **ABB+26 colouring.** `multilevel` now uses the explicit paper fan-shift,
-  alternating-path, and activation pipeline with bounded deterministic search.
+  alternating-path, activation, and deterministic fan-chain pipeline.
   The cited ABB+26 almost-linear type-sparsification construction is still not
   included, so its asymptotic bound and the paper's end-to-end theorem are not
   claimed.
