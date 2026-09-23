@@ -136,6 +136,26 @@ class PartialColoring:
         self.graph = graph
         self.color_count = color_count
         self._colors: dict[Edge, Color] = {}
+        self._incident: dict[Vertex, set[Color]] = {
+            vertex: set() for vertex in range(graph.n)
+        }
+        self._edge_by_color: dict[tuple[Vertex, Color], Edge] = {}
+
+    def _reindex(self) -> None:
+        """Rebuild the per-vertex color index after an atomic bulk edit."""
+        incident: dict[Vertex, set[Color]] = {
+            vertex: set() for vertex in range(self.graph.n)
+        }
+        edge_by_color: dict[tuple[Vertex, Color], Edge] = {}
+        for (left, right), color in self._colors.items():
+            if (left, color) in edge_by_color or (right, color) in edge_by_color:
+                raise AssertionError("partial coloring has duplicate incident colors")
+            incident[left].add(color)
+            incident[right].add(color)
+            edge_by_color[(left, color)] = (left, right)
+            edge_by_color[(right, color)] = (left, right)
+        self._incident = incident
+        self._edge_by_color = edge_by_color
 
     def __contains__(self, edge: object) -> bool:
         return edge in self._colors
@@ -155,15 +175,15 @@ class PartialColoring:
         if set(mapping) != expected or set(mapping.values()) != expected:
             raise ValueError("color relabeling must be a permutation of the palette")
         self._colors = {edge: mapping[color] for edge, color in self._colors.items()}
+        self._reindex()
         self.validate()
 
     def missing(self, vertex: Vertex) -> list[Color]:
-        used = {
+        return [
             color
-            for neighbor in self.graph.neighbors(vertex)
-            if (color := self._colors.get(canonical(vertex, neighbor))) is not None
-        }
-        return [color for color in range(self.color_count) if color not in used]
+            for color in range(self.color_count)
+            if color not in self._incident[vertex]
+        ]
 
     def validate(self) -> None:
         """Validate that every stored edge color is proper and in range."""
@@ -181,6 +201,15 @@ class PartialColoring:
                 raise AssertionError(f"improper coloring at edge {edge}")
             seen[left].add(color)
             seen[right].add(color)
+        if seen != self._incident:
+            raise AssertionError("partial-coloring incident-color index is stale")
+        rebuilt_edges: dict[tuple[Vertex, Color], Edge] = {}
+        for edge, color in self._colors.items():
+            left, right = edge
+            rebuilt_edges[(left, color)] = edge
+            rebuilt_edges[(right, color)] = edge
+        if rebuilt_edges != self._edge_by_color:
+            raise AssertionError("partial-coloring edge-color index is stale")
 
     def assign(self, edge: Edge, color: Color) -> None:
         edge = canonical(*edge)
@@ -195,25 +224,35 @@ class PartialColoring:
         if color not in self.missing(edge[0]) or color not in self.missing(edge[1]):
             raise ValueError(f"color {color} is unavailable on edge {edge}")
         self._colors[edge] = color
+        self._incident[edge[0]].add(color)
+        self._incident[edge[1]].add(color)
+        self._edge_by_color[(edge[0], color)] = edge
+        self._edge_by_color[(edge[1], color)] = edge
 
     def recolor(self, edge: Edge, color: Color) -> None:
         edge = canonical(*edge)
         if edge not in self._colors:
             raise ValueError(f"edge is not colored: {edge}")
-        old = self._colors.pop(edge)
+        old = self.unassign(edge)
         try:
             self.assign(edge, color)
         except Exception:
             self._colors[edge] = old
+            self._reindex()
             raise
 
     def unassign(self, edge: Edge) -> Color:
         """Make one colored edge uncolored and return its former color."""
         edge = canonical(*edge)
         try:
-            return self._colors.pop(edge)
+            old = self._colors.pop(edge)
         except KeyError as error:
             raise ValueError(f"edge is not colored: {edge}") from error
+        self._incident[edge[0]].remove(old)
+        self._incident[edge[1]].remove(old)
+        self._edge_by_color.pop((edge[0], old), None)
+        self._edge_by_color.pop((edge[1], old), None)
+        return old
 
     def alternating_path(
         self, start: Vertex, first_color: Color, second_color: Color
@@ -228,15 +267,12 @@ class PartialColoring:
         current = start
         wanted = second_color
         while True:
-            next_vertex = next(
-                (
-                    neighbor
-                    for neighbor in sorted(self.graph.neighbors(current))
-                    if neighbor not in visited
-                    and self._colors.get(canonical(current, neighbor)) == wanted
-                ),
-                None,
-            )
+            edge = self._edge_by_color.get((current, wanted))
+            next_vertex = None
+            if edge is not None:
+                candidate = edge[1] if edge[0] == current else edge[0]
+                if candidate not in visited:
+                    next_vertex = candidate
             if next_vertex is None:
                 return path
             path.append(next_vertex)
@@ -260,6 +296,7 @@ class PartialColoring:
             self._colors[edge] = (
                 first_color if self._colors[edge] == second_color else second_color
             )
+        self._reindex()
 
 
 class SeparableFans:
@@ -533,6 +570,7 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
         return extended
     except BaseException:
         coloring._colors = colors_before
+        coloring._reindex()
         for fan in tuple(fans):
             fans.discard(fan)
         for fan in fans_before:
@@ -890,6 +928,7 @@ def _invert_color_component(
                 stack.append(neighbor)
     for edge in sorted(component):
         coloring._colors[edge] = second if coloring._colors[edge] == first else first
+    coloring._reindex()
 
 
 def _maximal_fan(
@@ -948,7 +987,8 @@ def _rotate_fan(
     for index, color in enumerate(old_colors):
         coloring._colors[canonical(center, fan[index])] = color
     if width > 0:
-        coloring.unassign(canonical(center, fan[width]))
+        coloring._colors.pop(canonical(center, fan[width]))
+    coloring._reindex()
 
 
 def _extend_edge_by_fan_chain(
@@ -981,6 +1021,7 @@ def _extend_edge_by_fan_chain(
             raise RuntimeError("fan chain produced a color outside its palette")
     except BaseException:
         coloring._colors = before
+        coloring._reindex()
         coloring.validate()
         raise
 
@@ -1148,6 +1189,7 @@ def modify_types(
         _modify_types_unchecked(coloring, fans, batch, blocks, pair_index)
     except BaseException:
         coloring._colors = colors_before
+        coloring._reindex()
         for fan in tuple(fans):
             fans.discard(fan)
         for fan in fans_before:
@@ -1240,6 +1282,7 @@ def sparsify_types(
         return _sparsify_types_unchecked(coloring, fans, eta)
     except BaseException:
         coloring._colors = colors_before
+        coloring._reindex()
         for fan in tuple(fans):
             fans.discard(fan)
         for fan in fans_before:
@@ -1389,6 +1432,7 @@ def _project_subproblem(
             if color not in to_local:
                 raise RuntimeError("subproblem projection crossed a color group")
             child._colors[edge] = to_local[color]
+    child._reindex()
     child.validate()
     child_fans = SeparableFans()
     for fan in selected_fans:
@@ -1419,6 +1463,7 @@ def _merge_subproblem(
         if not 0 <= local < len(local_colors):
             raise RuntimeError("subproblem returned an invalid local color")
         parent._colors[edge] = local_colors[local]
+    parent._reindex()
     parent.validate()
 
 
