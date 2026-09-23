@@ -1028,6 +1028,7 @@ def modify_types(
     """
     coloring.validate()
     fans.assert_valid()
+    colored_edges = coloring.edges()
     if not batch:
         raise ValueError("Modify-Types requires a non-empty fan batch")
     if any(fan not in set(fans) for fan in batch):
@@ -1079,6 +1080,8 @@ def modify_types(
         )
     coloring.validate()
     fans.assert_valid()
+    if coloring.edges() != colored_edges:
+        raise RuntimeError("Modify-Types changed the set of colored edges")
 
 
 def sparsify_types(
@@ -1098,6 +1101,7 @@ def sparsify_types(
         raise ValueError("color_count must be at least 10*eta")
     coloring.validate()
     fans.assert_valid()
+    colored_edges = coloring.edges()
     initial = len(fans)
     if initial == 0:
         raise ValueError("sparsify_types requires at least one u-fan")
@@ -1117,7 +1121,9 @@ def sparsify_types(
         except ValueError:
             fans.discard(fan)
 
-    target = initial // 100
+    # The paper's constant-fraction bound is integral in the implementation:
+    # every non-empty input must retain at least one social fan.
+    target = max(1, (initial + 99) // 100)
     social = {fan for fan in fans if fan_is_social(fan, blocks)}
     iterations = 0
     max_iterations = max(1, 100 * eta * eta)
@@ -1177,6 +1183,8 @@ def sparsify_types(
     result = SeparableFans()
     for fan in social:
         result.add(fan)
+    if coloring.edges() != colored_edges:
+        raise RuntimeError("Sparsify-Types changed the set of colored edges")
     return pairs, result
 
 
