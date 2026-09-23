@@ -44,7 +44,7 @@ def main() -> int:
         font_sub = ImageFont.load_default()
 
     title = "axiom"
-    sub = "Fully Dynamic Maximal Matching  |  pure-Python reproduction"
+    sub = "Fully Dynamic Maximal Matching  |  pure-Python implementation"
 
     tb = draw.textbbox((0, 0), title, font=font_title)
     sb = draw.textbbox((0, 0), sub, font=font_sub)

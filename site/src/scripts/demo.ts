@@ -10,9 +10,9 @@ interface DemoMode {
   label: string;
 }
 
-const MODES: Record<"basic" | "tiered", DemoMode> = {
+const MODES: Record<"basic" | "multilevel", DemoMode> = {
   basic: { n: 26, tick: 540, density: 0.09, label: "Basic" },
-  tiered: { n: 46, tick: 330, density: 0.13, label: "Tiered" },
+  multilevel: { n: 46, tick: 330, density: 0.13, label: "Multilevel" },
 };
 
 function mulberry32(seed: number) {
@@ -89,7 +89,7 @@ export function initDemo(host: HTMLElement): void {
     return `rgba(${r},${g},${b},${alpha})`;
   };
 
-  let mode = "tiered" as keyof typeof MODES;
+  let mode = "multilevel" as keyof typeof MODES;
   let world = buildWorld(MODES[mode].n);
   let running = true;
   let tickAt = 0;

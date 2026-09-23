@@ -52,7 +52,7 @@ def bench(n: int, mode: str, updates: int, seed: int) -> dict[str, float]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Axiom throughput benchmark")
     parser.add_argument("--n", type=int, default=100)
-    parser.add_argument("--mode", choices=["basic", "tiered"], default="basic")
+    parser.add_argument("--mode", choices=["basic", "multilevel"], default="basic")
     parser.add_argument("--updates", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)

@@ -15,7 +15,7 @@ import { SITE } from "../lib/data";
     <p class="hero__sub">
       Axiom is a pure-Python implementation of the Chuzhoy–Khanna–Song algorithm —
       maintaining a maximal matching under online edge insertions and deletions in
-      <span class="mono hero__mono">Õ(n<sup>½+o(1)</sup>)</span> amortised time.
+      <span class="mono hero__mono">maximal</span> after every update.
     </p>
 
     <div class="hero__cta">
@@ -44,7 +44,7 @@ import { SITE } from "../lib/data";
       </div>
       <div class="demo__modes" data-demo-modes role="group" aria-label="Simulation mode">
         <button type="button" data-mode="basic" aria-pressed="false">Basic</button>
-        <button type="button" data-mode="tiered" class="is-on" aria-pressed="true">Tiered</button>
+        <button type="button" data-mode="multilevel" class="is-on" aria-pressed="true">Multilevel</button>
       </div>
       <div class="demo__controls" role="group" aria-label="Demo controls">
         <button type="button" data-demo-play aria-pressed="true">

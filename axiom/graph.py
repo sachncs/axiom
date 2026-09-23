@@ -2,7 +2,7 @@ r"""Adjacency-set graph layer.
 
 **Fidelity note:** The paper states that adjacency lists are stored as binary
 search trees to support :math:`O(\log n)` insertion, deletion, and lookup.
-In this Python reproduction we use the built-in ``set`` type, which provides
+This Python implementation uses the built-in ``set`` type, which provides
 amortised :math:`O(1)` operations.  The asymptotic guarantees of the
 algorithm are preserved; only the hidden constant factors differ.
 

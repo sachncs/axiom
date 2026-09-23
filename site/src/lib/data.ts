@@ -2,7 +2,7 @@ export const SITE = {
   title: "Axiom",
   tagline: "Fully dynamic maximal matching — made deterministic",
   description:
-    "Axiom is a pure-Python reproduction of the Chuzhoy–Khanna–Song algorithm (STOC 2026), maintaining a maximal matching under online edge insertions and deletions in O-tilde(n^1/2+o(1)) amortised time.",
+    "Axiom is a pure-Python implementation of deterministic fully dynamic maximal matching with basic and recursive multilevel modes.",
   repo: "https://github.com/sachncs/axiom",
   paper: "https://arxiv.org/abs/2605.00797v1",
   readme: "https://github.com/sachncs/axiom/blob/master/README.md",
@@ -22,9 +22,9 @@ export const NAV = [
 
 export const METRICS = [
   {
-    value: "Õ(n^1/2+o(1))",
-    label: "amortised update time",
-    note: "tiered mode · Theorem 1.1",
+    value: "2",
+    label: "canonical modes",
+    note: "basic · multilevel",
   },
   {
     value: "Θ(log n)",
@@ -32,9 +32,9 @@ export const METRICS = [
     note: "k-level recursive partition",
   },
   {
-    value: "7",
+    value: "core",
     label: "invariants verified",
-    note: "checked after every update",
+    note: "z-system + multilevel checks",
   },
   {
     value: "0",
@@ -57,7 +57,7 @@ export const PROBLEM = [
   {
     step: "03",
     title: "The cost",
-    body: "The z-subgraph system localises damage so each update costs only Õ(n^1/2+o(1)) amortised work — the fastest known deterministic bound for this problem.",
+    body: "The z-subgraph system localises update damage while preserving maximality after every accepted operation.",
   },
 ] as const;
 
@@ -65,17 +65,17 @@ export const FEATURES = [
   {
     icon: "layers",
     title: "Two operating modes",
-    body: "basic runs the single-level Õ(n^2/3) algorithm; tiered runs the n^1/2+o(1) k-level recursion with k ≈ ½ log n. Swap policies without touching your code.",
+    body: "basic runs the single-level algorithm; multilevel recursively refines z-systems through k ≈ ½ log n levels.",
   },
   {
     icon: "graph",
     title: "z-subgraph system",
-    body: "The full (A, B, U) partition, S = A ∪ B saturation, Λ(u) and L(a) index lists, and all seven invariants from Section 2 of the paper — implemented, not stubbed.",
+    body: "The implemented (A, B, U) partition, S = A ∪ B saturation, Λ(u) and L(a) index lists, with explicit state validators.",
   },
   {
     icon: "palette",
     title: "Deterministic colouring",
-    body: "Vizing's alternating-path recolouring delivers (Δ+1)-colours, and a degree-ordered greedy fast-path partitions M into colour classes for rematch dispatch.",
+    body: "Deterministic fan-based Vizing recolouring delivers (Δ+1)-colours for rematch dispatch; the paper's faster ABB+26 colouring is not claimed.",
   },
   {
     icon: "invariant",
@@ -84,13 +84,13 @@ export const FEATURES = [
   },
   {
     icon: "path",
-    title: "Augmenting-path API",
-    body: "augment(), try_augment(), and flip() are first-class public methods — no name-mangled privates. Drive the matching machinery directly from your own code.",
+    title: "Augmenting-path maintenance",
+    body: "Deterministic alternating-path augmentation is applied internally at subphase boundaries; the low-level primitives remain available in axiom.augment.",
   },
   {
     icon: "ledger",
     title: "Empirical ledger",
-    body: "Explicit counters track rebuilds, rematch scan sizes, stale cleanups, and greedy fallbacks — a precise account of where every update spends its time.",
+    body: "Explicit counters track phase and subphase rebuilds, rematch scan sizes, and stale cleanups — an account of where every update spends its time.",
   },
 ] as const;
 
@@ -98,8 +98,8 @@ export const MODES = [
   {
     name: "Basic",
     tag: "single-level · deterministic",
-    complexity: "Õ(n^2/3)",
-    period: "amortised per update",
+    complexity: "single-level",
+    period: "deterministic maximality",
     points: [
       "z = ⌈n^2/3⌉ saturation threshold",
       "phase length r = ⌈n^4/3⌉",
@@ -107,27 +107,27 @@ export const MODES = [
       "ideal for mid-size graphs & teaching",
     ],
     accent: "cobalt",
-    cta: "policy=Basic()",
+    cta: 'mode="basic"',
   },
   {
-    name: "Tiered",
+    name: "Multilevel",
     tag: "multi-level · k = Θ(log n)",
-    complexity: "n^1/2+o(1)",
-    period: "amortised per update",
+    complexity: "recursive",
+    period: "deterministic maximality",
     points: [
-      "z₁ = n, zᵢ = zᵢ₋₁ / 2 recursive levels",
+      "z₁ ≈ n (power of two), zᵢ = zᵢ₋₁ / 2 recursive levels",
       "k = ⌈log₂ √n⌉ hierarchy depth",
       "level-k threshold z_k ≈ √n",
       "Invariant (I3) enforced after every update",
     ],
     accent: "violet",
-    cta: "policy=Tiered()",
+    cta: 'mode="multilevel"',
   },
 ] as const;
 
 export const API_SNIPPET = `from axiom import Matcher
 
-algo = Matcher(n=100, mode="tiered")
+algo = Matcher(n=100, mode="multilevel")
 
 algo.insert(0, 1)      # edge arrives
 algo.insert(2, 3)
@@ -150,11 +150,11 @@ export const REBUILD_SNIPPET = `# Strobes of work land on a dark chart —
 # matching size stays maximal through every
 # update, while the ledger explains the cost.
 
-n=200 · updates=5000 · mode=tiered   ───■── 6.2k upd/s
+n=200 · updates=5000 · mode=multilevel   ───■── 6.2k upd/s
 rebuilds          827
 rematch scans     12,913
 stale cleanups    —·
-greedy fallbacks  31`;
+stale cleanups    31`;
 
 export const INSTALL = {
   pip: "pip install git+https://github.com/sachncs/axiom.git",

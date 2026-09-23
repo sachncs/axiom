@@ -37,9 +37,8 @@ Assumptions:
       :math:`L` thereafter (or to invoke :meth:`build_lambda_and_L`).
 
 Limitations:
-    * The exact edge-switching rule of the paper's Step 2 construction
-      is replaced with a BFS-based augmenting-path heuristic.  See the
-      notes on :func:`switch`.
+    * :func:`switch` remains available as a standalone alternating-path
+      utility, but the canonical builder uses the paper's witness swaps.
 """
 
 from __future__ import annotations
@@ -303,8 +302,7 @@ class System:
     def maximal(self, matching: Matching) -> bool:
         """Return ``True`` iff ``matching`` is maximal in the current ``graph``.
 
-        Convenience wrapper around the global helper; lives here so tests
-        can assert maximality directly from a system instance.
+        Validate a candidate matching directly against this system's graph.
 
         Args:
             matching: The candidate matching.
@@ -375,6 +373,8 @@ def switch(
     saturated_b = [b for b in b_neighbors if deg_M[b] >= z]
 
     for b_start in saturated_b:
+        saved_M = set(M)
+        saved_deg = dict(deg_M)
         # ``parent`` maps (vertex, parity) to its predecessor.  We seed
         # the search at ``b_start`` with parity 0 -- the hypothetical
         # edge ``(u, b_start)`` is not yet in M, so we arrived there via
@@ -394,7 +394,7 @@ def switch(
                 # must follow an M edge from ``curr`` to a B vertex.
                 for w in graph.neighbors(curr):
                     e = canonical(curr, w)
-                    if e in M and graph.has_edge(curr, w):
+                    if w != u and e in M and graph.has_edge(curr, w):
                         if (w, 1) not in parent:
                             parent[(w, 1)] = (curr, 0)
                             # Short-circuit: if ``w`` is unsaturated in
@@ -446,20 +446,41 @@ def switch(
         deg_M[u] += 1
         deg_M[b_start] += 1
 
-        # Step 2: flip alternating edges along the path.  Edges tagged
-        # parity-0 were not in M and must enter M; edges tagged parity-1
-        # were in M and must leave M.
+        # Step 2: flip alternating edges along the path.  At a parity-0
+        # state the next edge is an existing M-edge and must leave M; at a
+        # parity-1 state the next edge is a non-M edge and must enter M.
         for i in range(len(vertices) - 1):
             e = canonical(vertices[i], vertices[i + 1])
             _, p = path[i]
             if p == 0:
-                M.add(e)
-                deg_M[vertices[i]] += 1
-                deg_M[vertices[i + 1]] += 1
-            else:
                 M.discard(e)
                 deg_M[vertices[i]] -= 1
                 deg_M[vertices[i + 1]] -= 1
+            else:
+                M.add(e)
+                deg_M[vertices[i]] += 1
+                deg_M[vertices[i + 1]] += 1
+
+        # Recompute the counters from the committed edge set.  The path
+        # representation can contain a repeated endpoint when the host graph
+        # has multiple alternating routes; deriving the counters from M
+        # keeps the invariant authoritative and prevents stale increments.
+        for vertex in deg_M:
+            deg_M[vertex] = 0
+        for left, right in M:
+            deg_M[left] += 1
+            deg_M[right] += 1
+
+        if any(degree > z for degree in deg_M.values()) or any(
+            deg_M[vertex] != z
+            for vertex, degree in saved_deg.items()
+            if degree == z and vertex != u
+        ):
+            M.clear()
+            M.update(saved_M)
+            deg_M.clear()
+            deg_M.update(saved_deg)
+            continue
 
         return True
 
@@ -477,11 +498,9 @@ def promote(
     r"""Try to promote a U-vertex ``u`` to :math:`B` by giving it
     :math:`z` matching edges to B-neighbours.
 
-    The procedure runs in two phases.  First, it greedily adds edges
-    from ``u`` to unsaturated B-neighbours until either ``z`` such edges
-    exist or no unsaturated neighbour remains.  Second, it invokes
-    :func:`switch` to recover capacity from saturated
-    B-vertices until the count reaches ``z``.
+    The procedure follows the paper's ``ProcProcessU`` construction.  It
+    selects B-neighbours and, for each saturated neighbour, swaps out its
+    existing B-U witness edge before inserting the new edge.
 
     After promotion, ``u`` is moved from ``U`` to ``B``; any B-vertex
     that ends up with no remaining :math:`M`-edge to a U-vertex is
@@ -499,54 +518,68 @@ def promote(
         ``True`` iff ``u`` ended up with :math:`\deg_M(u) = z` and was
         moved to ``B``.
     """
-    b_neighbors = [w for w in graph.neighbors(u) if w in system.B]
-    if len(b_neighbors) < z:
+    b_neighbors = [
+        w for w in graph.neighbors(u) if w in system.B and canonical(u, w) not in M
+    ]
+    needed = z - deg_M[u]
+    if needed <= 0:
+        system.U.discard(u)
+        system.B.add(u)
+        return True
+    if len(b_neighbors) < needed:
         # Cannot reach the cap even with every neighbour -- leave u in U.
         return False
 
-    # Phase 1: take edges to unsaturated B-neighbours.  The check
-    # ``e not in M`` guards against adding the same edge twice during
-    # repeated calls of this routine.
-    added = 0
-    for w in b_neighbors:
-        if added >= z:
-            break
-        if deg_M[w] < z:
-            e = canonical(u, w)
-            if e not in M:
-                M.add(e)
-                deg_M[u] += 1
-                deg_M[w] += 1
-                added += 1
+    candidates: list[tuple[Vertex, Edge | None]] = []
+    for b in b_neighbors:
+        if deg_M[b] < z:
+            candidates.append((b, None))
+            continue
+        witnesses = sorted(
+            edge
+            for edge in M
+            if b in edge and (edge[0] in system.U or edge[1] in system.U)
+        )
+        if not witnesses:
+            raise RuntimeError(
+                f"B invariant violated: saturated vertex {b} has no U witness"
+            )
+        candidates.append((b, witnesses[0]))
 
-    # Phase 2: for any remaining slots, run augmenting-path switches
-    # that reclaim capacity by re-routing saturated B-edges.
-    if added < z:
-        needed = z - added
-        for _ in range(needed):
-            if switch(graph, M, deg_M, z, u, b_neighbors):
-                added += 1
-            else:
-                # Out of recoverable capacity -- leave u in U.
-                break
+    if len(candidates) < needed:
+        return False
+
+    for b, witness in candidates[:needed]:
+        if witness is not None:
+            M.remove(witness)
+            for endpoint in witness:
+                deg_M[endpoint] -= 1
+        edge = canonical(u, b)
+        M.add(edge)
+        deg_M[u] += 1
+        deg_M[b] += 1
 
     if deg_M[u] == z:
         system.U.discard(u)
-        system.B.add(u)
-        # Promote any B-vertex that lost all of its M-edges to U.
-        # Such vertices no longer match any U partner, which violates
-        # the spirit of the partition (B is meant to provide edges
-        # into U).
-        for w in graph.neighbors(u):
-            if w in system.B:
-                has_M_to_U = False
-                for x in graph.neighbors(w):
-                    if canonical(w, x) in M and x in system.U:
-                        has_M_to_U = True
-                        break
-                if not has_M_to_U:
-                    system.B.discard(w)
-                    system.A.add(w)
+        if any(
+            endpoint in system.U
+            for edge in M
+            if u in edge
+            for endpoint in edge
+            if endpoint != u
+        ):
+            system.B.add(u)
+            system.A.discard(u)
+        else:
+            system.A.add(u)
+            system.B.discard(u)
+
+        for b in list(system.B):
+            if not any(
+                b in edge and (edge[0] in system.U or edge[1] in system.U) for edge in M
+            ):
+                system.B.discard(b)
+                system.A.add(b)
         return True
     return False
 
@@ -573,13 +606,8 @@ def build(graph: Graph, z: int) -> System:
     * :math:`v \in U` iff :math:`\deg_M(v) < z`.
 
     Step 2 -- promote U-vertices to B until no further promotion is
-    possible.  Promotion is handled by :func:`promote` which
-    tries direct edges first and falls back to edge-switching inside B.
-
-    **Fidelity note:** Step 2 uses an alternating-path edge-switching
-    heuristic that approximates the paper's exact switching rule.  The
-    paper states that edge-switching inside B preserves degree bounds;
-    our implementation achieves this via BFS-based augmenting paths.
+    possible.  Promotion is handled by :func:`promote` using the paper's
+    direct B/U witness-swap construction.
 
     Args:
         graph: The host graph.

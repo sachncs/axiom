@@ -16,12 +16,11 @@ function initCopyCore(): void {
       try {
         await navigator.clipboard.writeText(text);
       } catch {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        ta.remove();
+        btn.querySelector("span")!.textContent = "Copy unavailable";
+        window.setTimeout(() => {
+          btn.querySelector("span")!.textContent = "Copy";
+        }, 1600);
+        return;
       }
       btn.classList.add("ok");
       btn.querySelector("span")!.textContent = "Copied";

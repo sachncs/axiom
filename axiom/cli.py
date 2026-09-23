@@ -45,9 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n", type=int, default=20, help="Number of vertices")
     parser.add_argument(
         "--mode",
-        choices=["basic", "tiered", "multilevel"],
+        choices=["basic", "multilevel"],
         default="basic",
-        help="Algorithm mode (basic = single-level, tiered = multi-level)",
+        help="Algorithm mode (basic = single-level, multilevel = multi-level)",
     )
     parser.add_argument(
         "--updates", type=int, default=200, help="Number of update operations"
@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             algo.delete(u, v)
         if not algo.maximal():
             # Maximality is the basic correctness invariant of the
-            # algorithm; if it ever fails the reproduction has a bug.
+            # algorithm; if it ever fails the implementation has a bug.
             print(f"ERROR: Matching not maximal after {op} ({u},{v})")
             return 1
     elapsed = time.perf_counter() - start

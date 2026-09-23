@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The breaking `basic`/`multilevel` API and recursive hierarchy work are under
+validation. The 1.0.0 release remains gated on the complete paper-faithful
+multilevel update pipeline and coloring implementation.
+
+## [0.6.0.dev0] - 2026-09-23
+
+### Breaking changes
+
+- `multilevel` is the canonical recursive hierarchy mode.
+- Removed the historical recursive-mode spelling, `from_mode`, and all
+  compatibility aliases.
+- Multilevel rebuilds now recursively refine each level from its predecessor.
+
+### Added
+
+- Recursive hierarchy validation through `Hierarchy.check()`.
+- Small-graph termination and recursive-construction regression tests.
+- Wheel validation, dependency auditing, and release automation in CI.
+
 ### Added
 
 - `docs/assets/social-preview.png` (1280x640) for the GitHub social
@@ -118,14 +137,15 @@ tests, examples, and CI is updated to match.
   - `run_benchmark_worker` &rarr; `worker`
   - `run_parallel_benchmarks` &rarr; `run_parallel`
   - `compare_modes` &rarr; `compare`
-- The mode string `"multilevel"` is deprecated in favour of `"tiered"`. The deprecated value still works but logs a deprecation note.
+- The canonical recursive mode is `"multilevel"`; the breaking release does
+  not retain the historical mode spelling.
 - The free function `check_multi_level_i3` is renamed to `check_i3` to match the `Hierarchy.check_i3` method.
 
 ### Added
 
-- **Strategy pattern for phase rebuilds.** `axiom.rebuild` exposes a `Rebuild` Protocol with two implementations: `Basic` (single-level) and `Tiered` (multi-level). The `Matcher` holds one and delegates configuration and rebuilding.
+- **Strategy pattern for phase rebuilds.** `axiom.rebuild` exposes a `Rebuild` Protocol with two implementations: `Basic` (single-level) and `Multilevel` (multi-level). The `Matcher` holds one and delegates configuration and rebuilding.
 - **Augmenting-path API is public.** `Matcher.augment()`, `Matcher.try_augment()`, `Matcher.flip()` are first-class methods (no longer name-mangled private).
-- **Invariant (I3) is implemented.** `Hierarchy.check_i3(matching, r, z)` returns whether at most `2 * tau = 64 r / z` edges of `matching` cross between `A1` and `R1`. `Hierarchy.maintain_i3` repairs violations. `Matcher.maintain_i3()` is called after every update in `tiered` mode.
+- **Invariant (I3) is implemented.** `Hierarchy.check_i3(matching, r, z)` returns whether at most `2 * tau = 64 r / z` edges of `matching` cross between `A1` and `R1`. `Hierarchy.maintain_i3` repairs violations. `Matcher.maintain_i3()` is called after every update in recursive mode.
 - **Partner dict for O(1) lookup.** `Matcher.partners: dict[Vertex, Vertex]` is maintained in lockstep with the matching via the public helpers `add_match` / `drop_match`.
 - **`axiom.augment`** &mdash; free-function BFS over alternating paths and alternating-path flip.
 - **`axiom.repair`** &mdash; local insertion/deletion handling and rematch dispatch (extracted from `Matcher`).

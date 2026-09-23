@@ -67,6 +67,8 @@ def random_updates(
         :math:`O(steps)` total time; each step is :math:`O(1)` average
         thanks to the hash set used for membership checks.
     """
+    if n < 2 and steps > 0:
+        raise ValueError("random_updates requires n >= 2 when steps are requested")
     edges: set[tuple[int, int]] = set(existing) if existing else set()
     yielded = 0
     while yielded < steps:

@@ -1,12 +1,12 @@
 # Axiom Documentation
 
-Axiom is a pure-Python reproduction of *A Faster Deterministic Algorithm for Fully Dynamic Maximal Matching* by Chuzhoy, Khanna, and Song (STOC 2026, [arXiv:2605.00797v1](https://arxiv.org/abs/2605.00797v1)).
+Axiom is a pure-Python implementation of deterministic fully dynamic maximal matching based on the Chuzhoy–Khanna–Song paper.
 
 ## Contents
 
 - **[Getting started](getting-started.md)** &mdash; install Axiom and run your first maximal matching.
 - **[Architecture](architecture.md)** &mdash; module boundaries, data flow, and state ownership.
-- **[Modes](modes.md)** &mdash; the `basic` (single-level) and `tiered` (multi-level) operating modes.
+- **[Modes](modes.md)** &mdash; the `basic` (single-level) and `multilevel` (recursive multi-level) operating modes.
 - **[API](api.md)** &mdash; the public surface, organised by category.
 - **[FAQ](faq.md)** &mdash; common questions about installation, modes, and limitations.
 - **[Paper restatement](paper_restatement.md)** &mdash; the paper's notation, invariants, and known-deferred mechanics.
@@ -23,10 +23,9 @@ purpose:
 - `axiom.color` &mdash; `Colorer` Protocol, `Greedy`, `Vizing`, and alternating-path helpers.
 - `axiom.matching` &mdash; `greedy`, `partner`, `partners`, `canonical`.
 - `axiom.core` &mdash; `Matcher`: insertion/deletion local handling and rematch dispatch (private `__handle_insertion`, `__handle_deletion`, `__rematch_*`).
-- `axiom.rebuild` &mdash; `Rebuild` Protocol, `Basic`, `Tiered`.
+- `axiom.rebuild` &mdash; internal `Basic` and `Multilevel` rebuild strategies.
 - `axiom.augment` &mdash; alternating-path search over a matching.
 - `axiom.ledger` &mdash; `Ledger`: explicit counters for amortised-cost diagnostics.
-- `axiom.invariant` &mdash; invariant checkers.
 - `axiom.simulation` &mdash; `random_updates`, `replay`, `Update`.
 - `axiom.parallel` &mdash; `Benchmark`, `worker`, `run_parallel`, `compare`.
 - `axiom.visualize` &mdash; `visualize_system`, `visualize_matching`, `visualize_adjacency`.

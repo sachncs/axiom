@@ -1,21 +1,19 @@
 r"""Deterministic edge-coloring routines.
 
 **Fidelity note:** The paper invokes Theorem 2.4 (ABB+26) for deterministic
-:math:`(\Delta+1)`-edge-coloring in :math:`O(m^{1+o(1)})` time.  The full
-ABB+26 algorithm is not provided in the paper excerpt.  This module provides
-two implementations:
+:math:`(\Delta+1)`-edge-coloring in :math:`O(m^{1+o(1)})` time.  The
+authoritative source contains the complete type-sparsification, u-fan, and
+color-extension procedures.  This module currently provides two
+correctness-preserving classical implementations instead:
 
-1. ``Greedy`` -- a fast greedy colouring with conflict resolution
-   that runs in :math:`O(m \cdot \Delta)` worst case but is significantly
-   faster in practice than the classical Vizing alternating-path approach.
-   Uses degree-ordered processing and colour-class maintenance for efficiency.
+1. ``Greedy`` -- a degree-ordered colouring pass with an explicit local
+   recoloring operation when a colour is unavailable.
 
-2. ``Vizing`` -- the original Vizing alternating-path recolouring
-   with backtracking fallback.  Correct and uses at most :math:`\Delta+1`
-   colours but slower.
+2. ``Vizing`` -- the deterministic fan-based Vizing/Misra--Gries
+   construction, using at most :math:`\Delta+1` colours.
 
-Both algorithms produce valid (Δ+1)-edge-colourings.  The ABB approximation
-is preferred for performance while maintaining correctness.
+Both algorithms produce valid (Δ+1)-edge-colourings.  Neither implementation
+claims the ABB+26 near-linear running time.
 
 Mathematical background:
     Vizing's theorem (Vizing 1964) states that every simple graph admits a
@@ -26,14 +24,13 @@ Mathematical background:
     is used at one endpoint of ``e``; flipping a two-colour alternating
     path frees one colour at the other endpoint.  The paper cites a more
     recent deterministic construction (Theorem 2.4, ABB+26) running in
-    :math:`O(m^{1+o(1)})` time; we approximate that result with a degree-
-    ordered greedy scheme.
+    :math:`O(m^{1+o(1)})` time; this module does not claim that asymptotic
+    bound for either local implementation.
 
 Limitations:
     * The :math:`O(m^{1+o(1)})` bound of Theorem 2.4 is **not** met here.
-      ``Greedy`` is :math:`O(m \cdot \Delta)` worst case and
-      ``Vizing`` is :math:`O(m \cdot \Delta)` plus an
-      exponential backtracking fallback for stubborn instances.
+      ``Greedy`` and the classical fan algorithm are polynomial but have
+      larger worst-case bounds than ABB+26.
 """
 
 from __future__ import annotations
@@ -44,22 +41,16 @@ from axiom.types import Color, Coloring, Edge, Graph, Vertex, canonical
 class VizingColoringError(RuntimeError):
     """Raised when the constructive Vizing recoloring argument hits a corner case.
 
-    This is a narrow subclass so that callers can distinguish expected
-    colouring failures from unexpected programming errors.  The expected
-    failure mode is when the standard recolouring argument exhausts both
-    fallback paths because the partial colouring is degenerate (e.g. a
-    vertex has fewer than two free colours even though it has at most
-    ``max_colors - 1`` already-coloured incident edges).
+    This is a narrow subclass so callers can distinguish a failed explicit
+    constructive recolouring operation from unexpected programming errors.
     """
 
 
 class Greedy:
     """Fast greedy edge-coloring using degree-ordered processing.
 
-    This approximates the ABB+26 approach by processing edges in a
-    structured order and maintaining colour classes for efficient conflict
-    resolution.  While not the exact ABB+26 algorithm (which is not provided
-    in the paper excerpt), this achieves good practical performance.
+    This is a deterministic degree-ordered colouring pass. It is an
+    engineering utility and does not claim the ABB+26 asymptotic bound.
 
     Algorithm (pseudocode):
         1. Build ``vertex_colors[v] = {c : (v, ?) has color c}``.
@@ -67,10 +58,9 @@ class Greedy:
            high-degree endpoints get their colours first.
         3. For each edge ``(u, v)`` find the smallest ``c`` not used at
            either endpoint; assign it.
-        4. If no such ``c`` exists, call
-           :func:`recolor` to attempt a short alternating-path
-           recolour; on failure escalate to the full Vizing argument and
-           finally to backtracking for the whole graph.
+        4. If no such ``c`` exists, run the explicit local Vizing recoloring
+           operation.  Failure is reported; the implementation never swaps
+           in a different coloring algorithm implicitly.
     """
 
     def color(self, graph: Graph, delta: int) -> Coloring:
@@ -123,40 +113,17 @@ class Greedy:
                     color_one(graph, u, v, coloring, max_colors)
                     vertex_colors[u].add(coloring[e])
                     vertex_colors[v].add(coloring[e])
-                except VizingColoringError:
-                    coloring.clear()
-                    for vc in vertex_colors:
-                        vc.clear()
-                    if not backtrack(
-                        graph, sorted(graph.edges()), 0, coloring, max_colors
-                    ):
-                        max_deg = (
-                            max(graph.degree(v_) for v_ in range(graph.n))
-                            if graph.n
-                            else 0
-                        )
-                        raise RuntimeError(
-                            f"Unable to color graph with {max_colors} colours "
-                            f"(delta={delta}, max_degree={max_deg})."
-                        )
-                    for vc in vertex_colors:
-                        vc.clear()
-                    for (a, b), c in coloring.items():
-                        vertex_colors[a].add(c)
-                        vertex_colors[b].add(c)
-                    return coloring
+                except VizingColoringError as error:
+                    raise VizingColoringError(
+                        "greedy edge coloring could not complete its explicit "
+                        f"recoloring for edge {e}: {error}"
+                    ) from error
 
         return coloring
 
 
 class Vizing:
-    """Vizing alternating-path edge-coloring with backtracking fallback.
-
-    The primary algorithm processes edges one by one using the standard
-    constructive proof of Vizing's theorem (alternating-path flips).  For
-    small or dense graphs where the greedy flip argument may hit corner cases,
-    a backtracking fallback guarantees correctness.
-    """
+    """Deterministic fan-based ``(Delta + 1)`` edge coloring."""
 
     def color(self, graph: Graph, delta: int) -> Coloring:
         r"""Return a proper edge coloring of the graph.
@@ -169,33 +136,138 @@ class Vizing:
         Returns:
             A dictionary mapping each canonical edge to its colour.
 
-        Raises:
-            RuntimeError: If both the Vizing and backtracking strategies fail.
-                          This should not happen for a simple graph when
-                          ``delta >= max_degree``.
-
         Complexity:
-            Worst-case :math:`O(m \cdot \Delta)` for the alternating-path
-            phase, plus the exponential backtracking search if needed.
+            Polynomial in the graph size using the classical fan procedure.
         """
-        max_colors = delta + 1
-        coloring: Coloring = {}
+        if delta < 0:
+            raise ValueError("delta must be non-negative")
+        maximum = max((graph.degree(v) for v in range(graph.n)), default=0)
+        if maximum > delta:
+            raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
+        # Exact special cases: a degree-zero graph has no edges, while a
+        # degree-one graph is a matching and every edge may use color 0.
+        # These cases occur frequently at the finest recursive levels.
+        if maximum <= 1:
+            return {edge: 0 for edge in graph.edges()}
+        return _misra_gries(graph, delta + 1)
 
-        edges = sorted(graph.edges())
 
-        try:
-            for u, v in edges:
-                color_one(graph, u, v, coloring, max_colors)
-            return coloring
-        except VizingColoringError:
-            coloring.clear()
-            if not backtrack(graph, edges, 0, coloring, max_colors):
-                max_deg = max(graph.degree(v) for v in range(graph.n)) if graph.n else 0
-                raise RuntimeError(
-                    f"Unable to color graph with {max_colors} colours "
-                    f"(delta={delta}, max_degree={max_deg})."
-                )
-            return coloring
+def _misra_gries(graph: Graph, color_count: int) -> Coloring:
+    """Construct a proper coloring with the fan proof of Vizing's theorem."""
+    coloring: Coloring = {}
+    for center, first in sorted(graph.edges()):
+        fan = _maximal_fan(graph, coloring, center, first)
+        first_color = _missing_at(graph, coloring, center, color_count)[0]
+        second_color = _missing_at(graph, coloring, fan[-1], color_count)[0]
+        _invert_cd_component(graph, coloring, center, first_color, second_color)
+        width = _rotatable_prefix(graph, coloring, center, fan, second_color)
+        _rotate_fan(coloring, center, fan[: width + 1])
+        coloring[canonical(center, fan[width])] = second_color
+    _assert_coloring(graph, coloring, color_count)
+    return coloring
+
+
+def _incident_colors(graph: Graph, coloring: Coloring, vertex: Vertex) -> set[Color]:
+    return {
+        coloring[canonical(vertex, neighbor)]
+        for neighbor in graph.neighbors(vertex)
+        if canonical(vertex, neighbor) in coloring
+    }
+
+
+def _missing_at(
+    graph: Graph, coloring: Coloring, vertex: Vertex, color_count: int
+) -> list[Color]:
+    used = _incident_colors(graph, coloring, vertex)
+    return [color for color in range(color_count) if color not in used]
+
+
+def _maximal_fan(
+    graph: Graph, coloring: Coloring, center: Vertex, first: Vertex
+) -> list[Vertex]:
+    fan = [first]
+    while True:
+        last_colors = _incident_colors(graph, coloring, fan[-1])
+        extension = next(
+            (
+                neighbor
+                for neighbor in sorted(graph.neighbors(center))
+                if neighbor not in fan
+                and canonical(center, neighbor) in coloring
+                and coloring[canonical(center, neighbor)] not in last_colors
+            ),
+            None,
+        )
+        if extension is None:
+            return fan
+        fan.append(extension)
+
+
+def _invert_cd_component(
+    graph: Graph,
+    coloring: Coloring,
+    start: Vertex,
+    color1: Color,
+    color2: Color,
+) -> None:
+    component_edges: set[Edge] = set()
+    visited = {start}
+    stack = [start]
+    while stack:
+        vertex = stack.pop()
+        for neighbor in graph.neighbors(vertex):
+            edge = canonical(vertex, neighbor)
+            if edge not in coloring or coloring[edge] not in {color1, color2}:
+                continue
+            component_edges.add(edge)
+            if neighbor not in visited:
+                visited.add(neighbor)
+                stack.append(neighbor)
+    for edge in component_edges:
+        coloring[edge] = color2 if coloring[edge] == color1 else color1
+
+
+def _rotatable_prefix(
+    graph: Graph,
+    coloring: Coloring,
+    center: Vertex,
+    fan: list[Vertex],
+    color: Color,
+) -> int:
+    for width, endpoint in enumerate(fan):
+        if color in _incident_colors(graph, coloring, endpoint):
+            continue
+        if all(
+            canonical(center, fan[index + 1]) in coloring
+            and coloring[canonical(center, fan[index + 1])]
+            not in _incident_colors(graph, coloring, fan[index])
+            for index in range(width)
+        ):
+            return width
+    raise RuntimeError("fan inversion failed to produce a rotatable prefix")
+
+
+def _rotate_fan(coloring: Coloring, center: Vertex, fan: list[Vertex]) -> None:
+    if len(fan) <= 1:
+        return
+    old = [coloring[canonical(center, vertex)] for vertex in fan[1:]]
+    for index, color in enumerate(old):
+        coloring[canonical(center, fan[index])] = color
+    coloring.pop(canonical(center, fan[-1]), None)
+
+
+def _assert_coloring(graph: Graph, coloring: Coloring, color_count: int) -> None:
+    if set(coloring) != set(graph.edges()):
+        raise RuntimeError("edge-coloring did not assign every graph edge")
+    for vertex in range(graph.n):
+        colors = [
+            coloring[canonical(vertex, neighbor)]
+            for neighbor in graph.neighbors(vertex)
+        ]
+        if len(colors) != len(set(colors)) or any(
+            color < 0 or color >= color_count for color in colors
+        ):
+            raise RuntimeError(f"invalid edge coloring at vertex {vertex}")
 
 
 def recolor(
@@ -271,51 +343,6 @@ def find(graph: Graph, coloring: Coloring, v: Vertex, c: Color) -> Edge | None:
         if e in coloring and coloring[e] == c:
             return e
     return None
-
-
-def backtrack(
-    graph: Graph,
-    edges: list[Edge],
-    idx: int,
-    coloring: Coloring,
-    max_colors: int,
-) -> bool:
-    """Backtracking edge-coloring (exponential but correct for small graphs).
-
-    Tries the next available colour at position ``idx`` and recurses.  This
-    is the slow but always-correct fallback used when the constructive
-    Vizing argument exhausts both recolouring paths.
-
-    Args:
-        graph: The host graph.
-        edges: Edge list to colour in order.
-        idx: Current recursion depth / index into ``edges``.
-        coloring: Partial colouring (mutated in place).
-        max_colors: Bound on the colour palette.
-
-    Returns:
-        ``True`` if ``edges`` can be coloured within ``max_colors``;
-        ``False`` if the search space is exhausted without success.
-    """
-    if idx == len(edges):
-        return True
-    u, v = edges[idx]
-    used: set[Color] = set()
-    for w in graph.neighbors(u):
-        e = canonical(u, w)
-        if e in coloring:
-            used.add(coloring[e])
-    for w in graph.neighbors(v):
-        e = canonical(v, w)
-        if e in coloring:
-            used.add(coloring[e])
-    for c in range(max_colors):
-        if c not in used:
-            coloring[(u, v)] = c
-            if backtrack(graph, edges, idx + 1, coloring, max_colors):
-                return True
-            del coloring[(u, v)]
-    return False
 
 
 def missing(

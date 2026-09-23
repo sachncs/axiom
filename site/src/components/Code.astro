@@ -3,7 +3,7 @@ import { API_SNIPPET, CLI_SNIPPET, REBUILD_SNIPPET, INSTALL } from "../lib/data"
 
 const TABS = ["API", "CLI", "Ledger"] as const;
 const BODIES = { API: API_SNIPPET, CLI: CLI_SNIPPET, Ledger: REBUILD_SNIPPET };
-const PROMPTS = { API: "$ python demo.py", CLI: "$ bash", Ledger: "$ python benchmarks/bench_axiom.py --n 200 --updates 5000 --mode tiered" };
+const PROMPTS = { API: "$ python demo.py", CLI: "$ bash", Ledger: "$ python benchmarks/bench_axiom.py --n 200 --updates 5000 --mode multilevel" };
 const HEADERS = { API: "axiom·demo.py", CLI: "axiom·cli", Ledger: "axiom·ledger" };
 const INSTALL_PIP = INSTALL.pip;
 ---
@@ -19,14 +19,14 @@ const INSTALL_PIP = INSTALL.pip;
       </h2>
       <p>
         The whole surface is a handful of well-typed calls. Insert. Delete. Ask.
-        Invariant checkers, augmenting paths, and an amortised ledger are all a
-        first-class import away.
+        Invariant checkers, deterministic maintenance, and an empirical ledger
+        are all available from the package.
       </p>
 
       <ul class="code__bites">
         <li>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>
-          <span>Public <code>augment</code> / <code>flip</code> API — no name mangling</span>
+          <span>Internal subphase augmentation with standalone low-level primitives</span>
         </li>
         <li>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>
@@ -291,7 +291,7 @@ const INSTALL_PIP = INSTALL.pip;
   const INFOS: Record<string, { title: string; prompt: string }> = {
     API: { title: "axiom·demo.py", prompt: "…" },
     CLI: { title: "axiom·cli", prompt: "axiom --n 20 --mode basic --updates 200 --seed 42" },
-    Ledger: { title: "axiom·bench", prompt: "python benchmarks/bench_axiom.py --n 200 --mode tiered --updates 5000" },
+    Ledger: { title: "axiom·bench", prompt: "python benchmarks/bench_axiom.py --n 200 --mode multilevel --updates 5000" },
   };
 
   tabs?.forEach((tab) => {

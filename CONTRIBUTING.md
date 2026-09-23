@@ -57,9 +57,9 @@ pytest tests/ -v
 |---------|-------------|
 | `pytest tests/ -v` | Run the test suite |
 | `pytest --cov=axiom tests/` | Run tests with coverage |
-| `mypy src/axiom/` | Run type checking |
-| `ruff check src/axiom/ tests/ scripts/` | Run linting |
-| `ruff format src/ tests/ scripts/` | Auto-format code |
+| `mypy axiom/` | Run type checking |
+| `ruff check axiom/ tests/ scripts/ benchmarks/ examples/` | Run linting |
+| `ruff format axiom/ tests/ scripts/ benchmarks/ examples/` | Auto-format code |
 | `axiom --n 20 --mode basic` | Run the CLI demo |
 
 ## Branch Naming
@@ -131,8 +131,8 @@ chore: update pytest to 8.x
 
 4. **Run the full check suite** before submitting:
    ```bash
-   ruff check src/axiom/ tests/ scripts/
-   mypy src/axiom/
+   ruff check axiom/ tests/ scripts/ benchmarks/ examples/
+   mypy axiom/
    pytest tests/ -v
    ```
 

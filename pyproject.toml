@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axiom"
-version = "0.5.0"
-description = "A Faster Deterministic Fully Dynamic Maximal Matching Algorithm — pure-Python reproduction of Chuzhoy, Khanna, and Song (arXiv:2605.00797v1, STOC 2026)."
+version = "0.6.0.dev0"
+description = "Pure-Python deterministic fully dynamic maximal matching with basic and recursive multilevel z-subgraph modes."
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10"
 authors = [
     {name = "Sachin", email = "sachncs@gmail.com"},
@@ -25,7 +25,6 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

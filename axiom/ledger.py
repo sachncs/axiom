@@ -1,10 +1,10 @@
 """Explicit counters for update work and phase-level accounting.
 
 The paper's amortised-time analysis is not directly executable in Python:
-the constants in the analysis depend on the hidden costs of the BST
-adjacency lists, the ABB+26 colouring routine, and the Vizing flip.
+the constants in the analysis depend on the hidden costs of the adjacency
+indexes, the edge-colouring implementation, and the Vizing flip.
 This module implements **explicit counters** that record the work
-actually performed by the Python reproduction -- number of updates,
+actually performed by the Python implementation -- number of updates,
 rebuilds, and the size of every per-vertex scan.  Experiments can use
 these counters to diagnose where time is spent without claiming any
 asymptotic bound.
@@ -46,8 +46,6 @@ class Ledger:
             :func:`axiom.core.Matcher.__rematch_u`.
         rematch_b_scans: Same, for :func:`axiom.core.Matcher.__rematch_b`.
         rematch_a_scans: Same, for :func:`axiom.core.Matcher.__rematch_a`.
-        greedy_rebuilds: Times the full greedy reconstruction of
-            :math:`M^*` was used as a fallback.
         stale_cleanups: Total edges removed from :math:`M^*` because
             they had been deleted from the graph.
         phase_update_work: A running tally of per-phase work units,
@@ -63,7 +61,6 @@ class Ledger:
     rematch_u_scans: int = 0
     rematch_b_scans: int = 0
     rematch_a_scans: int = 0
-    greedy_rebuilds: int = 0
     stale_cleanups: int = 0
     phase_update_work: int = field(default=0, repr=False)
 
@@ -83,7 +80,7 @@ class Ledger:
         """Record a full phase rebuild and reset the per-phase work tally.
 
         ``work_estimate`` is the constant to which the rebuild's cost
-        should be charged against the phase budget.  The reproduction
+        should be charged against the phase budget.  The implementation
         does not have a precise measurement and uses zero.
         """
         self.phase_rebuilds += 1
@@ -109,11 +106,6 @@ class Ledger:
         self.rematch_a_scans += scanned
         self.phase_update_work += scanned
 
-    def record_greedy_rebuild(self, work: int = 0) -> None:
-        """Record a fallback greedy rebuild of :math:`M^*`."""
-        self.greedy_rebuilds += 1
-        self.phase_update_work += work
-
     def record_stale_cleanup(self, count: int = 1) -> None:
         """Record the removal of ``count`` stale edges from :math:`M^*`."""
         self.stale_cleanups += count
@@ -136,6 +128,5 @@ class Ledger:
             "rematch_u_scans": self.rematch_u_scans,
             "rematch_b_scans": self.rematch_b_scans,
             "rematch_a_scans": self.rematch_a_scans,
-            "greedy_rebuilds": self.greedy_rebuilds,
             "stale_cleanups": self.stale_cleanups,
         }
