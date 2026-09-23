@@ -9,9 +9,10 @@ classical complete coloring as an interchangeable substitute.
 
 from __future__ import annotations
 
-from collections.abc import ItemsView, Iterator
+from collections.abc import ItemsView, Iterator, Mapping
 from dataclasses import dataclass
 from itertools import pairwise
+from types import MappingProxyType
 
 from axiom.graph import Adjacency
 from axiom.types import Color, Edge, Graph, Vertex, canonical
@@ -109,9 +110,12 @@ class TypeSparsification:
     """
 
     blocks: tuple[frozenset[Color], ...]
-    edge_types: dict[Edge, frozenset[tuple[Color, Color]]]
+    edge_types: Mapping[Edge, frozenset[tuple[Color, Color]]]
     diagonal_edges: frozenset[Edge]
     block_counts: tuple[tuple[int, ...], ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "edge_types", MappingProxyType(dict(self.edge_types)))
 
     @property
     def diagonal_fraction(self) -> float:

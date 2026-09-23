@@ -144,6 +144,8 @@ def test_type_sparsification_certificate_is_deterministic_and_non_mutating() -> 
     assert first.diagonal_edges == {(2, 3)}
     assert first.diagonal_fraction == 1.0
     assert dict(coloring.items()) == before
+    with pytest.raises(TypeError):
+        first.edge_types[(2, 3)] = frozenset()  # type: ignore[index]
 
 
 def test_type_sparsification_rejects_non_matching_uncolored_edges() -> None:
