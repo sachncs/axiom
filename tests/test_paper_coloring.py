@@ -4,6 +4,7 @@ import pytest
 
 from axiom.graph import Adjacency
 from axiom.paper_coloring import (
+    PaperFanColorer,
     PartialColoring,
     SeparableFans,
     UFan,
@@ -14,6 +15,7 @@ from axiom.paper_coloring import (
     extend_recursive,
     fan_is_social,
     relevant_paths,
+    shift_edge_to_fan,
     small_extend,
 )
 
@@ -173,3 +175,34 @@ def test_amplify_socializes_a_full_deterministic_batch() -> None:
     assert len(social) == fan_count
     assert all(fan_is_social(fan, color_blocks(100, 10)[0]) for fan in social)
     coloring.validate()
+
+
+def test_shift_edge_to_fan_preserves_partial_coloring() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = PartialColoring(graph, 3)
+    coloring.assign((0, 2), 1)
+    fans = SeparableFans()
+
+    fan = shift_edge_to_fan(coloring, (0, 1), fans)
+
+    assert fan == UFan(0, 1, 2, 0, 1, 1)
+    assert (0, 2) not in coloring
+    fans.assert_valid()
+
+
+def test_paper_fan_colorer_colors_complete_graphs() -> None:
+    for n in range(0, 9):
+        graph = Adjacency(n)
+        for left in range(n):
+            for right in range(left + 1, n):
+                graph.add_edge(left, right)
+        coloring = PaperFanColorer().color(graph, max(0, n - 1))
+        assert set(coloring) == set(graph.edges())
+        for vertex in range(n):
+            incident = [
+                coloring[tuple(sorted((vertex, neighbor)))]
+                for neighbor in graph.neighbors(vertex)
+            ]
+            assert len(incident) == len(set(incident))

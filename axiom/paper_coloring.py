@@ -168,6 +168,14 @@ class PartialColoring:
             self._colors[edge] = old
             raise
 
+    def unassign(self, edge: Edge) -> Color:
+        """Make one colored edge uncolored and return its former color."""
+        edge = canonical(*edge)
+        try:
+            return self._colors.pop(edge)
+        except KeyError as error:
+            raise ValueError(f"edge is not colored: {edge}") from error
+
     def alternating_path(
         self, start: Vertex, first_color: Color, second_color: Color
     ) -> list[Vertex]:
@@ -458,6 +466,161 @@ def collect_direct_fans(
                     break
     fans.assert_valid()
     return fans
+
+
+def shift_edge_to_fan(
+    coloring: PartialColoring, edge: Edge, fans: SeparableFans
+) -> UFan | None:
+    """Shift one uncolored edge into a valid two-spoke u-fan.
+
+    For an uncolored ``(u, v)``, choose a color missing at ``v`` but used at
+    ``u``.  Uncoloring the unique edge of that color incident to ``u`` gives
+    the second fan spoke and makes the color missing at its other endpoint.
+    """
+    edge = canonical(*edge)
+    if edge in coloring:
+        raise ValueError("edge must be uncolored before fan shifting")
+    for center, leaf in (edge, (edge[1], edge[0])):
+        center_missing = set(coloring.missing(center))
+        leaf_missing = sorted(coloring.missing(leaf))
+        for leaf_color in leaf_missing:
+            if leaf_color in center_missing:
+                continue
+            witness = next(
+                (
+                    canonical(center, neighbor)
+                    for neighbor in sorted(coloring.graph.neighbors(center))
+                    if coloring._colors.get(canonical(center, neighbor)) == leaf_color
+                ),
+                None,
+            )
+            if witness is None:
+                continue
+            other = witness[1] if witness[0] == center else witness[0]
+            center_color = min(center_missing - {leaf_color})
+            old_color = coloring.unassign(witness)
+            candidate = UFan(
+                center,
+                leaf,
+                other,
+                center_color,
+                leaf_color,
+                leaf_color,
+            )
+            try:
+                fans.add(candidate)
+            except ValueError:
+                coloring.assign(witness, old_color)
+                continue
+            return candidate
+    return None
+
+
+class PaperFanColorer:
+    """Deterministic complete coloring through paper u-fan operations.
+
+    This implementation uses the paper's explicit fan-shift and activation
+    interface.  It intentionally has no Vizing/greedy fallback: if the
+    bounded fan construction cannot progress, it raises a diagnostic error.
+    """
+
+    def color(self, graph: Graph, delta: int) -> dict[Edge, Color]:
+        if not isinstance(delta, int) or isinstance(delta, bool) or delta < 0:
+            raise ValueError("delta must be a non-negative integer")
+        maximum = max((graph.degree(vertex) for vertex in range(graph.n)), default=0)
+        if maximum > delta:
+            raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
+        all_edges = set(graph.edges())
+        start = PartialColoring(graph, delta + 1)
+        solution = _search_fan_coloring(start, SeparableFans(), all_edges, set())
+        if solution is None:
+            raise RuntimeError(
+                "paper fan coloring exhausted its deterministic fan-chain search "
+                "without coloring every edge"
+            )
+        solution.validate()
+        return dict(solution.items())
+
+
+def _copy_coloring(source: PartialColoring) -> PartialColoring:
+    result = PartialColoring(source.graph, source.color_count)
+    result._colors = dict(source._colors)
+    return result
+
+
+def _copy_fans(source: SeparableFans) -> SeparableFans:
+    result = SeparableFans()
+    for fan in source:
+        result.add(fan)
+    return result
+
+
+def _fan_candidates(
+    coloring: PartialColoring, edge: Edge, fans: SeparableFans
+) -> list[tuple[Edge, UFan]]:
+    """Enumerate all deterministic one-witness fan shifts for ``edge``."""
+    candidates: list[tuple[Edge, UFan]] = []
+    for center, leaf in (edge, (edge[1], edge[0])):
+        center_missing = set(coloring.missing(center))
+        for leaf_color in sorted(coloring.missing(leaf)):
+            if leaf_color in center_missing:
+                continue
+            witnesses = sorted(
+                canonical(center, neighbor)
+                for neighbor in coloring.graph.neighbors(center)
+                if coloring._colors.get(canonical(center, neighbor)) == leaf_color
+            )
+            for witness in witnesses:
+                other = witness[1] if witness[0] == center else witness[0]
+                for center_color in sorted(center_missing - {leaf_color}):
+                    candidate = UFan(
+                        center,
+                        leaf,
+                        other,
+                        center_color,
+                        leaf_color,
+                        leaf_color,
+                    )
+                    if candidate.edges & set(fans._edges):
+                        continue
+                    candidates.append((witness, candidate))
+    return candidates
+
+
+def _search_fan_coloring(
+    coloring: PartialColoring,
+    fans: SeparableFans,
+    all_edges: set[Edge],
+    seen: set[tuple[tuple[tuple[Edge, Color], ...], tuple[UFan, ...]]],
+) -> PartialColoring | None:
+    """Search the finite deterministic fan-chain state graph."""
+    if coloring.edges() == all_edges:
+        return coloring
+    state = (tuple(sorted(coloring.items())), tuple(fans))
+    if state in seen:
+        return None
+    seen.add(state)
+    edge = min(all_edges - coloring.edges())
+    common = sorted(set(coloring.missing(edge[0])) & set(coloring.missing(edge[1])))
+    for color in common:
+        child = _copy_coloring(coloring)
+        child.assign(edge, color)
+        result = _search_fan_coloring(child, _copy_fans(fans), all_edges, seen)
+        if result is not None:
+            return result
+    for witness, candidate in _fan_candidates(coloring, edge, fans):
+        child_coloring = _copy_coloring(coloring)
+        child_fans = _copy_fans(fans)
+        child_coloring.unassign(witness)
+        try:
+            child_fans.add(candidate)
+            activate_fan(child_coloring, child_fans, candidate)
+        except (RuntimeError, ValueError):
+            continue
+        result = _search_fan_coloring(child_coloring, child_fans, all_edges, seen)
+        if result is not None:
+            return result
+    return None
 
 
 def color_blocks(
