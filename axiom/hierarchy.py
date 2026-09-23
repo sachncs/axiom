@@ -420,16 +420,17 @@ def refine_hierarchy(
             )
         incident_colors[u].add(color)
         incident_colors[v].add(color)
-    # Keep empty color classes in the candidate order.  Select deletion-heavy
-    # classes first so the bounded deferred subset does not disappear merely
-    # because the colorer assigned all deleted edges late in the palette.
+    # Keep empty color classes in the candidate order.  The paper reindexes
+    # color classes by nondecreasing deleted-edge count, then selects the
+    # first z' classes.  This makes the retained deleted subset satisfy the
+    # required |E_D'| <= |E_D| z'/z bound without dropping a selected edge.
     # Empty classes still participate in the first ``z_prime`` selection.
     classes: dict[int, set[Edge]] = {color: set() for color in range(z + 1)}
     for edge, color in coloring.items():
         classes[color].add(edge)
     ordered_colors = sorted(
         classes,
-        key=lambda color: (-len(classes[color] & retained_deleted), color),
+        key=lambda color: (len(classes[color] & retained_deleted), color),
     )
     selected_colors = set(ordered_colors[:z_prime])
     deletion_budget = len(retained_deleted) * z_prime // z
@@ -439,7 +440,12 @@ def refine_hierarchy(
         for edge in classes[color]
         if edge in retained_deleted
     )
-    deferred_deleted = set(deferred_candidates[:deletion_budget])
+    if len(deferred_candidates) > deletion_budget:
+        raise RuntimeError(
+            "recursive refinement selected too many deleted matching edges: "
+            f"selected={len(deferred_candidates)}, budget={deletion_budget}"
+        )
+    deferred_deleted = set(deferred_candidates)
     chosen = {
         edge
         for color in selected_colors
@@ -597,22 +603,10 @@ def refine_hierarchy(
                     candidates.append((neighbor, None))
             candidates.sort(key=lambda item: (item[0] not in new_u, item[0]))
             if len(candidates) < need:
-                # A newly promoted vertex that cannot meet the S lower bound
-                # belongs in U; this is the same final-partition rule used by
-                # the initial z-system construction.
-                if vertex in new_a:
-                    new_a.remove(vertex)
-                else:
-                    new_b.remove(vertex)
-                new_u.add(vertex)
-                settled.discard(vertex)
-                for edge in tuple(chosen):
-                    if vertex in edge and edge[0] in new_u and edge[1] in new_u:
-                        chosen.remove(edge)
-                        for endpoint in edge:
-                            degree[endpoint] -= 1
-                changed = True
-                continue
+                raise RuntimeError(
+                    "recursive refinement could not restore the S degree bound: "
+                    f"vertex={vertex}, need={need}, available={len(candidates)}"
+                )
             for neighbor, witness in candidates[:need]:
                 if witness is not None:
                     chosen.remove(witness)

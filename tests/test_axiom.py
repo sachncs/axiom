@@ -780,6 +780,25 @@ class TestMatcher:
         assert algo.maximal()
         assert algo.size() == 0
 
+    def test_small_graph_matrix_sparse_and_dense(self) -> None:
+        for mode in ("basic", "multilevel"):
+            for n in range(11):
+                sparse = Matcher(n, mode=mode)
+                for vertex in range(max(0, n - 1)):
+                    sparse.insert(vertex, vertex + 1)
+                    assert sparse.maximal()
+
+                dense_graph = Adjacency(n)
+                for left in range(n):
+                    for right in range(left + 1, n):
+                        dense_graph.add_edge(left, right)
+                dense = Matcher(n, mode=mode, graph=dense_graph)
+                assert dense.maximal()
+                for left in range(n):
+                    for right in range(left + 1, n):
+                        dense.delete(left, right)
+                        assert dense.maximal()
+
     def test_single_vertex_graph(self) -> None:
         algo = Matcher(1, mode="basic")
         algo.insert(0, 0)
@@ -1201,7 +1220,8 @@ class TestHierarchy:
         base = build_hierarchy(graph, [16])
         deleted = set(list(base.levels[0].M)[:13])
         level_two = refine_hierarchy(base, 8, deleted=deleted)
-        assert level_two.deferred_deletions
+        assert level_two.deferred_deletions <= deleted
+        assert len(level_two.deferred_deletions) <= len(deleted) * 8 // 16
 
         level_three = refine_hierarchy(
             level_two,

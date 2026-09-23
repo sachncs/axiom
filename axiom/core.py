@@ -678,8 +678,8 @@ class Matcher:
         """Attempt the (A, U) fast path for inserting (u, v).
 
         Returns ``True`` if the fast path was taken and the matcher state
-        was updated accordingly; ``False`` if the caller should fall back
-        to a full refresh.
+        was updated accordingly; ``False`` if the insertion does not match
+        this local transition and normal insertion handling should continue.
         """
         system = self.system
         assert system is not None
@@ -960,8 +960,8 @@ class Matcher:
         # is an invariant failure, never a reason to switch algorithms.
         if not self.maximal():
             raise RuntimeError(
-                "update repair violated maximality; refusing a heuristic "
-                "refresh fallback"
+                "update repair violated maximality; refusing to install a "
+                "replacement matching"
             )
 
         if self.multi is not None:
