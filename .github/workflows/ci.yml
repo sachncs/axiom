@@ -99,6 +99,17 @@ jobs:
             exit 1
           fi
 
+      - name: Verify reproducible artifacts
+        run: |
+          first="$RUNNER_TEMP/axiom-build-one"
+          second="$RUNNER_TEMP/axiom-build-two"
+          SOURCE_DATE_EPOCH=0 python -m build --outdir "$first"
+          SOURCE_DATE_EPOCH=0 python -m build --outdir "$second"
+          python scripts/normalize_sdist.py "$first"/*.tar.gz "$second"/*.tar.gz
+          diff -u \
+            <(sha256sum "$first"/* | sed "s#$first/##" | sort) \
+            <(sha256sum "$second"/* | sed "s#$second/##" | sort)
+
       - name: Install wheel in a clean environment
         run: |
           python -m venv /tmp/axiom-wheel-env
