@@ -46,6 +46,9 @@ pass required to establish the next level's bounds.
 - `mypy --strict axiom` passes.
 - The documentation site builds successfully.
 - Source and wheel artifacts build and pass package metadata validation.
+- Release artifacts are reproducible under a fixed `SOURCE_DATE_EPOCH`.
+- Wheel and source artifacts receive signed provenance attestations, and the
+  tagged GitHub release publishes a `SHA256SUMS` manifest.
 - Clean-install smoke tests pass for Python 3.10 through 3.13.
 - CI dependency and workflow security checks pass.
 - README, API docs, website copy, and changelog describe only the canonical
