@@ -8,9 +8,12 @@ from axiom.paper_coloring import (
     SeparableFans,
     UFan,
     activate_fan,
+    amplify,
     collect_direct_fans,
     color_blocks,
     extend_recursive,
+    fan_is_social,
+    relevant_paths,
     small_extend,
 )
 
@@ -119,3 +122,33 @@ def test_color_blocks_are_ordered_and_disjoint() -> None:
     assert all(len(block) == 5 for block in blocks)
     assert set().union(*blocks) == set(range(100))
     assert all(len(pair) == 10 for pair in pairs)
+
+
+def test_relevant_paths_use_matching_color_offsets() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = PartialColoring(graph, 100)
+    fan = UFan(0, 1, 2, 0, 10, 10)
+    blocks, _ = color_blocks(100, 10)
+
+    assert not fan_is_social(fan, blocks)
+    paths = relevant_paths(coloring, fan, blocks, 1)
+
+    assert [path for path, _, _ in paths] == [(0,), (1,), (2,)]
+    assert [source for _, source, _ in paths] == [0, 10, 10]
+    assert [target for _, _, target in paths] == [15, 10, 10]
+
+
+def test_amplify_keeps_small_collection_explicitly_bounded() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = PartialColoring(graph, 100)
+    fans = SeparableFans()
+    fans.add(UFan(0, 1, 2, 0, 10, 10))
+
+    groups, social = amplify(coloring, fans, 10)
+
+    assert len(groups) == 10
+    assert len(social) == 0
