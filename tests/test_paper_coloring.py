@@ -32,6 +32,8 @@ def test_separable_fans_enforce_edge_and_vertex_color_disjointness() -> None:
     fans.assert_valid()
     assert fans.find(0, 0) == first
     assert fans.find(1, 1) == first
+    assert fans.by_type(first.type) == (first,)
+    assert fans.type_counts() == {first.type: 1}
 
     with pytest.raises(ValueError, match="edge-disjoint"):
         fans.add(UFan(0, 1, 3, 2, 3, 3))

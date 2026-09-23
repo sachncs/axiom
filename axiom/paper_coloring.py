@@ -270,6 +270,7 @@ class SeparableFans:
         self._edges: set[Edge] = set()
         self._colors: dict[tuple[Vertex, Color], UFan] = {}
         self._vertices: dict[Vertex, set[UFan]] = {}
+        self._types: dict[frozenset[Color], set[UFan]] = {}
 
     def __len__(self) -> int:
         return len(self._fans)
@@ -293,6 +294,7 @@ class SeparableFans:
                 raise ValueError("u-fan colors must be distinct at each vertex")
         self._fans.add(fan)
         self._edges.update(fan.edges)
+        self._types.setdefault(fan.type, set()).add(fan)
         for vertex in fan.vertices:
             self._colors[(vertex, fan.color_at(vertex))] = fan
             self._vertices.setdefault(vertex, set()).add(fan)
@@ -302,6 +304,11 @@ class SeparableFans:
             return
         self._fans.remove(fan)
         self._edges.difference_update(fan.edges)
+        typed = self._types.get(fan.type)
+        if typed is not None:
+            typed.discard(fan)
+            if not typed:
+                self._types.pop(fan.type)
         for vertex in fan.vertices:
             self._colors.pop((vertex, fan.color_at(vertex)), None)
             members = self._vertices.get(vertex)
@@ -332,6 +339,7 @@ class SeparableFans:
             self._edges.clear()
             self._colors.clear()
             self._vertices.clear()
+            self._types.clear()
             raise
         self.assert_valid()
 
@@ -390,6 +398,19 @@ class SeparableFans:
     def find(self, vertex: Vertex, color: Color) -> UFan | None:
         return self._colors.get((vertex, color))
 
+    def by_type(self, fan_type: frozenset[Color]) -> tuple[UFan, ...]:
+        """Return fans of one type in deterministic order."""
+        return tuple(
+            sorted(
+                self._types.get(fan_type, set()),
+                key=lambda fan: (fan.center, fan.first_leaf, fan.second_leaf),
+            )
+        )
+
+    def type_counts(self) -> dict[frozenset[Color], int]:
+        """Return a copy of the indexed fan-type counts."""
+        return {fan_type: len(members) for fan_type, members in self._types.items()}
+
     def missing(self, coloring: PartialColoring, vertex: Vertex) -> Color:
         used = {fan.color_at(vertex) for fan in self if vertex in fan.vertices}
         available = [color for color in coloring.missing(vertex) if color not in used]
@@ -415,6 +436,11 @@ class SeparableFans:
                 rebuilt_vertices.setdefault(vertex, set()).add(fan)
         if rebuilt_vertices != self._vertices:
             raise AssertionError("u-fan vertex index is stale")
+        rebuilt_types: dict[frozenset[Color], set[UFan]] = {}
+        for fan in self._fans:
+            rebuilt_types.setdefault(fan.type, set()).add(fan)
+        if rebuilt_types != self._types:
+            raise AssertionError("u-fan type index is stale")
 
     def discard_damaged(self, coloring: PartialColoring) -> int:
         """Remove fans whose spokes or assigned colors are no longer valid."""
@@ -486,13 +512,11 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
     extended = 0
     try:
         while len(fans):
-            counts: dict[frozenset[Color], int] = {}
-            for fan in fans:
-                counts[fan.type] = counts.get(fan.type, 0) + 1
+            counts = fans.type_counts()
             target = min(
                 counts, key=lambda value: (-counts[value], tuple(sorted(value)))
             )
-            batch = [fan for fan in fans if fan.type == target]
+            batch = list(fans.by_type(target))
             for fan in batch:
                 if fan not in set(fans):
                     continue
