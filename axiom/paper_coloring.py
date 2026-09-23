@@ -375,9 +375,62 @@ def small_extend(coloring: PartialColoring, fans: SeparableFans) -> int:
                 continue
             try:
                 activate_fan(coloring, fans, fan)
-            except RuntimeError:
+            except (RuntimeError, ValueError):
                 fans.discard(fan)
             else:
                 extended += 1
         fans.assert_valid()
     return extended
+
+
+def collect_direct_fans(
+    coloring: PartialColoring, uncolored_edges: set[Edge]
+) -> SeparableFans:
+    """Collect directly constructible separable u-fans deterministically.
+
+    This is the explicit, local part of the paper's fan-construction
+    interface.  It only uses supplied uncolored edges; it never moves edges
+    or invokes a different coloring algorithm.  The complete paper
+    construction will extend this boundary with its fan-chain shifting step.
+    """
+    graph_edges = set(coloring.graph.edges())
+    if not uncolored_edges <= graph_edges:
+        raise ValueError("uncolored_edges must be edges of the graph")
+    if uncolored_edges & coloring.edges():
+        raise ValueError("uncolored_edges must not contain colored edges")
+
+    incident: dict[Vertex, list[Vertex]] = {
+        vertex: [] for vertex in range(coloring.graph.n)
+    }
+    for left, right in sorted(uncolored_edges):
+        incident[left].append(right)
+        incident[right].append(left)
+
+    fans = SeparableFans()
+    for center in range(coloring.graph.n):
+        leaves = incident[center]
+        for index, first_leaf in enumerate(leaves):
+            for second_leaf in leaves[index + 1 :]:
+                center_colors = set(coloring.missing(center))
+                first_colors = set(coloring.missing(first_leaf))
+                second_colors = set(coloring.missing(second_leaf))
+                common_leaf_colors = sorted(first_colors & second_colors)
+                for leaf_color in common_leaf_colors:
+                    center_candidates = sorted(center_colors - {leaf_color})
+                    if not center_candidates:
+                        continue
+                    candidate = UFan(
+                        center,
+                        first_leaf,
+                        second_leaf,
+                        center_candidates[0],
+                        leaf_color,
+                        leaf_color,
+                    )
+                    try:
+                        fans.add(candidate)
+                    except ValueError:
+                        continue
+                    break
+    fans.assert_valid()
+    return fans

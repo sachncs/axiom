@@ -8,6 +8,7 @@ from axiom.paper_coloring import (
     SeparableFans,
     UFan,
     activate_fan,
+    collect_direct_fans,
     small_extend,
 )
 
@@ -77,3 +78,17 @@ def test_small_extend_activates_deterministic_common_type() -> None:
     assert small_extend(coloring, fans) == 1
     assert coloring[(0, 1)] == 0
     assert len(fans) == 0
+
+
+def test_collect_direct_fans_uses_only_supplied_uncolored_edges() -> None:
+    graph = Adjacency(4)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    graph.add_edge(0, 3)
+    coloring = PartialColoring(graph, 3)
+
+    fans = collect_direct_fans(coloring, {(0, 1), (0, 2), (0, 3)})
+
+    fans.assert_valid()
+    assert len(fans) == 1
+    assert next(iter(fans)).edges == {(0, 1), (0, 2)}
