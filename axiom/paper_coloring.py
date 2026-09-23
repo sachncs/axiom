@@ -596,6 +596,36 @@ def shift_edge_to_fan(
     return None
 
 
+def collect_separable_fans(
+    coloring: PartialColoring, uncolored_edges: set[Edge]
+) -> SeparableFans:
+    """Construct a separable fan collection by direct fans and witness shifts.
+
+    Direct two-spoke fans are selected first.  Every remaining uncolored edge
+    is then offered to the deterministic witness-shift operation exactly once;
+    a failed shift is an explicit absence of a local fan, not a coloring
+    fallback.  The resulting collection remains edge-disjoint and indexed by
+    the normal fan invariants.
+    """
+    graph_edges = set(coloring.graph.edges())
+    if not uncolored_edges <= graph_edges:
+        raise ValueError("uncolored_edges must be edges of the graph")
+    if uncolored_edges & coloring.edges():
+        raise ValueError("uncolored_edges must not contain colored edges")
+
+    fans = collect_direct_fans(coloring, set(uncolored_edges))
+    fan_edges = {edge for fan in fans for edge in fan.edges}
+    pending = sorted(set(uncolored_edges) - fan_edges)
+    for edge in pending:
+        if edge in coloring or edge in fan_edges:
+            continue
+        shifted = shift_edge_to_fan(coloring, edge, fans)
+        if shifted is not None:
+            fan_edges.update(shifted.edges)
+    fans.assert_valid()
+    return fans
+
+
 class PaperFanColorer:
     """Deterministic complete coloring through paper u-fan operations.
 
@@ -623,9 +653,9 @@ def _complete_partial_coloring(
     start: PartialColoring, all_edges: set[Edge], delta: int
 ) -> dict[Edge, Color]:
     """Complete a partial ABB coloring through Extend and fan operations."""
-    direct_fans = collect_direct_fans(start, all_edges - start.edges())
-    if direct_fans:
-        extend_recursive(start, direct_fans, 10)
+    separable_fans = collect_separable_fans(start, all_edges - start.edges())
+    if separable_fans:
+        extend_recursive(start, separable_fans, 10)
         start.validate()
     state_limit = max(1024, len(all_edges) * max(1, delta + 1) * 32)
     solution = _search_fan_coloring(

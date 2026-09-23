@@ -13,6 +13,7 @@ from axiom.paper_coloring import (
     activate_fan,
     classify_type_sparsification,
     collect_direct_fans,
+    collect_separable_fans,
     color_blocks,
     color_small,
     extend_recursive,
@@ -103,6 +104,22 @@ def test_collect_direct_fans_uses_only_supplied_uncolored_edges() -> None:
     fans.assert_valid()
     assert len(fans) == 1
     assert next(iter(fans)).edges == {(0, 1), (0, 2)}
+
+
+def test_collect_separable_fans_uses_witness_shifts_for_remaining_edges() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = PartialColoring(graph, 3)
+    coloring.assign((0, 2), 1)
+
+    fans = collect_separable_fans(coloring, {(0, 1)})
+
+    assert len(fans) == 1
+    assert next(iter(fans)).edges == {(0, 1), (0, 2)}
+    assert (0, 2) not in coloring
+    coloring.validate()
+    fans.assert_valid()
 
 
 def test_extend_recursive_uses_small_base_case() -> None:
