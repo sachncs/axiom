@@ -168,7 +168,7 @@ $\tilde O\bigl(n^2 + n^{1+o(1)}z + r(z + r/z)\bigr)$. Dividing by $r$ and substi
 
 ## 9. Edge-Colouring / Auxiliary Mechanisms
 
-Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)})$ time. The paper uses this to split $M$ (max degree $\le z$) into $z+1$ matchings. The authoritative source includes the `Sparsify-Types`, `Color-Small`, `Extend-Coloring`, u-fan, and supporting-data-structure procedures; this repository has not yet ported them.
+Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)})$ time. The paper uses this to split $M$ (max degree $\le z$) into $z+1$ matchings. This repository now contains the explicit u-fan, `Color-Small`, and recursive `Extend` state boundaries; the ABB+26 `Sparsify-Types` construction and its asymptotic data structures remain an implementation gap.
 
 ---
 

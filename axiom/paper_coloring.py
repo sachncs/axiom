@@ -438,14 +438,24 @@ def collect_direct_fans(
         incident[left].append(right)
         incident[right].append(left)
 
+    palettes = {
+        vertex: set(coloring.missing(vertex)) for vertex in range(coloring.graph.n)
+    }
     fans = SeparableFans()
+    used_spokes: set[Edge] = set()
     for center in range(coloring.graph.n):
         leaves = incident[center]
         for index, first_leaf in enumerate(leaves):
+            first_edge = canonical(center, first_leaf)
+            if first_edge in used_spokes:
+                continue
             for second_leaf in leaves[index + 1 :]:
-                center_colors = set(coloring.missing(center))
-                first_colors = set(coloring.missing(first_leaf))
-                second_colors = set(coloring.missing(second_leaf))
+                second_edge = canonical(center, second_leaf)
+                if second_edge in used_spokes:
+                    continue
+                center_colors = palettes[center]
+                first_colors = palettes[first_leaf]
+                second_colors = palettes[second_leaf]
                 common_leaf_colors = sorted(first_colors & second_colors)
                 for leaf_color in common_leaf_colors:
                     center_candidates = sorted(center_colors - {leaf_color})
@@ -463,6 +473,9 @@ def collect_direct_fans(
                         fans.add(candidate)
                     except ValueError:
                         continue
+                    used_spokes.update((first_edge, second_edge))
+                    break
+                if first_edge in used_spokes:
                     break
     fans.assert_valid()
     return fans
