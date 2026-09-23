@@ -24,7 +24,7 @@
 - **Two canonical modes** &mdash; select `basic` or `multilevel` with the `mode=` string.
 - **z-subgraph system** &mdash; the (*A*, *B*, *U*) partition, *S* = *A* &cup; *B* saturation, &Lambda;(*u*) and *L*(*a*) index lists, and their implemented validators.
 - **Multi-level hierarchy** &mdash; the recursive hierarchy and I3 repair path are implemented and checked, without claiming the paper's complete dynamic theorem.
-- **Deterministic edge colouring** &mdash; `basic` uses fan-based Vizing colouring; `multilevel` uses the explicit paper fan-shift/activation colourer, with no silent fallback.
+- **Deterministic edge colouring** &mdash; `basic` uses fan-based Vizing colouring; `multilevel` uses deterministic paper fan operations and fan-chain completion, with no silent fallback. The complete ABB+26 near-linear bound is not claimed.
 - **Comprehensive invariant checks** &mdash; `Matcher.maximal()`, `System.check()`, and `Hierarchy.check()` expose the canonical state validators.
 - **Empirical ledger** &mdash; explicit counters for phase/subphase rebuilds, rematch scan sizes, and stale cleanups. Useful for diagnosing where time is spent; **not** a proof of the amortised bound.
 - **Reproducible simulation** &mdash; seeded random update sequences with replay utilities for stress tests and benchmarks.

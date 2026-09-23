@@ -630,10 +630,10 @@ class PaperFanColorer:
     """Deterministic complete coloring through paper u-fan operations.
 
     This implementation uses the paper's explicit fan-shift and activation
-    interface.  It intentionally has no Vizing/greedy fallback: if the
-    bounded fan construction cannot progress, it raises a diagnostic error.
-    The finite fan search is correctness-oriented and does not claim the
-    ABB+26 near-linear running time.
+    interface followed by a deterministic maximal fan-chain completion.  It
+    intentionally has no Vizing/greedy fallback: if a fan invariant cannot
+    be maintained, it raises a diagnostic error.  The complete ABB+26
+    near-linear construction and bound remain separate release gates.
     """
 
     def color(self, graph: Graph, delta: int) -> dict[Edge, Color]:

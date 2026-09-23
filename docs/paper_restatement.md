@@ -237,8 +237,8 @@ Each item below is tagged with one of:
    verification of every construction transition remains a release gate.
 7. **Exact partition rule for $A_i/N_i/R_i$** &mdash; RESOLVED. The full paper's recursive construction is implemented: prior $A_i/N_i/R_i$ sets are inherited, prior $B$ is partitioned by the selected matching, and the new $N_{h+1}=B$, $R_{h+1}=U$ sets are maintained through promotion.
 8. **ABB+26 edge-colouring** &mdash; IMPLEMENTATION-GAP. The local
-   implementation uses deterministic fan-shift/activation, `Modify-Types`, and
-   `Sparsify-Types` with bounded deterministic completion; the cited ABB+26
+   implementation uses deterministic fan-shift/activation, `Modify-Types`,
+   `Sparsify-Types`, and deterministic fan-chain completion; the cited ABB+26
    almost-linear algorithm and its data structures are not implemented.
 9. **Auxiliary graph $H$ update rules** &mdash; IMPLEMENTATION-GAP. The runtime
    maintains directed `H`, reverse-$H$, and `$\tilde H$` indexes from the
