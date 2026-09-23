@@ -558,6 +558,12 @@ class Matcher:
                 edge = canonical(u, v)
                 self.inserted_edges.add(edge)
                 self.deleted_edges.discard(edge)
+                # A reinserted edge cancels any deferred deletion retained
+                # by the current recursive phase.  Keeping both states would
+                # make sync_graph exclude the edge while the phase graph
+                # invariant still expected it through E_D'.
+                if self.multi is not None:
+                    self.multi.deferred_deletions.discard(edge)
                 for vertex in edge:
                     self.inserted_incident_counts[vertex] += 1
                     # The paper promotes a good vertex to bad at z + 1
@@ -943,6 +949,11 @@ class Matcher:
         self.update_count += 1
         self.__check_subphase_boundary()
         self.__maintain_i3()
+        # Matching transitions can expose vertices indirectly through a
+        # recursive fan/I3 repair.  Rebuild the bounded auxiliary views from
+        # the authoritative matching and current lambda lists before checking
+        # invariants, so no stale H/H_reverse/H_tilde entry survives a repair.
+        self.__rebuild_auxiliary()
 
         # I3 repair may reroute a matching edge recursively.  The final
         # settledness condition is authoritative; an exposed edge endpoint

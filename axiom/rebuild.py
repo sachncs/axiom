@@ -20,7 +20,7 @@ import math
 from typing import TYPE_CHECKING, Protocol
 
 from axiom.graph import Adjacency
-from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
+from axiom.hierarchy import build_hierarchy
 from axiom.system import System, build
 from axiom.types import Graph
 
@@ -151,19 +151,14 @@ class Multilevel:
         while eta < root_n:
             eta *= 2
 
-        if matcher.graph.num_edges() <= matcher.n**1.5:
-            return [max(1, math.ceil(root_n))], [matcher.n], 1
-
-        average_degree = 2 * matcher.graph.num_edges() / matcher.n
-        z = 1
-        while z < average_degree:
-            z *= 2
-        if z > matcher.n:
-            z = 1 << (matcher.n.bit_length() - 1)
-
-        threshold = root_n / (4 * max(1.0, math.log2(matcher.n)))
+        # The recursive theorem fixes the hierarchy from n, not from the
+        # current average degree.  Start with the greatest power of two no
+        # larger than n, then halve until the finest level is within one
+        # power-of-two step of sqrt(n).  This keeps the schedule stable when
+        # updates change density during a phase.
+        z = 1 << (matcher.n.bit_length() - 1)
         level_zs = [z]
-        while z > 1 and z // 2 >= threshold:
+        while z // 2 >= root_n:
             z //= 2
             level_zs.append(z)
 
@@ -186,55 +181,20 @@ class Multilevel:
         return matcher.level_phase_lengths[-1]
 
     def rebuild(self, matcher: Matcher) -> None:
-        previous_level_zs = list(matcher.level_zs)
         level_zs, phase_lengths, eta = self._schedule(matcher)
-        schedule_changed = level_zs != previous_level_zs
         matcher.level_zs = level_zs
         matcher.level_phase_lengths = phase_lengths
         matcher.eta = eta
         matcher.k = len(level_zs)
         matcher.phase_length = self._phase_budget(matcher)
-        previous = matcher.multi
-        if (
-            previous is not None
-            and previous.levels
-            and not schedule_changed
-            and len(matcher.level_zs) > 1
-            and (matcher.inserted_edges or matcher.deleted_edges)
-        ):
-            # Preserve the phase-start base and pass ED/EI into the recursive
-            # theorem-4.4 construction.  The base graph may intentionally
-            # retain deferred deletions; refine_hierarchy selects the subset
-            # that is allowed to survive into the next level.
-            old_graph, base_system = _base_snapshot(matcher)
-            matcher.multi = Hierarchy(
-                graph=old_graph,
-                k=1,
-                levels=[base_system],
-                A_levels=[set(base_system.A)],
-                N_levels=[set(base_system.B)],
-                R_levels=[set(base_system.U)],
-                L_levels=[dict(base_system.L_lists)],
-            )
-            deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
-            inserted = set(matcher.inserted_edges)
-            for z in matcher.level_zs[1:]:
-                matcher.multi = refine_hierarchy(
-                    matcher.multi,
-                    z,
-                    deleted=deleted,
-                    inserted=inserted,
-                    colorer=matcher.colorer,
-                )
-                # The next recursive construction receives only the bounded
-                # deferred-deletion set returned by this level.  Passing the
-                # original ED set through every level would bypass the
-                # theorem's geometric shrinkage guarantee.
-                deleted = set(matcher.multi.deferred_deletions)
-        else:
-            matcher.multi = build_hierarchy(
-                matcher.graph, matcher.level_zs, colorer=matcher.colorer
-            )
+        # A phase boundary is the authoritative recursive construction point.
+        # Rebuild every level from the live graph so inherited M/A/B/U/L state
+        # cannot retain an edge deleted during the phase.  Incremental
+        # ``refine_hierarchy`` remains the explicit theorem construction API;
+        # the dynamic matcher never installs an unproven partial hierarchy.
+        matcher.multi = build_hierarchy(
+            matcher.graph, matcher.level_zs, colorer=matcher.colorer
+        )
         matcher.inserted_edges.clear()
         matcher.deleted_edges.clear()
         matcher.inserted_incident_counts = {vertex: 0 for vertex in range(matcher.n)}
