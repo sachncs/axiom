@@ -88,9 +88,31 @@ class Hierarchy:
                 "cannot synchronize a hierarchy with a graph of a different size"
             )
         excluded = excluded_edges or set()
+        for label, edges in (("excluded_edges", excluded),):
+            for edge in edges:
+                if (
+                    not isinstance(edge, tuple)
+                    or len(edge) != 2
+                    or not all(
+                        isinstance(vertex, int) and not isinstance(vertex, bool)
+                        for vertex in edge
+                    )
+                    or not 0 <= edge[0] < edge[1] < graph.n
+                ):
+                    raise ValueError(
+                        f"{label} must contain canonical edges in [0, n): {edge!r}"
+                    )
         if changed_edge is not None:
             left, right = changed_edge
-            if left >= right or left < 0 or right >= graph.n:
+            if (
+                not isinstance(changed_edge, tuple)
+                or len(changed_edge) != 2
+                or not isinstance(left, int)
+                or isinstance(left, bool)
+                or not isinstance(right, int)
+                or isinstance(right, bool)
+                or not 0 <= left < right < graph.n
+            ):
                 raise ValueError(f"changed_edge must be canonical: {changed_edge}")
             if self.graph.n != graph.n:
                 raise ValueError(

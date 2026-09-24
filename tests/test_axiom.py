@@ -1539,6 +1539,16 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_sync_graph_validates_edge_inputs(self) -> None:
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(graph, [2])
+
+        with pytest.raises(ValueError, match="excluded_edges"):
+            hierarchy.sync_graph(graph, excluded_edges={(1, 0)})
+        with pytest.raises(ValueError, match="changed_edge"):
+            hierarchy.sync_graph(graph, changed_edge=(0, 0))
+
     def test_hierarchy_check_detects_stale_intermediate_matching_edge(self) -> None:
         graph = Adjacency(8)
         for left in range(7):
