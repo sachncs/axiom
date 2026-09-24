@@ -636,6 +636,25 @@ def test_paper_fan_colorer_handles_dense_adversarial_graphs() -> None:
             assert len(incident) == len(set(incident))
 
 
+def test_paper_fan_colorer_is_independent_of_neighbor_iteration_order() -> None:
+    class ReverseNeighbors(Adjacency):
+        def neighbors(self, vertex: int):
+            return iter(sorted(super().neighbors(vertex), reverse=True))
+
+    normal = Adjacency(40)
+    reverse = ReverseNeighbors(40)
+    for left in range(40):
+        for right in range(left + 1, 40):
+            if (left * 17 + right * 31) % 7 < 3:
+                normal.add_edge(left, right)
+                reverse.add_edge(left, right)
+
+    delta = max((normal.degree(vertex) for vertex in range(normal.n)), default=0)
+    assert PaperFanColorer().color(normal, delta) == PaperFanColorer().color(
+        reverse, delta
+    )
+
+
 def test_paper_fan_colorer_runs_extend_for_large_fan_batches() -> None:
     graph = Adjacency(201)
     for leaf in range(1, 201):
