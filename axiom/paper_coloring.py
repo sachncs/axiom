@@ -1434,9 +1434,8 @@ def _reduce_u_edges(
     ``ReduceUEdges`` removes a surviving u-edge either by extending the
     coloring or by preserving a newly formed u-fan.  Chain prefixes are now
     explored in synchronized rounds, with canonical-edge collision detection.
-    Collision resolution is still serialized through the existing atomic
-    Vizing extension until the paper's same/opposite-direction path-shift
-    transformations are added.
+    Collision resolution is transactional and never substitutes a different
+    coloring algorithm when its paper preconditions are not met.
     """
     extended = 0
     active = list(u_edges)
@@ -1459,16 +1458,9 @@ def _reduce_u_edges(
                 fans.assert_valid()
                 fans.assert_compatible(coloring)
                 continue
-            # A collision can be observed before the simplified local fan
-            # state contains the exact predecessor configuration required by
-            # the paper's shift.  Reduce those two u-edges transactionally in
-            # deterministic order rather than silently dropping the event.
-            selected = tuple(
-                chain.u_edge
-                for chain in sorted(
-                    event.collision,
-                    key=lambda chain: chain.u_edge.edge,
-                )
+            raise RuntimeError(
+                "ReduceUEdges could not apply the paper chain-collision "
+                "transformation for the current fan state"
             )
         else:
             raise RuntimeError("chain exploration returned an empty event")
