@@ -1571,10 +1571,13 @@ class TestHierarchy:
         class RecordingColorer(PaperFanColorer):
             def __init__(self) -> None:
                 self.calls: list[set[tuple[int, int]]] = []
+                self.colorings: list[dict[tuple[int, int], int]] = []
 
             def color(self, graph: Adjacency, delta: int) -> dict[tuple[int, int], int]:
+                coloring = super().color(graph, delta)
                 self.calls.append(set(graph.edges()))
-                return super().color(graph, delta)
+                self.colorings.append(coloring)
+                return coloring
 
         graph = Adjacency(8)
         for u in range(8):
@@ -1587,6 +1590,13 @@ class TestHierarchy:
         assert len(colorer.calls) == 2
         assert colorer.calls[0] == set(hierarchy.levels[0].M)
         assert colorer.calls[1] == set(hierarchy.levels[1].M)
+        selected_colors = sorted(set(colorer.colorings[1].values()))[:2]
+        selected_edges = {
+            edge
+            for edge, color in colorer.colorings[1].items()
+            if color in selected_colors
+        }
+        assert set(hierarchy.levels[2].M) <= selected_edges
 
     def test_recursive_regions_follow_multilevel_definition(self) -> None:
         graph = Adjacency(10)
