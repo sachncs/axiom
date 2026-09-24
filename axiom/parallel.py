@@ -56,6 +56,20 @@ class Benchmark:
     subphase_rebuilds: int
 
 
+def _validate_benchmark_inputs(n: int, mode: str, updates: int, seed: int) -> None:
+    """Validate benchmark inputs before creating a worker process."""
+    if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+        raise ValueError(f"n must be a non-negative integer, got {n!r}")
+    if mode not in {"basic", "multilevel"}:
+        raise ValueError(
+            f"mode must be 'basic' or 'multilevel' for benchmarks, got {mode!r}"
+        )
+    if not isinstance(updates, int) or isinstance(updates, bool) or updates < 0:
+        raise ValueError(f"updates must be a non-negative integer, got {updates!r}")
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError(f"seed must be an integer, got {seed!r}")
+
+
 def worker(
     n: int,
     mode: str,
@@ -68,6 +82,7 @@ def worker(
     """
     import time
 
+    _validate_benchmark_inputs(n, mode, updates, seed)
     from axiom.core import Matcher
 
     algo = Matcher(n, mode=mode)

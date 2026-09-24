@@ -2056,6 +2056,22 @@ class TestCoverage:
         assert "basic" in results
         assert "multilevel" in results
 
+    @pytest.mark.parametrize(
+        "arguments",
+        [
+            (-1, "basic", 1, 1),
+            (4, "tiered", 1, 1),
+            (4, "basic", -1, 1),
+            (4, "basic", 1, True),
+        ],
+    )
+    def test_worker_rejects_invalid_benchmark_inputs(self, arguments) -> None:
+        """worker rejects invalid configs before doing any benchmark work."""
+        from axiom.parallel import worker
+
+        with pytest.raises(ValueError):
+            worker(*arguments)
+
     def test_compare_with_one_update_handles_zero_elapsed(self) -> None:
         """compare with very small updates exercises the float('inf') branch."""
         from axiom.parallel import compare
