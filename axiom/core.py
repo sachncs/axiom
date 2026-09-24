@@ -566,6 +566,12 @@ class Matcher:
         self.matched_vertices = matched
         self._partners_from_matching()
         self.__rebuild_auxiliary()
+        if not self.__check_matching_state():
+            raise RuntimeError("refresh produced inconsistent matching views")
+        if not self.__check_auxiliary_indexes():
+            raise RuntimeError("refresh produced inconsistent auxiliary indexes")
+        if not self.maximal():
+            raise RuntimeError("refresh produced a non-maximal matching")
 
     def __check_subphase_boundary(self) -> bool:
         if self.update_count > 0 and self.update_count % self.subphase_length == 0:
