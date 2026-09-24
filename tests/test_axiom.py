@@ -699,14 +699,14 @@ class TestMatcher:
 
         assert algo.matching() == {(0, 2)}
 
-    def test_proc_update_removes_matched_h_tilde_targets(self) -> None:
+    def test_proc_update_preserves_incoming_h_tilde_targets(self) -> None:
         algo = Matcher(4, mode="multilevel")
         algo.H_tilde = {(1, 2), (2, 3)}
         algo.matched_vertices = {2}
 
         algo._Matcher__proc_update(2)
 
-        assert algo.H_tilde == set()
+        assert algo.H_tilde == {(1, 2)}
 
     def test_augment_preserves_matching_on_three_edge_path(self) -> None:
         graph = Adjacency(10)

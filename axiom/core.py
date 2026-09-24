@@ -394,10 +394,11 @@ class Matcher:
                     self.H_reverse.setdefault(target, set()).add(vertex)
 
         if matched:
-            # A matched vertex cannot remain an indexed source or target in
-            # \tilde H.  Filtering both endpoints is required when the
-            # vertex is the bad target of an edge owned by another source.
-            self.H_tilde = {edge for edge in self.H_tilde if vertex not in edge}
+            # ProcUpdate removes only edges leaving a newly matched vertex.
+            # Incoming edges to a bad target remain valid: their sources may
+            # still be unmatched and must remain discoverable by
+            # ProcRematchBU.
+            self.H_tilde = {edge for edge in self.H_tilde if edge[0] != vertex}
         else:
             # For an unmatched vertex, replace only its outgoing entries;
             # incoming entries remain valid and are owned by their sources.
