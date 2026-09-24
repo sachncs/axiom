@@ -1550,6 +1550,15 @@ def _sparsify_types_unchecked(
         raise RuntimeError("Sparsify-Types returned an oversized color group")
     if coloring.edges() != colored_edges:
         raise RuntimeError("Sparsify-Types changed the set of colored edges")
+    # Amplify terminates with U := U_hat.  Keep the caller's working
+    # collection synchronized with the returned social collection so a
+    # subsequent recursive step cannot accidentally process stale
+    # non-social fans.
+    for fan in tuple(fans):
+        fans.discard(fan)
+    for fan in result:
+        fans.add(fan)
+    fans.assert_compatible(coloring)
     return pairs, result
 
 

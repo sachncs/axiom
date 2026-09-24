@@ -271,6 +271,7 @@ def test_sparsify_types_relabels_small_collection_deterministically() -> None:
 
     assert len(groups) == 10
     assert len(social) == 1
+    assert tuple(fans) == tuple(social)
     assert next(iter(social)).type == frozenset({0, 1})
 
 
