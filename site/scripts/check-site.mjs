@@ -39,6 +39,7 @@ for (const file of files) {
   if (!/<title>[^<]+<\/title>/i.test(html)) failures.push(`${relative}: missing title`);
   if (!/<meta[^>]+name=["']description["'][^>]+content=["'][^"']+/i.test(html)) failures.push(`${relative}: missing description`);
   if ((html.match(/<h1\b/gi) ?? []).length !== 1) failures.push(`${relative}: expected exactly one h1`);
+  if (html.includes(`${basePath}/`)) failures.push(`${relative}: duplicate slash in site-base URL`);
   for (const image of html.matchAll(/<img\b([^>]*)>/gi)) {
     if (!/\balt=["'][^"']*["']/i.test(image[1])) failures.push(`${relative}: image missing alt text`);
   }

@@ -13,7 +13,8 @@ interface Props {
 }
 
 const { title, description = SITE.description } = Astro.props;
-const OG = (file: string) => new URL(`${import.meta.env.BASE_URL}/${file}`, Astro.site);
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const OG = (file: string) => new URL(`${base}/${file}`, Astro.site);
 const ogImage = OG("og.png");
 const favicon = OG("favicon.svg");
 const canonical = new URL(Astro.url.pathname, Astro.site);
