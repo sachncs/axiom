@@ -677,6 +677,8 @@ class Matcher:
             return
         with self.__atomic_update():
             self.graph.add_edge(u, v)
+            if not self.graph.has_edge(u, v):
+                raise RuntimeError("graph.add_edge did not install the requested edge")
             if self.mode == "multilevel":
                 edge = canonical(u, v)
                 self.inserted_edges.add(edge)
@@ -749,6 +751,10 @@ class Matcher:
             for matching in self.matchings:
                 matching.discard(edge)
             self.graph.remove_edge(u, v)
+            if self.graph.has_edge(u, v):
+                raise RuntimeError(
+                    "graph.remove_edge did not remove the requested edge"
+                )
             if self.multi is not None:
                 self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
             else:

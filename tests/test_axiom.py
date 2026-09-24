@@ -672,6 +672,31 @@ class TestMatcher:
         with pytest.raises(ValueError, match="graph"):
             Matcher(2, graph=graph)
 
+    def test_matcher_rejects_noop_custom_graph_mutators_atomically(self) -> None:
+        class NoopAddGraph(Adjacency):
+            def add_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                return
+
+        add_graph = NoopAddGraph(2)
+        add_matcher = Matcher(2, graph=add_graph)
+        with pytest.raises(RuntimeError, match="did not install"):
+            add_matcher.insert(0, 1)
+        assert set(add_graph.edges()) == set()
+        assert add_matcher.matching() == set()
+
+        class NoopRemoveGraph(Adjacency):
+            def remove_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                return
+
+        remove_graph = NoopRemoveGraph(2)
+        remove_graph.add_edge(0, 1)
+        remove_matcher = Matcher(2, graph=remove_graph)
+        before = remove_matcher.matching()
+        with pytest.raises(RuntimeError, match="did not remove"):
+            remove_matcher.delete(0, 1)
+        assert set(remove_graph.edges()) == {(0, 1)}
+        assert remove_matcher.matching() == before
+
     def test_duplicate_and_self_loop_insertions_are_noops(self) -> None:
         algo = Matcher(3, mode="multilevel")
         algo.insert(0, 1)
