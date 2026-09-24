@@ -37,12 +37,14 @@ matcher.maximal()   # invariant check
 matcher.stats()     # update and rebuild ledger`}</code></pre>
   <p>Inspection methods are read-only from the caller’s perspective. Treat returned collections as snapshots and continue to mutate the graph through <code>insert</code> and <code>delete</code>.</p>
   <table class="doc-table">
-    <thead><tr><th>Method</th><th>Use</th><th>Cost</th></tr></thead>
+    <thead><tr><th>Method</th><th>Returns</th><th>Use</th><th>Cost</th></tr></thead>
     <tbody>
-      <tr><td><code>partner(v)</code></td><td>Return the matched neighbor or <code>None</code>.</td><td>O(1)</td></tr>
-      <tr><td><code>partners()</code></td><td>Return a copy of the full partner map.</td><td>O(|M*|)</td></tr>
-      <tr><td><code>matching()</code></td><td>Return a copy of the current matching.</td><td>O(|M*|)</td></tr>
-      <tr><td><code>maximal()</code></td><td>Check the matching against the current graph.</td><td>O(n + m)</td></tr>
+      <tr><td><code>partner(v)</code></td><td><code>int | None</code></td><td>Return the matched neighbor or <code>None</code>.</td><td>O(1)</td></tr>
+      <tr><td><code>partners()</code></td><td><code>dict[int, int]</code></td><td>Return a copy of the full partner map.</td><td>O(|M*|)</td></tr>
+      <tr><td><code>matching()</code></td><td><code>set[Edge]</code></td><td>Return a copy of the current matching.</td><td>O(|M*|)</td></tr>
+      <tr><td><code>size()</code></td><td><code>int</code></td><td>Return the number of matching edges.</td><td>O(1)</td></tr>
+      <tr><td><code>maximal()</code></td><td><code>bool</code></td><td>Check the matching against the current graph.</td><td>O(n + m)</td></tr>
+      <tr><td><code>stats()</code></td><td><code>dict[str, int]</code></td><td>Return counters and active schedule values.</td><td>O(1)</td></tr>
     </tbody>
   </table>
 
