@@ -2,6 +2,8 @@
 import DocLayout from "../layouts/DocLayout.astro";
 ---
 <DocLayout title="Examples" eyebrow="Practical usage" description="Copyable workflows for live updates, reproducible traces, mode comparisons, and benchmark interpretation." next={{ label: "Read the architecture", href: "/architecture/" }}>
+  <div class="doc-callout"><p><strong>Choose deliberately.</strong> Use <code>basic</code> for the recommended integration path. The <code>multilevel</code> recipe below is for research and evaluation while its complete paper-level guarantees remain under validation.</p></div>
+
   <h2>Maintain a live stream</h2>
   <p>Keep the matcher as the owner of graph state. Feed it updates in order and inspect the matching after each operation.</p>
   <pre data-verify="python"><code>from axiom import Matcher
@@ -53,6 +55,6 @@ Final edges: 12
 Matching size: 8
 Maximal: True</code></pre>
 
-  <h2>Production checklist</h2>
+  <h2>Integration checklist</h2>
   <ul><li>Validate update ordering at your input boundary.</li><li>Persist the update trace if you need reproducibility.</li><li>Assert maximality in staging and benchmark runs.</li><li>Pin the Axiom version and record the selected mode.</li><li>Do not share one matcher instance across concurrent writers.</li></ul>
 </DocLayout>
