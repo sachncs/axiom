@@ -651,8 +651,16 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
     colors_before = dict(coloring._colors)
     fans_before = tuple(fans)
     extended = 0
+    rounds = 0
+    max_rounds = max(1, coloring.color_count**2)
     try:
         while len(fans):
+            rounds += 1
+            if rounds > max_rounds:
+                raise RuntimeError(
+                    "Color-Small exceeded its deterministic mu^2 iteration "
+                    "bound without exhausting the fan collection"
+                )
             counts = fans.type_counts()
             target = min(
                 counts, key=lambda value: (-counts[value], tuple(sorted(value)))
