@@ -1539,6 +1539,10 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+        hierarchy.levels[1].z = 2.5  # type: ignore[assignment]
+
+        assert not hierarchy.check()
+
     def test_hierarchy_sync_graph_validates_edge_inputs(self) -> None:
         graph = Adjacency(4)
         graph.add_edge(0, 1)
