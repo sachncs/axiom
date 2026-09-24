@@ -18,6 +18,8 @@ matcher.insert(2, 3)
 matcher.delete(1, 0)
 
 print(matcher.matching())
+print(matcher.partner(2))
+print(matcher.stats()["matching_size"])
 print(matcher.maximal())`}><code>{`from axiom import Matcher
 
 matcher = Matcher(n=6, mode="basic")
@@ -26,10 +28,14 @@ matcher.insert(2, 3)
 matcher.delete(1, 0)
 
 print(matcher.matching())
+print(matcher.partner(2))
+print(matcher.stats()["matching_size"])
 print(matcher.maximal())`}</code></pre>
 
   <h3>Expected result</h3>
   <pre><code>{`{(2, 3)}
+3
+1
 True`}</code></pre>
 
   <h2>What to expect</h2>
