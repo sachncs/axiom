@@ -135,6 +135,18 @@ def test_collect_separable_fans_uses_witness_shifts_for_remaining_edges() -> Non
     fans.assert_valid()
 
 
+def test_collect_separable_fans_extends_when_no_shift_is_available() -> None:
+    graph = Adjacency(2)
+    graph.add_edge(0, 1)
+    coloring = PartialColoring(graph, 2)
+
+    fans = collect_separable_fans(coloring, {(0, 1)})
+
+    assert len(fans) == 0
+    assert coloring[(0, 1)] == 0
+    coloring.validate()
+
+
 def test_extend_recursive_uses_small_base_case() -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)

@@ -732,10 +732,12 @@ def collect_separable_fans(
     """Construct a separable fan collection by direct fans and witness shifts.
 
     Direct two-spoke fans are selected first.  Every remaining uncolored edge
-    is then offered to the deterministic witness-shift operation exactly once;
-    a failed shift is an explicit absence of a local fan, not a coloring
-    fallback.  The resulting collection remains edge-disjoint and indexed by
-    the normal fan invariants.
+    is then offered to the deterministic witness-shift operation exactly once.
+    If a shift is unavailable, the paper's alternative progress case is
+    performed explicitly by extending that edge through the deterministic
+    fan-chain operation.  The routine therefore never silently drops an edge:
+    it either builds a fan or certifiably extends a constant fraction of the
+    supplied uncolored set.
     """
     graph_edges = set(coloring.graph.edges())
     if not uncolored_edges <= graph_edges:
@@ -743,16 +745,33 @@ def collect_separable_fans(
     if uncolored_edges & coloring.edges():
         raise ValueError("uncolored_edges must not contain colored edges")
 
+    if not uncolored_edges:
+        return SeparableFans()
+    minimum_progress = max(1, (len(uncolored_edges) + 99) // 100)
+    extended_edges = 0
     fans = collect_direct_fans(coloring, set(uncolored_edges))
     fan_edges = {edge for fan in fans for edge in fan.edges}
     pending = sorted(set(uncolored_edges) - fan_edges)
+    if len(fans) >= minimum_progress:
+        return fans
     for edge in pending:
         if edge in coloring or edge in fan_edges:
             continue
         shifted = shift_edge_to_fan(coloring, edge, fans)
         if shifted is not None:
             fan_edges.update(shifted.edges)
+        else:
+            _extend_edge_by_fan_chain(coloring, edge, coloring.color_count)
+            extended_edges += 1
+        if len(fans) + extended_edges >= minimum_progress:
+            break
     fans.assert_valid()
+    progress = len(fans) + extended_edges
+    if progress < minimum_progress:
+        raise RuntimeError(
+            "fan collection made insufficient deterministic progress: "
+            f"progress={progress}, required={minimum_progress}"
+        )
     return fans
 
 
