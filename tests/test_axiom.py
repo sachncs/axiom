@@ -555,6 +555,28 @@ class TestMatcher:
         assert dense_algo.level_phase_lengths == [64, 32, 16, 8, 4]
         assert dense_algo.phase_length == 4
 
+    def test_recursive_rebuild_inherits_level_one_without_rebuilding(self, monkeypatch):
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        assert len(algo.level_zs) > 1
+        edge = next(iter(algo.graph.edges()))
+
+        import axiom.rebuild as rebuild_module
+
+        def unexpected_base_rebuild(*args, **kwargs):
+            raise AssertionError("recursive rebuild rebuilt level one")
+
+        monkeypatch.setattr(rebuild_module, "build", unexpected_base_rebuild)
+        algo.graph.remove_edge(*edge)
+        algo.deleted_edges.add(edge)
+        algo.policy.rebuild(algo)
+
+        assert algo.multi is not None
+        assert algo.multi.check()
+
     def test_removed_mode_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="basic.*multilevel"):
             Matcher(10, mode="tiered")
