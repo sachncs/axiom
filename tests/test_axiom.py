@@ -876,6 +876,17 @@ class TestMatcher:
         with pytest.raises(ValueError):
             Matcher(-1)
 
+    @pytest.mark.parametrize("value", [None, 1.5, True, "4"])
+    def test_adjacency_rejects_non_integer_sizes(self, value: object) -> None:
+        with pytest.raises(ValueError, match="integer"):
+            Adjacency(value)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("value", [None, 1.5, True, "1"])
+    def test_adjacency_rejects_non_integer_vertices(self, value: object) -> None:
+        graph = Adjacency(2)
+        with pytest.raises(ValueError, match="integer"):
+            graph.has_edge(value, 1)  # type: ignore[arg-type]
+
     def test_empty_graph_basic(self) -> None:
         algo = Matcher(0, mode="basic")
         assert algo.maximal()

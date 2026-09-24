@@ -60,6 +60,8 @@ class Adjacency:
         Complexity:
             ``O(n)`` time and space for the adjacency list of empty sets.
         """
+        if not isinstance(n, int) or isinstance(n, bool):
+            raise ValueError(f"n must be an integer, got {n!r}")
         if n < 0:
             raise ValueError(f"n must be non-negative, got {n}")
         self.n: int = n
@@ -215,7 +217,9 @@ class Adjacency:
         Raises:
             ValueError: If ``v`` is out of range.
         """
-        if not (0 <= v < self.n):
+        if not isinstance(v, int) or isinstance(v, bool):
+            raise ValueError(f"Vertex {v!r} must be an integer")
+        if not 0 <= v < self.n:
             raise ValueError(f"Vertex {v} out of range [0, {self.n})")
 
     def copy(self) -> Adjacency:
