@@ -978,6 +978,22 @@ class Matcher:
         # Basic mode has one A-region and no higher-level recursion.
         self.__rematch_a_level(None, a)
 
+    def __rematch_a_scan_limit(self) -> int:
+        """Return the paper's bounded ``L(a)`` scan length.
+
+        The bound is based on the phase's level-1 ``z`` parameter and the
+        graph size, not on the finest-level rebuild interval.  Using the
+        latter can make a recursive phase scan the entire inherited list and
+        silently destroy the update-time bound.
+        """
+        if self.n <= 1:
+            return 1
+        phase_z = self.level_zs[0] if self.level_zs else self.z
+        if phase_z <= 0:
+            raise RuntimeError("cannot bound ProcRematchA without a positive z")
+        log_n = max(1, math.ceil(math.log2(self.n)))
+        return (18 * self.n * log_n * log_n) // phase_z + 1
+
     def __a_level(self, a: Vertex) -> int | None:
         """Return the recursive A-level containing ``a``."""
         if self.multi is None:
@@ -991,10 +1007,8 @@ class Matcher:
         """Run ProcRematchA for one level, including upward recursion."""
         assert self.system is not None
         system = self.system
-        # ProcRematchA may inspect one candidate beyond the I3 allowance.
-        # Keep this bound consistent with Hierarchy.check_i3, which uses
-        # floor(2*tau) rather than 2*floor(tau).
-        limit = (64 * self.phase_length) // self.z + 1 if self.z > 0 else 1
+        # The paper permits only the first 18*n*log^2(n)/z + 1 entries.
+        limit = self.__rematch_a_scan_limit()
         scanned = 0
 
         if level is None:

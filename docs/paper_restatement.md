@@ -155,7 +155,7 @@ When an edge $e\in M^*$ is deleted, its endpoints become free. Repair by rematch
 
 - **Rematching $U$:** Each $u\in U$ has $O(z)$ neighbors in $U\cup B$ via $\Lambda(u)$. Scan $\hat S$ (size $O(r/z)$). Time $\tilde O(z+r/z)$.
 - **Rematching $B$:** Use directed auxiliary graph $H$ on $B\cup U$. For unmatched $u\in U$, outgoing edges to $\Lambda(u)$. If $b\in B$ becomes unmatched, check incoming edge in $H$ for unmatched $u\in U$; otherwise scan $\hat S$. Updates to $H$ cost $\tilde O(z)$ per status change.
-- **Rematching $A$:** Difficult because $L(a)$ can be long. Give $A$ priority: scan first $2\tau+1$ entries of $L(a)$. By I2, some encountered $u$ is not matched to $A$ in $M^*$. Insert $(a,u)$ into $M^*$. If $u$ was matched to $u'\in B\cup U$, delete that edge (from $M^*$ and from $M_1$ if present) and rematch $u'$ efficiently. Scan cost $O(r/z)$.
+- **Rematching $A$:** Difficult because $L(a)$ can be long. Give $A$ priority: scan the first $18n\log^2(n)/z+1$ entries of $L(a)$. By the paper's settledness invariant, some encountered $u$ is not matched to $A$ in $M^*$. Insert $(a,u)$ into $M^*$. If $u$ was matched to $u'\in B\cup U$, delete that edge (from $M^*$ and from $M_1$ if present) and rematch $u'$ efficiently. Scan cost $O(n\log^2(n)/z)$.
 
 At subphase boundaries, augment $M_1$ using augmenting paths in $M_i\cup M_1$ (for an appropriate $M_i$ that still leaves few $S$-vertices unmatched), restoring invariants with only $O(r/z)$ vertices changing status.
 
