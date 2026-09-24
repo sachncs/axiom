@@ -613,6 +613,10 @@ class TestMatcher:
         with pytest.raises(ValueError, match="colorer"):
             Matcher(4, colorer=object())  # type: ignore[arg-type]
 
+    def test_multilevel_rejects_non_paper_colorer(self) -> None:
+        with pytest.raises(ValueError, match="PaperFanColorer"):
+            Matcher(4, mode="multilevel", colorer=Vizing())
+
     def test_matcher_has_no_forwarding_wrapper_methods(self) -> None:
         assert not hasattr(Matcher, "augment")
         assert not hasattr(Matcher, "try_augment")

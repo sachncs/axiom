@@ -161,7 +161,7 @@ algo = Matcher(
     n=100,
     mode="basic",  # or "multilevel"
     graph=None,  # default Adjacency(100)
-    colorer=None,  # Vizing for basic; PaperFanColorer for multilevel
+    colorer=None,  # optional basic-mode colorer; fixed PaperFanColorer for multilevel
 )
 
 algo.insert(u, v)  # insert edge (u, v)

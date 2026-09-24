@@ -61,9 +61,10 @@ class Matcher:
     accountant: Ledger
 ```
 
-The supplied `colorer` is used for both single-level partitioning and every
-recursive partition created by `mode="multilevel"`. It must return a complete
-proper coloring using colors in `0..delta`.
+The optional `colorer` is a basic-mode extension point and must return a
+complete proper coloring using colors in `0..delta`. `mode="multilevel"`
+always uses the deterministic `PaperFanColorer`; passing another colorer is
+rejected rather than silently changing the algorithm.
 
 ## Graph
 
