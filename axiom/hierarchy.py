@@ -173,7 +173,7 @@ class Hierarchy:
             return False
         vertices = set(range(self.graph.n))
         for index, level in enumerate(self.levels):
-            if level.graph.n != self.graph.n:
+            if level.graph is not self.graph or level.graph.n != self.graph.n:
                 return False
             level_vertices = set(range(level.graph.n))
             if (

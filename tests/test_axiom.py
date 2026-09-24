@@ -1512,6 +1512,21 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_check_rejects_a_detached_level_graph(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        detached = Adjacency(graph.n)
+        for edge in hierarchy.graph.edges():
+            detached.add_edge(*edge)
+        hierarchy.levels[1].graph = detached
+
+        assert not hierarchy.check()
+
     def test_hierarchy_check_detects_stale_intermediate_matching_edge(self) -> None:
         graph = Adjacency(8)
         for left in range(7):
