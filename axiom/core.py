@@ -708,7 +708,7 @@ class Matcher:
                         # phase-persistent.
                         insertion_budget = max(self.z, math.ceil(math.sqrt(self.n)))
                         if (
-                            self.inserted_incident_counts[vertex] >= insertion_budget
+                            self.inserted_incident_counts[vertex] > insertion_budget
                             and vertex not in self.bad_vertices
                         ):
                             self.bad_vertices.add(vertex)
