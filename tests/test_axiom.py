@@ -648,6 +648,35 @@ class TestMatcher:
         assert algo.level_phase_updates == [8, 8, 8, 0, 0]
         assert algo.level_phase_indices == [0, 0, 0, 1, 2]
 
+    def test_inserted_edge_index_scope_follows_nested_phase_boundaries(self) -> None:
+        n = 16
+        missing = {(0, vertex) for vertex in range(1, 10)}
+        graph = Adjacency(n)
+        for left in range(n):
+            for right in range(left + 1, n):
+                if (left, right) not in missing:
+                    graph.add_edge(left, right)
+
+        algo = Matcher(n, mode="multilevel", graph=graph)
+        inserted = [(0, vertex) for vertex in range(1, 9)]
+        for edge in inserted[:4]:
+            algo.insert(*edge)
+
+        # The finest phase has rebuilt, but its parent phase is still live.
+        assert algo.update_count == 0
+        assert algo.inserted_edges == set(inserted[:4])
+        assert algo.inserted_incident_edges[0] == set(inserted[:4])
+        assert algo._Matcher__check_auxiliary_indexes()
+
+        for edge in inserted[4:]:
+            algo.insert(*edge)
+
+        # The parent boundary consumes E_I and resets its endpoint index.
+        assert algo.update_count == 0
+        assert algo.inserted_edges == set()
+        assert all(not edges for edges in algo.inserted_incident_edges.values())
+        assert algo._Matcher__check_auxiliary_indexes()
+
     def test_multilevel_rebuild_resets_clocks_when_z_schedule_changes(self) -> None:
         matcher = Matcher(16, mode="multilevel")
         matcher.level_zs = [8]
