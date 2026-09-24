@@ -34,7 +34,7 @@ Assumptions:
       from :class:`axiom.graph.Graph`).
     * The system is freshly constructed via :func:`build`; it is
       the caller's responsibility to maintain :math:`\Lambda` and
-      :math:`L` thereafter (or to invoke :meth:`build_lambda_and_L`).
+      :math:`L` thereafter (or to invoke :meth:`index`).
 
 Limitations:
     * :func:`switch` remains available as a standalone alternating-path
@@ -70,10 +70,10 @@ class System:
         A system is normally built by :func:`build`.  After any
         mutation of ``self.graph`` the cached lists in ``lambda_lists``
         and ``L_lists`` must be refreshed via
-        :meth:`build_lambda_and_L`.  Mutating ``A``, ``B``, ``U``, or
+        :meth:`index`.  Mutating ``A``, ``B``, ``U``, or
         ``M`` directly is permitted (this is what the dynamic update
         code does) but should be followed by
-        :meth:`check_all_invariants` to verify the system stays legal.
+        :meth:`check` to verify the system stays legal.
 
     Thread-safety:
         Not thread-safe.  A ``System`` should be touched only
@@ -286,7 +286,7 @@ class System:
     def check_L(self) -> bool:
         r"""Check that each :math:`L(a)` equals :math:`N_G(a) \cap U`.
 
-        Symmetric to :meth:`check_lambda_lists` but for :math:`A`-vertices.
+        Symmetric to :meth:`check_lambda` but for :math:`A`-vertices.
 
         Returns:
             ``True`` iff every cached list is current.
@@ -306,13 +306,10 @@ class System:
     def check(self) -> bool:
         """Return ``True`` iff every invariant of the :math:`z`-system holds.
 
-        Equivalent to a logical AND of:
-        :meth:`check_degree_bounds`,
-        :meth:`check_U_degree_in_U`,
-        :meth:`check_P1`,
-        :meth:`check_P2`,
-        :meth:`check_lambda_lists`, and
-        :meth:`check_L_lists`.
+        Equivalent to a logical AND of :meth:`check_edges`,
+        :meth:`check_no_u_u_edges`, :meth:`check_partition`,
+        :meth:`check_bound`, :meth:`check_u`, :meth:`check_p1`,
+        :meth:`check_p2`, :meth:`check_lambda`, and :meth:`check_L`.
 
         Returns:
             ``True`` iff the system is legal.
@@ -669,7 +666,7 @@ def build(graph: Graph, z: int) -> System:
 
     Returns:
         A :class:`System` satisfying every invariant checked
-        by :meth:`System.check_all_invariants`.
+        by :meth:`System.check`.
 
     Complexity:
         :math:`O(n + m)` per promotion round; the number of rounds is

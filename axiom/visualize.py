@@ -11,7 +11,7 @@ Limitations:
     * All visualizations are designed for ``n <= ~100``; larger inputs
       produce very long reports.
     * The visualizations call the heavy invariant checks (e.g.
-      ``System.check_all_invariants``) and therefore have
+      ``System.check``) and therefore have
       ``O(n + m)`` cost on top of any printing.
 """
 
