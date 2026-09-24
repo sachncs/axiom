@@ -241,6 +241,33 @@ def test_modify_types_flips_one_batch_and_reindexes_fans() -> None:
     fans.assert_valid()
 
 
+def test_modify_types_flips_nontrivial_relevant_paths() -> None:
+    graph = Adjacency(7)
+    for edge in ((0, 1), (0, 2), (1, 3), (3, 4), (2, 5), (5, 6)):
+        graph.add_edge(*edge)
+    coloring = PartialColoring(graph, 100)
+    coloring.assign((1, 3), 5)
+    coloring.assign((3, 4), 10)
+    coloring.assign((2, 5), 5)
+    coloring.assign((5, 6), 10)
+    fans = SeparableFans()
+    fan = UFan(0, 1, 2, 0, 10, 10)
+    fans.add(fan)
+    blocks, _ = color_blocks(100, 10)
+
+    modify_types(coloring, fans, (fan,), blocks, 0)
+
+    assert coloring[(1, 3)] == 10
+    assert coloring[(3, 4)] == 5
+    assert coloring[(2, 5)] == 10
+    assert coloring[(5, 6)] == 5
+    transformed = next(iter(fans))
+    assert transformed.type == frozenset({0, 5})
+    assert fan_is_social(transformed, blocks)
+    coloring.validate()
+    fans.assert_valid()
+
+
 def test_modify_types_restores_state_on_explicit_failure() -> None:
     graph = Adjacency(3)
     graph.add_edge(0, 1)
