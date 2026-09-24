@@ -54,7 +54,7 @@ jobs:
       - name: Build release artifacts
         run: |
           python -m pip install --upgrade pip build twine
-          rm -rf build dist axiom.egg-info
+          rm -rf build dist axiom_matching.egg-info
           python -m build
           python -m twine check dist/*
           if unzip -l dist/*.whl | grep -q 'axiom/invariant.py'; then

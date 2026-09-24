@@ -12,8 +12,10 @@ pip install git+https://github.com/sachncs/axiom.git
 ```
 
 This installs the current development build directly from source. A published
-package install is intentionally not documented yet; the release gate still
-includes the remaining multilevel and coloring validation.
+package install is intentionally not documented yet; the future distribution
+name is `axiom-matching` because the unqualified PyPI name `axiom` belongs to
+another project. The release gate still includes the remaining multilevel and
+coloring validation. The Python import remains `from axiom import Matcher`.
 
 For development:
 
