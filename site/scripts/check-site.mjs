@@ -50,6 +50,7 @@ for (const file of files) {
   }
   for (const canvas of html.matchAll(/<canvas\b([^>]*)>/gi)) {
     if (!/\baria-label=["'][^"']+["']/i.test(canvas[1])) failures.push(`${relative}: canvas missing aria-label`);
+    if (!/\btabindex=["']0["']/i.test(canvas[1])) failures.push(`${relative}: interactive canvas missing tabindex=0`);
   }
   if (/github\.com\/sachncs\/axiom\/(?:blob|tree)\/master\/(?:README|docs|CHANGELOG)/i.test(html)) {
     failures.push(`${relative}: core documentation redirects to GitHub`);
