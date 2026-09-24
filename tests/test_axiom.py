@@ -1440,6 +1440,10 @@ class TestMatcher:
             "update_count": algo.update_count,
             "subphase_count": algo.subphase_count,
             "inserted": set(algo.inserted_edges),
+            "inserted_incident": {
+                vertex: set(edges)
+                for vertex, edges in algo.inserted_incident_edges.items()
+            },
             "deleted": set(algo.deleted_edges),
             "phase_edges": set(algo.phase_graph.edges())
             if algo.phase_graph is not None
@@ -1477,6 +1481,7 @@ class TestMatcher:
         assert algo.update_count == before["update_count"]
         assert algo.subphase_count == before["subphase_count"]
         assert algo.inserted_edges == before["inserted"]
+        assert algo.inserted_incident_edges == before["inserted_incident"]
         assert algo.deleted_edges == before["deleted"]
         assert algo.phase_graph is not None
         assert id(algo.phase_graph) == before["phase_graph_id"]
@@ -2055,6 +2060,21 @@ class TestPerformance:
             assert right in algo.bad_vertices
             assert (min(left, right), max(left, right)) in algo.inserted_edges
             assert left not in algo.matched_vertices
+
+    def test_inserted_edge_incident_index_tracks_lifecycle(self) -> None:
+        algo = Matcher(8, mode="multilevel")
+
+        algo.insert(0, 1)
+        algo.insert(0, 2)
+        assert algo.inserted_incident_edges[0] == {(0, 1), (0, 2)}
+        assert algo.inserted_incident_edges[1] == {(0, 1)}
+        assert algo.inserted_incident_edges[2] == {(0, 2)}
+
+        algo.delete(0, 1)
+        assert algo.inserted_incident_edges[0] == {(0, 2)}
+        assert algo.inserted_incident_edges[1] == set()
+        assert algo.inserted_incident_edges[2] == {(0, 2)}
+        assert algo._Matcher__check_auxiliary_indexes()
 
     def test_multilevel_phase_graph_excludes_inserted_edges(self) -> None:
         algo = Matcher(4, mode="multilevel")

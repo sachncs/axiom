@@ -179,6 +179,9 @@ class Matcher:
         self.eta: int = 0
         self.k: int = 0
         self.inserted_edges: set[tuple[int, int]] = set()
+        self.inserted_incident_edges: dict[Vertex, set[tuple[int, int]]] = {
+            vertex: set() for vertex in range(n)
+        }
         self.deleted_edges: set[tuple[int, int]] = set()
         self.inserted_incident_counts: dict[Vertex, int] = {
             vertex: 0 for vertex in range(n)
@@ -402,7 +405,7 @@ class Matcher:
         # still be unmatched and must remain discoverable by ProcRematchBU.
         self.__remove_h_tilde_source(vertex)
         if not matched:
-            for left, right in self.inserted_edges:
+            for left, right in self.__inserted_edges_at(vertex):
                 if left == vertex and right in self.bad_vertices:
                     self.__add_h_tilde((left, right))
                 elif right == vertex and left in self.bad_vertices:
@@ -436,6 +439,24 @@ class Matcher:
                 incoming.discard(source)
                 if not incoming:
                     self.H_tilde_reverse.pop(target, None)
+
+    def __add_inserted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
+        """Add an ``E_I`` edge to the incident index used by rematching."""
+        self.inserted_edges.add(edge)
+        left, right = edge
+        self.inserted_incident_edges[left].add(edge)
+        self.inserted_incident_edges[right].add(edge)
+
+    def __remove_inserted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
+        """Remove an ``E_I`` edge from its two incident index buckets."""
+        self.inserted_edges.discard(edge)
+        left, right = edge
+        self.inserted_incident_edges[left].discard(edge)
+        self.inserted_incident_edges[right].discard(edge)
+
+    def __inserted_edges_at(self, vertex: Vertex) -> list[tuple[Vertex, Vertex]]:
+        """Return incident inserted edges in deterministic order."""
+        return sorted(self.inserted_incident_edges.get(vertex, set()))
 
     def __check_auxiliary_indexes(self) -> bool:
         """Validate H, reverse-H, H-tilde, and S-hat against live state."""
@@ -726,7 +747,7 @@ class Matcher:
                 )
                 restores_phase_edge = was_deferred or edge in self.deleted_edges
                 if not restores_phase_edge:
-                    self.inserted_edges.add(edge)
+                    self.__add_inserted_edge(edge)
                 self.deleted_edges.discard(edge)
                 if self.multi is not None:
                     self.multi.deferred_deletions.discard(edge)
@@ -752,7 +773,7 @@ class Matcher:
                 # without this backfill, older inserted edges would remain
                 # invisible in H_tilde until a full phase rebuild.
                 for bad in newly_bad:
-                    for left, right in sorted(self.inserted_edges):
+                    for left, right in self.__inserted_edges_at(bad):
                         if right == bad and left not in self.matched_vertices:
                             self.__add_h_tilde((left, right))
                         if left == bad and right not in self.matched_vertices:
@@ -787,7 +808,7 @@ class Matcher:
             if self.mode == "multilevel":
                 edge = canonical(u, v)
                 if edge in self.inserted_edges:
-                    self.inserted_edges.remove(edge)
+                    self.__remove_inserted_edge(edge)
                     if self.multi is not None:
                         self.multi.deferred_deletions.discard(edge)
                 else:
@@ -1023,8 +1044,8 @@ class Matcher:
         # only bad vertices receive the bounded incoming-edge index in
         # ``H_tilde`` (ProcRematchBU, step 3 of the paper).
         if u not in self.bad_vertices:
-            for left, right in sorted(self.inserted_edges):
-                other = right if left == u else left if right == u else None
+            for left, right in self.__inserted_edges_at(u):
+                other = right if left == u else left
                 if other is not None and other not in self.matched_vertices:
                     self.add_match(u, other)
                     self.accountant.record_rematch_u_scan(scanned + 1)
@@ -1057,8 +1078,8 @@ class Matcher:
                     return
 
         if b not in self.bad_vertices:
-            for left, right in sorted(self.inserted_edges):
-                other = right if left == b else left if right == b else None
+            for left, right in self.__inserted_edges_at(b):
+                other = right if left == b else left
                 if other is not None and other not in self.matched_vertices:
                     self.add_match(b, other)
                     return
@@ -1162,8 +1183,8 @@ class Matcher:
                 return
 
         if a not in self.bad_vertices:
-            for left, right in sorted(self.inserted_edges):
-                other = right if left == a else left if right == a else None
+            for left, right in self.__inserted_edges_at(a):
+                other = right if left == a else left
                 if other is not None and other not in self.matched_vertices:
                     self.add_match(a, other)
                     return
