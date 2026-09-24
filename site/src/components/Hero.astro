@@ -67,6 +67,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
     <div class="demo__canvas-wrap">
       <canvas data-demo-canvas tabindex="0" aria-label="Interactive graph visualization. Use arrow keys to select a node and Enter to toggle an edge."></canvas>
+      <span class="sr-only" data-demo-status aria-live="polite"></span>
       <div class="demo__hint">
         <span class="dot" aria-hidden="true"></span>
         add or remove edges · arrows + Enter also work

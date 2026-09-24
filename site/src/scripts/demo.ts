@@ -74,6 +74,7 @@ export function initDemo(host: HTMLElement): void {
   const outScan = host.querySelector<HTMLElement>("[data-out-scan]");
   const outMax = host.querySelector<HTMLElement>("[data-out-max]");
   const outTick = host.querySelector<HTMLElement>("[data-out-tick]");
+  const demoStatus = host.querySelector<HTMLElement>("[data-demo-status]");
   if (!canvas || !host) return;
 
   const ctx = canvas.getContext("2d", { alpha: true });
@@ -232,6 +233,7 @@ export function initDemo(host: HTMLElement): void {
       ? `Node ${keyboardCursor + 1} of ${world.n} is focused. Press Enter to select it.`
       : `Node ${keyboardCursor + 1} of ${world.n} is focused. Node ${selected + 1} is selected; press Enter to toggle an edge.`;
     canvas?.setAttribute("aria-label", `Interactive graph visualization. ${state}`);
+    if (demoStatus) demoStatus.textContent = state;
   }
 
   function toCanvasPos(v: number): [number, number] {
