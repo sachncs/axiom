@@ -198,6 +198,8 @@ class Hierarchy:
             or self.R1 != self.R_levels[0]
         ):
             return False
+        if not self.deferred_deletions <= set(self.graph.edges()):
+            return False
         vertices = set(range(self.graph.n))
         for index, level in enumerate(self.levels):
             if level.graph is not self.graph or level.graph.n != self.graph.n:

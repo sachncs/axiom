@@ -1780,6 +1780,14 @@ class TestHierarchy:
 
         assert hierarchy.graph.has_edge(2, 3)
 
+    def test_hierarchy_check_rejects_missing_deferred_phase_edges(self) -> None:
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(graph, [2, 1])
+        hierarchy.deferred_deletions = {(2, 3)}
+
+        assert not hierarchy.check()
+
     def test_check_i3_empty(self) -> None:
         g = Adjacency(0)
         mls = Hierarchy(graph=g, k=1)
