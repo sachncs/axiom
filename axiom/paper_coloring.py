@@ -818,9 +818,14 @@ def collect_separable_fans(
     is_matching = len(endpoints) == 2 * len(pending)
     if len(pending) >= 2 and is_matching:
         constructed = construct_u_fans(coloring, set(pending))
+        extended_edges += sum(edge in coloring for edge in pending)
         for fan in constructed:
             fans.add(fan)
             fan_edges.update(fan.edges)
+        # The matching reduction may rotate colors through vertices already
+        # represented by direct fans.  Revalidate the combined collection
+        # before exposing it to the next paper phase.
+        fans.discard_damaged(coloring)
         pending = [edge for edge in pending if edge not in coloring]
     if len(fans) >= minimum_progress:
         fans.assert_compatible(coloring)
@@ -1263,6 +1268,34 @@ def _prune_vizing_fans(
     return tuple(item for item, _ in active)
 
 
+def _reduce_u_edges(
+    coloring: PartialColoring,
+    fans: SeparableFans,
+    u_edges: tuple[_UEdge, ...],
+) -> int:
+    """Reduce the surviving pruned u-edges through deterministic Vizing chains.
+
+    ``ReduceUEdges`` removes a surviving u-edge either by extending the
+    coloring or by preserving a newly formed u-fan.  The path state here is
+    advanced in deterministic u-edge order; every mutation is validated and
+    damaged fan state is removed before the next edge is processed.  The
+    parallel path-packing optimization from the paper is intentionally not
+    represented by this serial state machine.
+    """
+    extended = 0
+    for item in u_edges:
+        edge = item.edge
+        if edge in coloring:
+            continue
+        _extend_edge_by_fan_chain(coloring, edge, coloring.color_count)
+        extended += 1
+        fans.discard_damaged(coloring)
+        coloring.validate()
+        fans.assert_valid()
+        fans.assert_compatible(coloring)
+    return extended
+
+
 def construct_u_fans(
     coloring: PartialColoring, uncolored_edges: set[Edge]
 ) -> SeparableFans:
@@ -1283,7 +1316,8 @@ def construct_u_fans(
         for item in seeded:
             by_color.setdefault(item.center_color, []).append(item)
         for color in sorted(by_color):
-            _prune_vizing_fans(coloring, result, tuple(by_color[color]))
+            remaining = _prune_vizing_fans(coloring, result, tuple(by_color[color]))
+            _reduce_u_edges(coloring, result, remaining)
         coloring.validate()
         result.assert_valid()
         result.assert_compatible(coloring)
