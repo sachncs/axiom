@@ -53,6 +53,24 @@ def test_separable_fans_enforce_edge_and_vertex_color_disjointness() -> None:
         fans.add(UFan(0, 4, 5, 0, 2, 2))
 
 
+def test_modify_types_rejects_fans_incompatible_with_coloring() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = PartialColoring(graph, 100)
+    coloring.assign((0, 1), 0)
+    fans = SeparableFans()
+    fan = UFan(0, 1, 2, 1, 2, 2)
+    fans.add(fan)
+    blocks, _ = color_blocks(100, 10)
+
+    with pytest.raises(AssertionError, match="spoke is already colored"):
+        modify_types(coloring, fans, (fan,), blocks, 0)
+
+    assert dict(coloring.items()) == {((0, 1)): 0}
+    assert tuple(fans) == (fan,)
+
+
 def test_partial_coloring_flip_preserves_properness() -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)

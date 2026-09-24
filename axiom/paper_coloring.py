@@ -516,6 +516,27 @@ class SeparableFans:
         if rebuilt_types != self._types:
             raise AssertionError("u-fan type index is stale")
 
+    def assert_compatible(self, coloring: PartialColoring) -> None:
+        """Validate fan spokes and assigned colors against ``coloring``.
+
+        ``assert_valid`` checks only the collection's own indexes.  The ABB
+        operations also require every spoke to be an uncolored graph edge and
+        every fan color to be missing at its assigned endpoint.  Keeping this
+        check explicit prevents a stale or hand-built fan collection from
+        entering an atomic path-modification operation.
+        """
+        for fan in self:
+            if any(not coloring.graph.has_edge(*edge) for edge in fan.edges):
+                raise AssertionError(f"u-fan spoke is outside the graph: {fan}")
+            if any(edge in coloring for edge in fan.edges):
+                raise AssertionError(f"u-fan spoke is already colored: {fan}")
+            for vertex in fan.vertices:
+                if not coloring.is_missing(vertex, fan.color_at(vertex)):
+                    raise AssertionError(
+                        "u-fan assigned color is not missing at its vertex: "
+                        f"fan={fan}, vertex={vertex}"
+                    )
+
     def discard_damaged(self, coloring: PartialColoring) -> int:
         """Remove fans whose spokes or assigned colors are no longer valid."""
         damaged = [
@@ -581,6 +602,7 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
     """
     coloring.validate()
     fans.assert_valid()
+    fans.assert_compatible(coloring)
     colors_before = dict(coloring._colors)
     fans_before = tuple(fans)
     extended = 0
@@ -1295,6 +1317,7 @@ def modify_types(
     """Apply one ``Modify-Types`` batch atomically."""
     coloring.validate()
     fans.assert_valid()
+    fans.assert_compatible(coloring)
     colors_before = dict(coloring._colors)
     fans_before = tuple(fans)
     try:
@@ -1308,6 +1331,7 @@ def modify_types(
             fans.add(fan)
         coloring.validate()
         fans.assert_valid()
+        fans.assert_compatible(coloring)
         raise
 
 
@@ -1328,6 +1352,7 @@ def _modify_types_unchecked(
     """
     coloring.validate()
     fans.assert_valid()
+    fans.assert_compatible(coloring)
     colored_edges = coloring.edges()
     if not batch:
         raise ValueError("Modify-Types requires a non-empty fan batch")
@@ -1401,6 +1426,7 @@ def sparsify_types(
             fans.add(fan)
         coloring.validate()
         fans.assert_valid()
+        fans.assert_compatible(coloring)
         raise
 
 
@@ -1421,6 +1447,7 @@ def _sparsify_types_unchecked(
         raise ValueError("color_count must be at least 10*eta")
     coloring.validate()
     fans.assert_valid()
+    fans.assert_compatible(coloring)
     colored_edges = coloring.edges()
     initial = len(fans)
     if initial == 0:
