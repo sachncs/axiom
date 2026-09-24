@@ -1,5 +1,5 @@
 ---
-import { INSTALL, SITE } from "../lib/data";
+import { INSTALL } from "../lib/data";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
@@ -14,8 +14,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         <span class="serif gradient-text">deterministic excellence.</span>
       </h2>
       <p>
-        One import, zero dependencies, core invariants verified. Clone the repo,
-        run the demo, and break it — the checkers will thank you.
+        One import, zero runtime dependencies, and a matching you can inspect after
+        every update. Start with the guide, then take the same stream into the playground.
       </p>
 
       <div class="cta__cmd mono" data-copy={INSTALL.pip}>
@@ -24,12 +24,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       </div>
 
       <div class="cta__actions">
-        <a class="btn btn--primary" href={SITE.repo} target="_blank" rel="noopener">
-          Star on GitHub
+        <a class="btn btn--primary" href={`${base}/get-started/`}>
+          Read the getting-started guide
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
         </a>
-        <a class="btn btn--ghost" href={`${base}/get-started/`}>
-          Read the docs
+        <a class="btn btn--ghost" href={`${base}/playground/`}>
+          Open the playground
         </a>
       </div>
     </div>

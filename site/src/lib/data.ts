@@ -53,7 +53,7 @@ export const PROBLEM = [
   {
     step: "02",
     title: "The invariant",
-    body: "A maximal matching stays an l̶ocal proof of coverage: every edge touches at least one matched vertex. Recover it instantly, deterministically, after every single update.",
+    body: "A maximal matching is a local proof of coverage: every edge touches at least one matched vertex. Axiom restores it deterministically after every accepted update.",
   },
   {
     step: "03",
@@ -91,7 +91,7 @@ export const FEATURES = [
   {
     icon: "ledger",
     title: "Empirical ledger",
-    body: "Explicit counters track phase and subphase rebuilds, rematch scan sizes, and stale cleanups — an account of where every update spends its time.",
+    body: "Explicit counters track phase and subphase rebuilds, rematch scan sizes, and cleanup work — an account of where every update spends its time.",
   },
 ] as const;
 
@@ -154,8 +154,7 @@ export const REBUILD_SNIPPET = `# Strobes of work land on a dark chart —
 n=200 · updates=5000 · mode=multilevel   ───■── 6.2k upd/s
 rebuilds          827
 rematch scans     12,913
-stale cleanups    —·
-stale cleanups    31`;
+cleanup work      31`;
 
 export const INSTALL = {
   pip: "pip install git+https://github.com/sachncs/axiom.git",
