@@ -127,7 +127,17 @@ jobs:
       - name: Audit dependencies
         run: |
           python -m pip install pip-audit
-          pip-audit
+          python - <<'PY'
+          import subprocess
+
+          try:
+              subprocess.run(["pip-audit"], check=True, timeout=120)
+          except subprocess.TimeoutExpired as error:
+              raise SystemExit(
+                  "pip-audit did not complete within 120 seconds; "
+                  "dependency security status is unverified"
+              ) from error
+          PY
 
   clean-install:
     runs-on: ubuntu-latest
