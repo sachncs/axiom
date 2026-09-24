@@ -188,7 +188,11 @@ class PartialColoring:
 
     def is_missing(self, vertex: Vertex, color: Color) -> bool:
         """Return whether ``color`` is available at ``vertex`` in O(1)."""
-        if not 0 <= color < self.color_count:
+        if (
+            not isinstance(color, int)
+            or isinstance(color, bool)
+            or not 0 <= color < self.color_count
+        ):
             return False
         return color not in self._incident[vertex]
 
@@ -1063,17 +1067,11 @@ def _extend_edge_by_fan_chain(
     if common:
         coloring.assign(edge, common[0])
         return
-    missing_center = coloring.missing(center)
-    if not missing_center:
-        raise RuntimeError(f"no missing color available at fan center {center}")
     before = dict(coloring._colors)
     try:
         fan = _maximal_fan(coloring, center, first)
-        missing_end = coloring.missing(fan[-1])
-        if not missing_end:
-            raise RuntimeError(f"no missing color available at fan endpoint {fan[-1]}")
-        first_color = missing_center[0]
-        second_color = missing_end[0]
+        first_color = coloring.first_missing(center)
+        second_color = coloring.first_missing(fan[-1])
         if first_color != second_color:
             _invert_color_component(coloring, center, first_color, second_color)
         width = _rotatable_fan_prefix(coloring, center, fan, second_color)
