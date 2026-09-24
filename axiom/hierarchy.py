@@ -522,8 +522,30 @@ def refine_hierarchy(
             promote(vertex)
 
     changed = True
+    seen_states: set[
+        tuple[
+            frozenset[Vertex],
+            frozenset[Vertex],
+            frozenset[Vertex],
+            frozenset[Edge],
+            tuple[tuple[Vertex, int], ...],
+        ]
+    ] = set()
     while changed:
         changed = False
+        state = (
+            frozenset(new_u),
+            frozenset(new_a),
+            frozenset(new_b),
+            frozenset(chosen),
+            tuple(sorted(degree.items())),
+        )
+        if state in seen_states:
+            raise RuntimeError(
+                "recursive refinement repeated a promotion state; refusing to "
+                "continue with a non-terminating hierarchy construction"
+            )
+        seen_states.add(state)
         for vertex in sorted(tuple(new_u)):
             need = z_prime - degree[vertex]
             if need <= 0:
