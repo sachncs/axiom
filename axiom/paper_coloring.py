@@ -1194,6 +1194,92 @@ def _explore_vizing_chains(
     raise RuntimeError("Vizing chain exploration terminated without an event")
 
 
+def _other_endpoint(edge: Edge, vertex: Vertex) -> Vertex:
+    """Return the endpoint of ``edge`` different from ``vertex``."""
+    if edge[0] == vertex:
+        return edge[1]
+    if edge[1] == vertex:
+        return edge[0]
+    raise ValueError(f"vertex {vertex} is not an endpoint of edge {edge}")
+
+
+def _restore_fan_collection(fans: SeparableFans, snapshot: tuple[UFan, ...]) -> None:
+    """Restore a fan collection after a failed transactional collision."""
+    for fan in tuple(fans):
+        fans.discard(fan)
+    for fan in snapshot:
+        fans.add(fan)
+
+
+def _resolve_chain_collision(
+    coloring: PartialColoring,
+    fans: SeparableFans,
+    collision: tuple[_VizingChain, _VizingChain],
+) -> tuple[bool, int]:
+    """Apply one paper same/opposite-direction chain collision if valid.
+
+    The operation is deliberately transactional.  The local fan builder is a
+    deterministic implementation boundary, so a collision is accepted only
+    when the resulting spokes and missing colors satisfy the full u-fan
+    certificate.  Otherwise the caller restores this snapshot and performs
+    the explicit serial reduction path.
+    """
+    first, second = collision
+    if first.u_edge.center_color != second.u_edge.center_color:
+        raise ValueError("chain collisions must be within one alpha group")
+    first_edges = first.path_edges
+    second_edges = second.path_edges
+    common = sorted(set(first_edges) & set(second_edges))
+    if not common:
+        raise RuntimeError("chain collision has no shared canonical edge")
+    shared = common[0]
+    first_index = first_edges.index(shared)
+    second_index = second_edges.index(shared)
+    colors_before = dict(coloring._colors)
+    fans_before = tuple(fans)
+    alpha = first.u_edge.center_color
+    try:
+        same_direction = (
+            first.path[first_index] == second.path[second_index]
+            and first.path[first_index + 1] == second.path[second_index + 1]
+        )
+        if same_direction:
+            if first_index == 0 or second_index == 0:
+                return False, 0
+            first_predecessor = first_edges[first_index - 1]
+            second_predecessor = second_edges[second_index - 1]
+            if first_predecessor == second_predecessor:
+                return False, 0
+            beta = coloring[first_predecessor]
+            coloring.unassign(first_predecessor)
+            coloring.unassign(second_predecessor)
+            _extend_edge_by_fan_chain(coloring, first.u_edge.edge, coloring.color_count)
+            _extend_edge_by_fan_chain(
+                coloring, second.u_edge.edge, coloring.color_count
+            )
+            center = first.path[first_index]
+            first_leaf = _other_endpoint(first_predecessor, center)
+            second_leaf = _other_endpoint(second_predecessor, center)
+            created = UFan(center, first_leaf, second_leaf, beta, alpha, alpha)
+            if first_predecessor in coloring or second_predecessor in coloring:
+                raise RuntimeError("same-direction shift recolored a predecessor")
+            fans.add(created)
+            fans.assert_compatible(coloring)
+            return True, 2
+
+        coloring.unassign(shared)
+        _extend_edge_by_fan_chain(coloring, first.u_edge.edge, coloring.color_count)
+        _extend_edge_by_fan_chain(coloring, second.u_edge.edge, coloring.color_count)
+        if shared in coloring:
+            raise RuntimeError("opposite-direction shift recolored the shared edge")
+        return True, 2
+    except (RuntimeError, ValueError, KeyError, AssertionError):
+        coloring._colors = colors_before
+        coloring._reindex()
+        _restore_fan_collection(fans, fans_before)
+        return False, 0
+
+
 def _seed_u_edges(
     coloring: PartialColoring, uncolored_edges: set[Edge]
 ) -> tuple[_UEdge, ...]:
@@ -1360,10 +1446,23 @@ def _reduce_u_edges(
         if event.terminal is not None:
             selected: tuple[_UEdge, ...] = (event.terminal.u_edge,)
         elif event.collision is not None:
-            # Keep collision handling atomic and deterministic.  The source
-            # algorithm replaces this branch with a same/opposite-direction
-            # path shift; until that operation is available, both affected
-            # u-edges are reduced explicitly rather than silently ignored.
+            resolved, added = _resolve_chain_collision(coloring, fans, event.collision)
+            if resolved:
+                active = [
+                    item
+                    for item in active
+                    if item not in {chain.u_edge for chain in event.collision}
+                ]
+                extended += added
+                fans.discard_damaged(coloring)
+                coloring.validate()
+                fans.assert_valid()
+                fans.assert_compatible(coloring)
+                continue
+            # A collision can be observed before the simplified local fan
+            # state contains the exact predecessor configuration required by
+            # the paper's shift.  Reduce those two u-edges transactionally in
+            # deterministic order rather than silently dropping the event.
             selected = tuple(
                 chain.u_edge
                 for chain in sorted(

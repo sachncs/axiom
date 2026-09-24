@@ -10,8 +10,12 @@ from axiom.paper_coloring import (
     PartialColoring,
     SeparableFans,
     UFan,
+    _ChainEvent,
+    _explore_vizing_chains,
     _paper_eta,
     _project_subproblem,
+    _UEdge,
+    _VizingChain,
     activate_fan,
     classify_type_sparsification,
     collect_direct_fans,
@@ -207,6 +211,34 @@ def test_construct_u_fans_prunes_intersecting_vizing_fans() -> None:
     assert coloring[(2, 3)] == 2
     coloring.validate()
     fans.assert_compatible(coloring)
+
+
+def test_vizing_chain_exploration_detects_oriented_collisions() -> None:
+    first = _VizingChain(
+        _UEdge((0, 1), 0),
+        (1,),
+        (0, 2, 3),
+    )
+    same_direction = _VizingChain(
+        _UEdge((4, 5), 0),
+        (5,),
+        (4, 2, 3),
+    )
+    opposite_direction = _VizingChain(
+        _UEdge((6, 7), 0),
+        (7,),
+        (3, 2, 8),
+    )
+
+    same_event = _explore_vizing_chains((first, same_direction))
+    opposite_event = _explore_vizing_chains((first, opposite_direction))
+
+    assert isinstance(same_event, _ChainEvent)
+    assert same_event.collision == (first, same_direction)
+    assert opposite_event.collision in {
+        (first, opposite_direction),
+        (opposite_direction, first),
+    }
 
 
 def test_extend_recursive_uses_small_base_case() -> None:
