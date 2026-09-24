@@ -245,7 +245,17 @@ class Multilevel:
         while eta < root_n:
             eta *= 2
 
-        edge_count = matcher.graph.num_edges()
+        phase_base = matcher.phase_base_graph
+        parent_boundary = (
+            phase_base is None
+            or not matcher.level_phase_lengths
+            or len(matcher.level_phase_lengths) == 1
+            or any(value == 0 for value in matcher.level_phase_updates[:-1])
+        )
+        schedule_graph = matcher.graph if parent_boundary else phase_base
+        if schedule_graph is None:
+            raise RuntimeError("multilevel schedule has no phase-start graph")
+        edge_count = schedule_graph.num_edges()
         if edge_count <= matcher.n * root_n:
             # Type-1 phases use the one-level construction with z=sqrt(n)
             # and span n updates.  Recursive refinement is reserved for the

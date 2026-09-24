@@ -661,6 +661,26 @@ class TestMatcher:
         assert matcher.level_phase_updates == [0]
         assert matcher.level_phase_indices == [0]
 
+    def test_multilevel_child_schedule_uses_phase_start_density(self) -> None:
+        from axiom.rebuild import Multilevel
+
+        edges = [(left, right) for left in range(32) for right in range(left + 1, 32)]
+        base = Adjacency(32)
+        for edge in edges[:182]:
+            base.add_edge(*edge)
+
+        matcher = Matcher(32, mode="multilevel", graph=base)
+        initial_schedule = list(matcher.level_zs)
+        assert len(initial_schedule) > 1
+
+        for edge in edges[182:262]:
+            matcher.graph.add_edge(*edge)
+        matcher.level_phase_updates = [1] * len(matcher.level_phase_lengths)
+
+        child_schedule, _, _ = Multilevel._schedule(matcher)
+
+        assert child_schedule == initial_schedule
+
     def test_recursive_rebuild_inherits_level_one_without_rebuilding(self, monkeypatch):
         dense = Adjacency(16)
         for left in range(16):
