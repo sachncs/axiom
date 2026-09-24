@@ -24,9 +24,10 @@ const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
       One <span class="serif gradient-text">contract.</span>
     </h2>
     <p>
-      Pick the recursion depth that fits your graph. Both modes expose the same
-      strict, typed API — the difference is only in how deeply they arm against
-      the update stream.
+      Choose the update engine that fits your confidence level. Both modes
+      expose the same strict, typed API; <code>multilevel</code> derives its
+      density-sensitive depth from the graph rather than asking callers to
+      configure a recursion level.
     </p>
   </div>
 

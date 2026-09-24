@@ -28,9 +28,9 @@ export const METRICS = [
     note: "basic · multilevel",
   },
   {
-    value: "Θ(log n)",
+    value: "up to Θ(log n)",
     label: "hierarchy levels",
-    note: "up to k-level recursive partition",
+    note: "density-sensitive recursive partition",
   },
   {
     value: "core",
@@ -66,7 +66,7 @@ export const FEATURES = [
   {
     icon: "layers",
     title: "Two operating modes",
-    body: "basic runs the single-level algorithm; multilevel recursively refines z-systems through k ≈ ½ log n levels.",
+    body: "basic runs the single-level algorithm; multilevel recursively refines z-systems to a density-sensitive depth, up to Θ(log n) levels.",
   },
   {
     icon: "graph",
@@ -112,7 +112,7 @@ export const MODES = [
   },
   {
     name: "Multilevel",
-    tag: "multi-level · k = Θ(log n)",
+    tag: "multi-level · density-sensitive depth",
     complexity: "recursive",
     period: "deterministic maximality",
     points: [
