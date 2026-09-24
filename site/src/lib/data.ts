@@ -27,19 +27,19 @@ export const METRICS = [
     note: "basic · multilevel",
   },
   {
-    value: "up to Θ(log n)",
-    label: "hierarchy levels",
-    note: "density-sensitive recursive partition",
-  },
-  {
-    value: "core",
-    label: "invariants verified",
-    note: "z-system + multilevel checks",
+    value: "3",
+    label: "update verbs",
+    note: "insert · delete · inspect",
   },
   {
     value: "0",
     label: "runtime dependencies",
-    note: "pure Python · stdlib only",
+    note: "Python standard library only",
+  },
+  {
+    value: "3.10+",
+    label: "supported Python",
+    note: "typed and tested through 3.13",
   },
 ] as const;
 
@@ -101,8 +101,8 @@ export const MODES = [
     complexity: "single-level",
     period: "deterministic maximality",
     points: [
-      "z = ⌈n^2/3⌉ saturation threshold",
-      "phase length r = ⌈n^4/3⌉",
+      "z = ⌈n^(2/3)⌉ saturation threshold",
+      "phase length r = ⌈n^(4/3)⌉",
       "subphase length r / z",
       "ideal for mid-size graphs & teaching",
     ],
