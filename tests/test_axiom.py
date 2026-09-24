@@ -699,6 +699,15 @@ class TestMatcher:
         algo.delete(2, 3)
         assert algo.maximal()
 
+    def test_subphase_keeps_seed_inside_maintained_matching(self) -> None:
+        algo = Matcher(8, mode="basic")
+        algo.subphase_length = 1
+
+        algo.insert(0, 1)
+
+        assert algo.seed_matching <= algo.matched_edges
+        assert algo.maximal()
+
     def test_triangle_updates(self) -> None:
         algo = Matcher(3, mode="basic")
         algo.insert(0, 1)

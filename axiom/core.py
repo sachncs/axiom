@@ -505,7 +505,55 @@ class Matcher:
         return False
 
     def __augment_seed_at_subphase_boundary(self) -> None:
+        if self.system is None or not self.matchings:
+            return
+
+        # M_1 is maintained across subphases, so remove adversarially deleted
+        # edges before searching for augmenting paths.  The seed must remain a
+        # matching contained in the live graph.
+        self.seed_matching = {
+            edge for edge in self.seed_matching if self.graph.has_edge(edge[0], edge[1])
+        }
         self.__augment_seed()
+
+        # Keep the paper's M_1 subset M* invariant explicit.  A newly added
+        # seed edge may displace an older M* edge at either endpoint; those
+        # displaced vertices are rematched after all seed edges are installed
+        # so the transition is deterministic and does not recurse through a
+        # partially updated seed.
+        displaced: set[Vertex] = set()
+        for left, right in sorted(self.seed_matching):
+            edge = canonical(left, right)
+            if edge in self.matched_edges:
+                continue
+            for endpoint in (left, right):
+                prior = self.partner_map.get(endpoint)
+                if prior is not None and canonical(endpoint, prior) != edge:
+                    self.drop_match(endpoint, prior)
+                    displaced.add(prior)
+            self.add_match(left, right)
+
+        self.__rebuild_auxiliary()
+        protected = {vertex for edge in self.seed_matching for vertex in edge}
+        for vertex in sorted(displaced):
+            if vertex not in self.matched_vertices:
+                # Rematch only against currently unmatched, non-seed
+                # vertices.  The normal recursive dispatcher is allowed to
+                # replace an existing partner, which could evict a seed edge
+                # that was just installed.
+                for neighbor in self.graph.neighbors(vertex):
+                    if (
+                        neighbor not in protected
+                        and neighbor not in self.matched_vertices
+                    ):
+                        self.add_match(vertex, neighbor)
+                        break
+        if not self.seed_matching <= self.matched_edges:
+            raise RuntimeError(
+                "subphase seed synchronization failed to preserve M1 subset M*"
+            )
+        if not self.maximal():
+            raise RuntimeError("subphase seed synchronization violated maximality")
 
     def __augment_seed(self) -> int:
         """Run the subphase-boundary augmenting-path search over M_1.
@@ -528,7 +576,7 @@ class Matcher:
             matched_in_seed.add(v)
 
         augmented = 0
-        for s in self.system.S:
+        for s in sorted(self.system.S):
             if s not in matched_in_seed:
                 if _augment(
                     self.seed_matching,
