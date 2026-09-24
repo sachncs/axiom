@@ -35,7 +35,7 @@ from itertools import pairwise
 from axiom.paper_coloring import PaperFanColorer
 from axiom.system import System
 from axiom.system import build as build_z_system
-from axiom.types import Colorer, Edge, Graph, Vertex, canonical
+from axiom.types import Edge, Graph, Vertex, canonical
 
 
 @dataclass
@@ -369,8 +369,20 @@ class Hierarchy:
         return len(offenders)
 
 
+def _require_paper_colorer(colorer: PaperFanColorer | None) -> PaperFanColorer:
+    """Return the only colorer permitted for recursive hierarchy construction."""
+    if colorer is None:
+        return PaperFanColorer()
+    if not isinstance(colorer, PaperFanColorer):
+        raise ValueError(
+            "recursive hierarchy construction requires PaperFanColorer; "
+            "alternate coloring implementations are not supported"
+        )
+    return colorer
+
+
 def build_hierarchy(
-    graph: Graph, level_zs: list[int], colorer: Colorer | None = None
+    graph: Graph, level_zs: list[int], colorer: PaperFanColorer | None = None
 ) -> Hierarchy:
     r"""Build a multi-level system by recursive refinement.
 
@@ -403,7 +415,7 @@ def build_hierarchy(
     if any(left <= right for left, right in pairwise(level_zs)):
         raise ValueError("level_zs must be strictly decreasing")
 
-    active_colorer = colorer if colorer is not None else PaperFanColorer()
+    active_colorer = _require_paper_colorer(colorer)
     first = build_z_system(graph, level_zs[0])
     hierarchy = _from_basic(first)
     for z in level_zs[1:]:
@@ -431,7 +443,7 @@ def refine_hierarchy(
     *,
     deleted: set[Edge] | None = None,
     inserted: set[Edge] | None = None,
-    colorer: Colorer | None = None,
+    colorer: PaperFanColorer | None = None,
 ) -> Hierarchy:
     """Recursively refine a hierarchy using the paper's level construction.
 
@@ -478,7 +490,7 @@ def refine_hierarchy(
     live_edges = (phase_edges - deleted) | inserted
     retained_deleted = deleted & previous.M
     subgraph = _edge_graph(hierarchy.graph, previous.M)
-    active_colorer = colorer if colorer is not None else PaperFanColorer()
+    active_colorer = _require_paper_colorer(colorer)
     coloring = active_colorer.color(subgraph, z)
     if set(coloring) != set(previous.M):
         raise RuntimeError(

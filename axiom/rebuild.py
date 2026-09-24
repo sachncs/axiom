@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
+from axiom.paper_coloring import PaperFanColorer
 from axiom.system import System, build
 from axiom.types import Graph
 
@@ -307,6 +308,11 @@ class Multilevel:
         )
         phase_base_graph: Graph
         phase_base_system: System
+        if not isinstance(matcher.colorer, PaperFanColorer):
+            raise RuntimeError(
+                "multilevel rebuild requires the deterministic PaperFanColorer"
+            )
+        recursive_colorer = matcher.colorer
         if (
             previous is not None
             and previous.levels
@@ -336,7 +342,7 @@ class Multilevel:
                     z,
                     deleted=deleted,
                     inserted=inserted,
-                    colorer=matcher.colorer,
+                    colorer=recursive_colorer,
                 )
                 deleted = set(matcher.multi.deferred_deletions)
                 # E_I is incorporated into the graph produced by this
@@ -352,7 +358,7 @@ class Multilevel:
             phase_base_graph = _snapshot(matcher.graph)
             phase_base_system = build(phase_base_graph, matcher.level_zs[0])
             matcher.multi = build_hierarchy(
-                phase_base_graph, matcher.level_zs, colorer=matcher.colorer
+                phase_base_graph, matcher.level_zs, colorer=recursive_colorer
             )
         # Recursive refinement constructs the finest system on a selected
         # working subgraph.  The dynamic update pipeline owns a phase graph

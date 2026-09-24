@@ -1439,14 +1439,13 @@ class TestHierarchy:
         """Each refinement input is the preceding level's matching subgraph."""
         from axiom.paper_coloring import PaperFanColorer
 
-        class RecordingColorer:
+        class RecordingColorer(PaperFanColorer):
             def __init__(self) -> None:
                 self.calls: list[set[tuple[int, int]]] = []
-                self.delegate = PaperFanColorer()
 
             def color(self, graph: Adjacency, delta: int) -> dict[tuple[int, int], int]:
                 self.calls.append(set(graph.edges()))
-                return self.delegate.color(graph, delta)
+                return super().color(graph, delta)
 
         graph = Adjacency(8)
         for u in range(8):
@@ -1576,23 +1575,18 @@ class TestHierarchy:
 
         assert hierarchy.check()
 
-    def test_recursive_builder_uses_configured_colorer(self) -> None:
+    def test_recursive_builder_rejects_non_paper_colorer(self) -> None:
         graph = Adjacency(8)
         for u in range(8):
             for v in range(u + 1, 8):
                 graph.add_edge(u, v)
 
-        calls: list[int] = []
-
         class RecordingColorer(Vizing):
             def color(self, graph: Adjacency, delta: int) -> dict[tuple[int, int], int]:
-                calls.append(delta)
                 return super().color(graph, delta)
 
-        hierarchy = build_hierarchy(graph, [8, 4, 2], RecordingColorer())
-
-        assert hierarchy.check()
-        assert calls == [8, 4]
+        with pytest.raises(ValueError, match="PaperFanColorer"):
+            build_hierarchy(graph, [8, 4, 2], RecordingColorer())
 
     def test_refinement_applies_edge_subsets_and_insertions(self) -> None:
         old_graph = Adjacency(8)
