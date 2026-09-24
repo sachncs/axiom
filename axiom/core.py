@@ -767,13 +767,13 @@ class Matcher:
                     for vertex in edge:
                         self.inserted_incident_counts[vertex] += 1
                         # The paper's insertion protocol marks a vertex bad
-                        # when its incident E_I count reaches z + 1.  ``self.z``
+                        # when its incident E_I count reaches z.  ``self.z``
                         # is the active (finest) multilevel parameter; using
                         # sqrt(n) as a floor would delay promotion in dense
                         # type-2 schedules and make the tilde-H index stale.
                         insertion_budget = max(1, self.z)
                         if (
-                            self.inserted_incident_counts[vertex] > insertion_budget
+                            self.inserted_incident_counts[vertex] >= insertion_budget
                             and vertex not in self.bad_vertices
                         ):
                             self.bad_vertices.add(vertex)

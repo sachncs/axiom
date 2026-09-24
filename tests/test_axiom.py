@@ -975,14 +975,14 @@ class TestMatcher:
     def test_bad_vertex_promotion_backfills_existing_inserted_edges(self) -> None:
         algo = Matcher(8, mode="multilevel")
 
-        # Vertex 1 becomes bad on the fourth incident insertion for this
-        # schedule.  The edge (1, 2) predates that transition and must still
-        # become visible as an incoming tilde-H edge for its unmatched source.
+        # Vertex 1 becomes bad when its incident insertion count reaches z
+        # for this schedule. The edge (1, 2) predates that transition and
+        # must still become visible as an incoming tilde-H edge for its
+        # unmatched source.
         algo.insert(0, 1)
         algo.insert(1, 2)
-        algo.insert(1, 3)
         assert 1 not in algo.bad_vertices
-        algo.insert(1, 4)
+        algo.insert(1, 3)
 
         assert 1 in algo.bad_vertices
         assert (2, 1) in algo.H_tilde
@@ -990,7 +990,7 @@ class TestMatcher:
 
     def test_tilde_h_reverse_index_tracks_promotion_and_deletion(self) -> None:
         algo = Matcher(8, mode="multilevel")
-        for edge in [(0, 1), (1, 2), (1, 3), (1, 4)]:
+        for edge in [(0, 1), (1, 2), (1, 3)]:
             algo.insert(*edge)
 
         assert 1 in algo.bad_vertices
@@ -2079,10 +2079,10 @@ class TestPerformance:
         algo = Matcher(4, mode="multilevel")
         algo.phase_length = 100
         algo.insert(0, 1)
-        algo.insert(0, 2)
         assert 0 not in algo.bad_vertices
-        algo.insert(0, 3)
+        algo.insert(0, 2)
         assert 0 in algo.bad_vertices
+        algo.insert(0, 3)
         algo.delete(0, 1)
         assert 0 in algo.bad_vertices
         for left, right in algo.H_tilde:
