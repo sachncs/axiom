@@ -45,3 +45,21 @@ assumptions and the implementation's measured performance.
 
 The current adjacency layer uses Python hash sets. Benchmark results should
 be reported separately from the theoretical theorem.
+
+## Runtime and concurrency contract
+
+The package supports CPython 3.10 through 3.13. A `Matcher` owns mutable graph,
+matching, hierarchy, and accounting state and is not thread-safe. Use an
+external lock around calls on one instance when sharing it across threads;
+separate instances can run concurrently.
+
+`basic` stores the live graph and its indexes in `O(n + m)` space. `multilevel`
+also retains phase snapshots and recursive level indexes, using `O(k(n + m))`
+space in the worst case, where `k` is the active level count. `matching()` and
+`partners()` return copies, so mutating their results does not mutate the
+matcher.
+
+The measured runtime is available through `stats()`. The paper's amortized
+bounds rely on balanced-tree adjacency and the complete deterministic ABB+26
+coloring construction; this Python implementation does not claim those bounds
+until the corresponding release gates are complete.

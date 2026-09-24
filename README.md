@@ -51,6 +51,26 @@ pip install -e ".[dev]"
 
 This pulls in `pytest`, `pytest-cov`, `mypy`, `ruff`, and `hypothesis`.
 
+## Runtime model
+
+Axiom supports CPython 3.10, 3.11, 3.12, and 3.13. Matcher instances are
+stateful and are not thread-safe; protect an instance with an external lock if
+multiple threads can access it. Independent matcher instances may be used
+concurrently.
+
+The live graph and its matching/index state use `O(n + m)` storage in the
+single-level implementation. `multilevel` retains the recursive hierarchy and
+phase snapshots; its auxiliary storage is `O(k(n + m))` in the worst case,
+where `k` is the number of active levels (`O(log n)` in the dense schedule).
+Returned matching and partner collections are copies and may be mutated by the
+caller without changing matcher state.
+
+The implementation reports empirical operation counters through `stats()`.
+The theoretical amortized bounds from the paper assume its balanced-tree and
+deterministic edge-coloring model; this repository does not claim those bounds
+for Python hash-set adjacency or until the documented ABB+26 implementation
+gates are complete.
+
 ---
 
 ## Quickstart
