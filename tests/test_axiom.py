@@ -1607,6 +1607,24 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_check_detects_intermediate_upper_bound_corruption(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        level = hierarchy.levels[0]
+        vertex = max(range(graph.n), key=level.degree)
+        missing = [
+            edge for edge in graph.edges() if vertex in edge and edge not in level.M
+        ]
+        for edge in missing[: level.z - level.degree(vertex) + 1]:
+            level.M.add(edge)
+
+        assert not hierarchy.check()
+
     def test_hierarchy_check_rejects_a_detached_level_graph(self) -> None:
         graph = Adjacency(8)
         for u in range(8):

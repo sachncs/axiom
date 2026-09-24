@@ -230,6 +230,16 @@ class Hierarchy:
                 or not level.check_L()
             ):
                 return False
+            level_degree = {vertex: 0 for vertex in level_vertices}
+            for left, right in level.M:
+                level_degree[left] += 1
+                level_degree[right] += 1
+                if left in level.A and right not in level.S:
+                    return False
+                if right in level.A and left not in level.S:
+                    return False
+            if any(value > level.z for value in level_degree.values()):
+                return False
         system = self.levels[-1]
         z = system.z
         all_a = set().union(*self.A_levels)
