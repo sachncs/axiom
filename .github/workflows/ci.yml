@@ -236,6 +236,9 @@ jobs:
         run: npm run build
         working-directory: site
 
+      - name: Execute verified documentation examples
+        run: python scripts/verify_site_examples.py
+
       - name: Check generated routes and accessibility
         run: npm run check:links
         working-directory: site

@@ -10,7 +10,7 @@ import { INSTALL } from "../lib/data";
 
   <h2>Create a matcher</h2>
   <p>Choose one of the two supported modes explicitly. There are no legacy mode names or compatibility wrappers.</p>
-  <pre data-copy={`from axiom import Matcher
+  <pre data-verify="python" data-copy={`from axiom import Matcher
 
 matcher = Matcher(n=6, mode="basic")
 matcher.insert(0, 1)

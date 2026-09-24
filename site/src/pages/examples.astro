@@ -4,7 +4,7 @@ import DocLayout from "../layouts/DocLayout.astro";
 <DocLayout title="Examples" eyebrow="Practical usage" description="Copyable workflows for live updates, reproducible traces, mode comparisons, and benchmark interpretation." next={{ label: "Read the architecture", href: "/architecture/" }}>
   <h2>Maintain a live stream</h2>
   <p>Keep the matcher as the owner of graph state. Feed it updates in order and inspect the matching after each operation.</p>
-  <pre><code>from axiom import Matcher
+  <pre data-verify="python"><code>from axiom import Matcher
 
 matcher = Matcher(n=8, mode="basic")
 updates = [
@@ -24,7 +24,7 @@ print(matcher.stats())</code></pre>
 
   <h2>Replay a deterministic trace</h2>
   <p>Generate a valid insert/delete sequence from a seeded random generator, save it with your experiment, and replay it against another matcher.</p>
-  <pre><code>import random
+  <pre data-verify="python"><code>import random
 from axiom import Matcher
 from axiom.simulation import random_updates, replay
 
