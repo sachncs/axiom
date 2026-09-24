@@ -841,13 +841,14 @@ def collect_separable_fans(
     if len(pending) >= 2 and is_matching:
         constructed = construct_u_fans(coloring, set(pending))
         extended_edges += sum(edge in coloring for edge in pending)
+        # ConUFans may rotate colors while reducing its matching.  Any direct
+        # fan selected before that operation must be revalidated before the
+        # two collections are merged; otherwise a stale color assignment can
+        # collide with a newly constructed fan or enter Extend invalidly.
+        fans.discard_damaged(coloring)
         for fan in constructed:
             fans.add(fan)
             fan_edges.update(fan.edges)
-        # The matching reduction may rotate colors through vertices already
-        # represented by direct fans.  Revalidate the combined collection
-        # before exposing it to the next paper phase.
-        fans.discard_damaged(coloring)
         pending = [edge for edge in pending if edge not in coloring]
     if len(fans) >= minimum_progress:
         fans.assert_compatible(coloring)
