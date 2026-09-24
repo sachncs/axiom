@@ -81,6 +81,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       <span>repair <b data-out-scan>—</b></span>
       <span class="demo__tick" data-out-tick>0000 updates</span>
     </div>
+    <div class="demo__legend">
+      <span><strong>M*</strong> current matching</span>
+      <span><strong>repair</strong> work after the last update</span>
+      <span><strong>Maximal</strong> every edge remains covered</span>
+    </div>
   </div>
 </section>
 
@@ -307,6 +312,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   }
   .demo__tick {
     margin-left: auto;
+  }
+
+  .demo__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    padding: 10px 16px 13px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-faint);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .demo__legend strong {
+    color: var(--ink-dim);
+    font-weight: 650;
   }
 
   @media (max-width: 860px) {
