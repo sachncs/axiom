@@ -30,7 +30,7 @@ export const METRICS = [
   {
     value: "Θ(log n)",
     label: "hierarchy levels",
-    note: "k-level recursive partition",
+    note: "up to k-level recursive partition",
   },
   {
     value: "core",
@@ -81,7 +81,7 @@ export const FEATURES = [
   {
     icon: "invariant",
     title: "Invariant checks",
-    body: "Independent read-only validators prove maximality, every z-system property, and the multi-level (I3) bound at any moment. Call them from tests or debug scripts.",
+    body: "Read-only validators check maximality, active z-system structure, and the multi-level (I3) bound. The complete paper proof remains a research gate.",
   },
   {
     icon: "path",
@@ -116,9 +116,9 @@ export const MODES = [
     complexity: "recursive",
     period: "deterministic maximality",
     points: [
-      "z₁ ≈ n (power of two), zᵢ = zᵢ₋₁ / 2 recursive levels",
-      "k = ⌈log₂ √n⌉ hierarchy depth",
-      "level-k threshold z_k ≈ √n",
+      "z₁ = a phase-start average-degree power of two",
+      "k = density-sensitive recursive depth",
+      "density-sensitive levels down to the √n / (4 log n) threshold",
       "Invariant (I3) enforced after every update",
     ],
     accent: "violet",
