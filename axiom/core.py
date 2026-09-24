@@ -687,6 +687,7 @@ class Matcher:
                 # invariant still expected it through E_D'.
                 if self.multi is not None:
                     self.multi.deferred_deletions.discard(edge)
+                newly_bad: list[Vertex] = []
                 for vertex in edge:
                     self.inserted_incident_counts[vertex] += 1
                     # The phase-0 construction uses t=ceil(sqrt(n)) as its
@@ -695,8 +696,23 @@ class Matcher:
                     # insertion budget is reached, and badness remains
                     # phase-persistent.
                     insertion_budget = max(self.z, math.ceil(math.sqrt(self.n)))
-                    if self.inserted_incident_counts[vertex] >= insertion_budget:
+                    if (
+                        self.inserted_incident_counts[vertex] >= insertion_budget
+                        and vertex not in self.bad_vertices
+                    ):
                         self.bad_vertices.add(vertex)
+                        newly_bad.append(vertex)
+                # A newly bad target must expose every already-live inserted
+                # edge to it whose other endpoint is currently unmatched.
+                # ProcUpdate only visits the two endpoints of this update;
+                # without this backfill, older inserted edges would remain
+                # invisible in H_tilde until a full phase rebuild.
+                for bad in newly_bad:
+                    for left, right in sorted(self.inserted_edges):
+                        if right == bad and left not in self.matched_vertices:
+                            self.H_tilde.add((left, right))
+                        if left == bad and right not in self.matched_vertices:
+                            self.H_tilde.add((right, left))
             if self.multi is not None:
                 self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
             else:
@@ -846,7 +862,6 @@ class Matcher:
             self.drop_match(u, v)
 
         self.__cleanup_stale_edges()
-        self.__rebuild_auxiliary()
         self.__rematch_vertex(u)
         self.__rematch_vertex(v)
         self.__cleanup_stale_edges()
@@ -1042,7 +1057,6 @@ class Matcher:
                 self.drop_match(u, p)
             self.add_match(a, u)
             if p is not None:
-                self.__rebuild_auxiliary()
                 higher = self.__a_level(p)
                 if higher is not None and (level is None or higher > level):
                     self.__rematch_a_level(higher, p)
@@ -1104,11 +1118,6 @@ class Matcher:
             raise RuntimeError(
                 "matching views diverged from the authoritative live graph"
             )
-        # Matching transitions can expose vertices indirectly through a
-        # recursive fan/I3 repair.  Rebuild the bounded auxiliary views from
-        # the authoritative matching and current lambda lists before checking
-        # invariants, so no stale H/H_reverse/H_tilde entry survives a repair.
-        self.__rebuild_auxiliary()
         if not self.__check_auxiliary_indexes():
             raise RuntimeError(
                 "auxiliary matching indexes diverged from authoritative state"

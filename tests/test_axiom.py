@@ -708,6 +708,20 @@ class TestMatcher:
 
         assert algo.H_tilde == {(1, 2)}
 
+    def test_bad_vertex_promotion_backfills_existing_inserted_edges(self) -> None:
+        algo = Matcher(8, mode="multilevel")
+
+        # Vertex 1 becomes bad on the third incident insertion for this
+        # schedule.  The edge (1, 2) predates that transition and must still
+        # become visible as an incoming tilde-H edge for its unmatched source.
+        algo.insert(0, 1)
+        algo.insert(1, 2)
+        algo.insert(1, 3)
+
+        assert 1 in algo.bad_vertices
+        assert (2, 1) in algo.H_tilde
+        assert (3, 1) in algo.H_tilde
+
     def test_augment_preserves_matching_on_three_edge_path(self) -> None:
         graph = Adjacency(10)
         for edge in [(0, 4), (4, 7), (7, 9), (1, 8)]:
