@@ -2234,8 +2234,8 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
     ``Sparsify-Types`` supplies disjoint color groups and social fans.  Each group is
     projected to local color numbers, processed independently, and merged back
     only after its properness has been validated.  If amplification cannot
-    produce a valid recursive split, this function raises instead of invoking
-    a classical-coloring fallback.
+    produce a valid recursive split, this function raises an explicit
+    diagnostic error.
     """
     coloring.validate()
     fans.assert_valid()
