@@ -389,3 +389,17 @@ def test_paper_fan_colorer_runs_extend_for_large_fan_batches() -> None:
 
     assert set(coloring) == set(graph.edges())
     assert len({coloring[(0, leaf)] for leaf in range(1, 201)}) == 200
+
+
+def test_paper_fan_colorer_certifies_recursive_seed_output() -> None:
+    graph = Adjacency(40)
+    for left in range(40):
+        for right in range(left + 1, 40):
+            if (left * 17 + right * 31) % 7 < 3:
+                graph.add_edge(left, right)
+
+    coloring = PaperFanColorer().color(graph, 39)
+    certificate = PartialColoring(graph, 40)
+    for edge, color in coloring.items():
+        certificate.assign(edge, color)
+    certificate.validate()

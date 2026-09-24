@@ -758,9 +758,24 @@ class PaperFanColorer:
             raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
         all_edges = set(graph.edges())
         if delta >= 32 and all_edges:
-            return _recursive_paper_seed(graph, delta)
-        start = PartialColoring(graph, delta + 1)
-        return _complete_partial_coloring(start, all_edges, delta)
+            result = _recursive_paper_seed(graph, delta)
+        else:
+            start = PartialColoring(graph, delta + 1)
+            result = _complete_partial_coloring(start, all_edges, delta)
+        _certify_complete_coloring(graph, delta, all_edges, result)
+        return result
+
+
+def _certify_complete_coloring(
+    graph: Graph, delta: int, all_edges: set[Edge], coloring: dict[Edge, Color]
+) -> None:
+    """Certify a public colorer result before returning it to callers."""
+    if set(coloring) != all_edges:
+        raise RuntimeError("paper colorer returned an incomplete edge coloring")
+    certificate = PartialColoring(graph, delta + 1)
+    for edge, color in sorted(coloring.items()):
+        certificate.assign(edge, color)
+    certificate.validate()
 
 
 def _complete_partial_coloring(
