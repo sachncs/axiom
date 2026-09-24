@@ -1808,6 +1808,14 @@ class TestPerformance:
                 for target in targets:
                     assert source in algo.H_reverse.get(target, set())
 
+    def test_auxiliary_indexes_survive_adversarial_update_sequences(self) -> None:
+        """Incremental H indexes must match their authoritative state."""
+        for seed in range(32):
+            algo = Matcher(8, mode="multilevel")
+            for op, u, v in random_updates(8, 80, random.Random(seed)):
+                getattr(algo, op)(u, v)
+                assert algo._Matcher__check_auxiliary_indexes()
+
     def test_proc_update_removes_replaced_h_reverse_entries(self) -> None:
         graph = Adjacency(8)
         for vertex in range(7):
