@@ -390,10 +390,28 @@ def refine_hierarchy(
 
     deleted = deleted or set()
     inserted = inserted or set()
+    phase_edges = set(hierarchy.graph.edges())
+    vertices = set(range(hierarchy.graph.n))
+    for label, edges in (("deleted", deleted), ("inserted", inserted)):
+        for edge in edges:
+            if not isinstance(edge, tuple) or len(edge) != 2:
+                raise ValueError(f"{label} edges must be 2-tuples")
+            left, right = edge
+            if left not in vertices or right not in vertices or left >= right:
+                raise ValueError(
+                    f"{label} edges must be canonical endpoints in [0, n): {edge}"
+                )
+    if not deleted <= phase_edges:
+        raise ValueError(
+            "deleted edges must belong to the phase graph: "
+            f"{sorted(deleted - phase_edges)}"
+        )
+    if deleted & inserted:
+        raise ValueError("deleted and inserted edge sets must be disjoint")
     # The hierarchy graph is the phase-start snapshot.  ED is supplied as a
     # separate set, so remove it from the live side before selecting the
     # bounded deferred subset ED'.
-    live_edges = (set(hierarchy.graph.edges()) - deleted) | inserted
+    live_edges = (phase_edges - deleted) | inserted
     retained_deleted = deleted & previous.M
     subgraph = _edge_graph(hierarchy.graph, previous.M)
     active_colorer = colorer if colorer is not None else PaperFanColorer()

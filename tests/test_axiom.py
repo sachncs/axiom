@@ -1331,6 +1331,18 @@ class TestHierarchy:
         assert len(refined.deferred_deletions) <= len(deleted) * 8 // 16
         assert not (deleted - refined.deferred_deletions) & set(refined.graph.edges())
 
+    def test_refinement_rejects_invalid_update_edge_sets(self) -> None:
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        base = build_hierarchy(graph, [2])
+
+        with pytest.raises(ValueError, match="deleted edges must belong"):
+            refine_hierarchy(base, 1, deleted={(2, 3)})
+        with pytest.raises(ValueError, match="canonical endpoints"):
+            refine_hierarchy(base, 1, inserted={(1, 0)})
+        with pytest.raises(ValueError, match="must be disjoint"):
+            refine_hierarchy(base, 1, deleted={(0, 1)}, inserted={(0, 1)})
+
     def test_phase_sync_retains_deferred_deletions(self) -> None:
         phase_graph = Adjacency(4)
         phase_graph.add_edge(0, 1)
