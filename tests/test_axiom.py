@@ -1646,8 +1646,8 @@ class TestHierarchy:
             refine_hierarchy(base, 1, deleted={(2, 3)})
         with pytest.raises(ValueError, match="canonical endpoints"):
             refine_hierarchy(base, 1, inserted={(1, 0)})
-        with pytest.raises(ValueError, match="must be disjoint"):
-            refine_hierarchy(base, 1, deleted={(0, 1)}, inserted={(0, 1)})
+        with pytest.raises(ValueError, match="inserted edges must be absent"):
+            refine_hierarchy(base, 1, inserted={(0, 1)})
 
     def test_phase_sync_retains_deferred_deletions(self) -> None:
         phase_graph = Adjacency(4)

@@ -464,6 +464,11 @@ def refine_hierarchy(
             "deleted edges must belong to the phase graph: "
             f"{sorted(deleted - phase_edges)}"
         )
+    if inserted & phase_edges:
+        raise ValueError(
+            "inserted edges must be absent from the phase graph: "
+            f"{sorted(inserted & phase_edges)}"
+        )
     if deleted & inserted:
         raise ValueError("deleted and inserted edge sets must be disjoint")
     # The hierarchy graph is the phase-start snapshot.  ED is supplied as a

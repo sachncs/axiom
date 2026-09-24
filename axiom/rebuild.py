@@ -286,10 +286,16 @@ class Multilevel:
         matcher.eta = eta
         matcher.k = len(level_zs)
         matcher.phase_length = self._phase_budget(matcher)
-        if previous_lengths != phase_lengths or len(matcher.level_phase_updates) != len(
-            phase_lengths
-        ):
+        schedule_changed = previous_lengths != phase_lengths or len(
+            matcher.level_phase_updates
+        ) != len(phase_lengths)
+        if schedule_changed:
             self._reset_phase_clocks(matcher)
+        parent_boundary = matcher.update_count > 0 and (
+            len(level_zs) == 1
+            or schedule_changed
+            or any(value == 0 for value in matcher.level_phase_updates[:-1])
+        )
         previous = matcher.multi
         previous_level_zs = (
             [level.z for level in previous.levels] if previous is not None else []
@@ -328,6 +334,10 @@ class Multilevel:
                     colorer=matcher.colorer,
                 )
                 deleted = set(matcher.multi.deferred_deletions)
+                # E_I is incorporated into the graph produced by this
+                # refinement.  It is therefore part of the input graph for
+                # the next recursive level, not a second insertion set.
+                inserted = set()
         else:
             # Preserve the exact level-1 input before recursive refinement
             # rebinds retained levels to each narrower working graph.  This
@@ -340,20 +350,28 @@ class Multilevel:
                 phase_base_graph, matcher.level_zs, colorer=matcher.colorer
             )
         # Recursive refinement constructs the finest system on a selected
-        # working subgraph.  The dynamic update pipeline, however, owns a
-        # full phase graph (live edges plus deferred deletions, excluding
-        # current-phase insertions).  Attach that authoritative phase view
-        # once at the rebuild boundary; subsequent updates can then apply
-        # single-edge deltas without rebuilding the entire graph.
+        # working subgraph.  The dynamic update pipeline owns a phase graph
+        # consisting of live edges minus cumulative E_I, plus deferred E_D'.
+        # E_D/E_I span child phases until their parent phase closes.
         assert matcher.multi is not None
-        # A completed phase rebuild incorporates all currently live
-        # insertions into the new phase baseline, so they must not remain in
-        # the transient E_I exclusion set while the graph is attached.
-        matcher.multi.sync_graph(matcher.graph)
-        matcher.inserted_edges.clear()
-        matcher.deleted_edges.clear()
-        matcher.inserted_incident_counts = {vertex: 0 for vertex in range(matcher.n)}
-        matcher.bad_vertices.clear()
+        if parent_boundary:
+            # The parent phase has closed: consume deferred deletions and
+            # establish a new level-1 root over the current live graph.
+            matcher.multi.deferred_deletions.clear()
+            matcher.multi.sync_graph(matcher.graph)
+            matcher.inserted_edges.clear()
+            matcher.deleted_edges.clear()
+            matcher.inserted_incident_counts = {
+                vertex: 0 for vertex in range(matcher.n)
+            }
+            matcher.bad_vertices.clear()
+        else:
+            # A child phase rebuild keeps the inherited parent snapshot and
+            # cumulative update sets.  Insertions remain outside the phase
+            # graph until the parent boundary, exactly as E_I requires.
+            matcher.multi.sync_graph(
+                matcher.graph, excluded_edges=matcher.inserted_edges
+            )
 
         if matcher.multi.levels:
             matcher.system = matcher.multi.levels[-1]
@@ -384,9 +402,15 @@ class Multilevel:
                 "continue with stale recursive state"
             )
         matcher.phase_graph = _snapshot(matcher.multi.graph)
-        matcher.phase_base_graph = phase_base_graph
-        matcher.phase_base_system = phase_base_system
-        if not phase_base_system.check():
+        if parent_boundary:
+            next_base_graph = _snapshot(matcher.graph)
+            next_base_system = build(next_base_graph, matcher.level_zs[0])
+        else:
+            next_base_graph = phase_base_graph
+            next_base_system = phase_base_system
+        matcher.phase_base_graph = next_base_graph
+        matcher.phase_base_system = next_base_system
+        if not next_base_system.check():
             raise RuntimeError(
                 "multilevel rebuild produced an invalid inherited phase base"
             )
