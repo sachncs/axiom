@@ -301,6 +301,25 @@ def test_modify_types_flips_one_batch_and_reindexes_fans() -> None:
     fans.assert_valid()
 
 
+def test_modify_types_rejects_mixed_fan_block_batches() -> None:
+    graph = Adjacency(6)
+    for edge in ((0, 1), (0, 2), (3, 4), (3, 5)):
+        graph.add_edge(*edge)
+    coloring = PartialColoring(graph, 100)
+    fans = SeparableFans()
+    first = UFan(0, 1, 2, 0, 10, 10)
+    second = UFan(3, 4, 5, 0, 20, 20)
+    fans.add(first)
+    fans.add(second)
+    blocks, _ = color_blocks(100, 10)
+
+    with pytest.raises(ValueError, match="one fan block type"):
+        modify_types(coloring, fans, (first, second), blocks, 0)
+
+    assert tuple(fans) == (first, second)
+    assert not coloring.edges()
+
+
 def test_modify_types_flips_nontrivial_relevant_paths() -> None:
     graph = Adjacency(7)
     for edge in ((0, 1), (0, 2), (1, 3), (3, 4), (2, 5), (5, 6)):

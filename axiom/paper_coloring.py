@@ -1373,6 +1373,19 @@ def _modify_types_unchecked(
         raise ValueError("Modify-Types batch must belong to the fan collection")
     if len(set(batch)) != len(batch):
         raise ValueError("Modify-Types batch must not contain duplicate fans")
+    batch_block_types = {
+        tuple(
+            sorted(
+                {
+                    _block_index(blocks, fan.center_color),
+                    _block_index(blocks, fan.first_color),
+                }
+            )
+        )
+        for fan in batch
+    }
+    if len(batch_block_types) != 1:
+        raise ValueError("Modify-Types batch must contain one fan block type")
 
     fan_paths: dict[UFan, tuple[tuple[tuple[Vertex, ...], Color, Color], ...]] = {
         fan: relevant_paths(coloring, fan, blocks, pair_index) for fan in batch
