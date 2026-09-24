@@ -679,7 +679,7 @@ class TestMatcher:
 
         add_graph = NoopAddGraph(2)
         add_matcher = Matcher(2, graph=add_graph)
-        with pytest.raises(RuntimeError, match="did not install"):
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
             add_matcher.insert(0, 1)
         assert set(add_graph.edges()) == set()
         assert add_matcher.matching() == set()
@@ -692,10 +692,36 @@ class TestMatcher:
         remove_graph.add_edge(0, 1)
         remove_matcher = Matcher(2, graph=remove_graph)
         before = remove_matcher.matching()
-        with pytest.raises(RuntimeError, match="did not remove"):
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
             remove_matcher.delete(0, 1)
         assert set(remove_graph.edges()) == {(0, 1)}
         assert remove_matcher.matching() == before
+
+    def test_matcher_rejects_custom_graph_extra_mutations(self) -> None:
+        class ExtraAddGraph(Adjacency):
+            def add_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                super().add_edge(u, v, strict=strict)
+                if (u, v) != (1, 2):
+                    super().add_edge(1, 2)
+
+        add_graph = ExtraAddGraph(3)
+        add_matcher = Matcher(3, graph=add_graph)
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
+            add_matcher.insert(0, 1)
+        assert set(add_graph.edges()) == set()
+
+        class ExtraRemoveGraph(Adjacency):
+            def remove_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                super().remove_edge(u, v, strict=strict)
+                super().remove_edge(1, 2)
+
+        remove_graph = ExtraRemoveGraph(3)
+        remove_graph.add_edge(0, 1)
+        remove_graph.add_edge(1, 2)
+        remove_matcher = Matcher(3, graph=remove_graph)
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
+            remove_matcher.delete(0, 1)
+        assert set(remove_graph.edges()) == {(0, 1), (1, 2)}
 
     def test_duplicate_and_self_loop_insertions_are_noops(self) -> None:
         algo = Matcher(3, mode="multilevel")

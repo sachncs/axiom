@@ -676,9 +676,16 @@ class Matcher:
             # has_edge above, then leave all dynamic state untouched.
             return
         with self.__atomic_update():
+            before_edges = set(self.graph.edges())
             self.graph.add_edge(u, v)
-            if not self.graph.has_edge(u, v):
-                raise RuntimeError("graph.add_edge did not install the requested edge")
+            after_edges = set(self.graph.edges())
+            expected_edges = before_edges | {canonical(u, v)}
+            if after_edges != expected_edges:
+                raise RuntimeError(
+                    "graph.add_edge changed an unexpected edge set: "
+                    f"missing={sorted(expected_edges - after_edges)}, "
+                    f"unexpected={sorted(after_edges - expected_edges)}"
+                )
             if self.mode == "multilevel":
                 edge = canonical(u, v)
                 self.inserted_edges.add(edge)
@@ -737,6 +744,7 @@ class Matcher:
             self.accountant.record_deletion()
             return
         with self.__atomic_update():
+            before_edges = set(self.graph.edges())
             if self.mode == "multilevel":
                 edge = canonical(u, v)
                 if edge in self.inserted_edges:
@@ -751,9 +759,13 @@ class Matcher:
             for matching in self.matchings:
                 matching.discard(edge)
             self.graph.remove_edge(u, v)
-            if self.graph.has_edge(u, v):
+            after_edges = set(self.graph.edges())
+            expected_edges = before_edges - {edge}
+            if after_edges != expected_edges:
                 raise RuntimeError(
-                    "graph.remove_edge did not remove the requested edge"
+                    "graph.remove_edge changed an unexpected edge set: "
+                    f"missing={sorted(expected_edges - after_edges)}, "
+                    f"unexpected={sorted(after_edges - expected_edges)}"
                 )
             if self.multi is not None:
                 self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
