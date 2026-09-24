@@ -933,7 +933,7 @@ def _complete_partial_coloring(
             _activate_uncolored_edge(start, edge)
             start.validate()
     if start.edges() != all_edges:
-        raise RuntimeError("fan-chain completion left edges uncolored")
+        raise RuntimeError("Vizing activation/reduction left edges uncolored")
     return dict(start.items())
 
 
