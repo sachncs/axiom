@@ -337,7 +337,7 @@ class Multilevel:
             phase_base_graph = _snapshot(matcher.graph)
             phase_base_system = build(phase_base_graph, matcher.level_zs[0])
             matcher.multi = build_hierarchy(
-                matcher.graph, matcher.level_zs, colorer=matcher.colorer
+                phase_base_graph, matcher.level_zs, colorer=matcher.colorer
             )
         matcher.inserted_edges.clear()
         matcher.deleted_edges.clear()

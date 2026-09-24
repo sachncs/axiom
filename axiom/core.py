@@ -691,7 +691,8 @@ class Matcher:
                 was_deferred = (
                     self.multi is not None and edge in self.multi.deferred_deletions
                 )
-                if not was_deferred:
+                restores_phase_edge = was_deferred or edge in self.deleted_edges
+                if not restores_phase_edge:
                     self.inserted_edges.add(edge)
                 self.deleted_edges.discard(edge)
                 if self.multi is not None:
@@ -724,7 +725,10 @@ class Matcher:
                         if left == bad and right not in self.matched_vertices:
                             self.H_tilde.add((right, left))
             if self.multi is not None:
-                self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
+                self.multi.sync_graph(
+                    self.graph,
+                    excluded_edges=self.inserted_edges,
+                )
             else:
                 self.__update_cached_lists(u, v, added=True)
             self.__proc_update(u)
@@ -778,7 +782,10 @@ class Matcher:
                     f"unexpected={sorted(after_edges - expected_edges)}"
                 )
             if self.multi is not None:
-                self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)
+                self.multi.sync_graph(
+                    self.graph,
+                    excluded_edges=self.inserted_edges,
+                )
             else:
                 self.__update_cached_lists(u, v, added=False)
             self.__proc_update(u)
