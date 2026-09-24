@@ -18,6 +18,7 @@ from axiom.paper_coloring import (
     collect_separable_fans,
     color_blocks,
     color_small,
+    construct_u_fans,
     extend_recursive,
     fan_is_social,
     modify_types,
@@ -186,6 +187,26 @@ def test_collect_separable_fans_extends_when_no_shift_is_available() -> None:
     assert len(fans) == 0
     assert coloring[(0, 1)] == 0
     coloring.validate()
+
+
+def test_construct_u_fans_prunes_intersecting_vizing_fans() -> None:
+    graph = Adjacency(5)
+    for edge in ((0, 1), (0, 4), (2, 3), (2, 4)):
+        graph.add_edge(*edge)
+    coloring = PartialColoring(graph, 3)
+    coloring.assign((0, 4), 1)
+    coloring.assign((2, 4), 2)
+
+    fans = construct_u_fans(coloring, {(0, 1), (2, 3)})
+
+    assert len(fans) == 1
+    fan = next(iter(fans))
+    assert fan.center == 4
+    assert fan.edges == {(0, 4), (2, 4)}
+    assert coloring[(0, 1)] == 1
+    assert coloring[(2, 3)] == 2
+    coloring.validate()
+    fans.assert_compatible(coloring)
 
 
 def test_extend_recursive_uses_small_base_case() -> None:

@@ -98,6 +98,29 @@ class UFan:
 
 
 @dataclass(frozen=True, slots=True)
+class _UEdge:
+    """An uncolored edge together with its paper u-edge center color.
+
+    The ABB/ABBC construction does not treat an uncolored edge as an
+    untyped pair.  The center endpoint carries a missing color (the
+    ``alpha``-primed color) and that color determines which Vizing-fan pass
+    processes the edge.  Keeping this state explicit prevents the fan-pruning
+    phase from accidentally deriving a new color after a path operation.
+    """
+
+    edge: Edge
+    center_color: Color
+
+    @property
+    def center(self) -> Vertex:
+        return self.edge[0]
+
+    @property
+    def leaf(self) -> Vertex:
+        return self.edge[1]
+
+
+@dataclass(frozen=True, slots=True)
 class TypeSparsification:
     """Deterministic type accounting for a matching of uncolored edges.
 
@@ -1083,6 +1106,182 @@ def _maximal_fan(
         if extension is None:
             return fan
         fan.append(extension)
+
+
+def _seed_u_edges(
+    coloring: PartialColoring, uncolored_edges: set[Edge]
+) -> tuple[_UEdge, ...]:
+    """Construct the paper's initial separable collection of u-edges.
+
+    ``ConUFans`` starts from a matching of uncolored edges.  A matching is a
+    meaningful precondition here: it lets every edge choose a distinct center
+    color without first solving another coloring problem.  The canonical
+    endpoint is used as the center so the result is deterministic.
+    """
+    graph_edges = set(coloring.graph.edges())
+    if not uncolored_edges <= graph_edges:
+        raise ValueError("uncolored_edges must be edges of the graph")
+    if uncolored_edges & coloring.edges():
+        raise ValueError("uncolored_edges must not contain colored edges")
+    used_vertices: set[Vertex] = set()
+    seeded: list[_UEdge] = []
+    for edge in sorted(uncolored_edges):
+        if edge[0] in used_vertices or edge[1] in used_vertices:
+            raise ValueError("ConUFans requires a matching of uncolored edges")
+        missing = coloring.missing(edge[0])
+        if not missing:
+            raise RuntimeError(f"u-edge center has no missing color: {edge}")
+        seeded.append(_UEdge(edge, missing[0]))
+        used_vertices.update(edge)
+    return tuple(seeded)
+
+
+def _rotate_vizing_fan_to_edge(
+    coloring: PartialColoring,
+    center: Vertex,
+    leaves: list[Vertex],
+    target: Vertex,
+) -> None:
+    """Rotate a Vizing fan until ``(center, target)`` is uncolored."""
+    try:
+        index = leaves.index(target)
+    except ValueError as error:
+        raise RuntimeError("Vizing fan does not contain the requested leaf") from error
+    if index:
+        _rotate_fan(coloring, center, leaves, index)
+    edge = canonical(center, target)
+    if edge in coloring:
+        raise RuntimeError("Vizing fan rotation did not expose an uncolored edge")
+
+
+def _choose_u_fan_center_color(
+    coloring: PartialColoring, fans: SeparableFans, vertex: Vertex, blocked: set[Color]
+) -> Color:
+    """Choose the deterministic color used at a newly created u-fan center."""
+    for color in coloring.missing(vertex):
+        if color not in blocked and fans.find(vertex, color) is None:
+            return color
+    raise RuntimeError(
+        f"no missing center color remains for a newly created u-fan: vertex={vertex}"
+    )
+
+
+def _prune_vizing_fans(
+    coloring: PartialColoring,
+    fans: SeparableFans,
+    u_edges: tuple[_UEdge, ...],
+) -> tuple[_UEdge, ...]:
+    """Run the deterministic collision phase of paper ``PruneVFans``.
+
+    The returned u-edges have vertex-disjoint maximal Vizing fans.  When two
+    candidate fans collide, the paper either colors the two u-edges or turns
+    them into one u-fan.  All mutations are checked immediately; a failed
+    paper precondition is surfaced as an invariant error instead of being
+    silently skipped.
+    """
+    if not u_edges:
+        return ()
+    alpha = u_edges[0].center_color
+    if any(item.center_color != alpha for item in u_edges):
+        raise ValueError("PruneVFans processes one alpha-primed group at a time")
+
+    active: list[tuple[_UEdge, list[Vertex]]] = []
+    for item in u_edges:
+        leaves = _maximal_fan(coloring, item.center, item.leaf)
+        collision = None
+        for vertex in (item.center, *leaves):
+            if any(
+                vertex in (other.center, *other_leaves)
+                for other, other_leaves in active
+            ):
+                collision = vertex
+                break
+        if collision is None:
+            active.append((item, leaves))
+            continue
+
+        existing_index = next(
+            index
+            for index, (_, other_leaves) in enumerate(active)
+            if collision in (active[index][0].center, *other_leaves)
+        )
+        existing, existing_leaves = active[existing_index]
+        current_is_existing_leaf = item.center in existing_leaves
+        existing_is_current_leaf = existing.center in leaves
+
+        if current_is_existing_leaf:
+            _rotate_vizing_fan_to_edge(
+                coloring, existing.center, existing_leaves, item.center
+            )
+            exposed = canonical(existing.center, item.center)
+            if not coloring.is_missing(
+                existing.center, alpha
+            ) or not coloring.is_missing(item.center, alpha):
+                raise RuntimeError("PruneVFans exposed an unavailable alpha edge")
+            coloring.assign(exposed, alpha)
+            active.pop(existing_index)
+            continue
+
+        if existing_is_current_leaf:
+            _rotate_vizing_fan_to_edge(coloring, item.center, leaves, existing.center)
+            exposed = canonical(item.center, existing.center)
+            if not coloring.is_missing(item.center, alpha) or not coloring.is_missing(
+                existing.center, alpha
+            ):
+                raise RuntimeError("PruneVFans exposed an unavailable alpha edge")
+            coloring.assign(exposed, alpha)
+            active.pop(existing_index)
+            continue
+
+        # The first shared vertex is a leaf of both fans.  Rotating both fans
+        # exposes the two spokes used by the paper's new u-fan.
+        shared = collision
+        _rotate_vizing_fan_to_edge(coloring, item.center, leaves, shared)
+        _rotate_vizing_fan_to_edge(coloring, existing.center, existing_leaves, shared)
+        if not coloring.is_missing(item.center, alpha) or not coloring.is_missing(
+            existing.center, alpha
+        ):
+            raise RuntimeError("PruneVFans lost alpha at a u-fan leaf")
+        beta = _choose_u_fan_center_color(coloring, fans, shared, {alpha})
+        created = UFan(shared, item.center, existing.center, beta, alpha, alpha)
+        fans.add(created)
+        active.pop(existing_index)
+
+    fans.assert_valid()
+    fans.assert_compatible(coloring)
+    return tuple(item for item, _ in active)
+
+
+def construct_u_fans(
+    coloring: PartialColoring, uncolored_edges: set[Edge]
+) -> SeparableFans:
+    """Construct paper u-fans from a matching of uncolored edges.
+
+    This is the explicit ``create u-edges`` plus ``PruneVFans`` portion of
+    ``ConUFans``.  It intentionally stops before ``ReduceUEdges``: callers
+    receive the remaining vertex-disjoint u-edges as a separate count only
+    through the coloring state, and must run the reduction phase before
+    treating the result as the complete construction.
+    """
+    coloring.validate()
+    before = dict(coloring._colors)
+    try:
+        seeded = _seed_u_edges(coloring, uncolored_edges)
+        result = SeparableFans()
+        by_color: dict[Color, list[_UEdge]] = {}
+        for item in seeded:
+            by_color.setdefault(item.center_color, []).append(item)
+        for color in sorted(by_color):
+            _prune_vizing_fans(coloring, result, tuple(by_color[color]))
+        coloring.validate()
+        result.assert_valid()
+        result.assert_compatible(coloring)
+        return result
+    except BaseException:
+        coloring._colors = before
+        coloring._reindex()
+        coloring.validate()
+        raise
 
 
 def _rotatable_fan_prefix(
