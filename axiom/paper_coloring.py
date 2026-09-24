@@ -2195,7 +2195,35 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
         scoped_edges.update(edge_scope)
         total += extend_recursive(child, child_fans, eta)
         _merge_subproblem(coloring, child, edge_scope, local_colors)
+        # The child owns the authoritative fan state for this edge-disjoint
+        # subproblem.  Propagate surviving fans back to the parent palette;
+        # child activation may have removed a fan or changed its assigned
+        # missing colors, and retaining the pre-recursion parent object would
+        # make the caller's separable collection stale.
+        for fan in selected:
+            social.discard(fan)
+        for fan in child_fans:
+            social.add(
+                UFan(
+                    fan.center,
+                    fan.first_leaf,
+                    fan.second_leaf,
+                    local_colors[fan.center_color],
+                    local_colors[fan.first_color],
+                    local_colors[fan.second_color],
+                )
+            )
     coloring.validate()
+    # Keep both the returned collection and the caller-owned collection
+    # synchronized after all recursive child merges.  A child may have
+    # colored a spoke or invalidated a missing-color assignment in a sibling
+    # fan, so validate the complete parent state before exposing it.
+    for fan in tuple(fans):
+        fans.discard(fan)
+    for fan in social:
+        fans.add(fan)
+    fans.discard_damaged(coloring)
+    fans.assert_compatible(coloring)
     colored_after = len(coloring.edges())
     if total <= 0 or colored_after <= colored_before:
         raise RuntimeError(

@@ -310,6 +310,25 @@ def test_extend_recursive_uses_small_base_case() -> None:
     assert coloring[(0, 1)] == 0
 
 
+def test_extend_recursive_synchronizes_parent_fans_after_child_coloring() -> None:
+    count = 100
+    graph = Adjacency(3 * count)
+    fans = SeparableFans()
+    for index in range(count):
+        center = 3 * index
+        graph.add_edge(center, center + 1)
+        graph.add_edge(center, center + 2)
+        fans.add(UFan(center, center + 1, center + 2, 0, 10, 10))
+
+    coloring = PartialColoring(graph, 200)
+    assert extend_recursive(coloring, fans, 10) == count
+    coloring.validate()
+    fans.assert_valid()
+    fans.assert_compatible(coloring)
+    assert len(coloring.edges()) == count
+    assert not fans
+
+
 def test_color_blocks_are_ordered_and_disjoint() -> None:
     blocks, pairs = color_blocks(100, 10)
 
