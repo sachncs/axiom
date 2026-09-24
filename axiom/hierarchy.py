@@ -156,6 +156,11 @@ class Hierarchy:
         """Validate the multi-level subgraph-system invariants."""
         if not self.levels or len(self.levels) != self.k:
             return False
+        level_zs = [level.z for level in self.levels]
+        if any(z <= 0 for z in level_zs) or any(
+            left <= right for left, right in pairwise(level_zs)
+        ):
+            return False
         if not (
             len(self.A_levels)
             == len(self.N_levels)

@@ -1527,6 +1527,18 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_check_rejects_a_non_decreasing_z_schedule(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        hierarchy.levels[1].z = hierarchy.levels[0].z
+
+        assert not hierarchy.check()
+
     def test_hierarchy_check_detects_stale_intermediate_matching_edge(self) -> None:
         graph = Adjacency(8)
         for left in range(7):
