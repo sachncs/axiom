@@ -38,7 +38,7 @@ class Matcher:
     colorer: Colorer
     matched_edges: Matching
     matched_vertices: set[Vertex]
-    partners: dict[Vertex, Vertex]
+    partner_map: dict[Vertex, Vertex]
     z: int
     phase_length: int
     subphase_length: int
