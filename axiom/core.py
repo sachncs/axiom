@@ -1025,6 +1025,14 @@ class Matcher:
                 "update repair violated maximality; refusing to install a "
                 "replacement matching"
             )
+        # Local rematching is allowed to remove an edge from M_1.  Reconcile
+        # that legal transition before the next subphase rather than leaving
+        # a stale seed edge that is no longer contained in M*.
+        stale_seed = self.seed_matching - self.matched_edges
+        if stale_seed:
+            self.seed_matching.difference_update(stale_seed)
+            if self.matchings:
+                self.matchings[0].difference_update(stale_seed)
 
         if self.multi is not None:
             if not self.multi.check():
