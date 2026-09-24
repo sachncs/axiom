@@ -653,6 +653,13 @@ class Matcher:
                     self.inserted_edges.remove(edge)
                 else:
                     self.deleted_edges.add(edge)
+            # The paper removes an adversarially deleted edge from M_1
+            # immediately.  Keeping it in the seed until the next subphase
+            # would violate M_1 subset M* between boundaries.
+            edge = canonical(u, v)
+            self.seed_matching.discard(edge)
+            for matching in self.matchings:
+                matching.discard(edge)
             self.graph.remove_edge(u, v)
             if self.multi is not None:
                 self.multi.sync_graph(self.graph, excluded_edges=self.inserted_edges)

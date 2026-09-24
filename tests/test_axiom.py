@@ -708,6 +708,22 @@ class TestMatcher:
         assert algo.seed_matching <= algo.matched_edges
         assert algo.maximal()
 
+    def test_deleted_seed_edge_is_removed_immediately(self) -> None:
+        graph = Adjacency(8)
+        for left in range(8):
+            for right in range(left + 1, 8):
+                graph.add_edge(left, right)
+
+        for mode in ("basic", "multilevel"):
+            algo = Matcher(8, mode=mode, graph=graph.copy())
+            edge = next(iter(algo.seed_matching))
+
+            algo.delete(*edge)
+
+            assert edge not in algo.seed_matching
+            assert all(edge not in matching for matching in algo.matchings)
+            assert algo.maximal()
+
     def test_triangle_updates(self) -> None:
         algo = Matcher(3, mode="basic")
         algo.insert(0, 1)
