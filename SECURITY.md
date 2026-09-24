@@ -5,8 +5,14 @@
 | Version | Supported          |
 |---------|--------------------|
 | 0.5.x   | :white_check_mark: |
-| 0.4.x   | :white_check_mark: |
-| < 0.4   | :x:                |
+| 0.6.0.dev0 | :x:             |
+| 0.4.x and older | :x:         |
+
+Only the latest stable release line receives security fixes. The current
+`0.6.0.dev0` development version is not a supported release; use it for
+testing and report security issues, but do not treat it as a supported
+production version. The support matrix will be updated when the breaking
+`1.0.0` release is published.
 
 ## Reporting a Vulnerability
 
