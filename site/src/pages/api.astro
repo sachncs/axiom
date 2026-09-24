@@ -22,14 +22,35 @@ import DocLayout from "../layouts/DocLayout.astro";
     </tbody>
   </table>
 
+  <h3>Update semantics</h3>
+  <ul>
+    <li><code>insert(u, v)</code> ignores a duplicate edge after validating its endpoints.</li>
+    <li><code>delete(u, v)</code> records a missing-edge deletion without changing the graph.</li>
+    <li>Self-loops are outside the graph model and do not become matching edges.</li>
+    <li>A failed update is atomic: callers do not receive a partially applied state.</li>
+  </ul>
+
   <h2>Inspection</h2>
   <pre><code>{`matcher.matching()  # matching edge snapshot
 matcher.size()      # number of matching edges
 matcher.maximal()   # invariant check
 matcher.stats()     # update and rebuild ledger`}</code></pre>
   <p>Inspection methods are read-only from the caller’s perspective. Treat returned collections as snapshots and continue to mutate the graph through <code>insert</code> and <code>delete</code>.</p>
+  <table class="doc-table">
+    <thead><tr><th>Method</th><th>Use</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr><td><code>partner(v)</code></td><td>Return the matched neighbor or <code>None</code>.</td><td>O(1)</td></tr>
+      <tr><td><code>partners()</code></td><td>Return a copy of the full partner map.</td><td>O(|M*|)</td></tr>
+      <tr><td><code>matching()</code></td><td>Return a copy of the current matching.</td><td>O(|M*|)</td></tr>
+      <tr><td><code>maximal()</code></td><td>Check the matching against the current graph.</td><td>O(n + m)</td></tr>
+    </tbody>
+  </table>
 
   <h2>Validation and failure</h2>
   <p>Invalid vertices, self-loops, malformed edges, unsupported modes, and inconsistent deletions are rejected explicitly. A failed update must not expose a partially applied graph or matching state.</p>
   <div class="doc-callout"><p>For reproducible experiments, record the mode, vertex count, update sequence, and <code>stats()</code> ledger alongside your result.</p></div>
+
+  <h2>Custom implementations and concurrency</h2>
+  <p>The optional <code>graph</code> and basic-mode <code>colorer</code> parameters are extension points for compatible implementations. A custom graph must preserve the graph protocol and edge-set semantics; a multilevel matcher always uses its canonical paper-oriented colorer.</p>
+  <p><strong>Thread safety:</strong> a matcher is stateful and is not designed for concurrent mutation. Serialize updates per instance. Use independent matcher instances for parallel experiments.</p>
 </DocLayout>

@@ -37,6 +37,9 @@ print(matcher.maximal())`}</code></pre>
   </ol>
   <div class="doc-callout"><p><strong>Implementation status.</strong> <code>basic</code> is the conservative starting point. <code>multilevel</code> is available for research and evaluation while its full paper-level guarantees remain under validation.</p></div>
 
+  <h2>Use the state safely</h2>
+  <p><code>matching()</code>, <code>partners()</code>, and <code>stats()</code> return inspection data. They do not become a second mutation API. Keep one owner for each matcher and serialize updates when a stream is shared across workers.</p>
+
   <h2>Choose your next step</h2>
   <ul>
     <li><a class="text-link" href="../examples/">Follow a complete update recipe</a> for a stream of graph changes.</li>
