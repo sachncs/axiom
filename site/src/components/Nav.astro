@@ -7,9 +7,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   <div class="shell nav__inner" data-nav-inner>
     <a class="brand" href={`${base}/`} aria-label="Axiom — home">
       <span class="brand__mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" fill="none">
-          <rect x="1.5" y="1.5" width="29" height="29" rx="9" stroke="url(#navg1)" stroke-width="1.6" />
-          <path d="M10 21 13 11l3 6 3-6 3 10" stroke="url(#navg2)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
+          <svg viewBox="0 0 32 32" fill="none">
+          <path d="M6 24 15.9 6 26 24" stroke="url(#navg1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M10.8 17.5h10.4" stroke="url(#navg2)" stroke-width="1.8" stroke-linecap="round" />
+          <circle cx="15.9" cy="6" r="2.4" fill="var(--bg-2)" stroke="url(#navg2)" stroke-width="1.6" />
+          <circle cx="6" cy="24" r="2.4" fill="var(--bg-2)" stroke="url(#navg2)" stroke-width="1.6" />
+          <circle cx="26" cy="24" r="2.4" fill="var(--bg-2)" stroke="url(#navg2)" stroke-width="1.6" />
           <defs>
             <linearGradient id="navg1" x1="0" y1="0" x2="32" y2="32">
               <stop stop-color="#6ea1ff" /><stop offset="1" stop-color="#a06bff" />

@@ -10,8 +10,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         <a class="brand" href={`${base}/`} aria-label="Axiom — home">
           <span class="brand__mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none">
-              <rect x="1.5" y="1.5" width="29" height="29" rx="9" stroke="url(#foot1)" stroke-width="1.6" />
-              <path d="M10 21 13 11l3 6 3-6 3 10" stroke="url(#foot2)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M6 24 15.9 6 26 24" stroke="url(#foot1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M10.8 17.5h10.4" stroke="url(#foot2)" stroke-width="1.8" stroke-linecap="round" />
+              <circle cx="15.9" cy="6" r="2.4" fill="var(--bg-2)" stroke="url(#foot2)" stroke-width="1.6" />
+              <circle cx="6" cy="24" r="2.4" fill="var(--bg-2)" stroke="url(#foot2)" stroke-width="1.6" />
+              <circle cx="26" cy="24" r="2.4" fill="var(--bg-2)" stroke="url(#foot2)" stroke-width="1.6" />
               <defs>
                 <linearGradient id="foot1" x1="0" y1="0" x2="32" y2="32">
                   <stop stop-color="#6ea1ff" /><stop offset="1" stop-color="#a06bff" />
@@ -25,9 +28,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
           <span class="brand__name">axiom</span>
         </a>
         <p>
-          A pure-Python implementation based on the Chuzhoy–Khanna–Song paper for
-          fully dynamic maximal matching. Built for the STOC 2026 community and
-          anyone who loves a good invariant.
+          Axiom keeps a maximal matching current as a graph changes. Built in
+          Python for people who need the answer to stay correct.
         </p>
         <a class="footer__paper mono" href={SITE.paper} target="_blank" rel="noopener">
           arXiv:2605.00797v1

@@ -8,9 +8,7 @@ export function initTheme(): void {
   const initial =
     stored === "light" || stored === "dark"
       ? stored
-      : window.matchMedia("(prefers-color-scheme: light)").matches
-        ? "light"
-        : "dark";
+      : "light";
   document.documentElement.dataset.theme = initial;
   toggle?.setAttribute("aria-pressed", String(initial === "light"));
 

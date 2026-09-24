@@ -1,8 +1,8 @@
 export const SITE = {
   title: "Axiom",
-  tagline: "Fully dynamic maximal matching — made deterministic",
+  tagline: "The deterministic graph engine",
   description:
-    "Axiom is a pure-Python implementation of deterministic fully dynamic maximal matching with basic and recursive multilevel modes.",
+    "Axiom keeps a maximal matching current as edges arrive and disappear.",
   repo: "https://github.com/sachncs/axiom",
   paper: "https://arxiv.org/abs/2605.00797v1",
   readme: "https://github.com/sachncs/axiom/blob/master/README.md",

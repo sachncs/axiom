@@ -89,7 +89,7 @@ export function initDemo(host: HTMLElement): void {
     return `rgba(${r},${g},${b},${alpha})`;
   };
 
-  let mode = "multilevel" as keyof typeof MODES;
+  let mode = "basic" as keyof typeof MODES;
   let world = buildWorld(MODES[mode].n);
   let running = true;
   let tickAt = 0;
