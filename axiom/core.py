@@ -419,6 +419,44 @@ class Matcher:
                 if not incoming:
                     self.H_reverse.pop(target, None)
 
+    def __check_auxiliary_indexes(self) -> bool:
+        """Validate H, reverse-H, H-tilde, and S-hat against live state."""
+        if self.system is None:
+            return not (self.H or self.H_reverse or self.H_tilde or self.S_hat)
+
+        expected_s_hat = {
+            vertex for vertex in self.system.S if vertex not in self.matched_vertices
+        }
+        if self.S_hat != expected_s_hat:
+            return False
+
+        expected_h: dict[Vertex, set[Vertex]] = {}
+        for source in self.system.U:
+            if source in self.matched_vertices:
+                continue
+            expected_h[source] = {
+                target
+                for target in self.system.lambda_lists.get(source, [])
+                if self.graph.has_edge(source, target)
+            }
+        if self.H != expected_h:
+            return False
+
+        expected_reverse: dict[Vertex, set[Vertex]] = {}
+        for source, targets in expected_h.items():
+            for target in targets:
+                expected_reverse.setdefault(target, set()).add(source)
+        if self.H_reverse != expected_reverse:
+            return False
+
+        expected_tilde: set[tuple[Vertex, Vertex]] = set()
+        for left, right in self.inserted_edges:
+            if left not in self.matched_vertices and right in self.bad_vertices:
+                expected_tilde.add((left, right))
+            if right not in self.matched_vertices and left in self.bad_vertices:
+                expected_tilde.add((right, left))
+        return self.H_tilde == expected_tilde
+
     def add_match(self, u: Vertex, v: Vertex) -> None:
         """Add edge ``(u, v)`` to the maintained matching.
 
@@ -1033,6 +1071,10 @@ class Matcher:
         # the authoritative matching and current lambda lists before checking
         # invariants, so no stale H/H_reverse/H_tilde entry survives a repair.
         self.__rebuild_auxiliary()
+        if not self.__check_auxiliary_indexes():
+            raise RuntimeError(
+                "auxiliary matching indexes diverged from authoritative state"
+            )
 
         # I3 repair may reroute a matching edge recursively.  The final
         # settledness condition is authoritative; an exposed edge endpoint
