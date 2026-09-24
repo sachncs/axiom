@@ -615,6 +615,27 @@ def test_paper_fan_colorer_colors_complete_graphs() -> None:
             assert len(incident) == len(set(incident))
 
 
+def test_paper_fan_colorer_handles_dense_adversarial_graphs() -> None:
+    for seed, probability in enumerate((0.35, 0.55, 0.75, 0.95)):
+        rng = random.Random(seed)
+        graph = Adjacency(40)
+        for left in range(40):
+            for right in range(left + 1, 40):
+                if rng.random() < probability:
+                    graph.add_edge(left, right)
+
+        delta = max((graph.degree(vertex) for vertex in range(graph.n)), default=0)
+        coloring = PaperFanColorer().color(graph, delta)
+
+        assert set(coloring) == set(graph.edges())
+        for vertex in range(graph.n):
+            incident = [
+                coloring[tuple(sorted((vertex, neighbor)))]
+                for neighbor in graph.neighbors(vertex)
+            ]
+            assert len(incident) == len(set(incident))
+
+
 def test_paper_fan_colorer_runs_extend_for_large_fan_batches() -> None:
     graph = Adjacency(201)
     for leaf in range(1, 201):
