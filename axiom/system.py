@@ -199,6 +199,8 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        if set(self.lambda_lists) != self.U:
+            return False
         for u in self.U:
             count = sum(1 for w in self.graph.neighbors(u) if w in self.U)
             if count > self.z:
@@ -237,6 +239,10 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        if set(self.L_lists) != self.A:
+            return False
+        if set(self.L_lists) != self.A:
+            return False
         for a in self.A:
             for w in self.partner_in(a):
                 if w not in self.S:
@@ -257,6 +263,8 @@ class System:
             :math:`O(n + m)` dominated by the recomputation of the
             expected lists.
         """
+        if set(self.lambda_lists) != self.U:
+            return False
         for u in self.U:
             expected = sorted(
                 w for w in self.graph.neighbors(u) if w in self.B or w in self.U
@@ -277,6 +285,8 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        if set(self.L_lists) != self.A:
+            return False
         for a in self.A:
             expected = sorted(w for w in self.graph.neighbors(a) if w in self.U)
             actual = sorted(self.L_lists.get(a, []))

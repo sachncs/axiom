@@ -455,6 +455,15 @@ class TestSystem:
         assert not system.check_partition()
         assert not system.check()
 
+    def test_check_rejects_stale_index_keys(self) -> None:
+        g = Adjacency(2)
+        system = System(graph=g, z=1, U={0, 1})
+        system.index()
+        system.lambda_lists[2] = []
+
+        assert not system.check_lambda()
+        assert not system.check()
+
     def test_all_invariants_on_empty(self) -> None:
         g = Adjacency(0)
         system = System(graph=g, z=0)
