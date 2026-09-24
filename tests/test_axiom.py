@@ -1310,6 +1310,10 @@ class TestHierarchy:
         )
 
         assert level_three.check()
+        assert all(
+            not (left in level_three.levels[-1].U and right in level_three.levels[-1].U)
+            for left, right in level_three.levels[-1].M
+        )
         assert level_three.deferred_deletions <= level_two.deferred_deletions
         assert len(level_three.deferred_deletions) <= (
             len(level_two.deferred_deletions) * 4 // 8
