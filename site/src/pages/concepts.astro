@@ -1,0 +1,28 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+
+<DocLayout title="Concepts" eyebrow="The mental model" description="A short path from dynamic graph updates to the invariant Axiom protects: every edge remains covered by a matching edge." next={{ label: "Compare modes", href: "/modes/" }}>
+  <h2>What is a maximal matching?</h2>
+  <p>A matching is a set of edges that share no vertices. It is <strong>maximal</strong> when no remaining graph edge can be added without breaking that rule. Maximal does not mean maximum: Axiom preserves a valid locally complete matching, not necessarily the largest possible one.</p>
+
+  <h2>Why dynamic maintenance?</h2>
+  <p>Recomputing a matching after every graph change wastes work. Axiom accepts an edge insertion or deletion, repairs the affected neighborhood, and then checks that the matching and its partner map still agree with the graph.</p>
+  <div class="doc-callout"><p>After an accepted update, the useful question is not “what was the matching from scratch?” but “what changed, and which invariant forced the repair?”</p></div>
+
+  <h2>The update loop</h2>
+  <ol>
+    <li>Validate the vertex and edge operation.</li>
+    <li>Apply the graph change atomically.</li>
+    <li>Repair local matching state and indexes.</li>
+    <li>Rebuild a phase or level when its schedule requires it.</li>
+    <li>Expose the new state only after validation succeeds.</li>
+  </ol>
+
+  <h2>z-systems in plain language</h2>
+  <p>The implementation partitions the graph into structured regions so update work can stay local. The <code>(A, B, U)</code> partition, saturation set, and adjacency indexes provide the bookkeeping that lets the algorithm find affected vertices without scanning every edge.</p>
+  <p>These structures are implementation details until you need to reason about performance or contribute to the engine. Start with <a class="text-link" href="../api/">the public API</a>; use <a class="text-link" href="../architecture/">the architecture guide</a> when you need the invariants.</p>
+
+  <h2>Maximality is a contract</h2>
+  <p>Use <code>matcher.maximal()</code> as a diagnostic assertion in experiments. The returned matching is a snapshot for inspection; updates must go through the matcher so internal partner maps and indexes remain synchronized.</p>
+</DocLayout>

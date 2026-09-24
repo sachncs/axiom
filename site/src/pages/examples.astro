@@ -1,0 +1,18 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+<DocLayout title="Examples" eyebrow="Practical usage" description="Small, copyable recipes for the update stream you are likely to build first." next={{ label: "Read the architecture", href: "/architecture/" }}>
+  <h2>Maintain a live stream</h2>
+  <p>Keep the matcher as the owner of graph state. Feed it updates in order and inspect the matching after each operation.</p>
+  <pre><code>matcher = Matcher(n=8, mode="basic")
+matcher.insert(0, 1)
+matcher.delete(0, 1)
+assert matcher.maximal()</code></pre>
+  <h2>Compare modes</h2>
+  <p>Use identical updates when comparing <code>basic</code> and <code>multilevel</code>. Record the selected mode and <code>stats()</code> ledger with the result.</p>
+  <pre><code>for mode in ("basic", "multilevel"):
+    matcher = Matcher(n=100, mode=mode)
+    print(mode, matcher.stats())</code></pre>
+  <h2>Production checklist</h2>
+  <ul><li>Validate update ordering at your input boundary.</li><li>Persist the update stream if you need reproducibility.</li><li>Pin the Axiom version and record the selected mode.</li></ul>
+</DocLayout>

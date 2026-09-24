@@ -13,11 +13,12 @@ export const SITE = {
 } as const;
 
 export const NAV = [
-  { label: "Product", href: "#product" },
-  { label: "Features", href: "#features" },
-  { label: "Modes", href: "#modes" },
-  { label: "Code", href: "#code" },
-  { label: "Install", href: "#install" },
+  { label: "Get started", href: "get-started/" },
+  { label: "Playground", href: "playground/" },
+  { label: "Concepts", href: "concepts/" },
+  { label: "Modes", href: "modes/" },
+  { label: "API", href: "api/" },
+  { label: "Examples", href: "examples/" },
 ] as const;
 
 export const METRICS = [
@@ -165,19 +166,19 @@ export const FOOTER_LINKS = [
   {
     group: "Project",
     links: [
-      { label: "Repository", href: SITE.repo },
-      { label: "Documentation", href: SITE.docs },
-      { label: "Changelog", href: SITE.changelog },
-      { label: "License · MIT", href: SITE.license },
+      { label: "Get started", href: "get-started/" },
+      { label: "Examples", href: "examples/" },
+      { label: "Changelog", href: "changelog/" },
+      { label: "Contributing", href: "contributing/" },
     ],
   },
   {
     group: "Engineering",
     links: [
-      { label: "Architecture", href: `${SITE.docs}/architecture.md` },
-      { label: "API reference", href: `${SITE.docs}/api.md` },
-      { label: "Modes deep-dive", href: `${SITE.docs}/modes.md` },
-      { label: "FAQ", href: `${SITE.docs}/faq.md` },
+      { label: "Concepts", href: "concepts/" },
+      { label: "API reference", href: "api/" },
+      { label: "Modes deep-dive", href: "modes/" },
+      { label: "Architecture", href: "architecture/" },
     ],
   },
 ] as const;

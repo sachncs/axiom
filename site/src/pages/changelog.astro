@@ -1,0 +1,10 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+<DocLayout title="Changelog" eyebrow="Project continuity" description="A concise record of user-visible changes, implementation milestones, and research-status updates." next={{ label: "Contribute", href: "/contributing/" }}>
+  <h2>Current direction</h2>
+  <p>The project is prioritizing a usable public product surface: native documentation, developer onboarding, a clear mode contract, and honest release boundaries.</p>
+  <h2>Recent engineering work</h2>
+  <ul><li>Canonicalized the public API around <code>basic</code> and <code>multilevel</code>.</li><li>Added atomic refresh validation and rollback-safe state exposure.</li><li>Hardened recursive schedules, graph identity, and deferred deletion checks.</li><li>Expanded deterministic and property-based verification.</li></ul>
+  <p>For commit-level history, the repository remains available as a secondary engineering reference.</p>
+</DocLayout>

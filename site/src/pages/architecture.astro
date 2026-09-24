@@ -1,0 +1,13 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+<DocLayout title="Architecture" eyebrow="Under the hood" description="The internal boundaries that make updates observable, deterministic, and safe to validate." next={{ label: "Research status", href: "/research/" }}>
+  <h2>State ownership</h2>
+  <p>The graph, matching, partner map, z-system indexes, and multilevel hierarchy are one state boundary. Updates are applied atomically so a rejected repair cannot leak a half-updated view.</p>
+  <h2>Single-level engine</h2>
+  <p>The basic engine owns one z-system and its phase/subphase schedule. Validators check matching validity, maximality, graph identity, and index consistency.</p>
+  <h2>Recursive engine</h2>
+  <p>The multilevel engine derives child state from phase snapshots rather than a moving parent graph. Schedule changes rebuild the affected hierarchy, and refresh validates the complete state before exposing it.</p>
+  <h2>Contribution boundary</h2>
+  <p>Start with the public behavior in <a class="text-link" href="../api/">the API reference</a>, then trace the engine from the repository when you are ready to contribute.</p>
+</DocLayout>

@@ -1,0 +1,26 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+
+<DocLayout title="Modes" eyebrow="Pick the right engine" description="Axiom has two canonical modes. Select one deliberately; removed and legacy names are not accepted." next={{ label: "Use the API", href: "/api/" }}>
+  <table class="doc-table">
+    <thead><tr><th>Mode</th><th>Use it when</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td><code>basic</code></td><td>You want the simpler single-level implementation, clear diagnostics, and a dependable starting point.</td><td>Recommended default</td></tr>
+      <tr><td><code>multilevel</code></td><td>You are evaluating the recursive hierarchy, level schedules, and paper-oriented update pipeline.</td><td>Research / validation</td></tr>
+    </tbody>
+  </table>
+
+  <h2><code>basic</code></h2>
+  <p>The single-level path maintains one z-system and its matching state. It is the best mode for learning the API, writing integration tests, and establishing a baseline for experiments.</p>
+  <pre><code>matcher = Matcher(n=100, mode="basic")</code></pre>
+
+  <h2><code>multilevel</code></h2>
+  <p>The multilevel path recursively derives hierarchy levels and maintains level-specific state. Its public name is now canonical: use <code>mode="multilevel"</code>, not a compatibility alias.</p>
+  <pre><code>matcher = Matcher(n=100, mode="multilevel")</code></pre>
+  <p>For larger graphs, the hierarchy uses decreasing thresholds and phase schedules. The implementation validates shared graph identity, level ordering, deferred deletions, and the cross-level invariant before exposing refreshed state.</p>
+  <div class="doc-callout"><p><strong>Do not over-read the research claim.</strong> Axiom exposes the multilevel engine for implementation and evaluation. The complete ABB+26 asymptotic guarantee is not claimed until the remaining paper-faithful coloring and end-to-end validation work is complete.</p></div>
+
+  <h2>What is deliberately unsupported</h2>
+  <p>There is no <code>tiered</code> mode, deprecated mode path, forwarding constructor, or wrapper API. Invalid mode names should fail clearly so configuration mistakes are visible immediately.</p>
+</DocLayout>

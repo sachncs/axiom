@@ -1,5 +1,6 @@
 ---
 import { SITE } from "../lib/data";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
 <section class="hero shell" id="top" data-reveal>
@@ -19,7 +20,7 @@ import { SITE } from "../lib/data";
     </p>
 
     <div class="hero__cta">
-      <a class="btn btn--primary" href="#install">
+      <a class="btn btn--primary" href={`${base}/get-started/`}>
         Get started
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 8h10M9 4l4 4-4 4" />

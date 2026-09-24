@@ -1,0 +1,11 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+<DocLayout title="Contributing" eyebrow="Build with us" description="Contributions should make the algorithm easier to trust: small changes, explicit invariants, and reproducible tests." next={{ label: "Back to get started", href: "/get-started/" }}>
+  <h2>Before opening a change</h2>
+  <ul><li>Read the relevant concept and architecture pages.</li><li>Identify the invariant your change preserves.</li><li>Add a deterministic regression or property-based test.</li><li>Do not add aliases, wrappers, or compatibility shims.</li></ul>
+  <h2>What belongs in a pull request?</h2>
+  <p>Include the smallest coherent implementation, tests for the failure mode, and documentation when behavior or guarantees change. If a paper-level claim is not fully validated, label it as research work.</p>
+  <h2>Where to work</h2>
+  <p>The repository contains source, tests, and engineering policies. The website is where users learn the project; the repository is where contributors change it.</p>
+</DocLayout>

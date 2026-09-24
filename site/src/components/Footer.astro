@@ -1,12 +1,13 @@
 ---
 import { FOOTER_LINKS, SITE } from "../lib/data";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
 <footer class="footer">
   <div class="shell">
     <div class="footer__main">
       <div class="footer__brand">
-        <a class="brand" href="#top" aria-label="Axiom — back to top">
+        <a class="brand" href={`${base}/`} aria-label="Axiom — home">
           <span class="brand__mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none">
               <rect x="1.5" y="1.5" width="29" height="29" rx="9" stroke="url(#foot1)" stroke-width="1.6" />
@@ -41,7 +42,7 @@ import { FOOTER_LINKS, SITE } from "../lib/data";
             <ul>
               {
                 group.links.map((l) => (
-                  <li><a href={l.href} target="_blank" rel="noopener">{l.label}</a></li>
+          <li><a href={l.href.startsWith("http") ? l.href : `${base}/${l.href}`} target={l.href.startsWith("http") ? "_blank" : undefined} rel={l.href.startsWith("http") ? "noopener" : undefined}>{l.label}</a></li>
                 ))
               }
             </ul>
