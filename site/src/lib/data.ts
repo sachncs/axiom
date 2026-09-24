@@ -65,7 +65,7 @@ export const FEATURES = [
   {
     icon: "layers",
     title: "Two operating modes",
-    body: "basic runs the single-level algorithm; multilevel recursively refines z-systems to a density-sensitive depth, up to Θ(log n) levels.",
+    body: "basic is the recommended single-level path; multilevel exposes recursive z-system refinement while its research validation continues.",
   },
   {
     icon: "graph",
@@ -127,7 +127,7 @@ export const MODES = [
 
 export const API_SNIPPET = `from axiom import Matcher
 
-algo = Matcher(n=100, mode="multilevel")
+algo = Matcher(n=100, mode="basic")
 
 algo.insert(0, 1)      # edge arrives
 algo.insert(2, 3)
