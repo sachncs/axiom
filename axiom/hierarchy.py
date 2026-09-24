@@ -698,6 +698,10 @@ def refine_hierarchy(
     next_hierarchy.A2 = set().union(*next_hierarchy.A_levels[1:])
     next_hierarchy.N1 = set(next_hierarchy.N_levels[0])
     next_hierarchy.R1 = set(next_hierarchy.R_levels[0])
+    if not next_hierarchy.check():
+        raise RuntimeError(
+            "recursive refinement produced an invalid inherited hierarchy"
+        )
     return next_hierarchy
 
 
