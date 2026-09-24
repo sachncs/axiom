@@ -79,6 +79,8 @@ export function initDemo(host: HTMLElement): void {
   const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) return;
 
+  canvas.tabIndex = 0;
+
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const css = getComputedStyle(document.documentElement);
 
@@ -223,6 +225,14 @@ export function initDemo(host: HTMLElement): void {
 
   /* hit-testing */
   let selected: number | null = null;
+  let keyboardCursor = 0;
+
+  function announceSelection() {
+    const state = selected === null
+      ? `Node ${keyboardCursor + 1} of ${world.n} is focused. Press Enter to select it.`
+      : `Node ${keyboardCursor + 1} of ${world.n} is focused. Node ${selected + 1} is selected; press Enter to toggle an edge.`;
+    canvas?.setAttribute("aria-label", `Interactive graph visualization. ${state}`);
+  }
 
   function toCanvasPos(v: number): [number, number] {
     return [world.pos[v * 2] * w, world.pos[v * 2 + 1] * h];
@@ -265,6 +275,7 @@ export function initDemo(host: HTMLElement): void {
     const hit = nodeAt(px, py);
 
     if (hit !== null) {
+      keyboardCursor = hit;
       if (selected === null) {
         selected = hit;
       } else if (selected === hit) {
@@ -292,11 +303,42 @@ export function initDemo(host: HTMLElement): void {
     }
   });
 
+  canvas.addEventListener("keydown", (e) => {
+    if (!canvas || world.n === 0) return;
+    const movement: Record<string, number> = {
+      ArrowRight: 1,
+      ArrowDown: 1,
+      ArrowLeft: -1,
+      ArrowUp: -1,
+    };
+    if (e.key in movement) {
+      e.preventDefault();
+      keyboardCursor = (keyboardCursor + movement[e.key] + world.n) % world.n;
+      announceSelection();
+      return;
+    }
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if (selected === null) {
+      selected = keyboardCursor;
+    } else if (selected === keyboardCursor) {
+      selected = null;
+    } else {
+      const key = edgeKey(selected, keyboardCursor);
+      if (world.edges.has(key)) removeEdge(selected, keyboardCursor);
+      else addEdge(selected, keyboardCursor);
+      totalUpdates++;
+      selected = null;
+    }
+    announceSelection();
+  });
+
   /* controls */
   function setMode(next: keyof typeof MODES) {
     mode = next;
     world = buildWorld(MODES[next].n);
     selected = null;
+    keyboardCursor = 0;
     flashes.length = 0;
     newMatches.length = 0;
     mods.forEach((b) => {
@@ -315,6 +357,7 @@ export function initDemo(host: HTMLElement): void {
       }
     }
     restoreMaximality();
+    announceSelection();
   }
 
   const mods = Array.from(host.querySelectorAll<HTMLButtonElement>("[data-mode]"));
@@ -336,6 +379,8 @@ export function initDemo(host: HTMLElement): void {
     totalUpdates = 0;
     totalScan = 0;
     lastScan = 0;
+    keyboardCursor = 0;
+    announceSelection();
   });
 
   shuffleBtn?.addEventListener("click", () => setMode(mode));
@@ -452,6 +497,7 @@ export function initDemo(host: HTMLElement): void {
       const [x, y] = toCanvasPos(v);
       const isMatched = world.matched.has(v);
       const isSel = selected === v;
+      const isCursor = document.activeElement === canvas && keyboardCursor === v;
       const pulse = 1 + Math.sin(t * 0.002 + v * 0.9) * 0.06;
 
       if (isMatched) {
@@ -474,8 +520,8 @@ export function initDemo(host: HTMLElement): void {
         ctx.stroke();
       }
 
-      if (isSel) {
-        ctx.strokeStyle = rgba("#ffffff", 0.85);
+      if (isSel || isCursor) {
+        ctx.strokeStyle = rgba(isSel ? "#ffffff" : cobalt, 0.85);
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(x, y, 11, 0, Math.PI * 2);
@@ -512,5 +558,6 @@ export function initDemo(host: HTMLElement): void {
   }
   restoreMaximality();
   updateStats();
+  announceSelection();
   requestAnimationFrame(draw);
 }

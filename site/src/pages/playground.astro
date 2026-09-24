@@ -20,7 +20,7 @@ import Base from "../layouts/Base.astro";
           <button type="button" data-demo-reset>Reset</button>
         </div>
       </div>
-      <div class="playground__canvas-wrap"><canvas data-demo-canvas aria-label="Interactive graph visualization"></canvas><p class="playground__hint"><span class="dot" aria-hidden="true"></span>click two nodes to toggle an edge · click an edge to delete it</p></div>
+      <div class="playground__canvas-wrap"><canvas data-demo-canvas aria-label="Interactive graph visualization. Use arrow keys to select a node and Enter to toggle an edge."></canvas><p class="playground__hint"><span class="dot" aria-hidden="true"></span>click two nodes to toggle an edge · arrows + Enter also work</p></div>
       <div class="demo__stats mono"><span><i data-out-max>Maximal ✓</i></span><span>n <b data-out-n>—</b></span><span>|E| <b data-out-e>—</b></span><span>|M*| <b data-out-m>—</b></span><span>repair <b data-out-scan>—</b></span><span class="demo__tick" data-out-tick>0000 updates</span></div>
       <div class="playground__legend"><span><strong>M*</strong> current matching</span><span><strong>repair</strong> work after the last update</span><span><strong>Maximal</strong> every edge remains covered</span></div>
     </div>
