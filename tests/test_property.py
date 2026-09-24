@@ -47,7 +47,7 @@ def test_generated_updates_preserve_matching_contract(
                     vertex: {
                         neighbor
                         for neighbor in system.lambda_lists.get(vertex, [])
-                        if system.graph.has_edge(vertex, neighbor)
+                        if matcher.graph.has_edge(vertex, neighbor)
                     }
                     for vertex in system.U
                     if vertex not in matcher.matched_vertices

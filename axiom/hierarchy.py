@@ -612,60 +612,6 @@ def refine_hierarchy(
                 promote(vertex)
                 changed = True
 
-        # ProcProcess must also restore the lower matching-degree bound for
-        # vertices inherited from the previous B region.  Selecting only the
-        # first z' color classes can leave such a vertex short of
-        # z'-h incident edges even though the input h-level system was valid.
-        # Fill the deficit from deterministic available neighbors, preferring
-        # U so the defining B-to-U witness is preserved.  Every inserted edge
-        # respects the z' cap; if the theorem's input guarantees are violated,
-        # fail explicitly rather than installing an invalid hierarchy.
-        target = z_prime - h
-        for vertex in sorted(new_a | new_b):
-            need = target - degree[vertex]
-            if need <= 0:
-                continue
-            candidates: list[tuple[Vertex, Edge | None]] = []
-            for neighbor in sorted(working_graph.neighbors(vertex)):
-                edge = canonical(vertex, neighbor)
-                if edge in chosen:
-                    continue
-                if vertex in new_a and neighbor in new_u:
-                    continue
-                if neighbor in new_u and degree[neighbor] >= z_prime:
-                    witnesses = sorted(
-                        old_edge
-                        for old_edge in chosen
-                        if neighbor in old_edge
-                        and (old_edge[0] in new_b or old_edge[1] in new_b)
-                        and (old_edge[0] != vertex and old_edge[1] != vertex)
-                        and degree[
-                            old_edge[1] if old_edge[0] == neighbor else old_edge[0]
-                        ]
-                        > target
-                    )
-                    if witnesses:
-                        candidates.append((neighbor, witnesses[0]))
-                elif neighbor in new_u | new_b | new_a and degree[neighbor] < z_prime:
-                    candidates.append((neighbor, None))
-            candidates.sort(key=lambda item: (item[0] not in new_u, item[0]))
-            if len(candidates) < need:
-                raise RuntimeError(
-                    "recursive refinement could not restore the S degree bound: "
-                    f"vertex={vertex}, need={need}, available={len(candidates)}"
-                )
-            for neighbor, witness in candidates[:need]:
-                if witness is not None:
-                    chosen.remove(witness)
-                    for endpoint in witness:
-                        degree[endpoint] -= 1
-                chosen.add(canonical(vertex, neighbor))
-                degree[vertex] += 1
-                degree[neighbor] += 1
-                if neighbor in new_u and degree[neighbor] >= target:
-                    promote(neighbor)
-            changed = True
-
     # ProcPromote keeps every B vertex attached to U through M.  A vertex
     # promoted to A may not subsequently acquire a U partner; normalize this
     # boundary explicitly before applying the B-to-A promotion.
@@ -677,7 +623,7 @@ def refine_hierarchy(
             new_b.add(vertex)
 
     for vertex in tuple(new_b):
-        if degree[vertex] >= z_prime - h and not any(
+        if not any(
             vertex in edge and (edge[0] in new_u or edge[1] in new_u) for edge in chosen
         ):
             new_b.remove(vertex)
