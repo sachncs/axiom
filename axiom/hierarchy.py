@@ -558,7 +558,7 @@ def refine_hierarchy(
             # the z' cap; otherwise the next level would violate P1.
             u_neighbors = [
                 neighbor
-                for neighbor in working_graph.neighbors(vertex)
+                for neighbor in sorted(working_graph.neighbors(vertex))
                 if (
                     neighbor in new_u
                     and degree[neighbor] < z_prime
@@ -581,7 +581,7 @@ def refine_hierarchy(
             # are z' available B neighbours.  Each swap removes an existing
             # B-U edge (the paper's Z(v) witness) before inserting (u,v).
             b_candidates: list[tuple[Vertex, Edge]] = []
-            for neighbor in working_graph.neighbors(vertex):
+            for neighbor in sorted(working_graph.neighbors(vertex)):
                 edge = canonical(vertex, neighbor)
                 if neighbor not in new_b or edge in chosen:
                     continue

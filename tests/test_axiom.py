@@ -747,6 +747,48 @@ class TestMatcher:
             assert normal.matching() == reverse.matching()
             assert normal.partners() == reverse.partners()
 
+    def test_dense_recursive_state_ignores_custom_neighbor_order(self) -> None:
+        class ReverseNeighbors(Adjacency):
+            def neighbors(self, v: int):
+                return iter(sorted(super().neighbors(v), reverse=True))
+
+        edges = [
+            (u, v)
+            for u in range(32)
+            for v in range(u + 1, 32)
+            if (u * 17 + v * 11) % 3 != 0
+        ]
+        normal_graph = Adjacency(32)
+        reverse_graph = ReverseNeighbors(32)
+        for edge in edges:
+            normal_graph.add_edge(*edge)
+            reverse_graph.add_edge(*edge)
+
+        normal = Matcher(32, mode="multilevel", graph=normal_graph)
+        reverse = Matcher(32, mode="multilevel", graph=reverse_graph)
+
+        def snapshot(matcher: Matcher):
+            return (
+                matcher.matching(),
+                matcher.partners(),
+                matcher.level_zs,
+                [system.M for system in matcher.multi.levels],
+                matcher.multi.A_levels,
+                matcher.multi.N_levels,
+                matcher.multi.R_levels,
+            )
+
+        assert snapshot(normal) == snapshot(reverse)
+        for operation, left, right in (
+            ("delete", 0, 1),
+            ("insert", 0, 1),
+            ("delete", 7, 23),
+            ("insert", 7, 23),
+        ):
+            getattr(normal, operation)(left, right)
+            getattr(reverse, operation)(left, right)
+            assert snapshot(normal) == snapshot(reverse)
+
     def test_duplicate_and_self_loop_insertions_are_noops(self) -> None:
         algo = Matcher(3, mode="multilevel")
         algo.insert(0, 1)
