@@ -148,7 +148,7 @@ tests, examples, and CI is updated to match.
   `Matcher.flip()` methods are not part of the current API; the current
   release keeps augmenting-path operations in `axiom.augment` and the
   dynamic update pipeline private.
-- **Invariant (I3) is implemented.** `Hierarchy.check_i3(matching, r, z)` returns whether at most `2 * tau = 64 r / z` edges of `matching` cross between `A1` and `R1`. `Hierarchy.maintain_i3` repairs violations. `Matcher.maintain_i3()` is called after every update in recursive mode.
+- **Invariant (I3) is implemented.** `Hierarchy.check_i3(matching, r, z)` returns whether at most `2 * tau = 64 r / z` edges of `matching` cross between `A1` and `R1`. `Hierarchy.maintain_i3` repairs violations; the matcher invokes that repair path internally after recursive-mode updates.
 - The current API exposes `Matcher.partner()` and `Matcher.partners()` for
   partner queries; `partner_map` is internal state and is maintained in
   lockstep with the matching.
