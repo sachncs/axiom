@@ -217,10 +217,11 @@ class Hierarchy:
                 or set(level.B) != self.N_levels[index]
             ):
                 return False
-            # Intermediate levels are intentionally not required to satisfy
-            # the finest-level lower degree bound after refinement, but their
-            # inherited adjacency indexes must still describe their own
-            # graph exactly.
+            # Refinement intentionally relaxes exact saturation for inherited
+            # and active levels, so ``System.check()`` is too strong here.
+            # Validate every structural/index invariant plus edge validity,
+            # while the hierarchy-specific degree checks below
+            # enforce the relaxed paper bounds.
             if (
                 not level.check_edges()
                 or not level.check_no_u_u_edges()

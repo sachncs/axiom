@@ -1546,6 +1546,27 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_check_detects_level_degree_corruption(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        level = hierarchy.levels[-1]
+        saturated = next(
+            vertex for vertex in level.A | level.B if level.degree(vertex) == level.z
+        )
+        extra = next(
+            edge
+            for edge in graph.edges()
+            if saturated in edge and edge not in level.M
+        )
+        level.M.add(extra)
+
+        assert not hierarchy.check()
+
     def test_hierarchy_check_rejects_a_detached_level_graph(self) -> None:
         graph = Adjacency(8)
         for u in range(8):
