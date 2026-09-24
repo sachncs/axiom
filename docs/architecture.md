@@ -199,6 +199,8 @@ after every update in multilevel mode.
 | `multi` | `Hierarchy \| None` | multi-level system, present in `"multilevel"` mode |
 | `level_zs` | `list[int]` | per-level `z` values in decreasing order |
 | `level_phase_lengths` | `list[int]` | per-level `z_i · eta` phase budgets |
+| `level_phase_updates` | `list[int]` | updates consumed in each active nested level phase |
+| `level_phase_indices` | `list[int]` | completed phase count at each recursive level |
 | `eta` | `int` | power-of-two scheduler scale |
 | `H`, `H_reverse`, `H_tilde` | directed indexes | rematching indexes for live and inserted edges |
 | `S_hat` | `set[Vertex]` | unmatched saturated vertices |

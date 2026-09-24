@@ -50,6 +50,8 @@ class Matcher:
     multi: Hierarchy | None
     level_zs: list[int]
     level_phase_lengths: list[int]
+    level_phase_updates: list[int]
+    level_phase_indices: list[int]
     eta: int
     H: dict[Vertex, set[Vertex]]
     H_reverse: dict[Vertex, set[Vertex]]

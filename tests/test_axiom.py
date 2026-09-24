@@ -555,6 +555,30 @@ class TestMatcher:
         assert dense_algo.level_phase_lengths == [64, 32, 16, 8, 4]
         assert dense_algo.phase_length == 4
 
+    def test_multilevel_phase_clocks_are_nested_across_fine_rebuilds(self) -> None:
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        edges = list(algo.graph.edges())
+        for edge in edges[:4]:
+            algo.delete(*edge)
+
+        # The finest phase has rebuilt, but all parent clocks retain their
+        # progress.  Only the finest level has reached its boundary.
+        assert algo.level_phase_updates == [4, 4, 4, 4, 0]
+        assert algo.level_phase_indices == [0, 0, 0, 0, 1]
+
+        for edge in edges[4:8]:
+            algo.delete(*edge)
+
+        # The next parent boundary closes after two finest phases; the
+        # higher levels continue in the same inherited phase.
+        assert algo.level_phase_updates == [8, 8, 8, 0, 0]
+        assert algo.level_phase_indices == [0, 0, 0, 1, 2]
+
     def test_recursive_rebuild_inherits_level_one_without_rebuilding(self, monkeypatch):
         dense = Adjacency(16)
         for left in range(16):

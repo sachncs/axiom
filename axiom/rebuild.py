@@ -156,6 +156,33 @@ class Multilevel:
 
     name = "multilevel"
 
+    @staticmethod
+    def _reset_phase_clocks(matcher: Matcher) -> None:
+        """Reset the nested clocks after a schedule change or first build."""
+        matcher.level_phase_updates = [0 for _ in matcher.level_phase_lengths]
+        matcher.level_phase_indices = [0 for _ in matcher.level_phase_lengths]
+
+    @staticmethod
+    def advance_phase_clocks(matcher: Matcher) -> None:
+        """Advance every recursive level by one accepted graph update.
+
+        A finest-level rebuild must not reset a parent phase.  The paper's
+        level-i phases are nested, with each parent spanning an integral
+        number of child phases.  Keeping one clock per level makes those
+        boundaries explicit for the rebuild and invariant-maintenance code.
+        """
+        if len(matcher.level_phase_updates) != len(matcher.level_phase_lengths):
+            Multilevel._reset_phase_clocks(matcher)
+        for index, length in enumerate(matcher.level_phase_lengths):
+            matcher.level_phase_updates[index] += 1
+            if matcher.level_phase_updates[index] > length:
+                raise RuntimeError(
+                    "multilevel phase clock exceeded its configured boundary"
+                )
+            if matcher.level_phase_updates[index] == length:
+                matcher.level_phase_indices[index] += 1
+                matcher.level_phase_updates[index] = 0
+
     def configure(self, matcher: Matcher) -> None:
         level_zs, phase_lengths, eta = self._schedule(matcher)
         matcher.level_zs = level_zs
@@ -169,6 +196,7 @@ class Multilevel:
         matcher.subphase_length = (
             max(1, matcher.phase_length // matcher.z) if matcher.z > 0 else 1
         )
+        self._reset_phase_clocks(matcher)
 
     @staticmethod
     def _schedule(matcher: Matcher) -> tuple[list[int], list[int], int]:
@@ -228,12 +256,18 @@ class Multilevel:
         return matcher.level_phase_lengths[-1]
 
     def rebuild(self, matcher: Matcher) -> None:
+        previous_lengths = list(matcher.level_phase_lengths)
         level_zs, phase_lengths, eta = self._schedule(matcher)
         matcher.level_zs = level_zs
         matcher.level_phase_lengths = phase_lengths
         matcher.eta = eta
         matcher.k = len(level_zs)
         matcher.phase_length = self._phase_budget(matcher)
+        if (
+            previous_lengths != phase_lengths
+            or len(matcher.level_phase_updates) != len(phase_lengths)
+        ):
+            self._reset_phase_clocks(matcher)
         previous = matcher.multi
         previous_level_zs = (
             [level.z for level in previous.levels] if previous is not None else []

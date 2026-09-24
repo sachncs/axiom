@@ -161,6 +161,12 @@ class Matcher:
         self.phase_base_system: System | None = None
         self.level_zs: list[int] = []
         self.level_phase_lengths: list[int] = []
+        # Nested phase clocks are independent of ``update_count``.  The
+        # latter is the finest-level rebuild budget and is reset at every
+        # finest rebuild; these clocks retain parent-level progress across
+        # those rebuilds.
+        self.level_phase_updates: list[int] = []
+        self.level_phase_indices: list[int] = []
         self.eta: int = 0
         self.k: int = 0
         self.inserted_edges: set[tuple[int, int]] = set()
@@ -1010,6 +1016,9 @@ class Matcher:
 
     def __advance_update_counter(self) -> None:
         self.update_count += 1
+        if self.mode == "multilevel":
+            assert isinstance(self.policy, Multilevel)
+            self.policy.advance_phase_clocks(self)
         self.__check_subphase_boundary()
         self.__maintain_i3()
         # Matching transitions can expose vertices indirectly through a
