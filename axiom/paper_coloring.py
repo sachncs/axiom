@@ -2068,11 +2068,10 @@ def _sparsify_types_unchecked(
     target = max(1, (initial + 99) // 100)
     social = {fan for fan in fans if fan_is_social(fan, blocks)}
     iterations = 0
-    # A successful iteration adds at least one previously non-social fan to
-    # ``social``.  The input collection is finite, so its size is the exact
-    # progress bound; this guard protects against a broken path/index
-    # invariant without imposing a heuristic iteration budget.
-    max_iterations = max(1, len(fans))
+    # The ABB+26 analysis bounds Algorithm 4 by O(eta^2) iterations.  Keep
+    # that proof-derived bound explicit so a malformed path/index transition
+    # cannot turn the implementation into an unbounded fan-count scan.
+    max_iterations = max(1, eta**2)
     while len(social) < target:
         iterations += 1
         if iterations > max_iterations:
