@@ -52,6 +52,9 @@ for (const file of files) {
     if (!/\baria-label=["'][^"']+["']/i.test(canvas[1])) failures.push(`${relative}: canvas missing aria-label`);
     if (!/\btabindex=["']0["']/i.test(canvas[1])) failures.push(`${relative}: interactive canvas missing tabindex=0`);
   }
+  if (html.includes("data-demo-canvas") && !/data-demo-status[^>]+aria-live=["']polite["']/i.test(html)) {
+    failures.push(`${relative}: interactive demo missing polite live status`);
+  }
   if (/github\.com\/sachncs\/axiom\/(?:blob|tree)\/master\/(?:README|docs|CHANGELOG)/i.test(html)) {
     failures.push(`${relative}: core documentation redirects to GitHub`);
   }
