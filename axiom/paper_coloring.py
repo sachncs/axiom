@@ -689,7 +689,7 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
             fans.assert_valid()
         coloring.validate()
         return extended
-    except BaseException:
+    except Exception:
         coloring._colors = colors_before
         coloring._reindex()
         for fan in tuple(fans):
@@ -1276,7 +1276,7 @@ def _activate_vizing_chain(coloring: PartialColoring, chain: _VizingChain) -> Ed
             raise RuntimeError("Vizing rotation did not color the source u-edge")
         coloring.validate()
         return edge
-    except BaseException:
+    except Exception:
         coloring._colors = before
         coloring._reindex()
         coloring.validate()
@@ -1664,7 +1664,7 @@ def construct_u_fans(
                 f"colored={colored}, fans={len(result)}, required={required}"
             )
         return result
-    except BaseException:
+    except Exception:
         coloring._colors = before
         coloring._reindex()
         coloring.validate()
@@ -1895,7 +1895,7 @@ def modify_types(
     fans_before = tuple(fans)
     try:
         _modify_types_unchecked(coloring, fans, batch, blocks, pair_index)
-    except BaseException:
+    except Exception:
         coloring._colors = colors_before
         coloring._reindex()
         for fan in tuple(fans):
@@ -2004,7 +2004,7 @@ def sparsify_types(
     fans_before = tuple(fans)
     try:
         return _sparsify_types_unchecked(coloring, fans, eta)
-    except BaseException:
+    except Exception:
         coloring._colors = colors_before
         coloring._reindex()
         for fan in tuple(fans):
