@@ -179,6 +179,17 @@ class System:
                 return False
         return True
 
+    def check_no_u_u_edges(self) -> bool:
+        r"""Check that :math:`M` contains no edge with both endpoints in
+        :math:`U`.
+
+        The paper's initial construction removes these edges after the
+        degree-capped greedy pass.  Keeping the condition explicit prevents
+        a base-level system from being accepted with a weaker invariant than
+        the recursive construction requires.
+        """
+        return all(left not in self.U or right not in self.U for left, right in self.M)
+
     def check_partition(self) -> bool:
         """Check that ``A``, ``B``, and ``U`` partition the graph vertices."""
         vertices = set(range(self.graph.n))
@@ -311,6 +322,7 @@ class System:
         """
         return (
             self.check_edges()
+            and self.check_no_u_u_edges()
             and self.check_partition()
             and self.check_bound()
             and self.check_u()
@@ -679,9 +691,18 @@ def build(graph: Graph, z: int) -> System:
             deg_M[v] += 1
 
     # --- Partition: S are saturated; A/B differ on whether an S-vertex
-    # has an M-edge reaching into U.
+    # has an M-edge reaching into U.  The paper removes all U-U edges from
+    # the greedy edge set before creating the system.  S is determined from
+    # the capped greedy pass, while deg_M below is updated to describe the
+    # actual matching retained by the system.
     S = {v for v in range(graph.n) if deg_M[v] == z}
     U_set = {v for v in range(graph.n) if deg_M[v] < z}
+    removed_u_u = {edge for edge in M if edge[0] in U_set and edge[1] in U_set}
+    for u, v in removed_u_u:
+        M.remove((u, v))
+        deg_M[u] -= 1
+        deg_M[v] -= 1
+
     A: set[Vertex] = set()
     B: set[Vertex] = set()
     for v in S:

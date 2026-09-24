@@ -1517,8 +1517,8 @@ class TestHierarchy:
             assert hierarchy.check(), seed
 
     def test_recursive_builder_removes_base_only_u_u_edges(self) -> None:
-        # A one-level base system may contain U-U edges, but the multilevel
-        # definition forbids them from level 2 onward.
+        # The base construction removes U-U edges before materializing the
+        # system; this invariant is required at every level.
         graph = Adjacency(5)
         for u in range(5):
             for v in range(u + 1, 5):
@@ -1526,7 +1526,7 @@ class TestHierarchy:
 
         hierarchy = build_hierarchy(graph, [2, 1])
 
-        assert (3, 4) in hierarchy.levels[0].M
+        assert (3, 4) not in hierarchy.levels[0].M
         assert (3, 4) not in hierarchy.levels[1].M
         assert hierarchy.check()
 
