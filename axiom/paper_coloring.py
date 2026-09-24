@@ -1998,12 +1998,6 @@ def _sparsify_types_unchecked(
     # every non-empty input must retain at least one social fan.
     target = max(1, (initial + 99) // 100)
     social = {fan for fan in fans if fan_is_social(fan, blocks)}
-    # U_{i,i'} is the set of fans whose two type colors lie in the indicated
-    # partition blocks.  The paper chooses k* by minimizing the union of the
-    # three diagonal/pair groups, before computing the k-bad set B_k.
-    by_block_type: dict[tuple[int, int], set[UFan]] = {}
-    for fan in fans:
-        by_block_type.setdefault(_fan_block_type(fan, blocks), set()).add(fan)
     iterations = 0
     # A successful iteration adds at least one previously non-social fan to
     # ``social``.  The input collection is finite, so its size is the exact
@@ -2017,6 +2011,13 @@ def _sparsify_types_unchecked(
                 "Sparsify-Types exceeded its deterministic iteration bound without "
                 "reaching the required social-fan mass"
             )
+        # ModifyB replaces each transformed fan with a new fan whose type can
+        # move to a different block pair.  Rebuild U_{i,i'} from the current
+        # collection on every iteration; retaining the previous index would
+        # select batches using stale fan objects after the first transformation.
+        by_block_type: dict[tuple[int, int], set[UFan]] = {}
+        for fan in fans:
+            by_block_type.setdefault(_fan_block_type(fan, blocks), set()).add(fan)
         pair_index = min(
             range(len(pairs)),
             key=lambda index: (
