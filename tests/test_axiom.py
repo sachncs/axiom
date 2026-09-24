@@ -1582,9 +1582,7 @@ class TestHierarchy:
             vertex for vertex in level.A | level.B if level.degree(vertex) == level.z
         )
         extra = next(
-            edge
-            for edge in graph.edges()
-            if saturated in edge and edge not in level.M
+            edge for edge in graph.edges() if saturated in edge and edge not in level.M
         )
         level.M.add(extra)
 
