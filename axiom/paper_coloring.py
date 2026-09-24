@@ -1237,9 +1237,10 @@ def _activate_vizing_chain(coloring: PartialColoring, chain: _VizingChain) -> Ed
         if coloring.is_missing(center, terminal):
             # Trivial fan: rotate every assigned spoke and color the final
             # spoke with the terminal missing color.
+            for leaf in leaves:
+                coloring._colors.pop(canonical(center, leaf), None)
             for index, color in enumerate(colors):
                 coloring._colors[canonical(center, leaves[index])] = color
-            coloring._colors[canonical(center, leaves[-1])] = terminal
             coloring._reindex()
             coloring.validate()
             return edge
@@ -1253,15 +1254,20 @@ def _activate_vizing_chain(coloring: PartialColoring, chain: _VizingChain) -> Ed
         if not chain.path or chain.path[0] != center:
             raise RuntimeError("non-trivial Vizing fan has no source-defined path")
         path_ends_at_repeated_leaf = chain.path[-1] == leaves[repeated]
+        coloring.flip(list(chain.path), alpha, terminal)
         if path_ends_at_repeated_leaf:
-            coloring.flip(list(chain.path), alpha, terminal)
-            _rotate_fan(coloring, center, leaves, len(leaves) - 1)
-            coloring._colors[canonical(center, leaves[-1])] = terminal
-            coloring._reindex()
+            rotation_leaves = leaves
+            rotation_colors = colors
         else:
-            _rotate_fan(coloring, center, leaves, repeated + 1)
-            coloring.flip(list(chain.path), alpha, terminal)
-        coloring.assign(edge, alpha)
+            rotation_leaves = leaves[: repeated + 1]
+            rotation_colors = colors[: repeated + 1]
+        for leaf in rotation_leaves:
+            coloring._colors.pop(canonical(center, leaf), None)
+        for leaf, color in zip(rotation_leaves, rotation_colors, strict=True):
+            coloring._colors[canonical(center, leaf)] = color
+        coloring._reindex()
+        if edge not in coloring:
+            raise RuntimeError("Vizing rotation did not color the source u-edge")
         coloring.validate()
         return edge
     except BaseException:

@@ -10,6 +10,8 @@ from axiom.paper_coloring import (
     PartialColoring,
     SeparableFans,
     UFan,
+    _activate_vizing_chain,
+    _build_vizing_chain,
     _ChainEvent,
     _explore_vizing_chains,
     _paper_eta,
@@ -250,6 +252,47 @@ def test_vizing_chain_exploration_detects_oriented_collisions() -> None:
         (first, opposite_direction),
         (opposite_direction, first),
     }
+
+
+def test_paper_vizing_activation_handles_trivial_fan() -> None:
+    graph = Adjacency(2)
+    graph.add_edge(0, 1)
+    coloring = PartialColoring(graph, 2)
+    chain = _build_vizing_chain(coloring, _UEdge((0, 1), 0))
+
+    assert chain.path == ()
+    assert _activate_vizing_chain(coloring, chain) == (0, 1)
+    assert coloring[(0, 1)] == 0
+    coloring.validate()
+
+
+def test_paper_vizing_activation_flips_nontrivial_chain() -> None:
+    graph = Adjacency(8)
+    for edge in (
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (1, 4),
+        (2, 5),
+        (3, 7),
+    ):
+        graph.add_edge(*edge)
+    coloring = PartialColoring(graph, 3)
+    coloring.assign((1, 4), 0)
+    coloring.assign((0, 2), 1)
+    coloring.assign((2, 5), 0)
+    coloring.assign((0, 3), 2)
+    coloring.assign((3, 7), 0)
+    chain = _build_vizing_chain(coloring, _UEdge((0, 1), 0))
+
+    assert chain.fan_leaves == (1, 2, 3)
+    assert chain.leaf_colors == (1, 2, 1)
+    assert chain.path == (0, 2, 5)
+    assert _activate_vizing_chain(coloring, chain) == (0, 1)
+    assert coloring[(0, 1)] == 1
+    assert coloring[(0, 2)] == 0
+    assert coloring[(2, 5)] == 1
+    coloring.validate()
 
 
 def test_extend_recursive_uses_small_base_case() -> None:
