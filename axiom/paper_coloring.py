@@ -1516,8 +1516,11 @@ def _sparsify_types_unchecked(
                 continue
             try:
                 paths = relevant_paths(coloring, fan, blocks, pair_index)
-            except ValueError:
-                continue
+            except ValueError as error:
+                raise RuntimeError(
+                    "Sparsify-Types could not construct relevant paths for a "
+                    f"non-social u-fan: {fan}"
+                ) from error
             if _damages_social_fan(fan, paths, social):
                 continue
             center_block = _block_index(blocks, fan.center_color)
