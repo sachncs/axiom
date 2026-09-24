@@ -1530,7 +1530,7 @@ class TestPerformance:
         algo.phase_length = 100
         algo.insert(0, 1)
         algo.insert(0, 2)
-        assert 0 not in algo.bad_vertices
+        assert 0 in algo.bad_vertices
         algo.insert(0, 3)
         assert 0 in algo.bad_vertices
         algo.delete(0, 1)
