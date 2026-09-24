@@ -12,6 +12,11 @@
   </p>
 </p>
 
+Start with the [Axiom product site](https://sachncs.github.io/axiom/) for the
+getting-started guide, interactive playground, API reference, and honest
+implementation status. This repository is the source for contributors and
+release engineering.
+
 **axiom** is a pure-Python implementation of deterministic fully dynamic maximal matching based on *A Faster Deterministic Algorithm for Fully Dynamic Maximal Matching* by Chuzhoy, Khanna, and Song (STOC 2026, [arXiv:2605.00797v1](https://arxiv.org/abs/2605.00797v1)). It maintains a **maximal matching** in an undirected graph under online edge insertions and deletions.
 
 ---

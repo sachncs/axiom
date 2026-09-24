@@ -34,7 +34,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 [project.urls]
-Homepage = "https://github.com/sachncs/axiom"
+Homepage = "https://sachncs.github.io/axiom/"
 Repository = "https://github.com/sachncs/axiom"
 Issues = "https://github.com/sachncs/axiom/issues"
 Documentation = "https://sachncs.github.io/axiom/"
