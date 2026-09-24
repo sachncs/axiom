@@ -22,6 +22,7 @@ import Base from "../layouts/Base.astro";
       </div>
       <div class="playground__canvas-wrap"><canvas data-demo-canvas aria-label="Interactive graph visualization"></canvas><p class="playground__hint"><span class="dot" aria-hidden="true"></span>click two nodes to toggle an edge · click an edge to delete it</p></div>
       <div class="demo__stats mono"><span><i data-out-max>Maximal ✓</i></span><span>n <b data-out-n>—</b></span><span>|E| <b data-out-e>—</b></span><span>|M*| <b data-out-m>—</b></span><span>repair <b data-out-scan>—</b></span><span class="demo__tick" data-out-tick>0000 updates</span></div>
+      <div class="playground__legend"><span><strong>M*</strong> current matching</span><span><strong>repair</strong> work after the last update</span><span><strong>Maximal</strong> every edge remains covered</span></div>
     </div>
     <div class="playground__explain">
       <div><span class="mono">01</span><h2>Edges change</h2><p>Updates arrive one at a time, just as they do through <code>insert</code> and <code>delete</code>.</p></div>
@@ -44,6 +45,8 @@ import Base from "../layouts/Base.astro";
   .playground__canvas-wrap canvas { width: 100%; height: 520px; }
   .playground__hint { position: absolute; left: 22px; bottom: 16px; margin: 0; color: var(--ink-faint); font: 12px var(--font-mono); }
   .playground__hint .dot { display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--mint); }
+  .playground__legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 18px 14px; border-top: 1px solid var(--line); color: var(--ink-faint); font: 11px/1.45 var(--font-sans); }
+  .playground__legend strong { color: var(--ink-dim); font-weight: 650; }
   .playground__explain { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 44px; }
   .playground__explain > div { padding-top: 18px; border-top: 1px solid var(--line); }
   .playground__explain .mono { color: var(--cobalt); font-size: 12px; }
