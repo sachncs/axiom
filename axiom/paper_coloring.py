@@ -859,7 +859,7 @@ def collect_separable_fans(
         if shifted is not None:
             fan_edges.update(shifted.edges)
         else:
-            _extend_edge_by_fan_chain(coloring, edge, coloring.color_count)
+            _activate_uncolored_edge(coloring, edge)
             extended_edges += 1
             # Fan-chain flips can change a missing color assigned to an
             # existing fan.  Remove those fans before exposing the
@@ -882,7 +882,7 @@ class PaperFanColorer:
     """Deterministic complete coloring through paper u-fan operations.
 
     This implementation uses the paper's explicit fan-shift and activation
-    interface followed by a deterministic maximal fan-chain completion.  It
+    interface followed by deterministic Vizing fan reduction.  It
     intentionally has no Vizing/greedy fallback: if a fan invariant cannot
     be maintained, it raises a diagnostic error.  The complete ABB+26
     near-linear construction and bound remain separate release gates.
@@ -930,7 +930,7 @@ def _complete_partial_coloring(
         start.validate()
     for edge in sorted(all_edges - start.edges()):
         if edge not in start:
-            _extend_edge_by_fan_chain(start, edge, delta + 1)
+            _activate_uncolored_edge(start, edge)
             start.validate()
     if start.edges() != all_edges:
         raise RuntimeError("fan-chain completion left edges uncolored")
@@ -1095,30 +1095,6 @@ def _edge_color_at(
     return coloring._colors.get(canonical(left, right))
 
 
-def _invert_color_component(
-    coloring: PartialColoring, start: Vertex, first: Color, second: Color
-) -> None:
-    if first == second:
-        raise ValueError("component colors must differ")
-    component: set[Edge] = set()
-    visited = {start}
-    stack = [start]
-    while stack:
-        vertex = stack.pop()
-        for neighbor in sorted(coloring.graph.neighbors(vertex)):
-            edge = canonical(vertex, neighbor)
-            color = _edge_color_at(coloring, *edge)
-            if color not in {first, second}:
-                continue
-            component.add(edge)
-            if neighbor not in visited:
-                visited.add(neighbor)
-                stack.append(neighbor)
-    for edge in sorted(component):
-        coloring._colors[edge] = second if coloring._colors[edge] == first else first
-    coloring._reindex()
-
-
 def _maximal_fan(
     coloring: PartialColoring, center: Vertex, first_leaf: Vertex
 ) -> list[Vertex]:
@@ -1257,7 +1233,9 @@ def _activate_vizing_chain(coloring: PartialColoring, chain: _VizingChain) -> Ed
         coloring.flip(list(chain.path), alpha, terminal)
         if path_ends_at_repeated_leaf:
             rotation_leaves = leaves
-            rotation_colors = colors
+            rotation_colors = [
+                coloring[canonical(center, leaf)] for leaf in leaves[1:]
+            ] + [terminal]
         else:
             rotation_leaves = leaves[: repeated + 1]
             rotation_colors = colors[: repeated + 1]
@@ -1275,6 +1253,16 @@ def _activate_vizing_chain(coloring: PartialColoring, chain: _VizingChain) -> Ed
         coloring._reindex()
         coloring.validate()
         raise
+
+
+def _activate_uncolored_edge(coloring: PartialColoring, edge: Edge) -> Edge:
+    """Activate one uncolored edge through the paper Vizing primitive."""
+    edge = canonical(*edge)
+    if edge in coloring:
+        raise ValueError(f"edge is already colored: {edge}")
+    center_color = coloring.first_missing(edge[0])
+    chain = _build_vizing_chain(coloring, _UEdge(edge, center_color))
+    return _activate_vizing_chain(coloring, chain)
 
 
 def _resolve_chain_collision(
@@ -1546,11 +1534,10 @@ def construct_u_fans(
 ) -> SeparableFans:
     """Construct paper u-fans from a matching of uncolored edges.
 
-    This is the explicit ``create u-edges`` plus ``PruneVFans`` portion of
-    ``ConUFans``.  It intentionally stops before ``ReduceUEdges``: callers
-    receive the remaining vertex-disjoint u-edges as a separate count only
-    through the coloring state, and must run the reduction phase before
-    treating the result as the complete construction.
+    This executes the explicit ``create u-edges``, ``PruneVFans``, and the
+    validated deterministic reduction phase of ``ConUFans``.  The returned
+    collection contains only u-fans that survived reduction; every seeded
+    u-edge is either colored or represented by that collection.
     """
     coloring.validate()
     before = dict(coloring._colors)
@@ -1574,28 +1561,6 @@ def construct_u_fans(
         raise
 
 
-def _rotatable_fan_prefix(
-    coloring: PartialColoring, center: Vertex, fan: list[Vertex], color: Color
-) -> int:
-    def used(vertex: Vertex) -> set[Color]:
-        return {
-            value
-            for neighbor in coloring.graph.neighbors(vertex)
-            if (value := _edge_color_at(coloring, vertex, neighbor)) is not None
-        }
-
-    for width, endpoint in enumerate(fan):
-        if color in used(endpoint):
-            continue
-        if all(
-            (edge_color := _edge_color_at(coloring, center, fan[index + 1])) is not None
-            and edge_color not in used(fan[index])
-            for index in range(width)
-        ):
-            return width
-    raise RuntimeError("maximal fan has no rotatable prefix")
-
-
 def _rotate_fan(
     coloring: PartialColoring, center: Vertex, fan: list[Vertex], width: int
 ) -> None:
@@ -1605,35 +1570,6 @@ def _rotate_fan(
     if width > 0:
         coloring._colors.pop(canonical(center, fan[width]))
     coloring._reindex()
-
-
-def _extend_edge_by_fan_chain(
-    coloring: PartialColoring, edge: Edge, color_count: int
-) -> None:
-    if color_count != coloring.color_count:
-        raise ValueError("fan-chain palette size does not match the coloring")
-    center, first = edge
-    common = sorted(set(coloring.missing(center)) & set(coloring.missing(first)))
-    if common:
-        coloring.assign(edge, common[0])
-        return
-    before = dict(coloring._colors)
-    try:
-        fan = _maximal_fan(coloring, center, first)
-        first_color = coloring.first_missing(center)
-        second_color = coloring.first_missing(fan[-1])
-        if first_color != second_color:
-            _invert_color_component(coloring, center, first_color, second_color)
-        width = _rotatable_fan_prefix(coloring, center, fan, second_color)
-        _rotate_fan(coloring, center, fan, width)
-        coloring.assign(canonical(center, fan[width]), second_color)
-        if not 0 <= second_color < color_count:
-            raise RuntimeError("fan chain produced a color outside its palette")
-    except BaseException:
-        coloring._colors = before
-        coloring._reindex()
-        coloring.validate()
-        raise
 
 
 def color_blocks(
