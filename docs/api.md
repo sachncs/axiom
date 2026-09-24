@@ -116,13 +116,15 @@ class System:
 
     def degree(self, v: Vertex) -> int: ...  # in M
     def partner_in(self, v: Vertex) -> Iterator[Vertex]: ...
+    def check_edges(self) -> bool: ...  # M contains live canonical edges
+    def check_partition(self) -> bool: ...  # A, B, U partition V
     def check_bound(self) -> bool: ...  # degree bounds in M
     def check_u(self) -> bool: ...  # U-U degree bound
     def check_p1(self) -> bool: ...  # P1
     def check_p2(self) -> bool: ...  # P2
     def check_lambda(self) -> bool: ...  # &Lambda; lists correct
     def check_L(self) -> bool: ...  # &L; lists correct
-    def check(self) -> bool: ...  # all six invariants
+    def check(self) -> bool: ...  # edge, partition, and system invariants
     def index(self) -> None: ...  # rebuild &Lambda; and &L;
     def maximal(self, matching: Matching) -> bool: ...
 
