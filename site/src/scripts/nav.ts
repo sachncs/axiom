@@ -13,12 +13,15 @@ export function initNav(): void {
 
   const close = () => {
     mobile?.classList.remove("is-open");
+    mobile?.setAttribute("inert", "");
     burger?.setAttribute("aria-expanded", "false");
     burger?.setAttribute("aria-label", "Open menu");
   };
 
   burger?.addEventListener("click", () => {
     const open = mobile?.classList.toggle("is-open");
+    if (open) mobile?.removeAttribute("inert");
+    else mobile?.setAttribute("inert", "");
     burger.setAttribute("aria-expanded", String(open));
     burger.setAttribute("aria-label", open ? "Close menu" : "Open menu");
   });
