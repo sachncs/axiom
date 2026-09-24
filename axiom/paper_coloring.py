@@ -1379,6 +1379,36 @@ def _seed_u_edges(
     return tuple(seeded)
 
 
+def _refresh_u_edge(coloring: PartialColoring, item: _UEdge) -> _UEdge | None:
+    """Revalidate one active u-edge after a path mutation.
+
+    A Vizing activation can change which colors are missing at another active
+    center.  Such an edge must not continue with a stale alpha certificate;
+    retain it only when uncolored and deterministically reseed alpha when the
+    old color is no longer missing.
+    """
+    if item.edge in coloring:
+        return None
+    if coloring.is_missing(item.center, item.center_color):
+        return item
+    missing = coloring.missing(item.center)
+    if not missing:
+        raise RuntimeError(f"active u-edge center has no missing color: {item.edge}")
+    return _UEdge(item.edge, missing[0])
+
+
+def _refresh_u_edges(
+    coloring: PartialColoring, items: tuple[_UEdge, ...] | list[_UEdge]
+) -> list[_UEdge]:
+    """Refresh a deterministic active-u-edge sequence after mutations."""
+    refreshed: list[_UEdge] = []
+    for item in items:
+        current = _refresh_u_edge(coloring, item)
+        if current is not None:
+            refreshed.append(current)
+    return refreshed
+
+
 def _rotate_vizing_fan_to_edge(
     coloring: PartialColoring,
     center: Vertex,
@@ -1512,9 +1542,10 @@ def _prune_vizing_fans(
         pending = [entry[0] for entry in active] + pending
         active = []
 
+    refreshed = _refresh_u_edges(coloring, [item for item, _ in active])
     fans.assert_valid()
     fans.assert_compatible(coloring)
-    return tuple(item for item, _ in active)
+    return tuple(refreshed)
 
 
 def _reduce_u_edges(
@@ -1531,8 +1562,11 @@ def _reduce_u_edges(
     coloring algorithm when its paper preconditions are not met.
     """
     extended = 0
-    active = list(u_edges)
+    active = _refresh_u_edges(coloring, u_edges)
     while active:
+        active = _refresh_u_edges(coloring, active)
+        if not active:
+            break
         blocked = _u_component_colors(fans, tuple(active))
         chains = tuple(_build_vizing_chain(coloring, item, blocked) for item in active)
         event = _explore_vizing_chains(chains)
