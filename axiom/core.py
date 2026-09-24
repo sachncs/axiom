@@ -688,29 +688,30 @@ class Matcher:
                 )
             if self.mode == "multilevel":
                 edge = canonical(u, v)
-                self.inserted_edges.add(edge)
+                was_deferred = (
+                    self.multi is not None and edge in self.multi.deferred_deletions
+                )
+                if not was_deferred:
+                    self.inserted_edges.add(edge)
                 self.deleted_edges.discard(edge)
-                # A reinserted edge cancels any deferred deletion retained
-                # by the current recursive phase.  Keeping both states would
-                # make sync_graph exclude the edge while the phase graph
-                # invariant still expected it through E_D'.
                 if self.multi is not None:
                     self.multi.deferred_deletions.discard(edge)
                 newly_bad: list[Vertex] = []
-                for vertex in edge:
-                    self.inserted_incident_counts[vertex] += 1
-                    # The phase-0 construction uses t=ceil(sqrt(n)) as its
-                    # insertion budget; later dense phases use the active z
-                    # budget.  The paper marks a vertex bad once the
-                    # insertion budget is reached, and badness remains
-                    # phase-persistent.
-                    insertion_budget = max(self.z, math.ceil(math.sqrt(self.n)))
-                    if (
-                        self.inserted_incident_counts[vertex] >= insertion_budget
-                        and vertex not in self.bad_vertices
-                    ):
-                        self.bad_vertices.add(vertex)
-                        newly_bad.append(vertex)
+                if not was_deferred:
+                    for vertex in edge:
+                        self.inserted_incident_counts[vertex] += 1
+                        # The phase-0 construction uses t=ceil(sqrt(n)) as its
+                        # insertion budget; later dense phases use the active z
+                        # budget.  The paper marks a vertex bad once the
+                        # insertion budget is reached, and badness remains
+                        # phase-persistent.
+                        insertion_budget = max(self.z, math.ceil(math.sqrt(self.n)))
+                        if (
+                            self.inserted_incident_counts[vertex] >= insertion_budget
+                            and vertex not in self.bad_vertices
+                        ):
+                            self.bad_vertices.add(vertex)
+                            newly_bad.append(vertex)
                 # A newly bad target must expose every already-live inserted
                 # edge to it whose other endpoint is currently unmatched.
                 # ProcUpdate only visits the two endpoints of this update;
@@ -749,8 +750,17 @@ class Matcher:
                 edge = canonical(u, v)
                 if edge in self.inserted_edges:
                     self.inserted_edges.remove(edge)
+                    if self.multi is not None:
+                        self.multi.deferred_deletions.discard(edge)
                 else:
                     self.deleted_edges.add(edge)
+                    if self.multi is not None:
+                        # Keep adversarially deleted phase edges in the
+                        # decremental snapshot until the next recursive
+                        # rebuild.  The live matching is repaired against
+                        # the host graph immediately, while the z-system
+                        # retains this edge to preserve its degree bound.
+                        self.multi.deferred_deletions.add(edge)
             # The paper removes an adversarially deleted edge from M_1
             # immediately.  Keeping it in the seed until the next subphase
             # would violate M_1 subset M* between boundaries.

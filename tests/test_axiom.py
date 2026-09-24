@@ -1475,6 +1475,17 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_check_detects_stale_intermediate_matching_edge(self) -> None:
+        graph = Adjacency(8)
+        for left in range(7):
+            graph.add_edge(left, left + 1)
+        hierarchy = build_hierarchy(graph, [2, 1])
+        assert hierarchy.check()
+
+        hierarchy.levels[0].M.add((0, 7))
+
+        assert not hierarchy.check()
+
     def test_recursive_builder_random_sparse_graphs(self) -> None:
         for seed in range(12):
             rng = random.Random(seed)

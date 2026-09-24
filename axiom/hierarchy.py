@@ -91,8 +91,10 @@ class Hierarchy:
             if canonical(left, right) not in excluded:
                 phase_graph.add_edge(left, right)
         self.graph = phase_graph
+        phase_edge_set = set(phase_graph.edges())
         for system in self.levels:
             system.graph = phase_graph
+            system.M.intersection_update(phase_edge_set)
             system.index()
         self.L_levels = [
             _level_lists(phase_graph, vertices, self.R_levels[index])
@@ -139,7 +141,12 @@ class Hierarchy:
             # the finest-level lower degree bound after refinement, but their
             # inherited adjacency indexes must still describe their own
             # graph exactly.
-            if not level.check_lambda() or not level.check_L():
+            if (
+                not level.check_edges()
+                or not level.check_partition()
+                or not level.check_lambda()
+                or not level.check_L()
+            ):
                 return False
         system = self.levels[-1]
         z = system.z
@@ -680,8 +687,10 @@ def refine_hierarchy(
     # their level-specific M/partition state, but refresh the graph reference
     # and derived adjacency indexes so inherited state cannot point at an old
     # phase snapshot.
+    working_edge_set = set(working_graph.edges())
     for level in hierarchy.levels:
         level.graph = working_graph
+        level.M.intersection_update(working_edge_set)
         level.index()
 
     new_system = System(
