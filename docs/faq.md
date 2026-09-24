@@ -5,11 +5,15 @@
 Axiom is a pure-Python implementation of deterministic fully dynamic
 maximal matching algorithms based on the Chuzhoy–Khanna–Song paper.
 
-## How do I install it?
+## How do I install it today?
 
 ```bash
-pip install axiom
+pip install git+https://github.com/sachncs/axiom.git
 ```
+
+This installs the current development build directly from source. A published
+package install is intentionally not documented yet; the release gate still
+includes the remaining multilevel and coloring validation.
 
 For development:
 
