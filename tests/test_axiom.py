@@ -708,6 +708,18 @@ class TestMatcher:
 
         assert algo.H_tilde == {(1, 2)}
 
+    def test_rematch_rejects_partition_corruption_instead_of_scanning_graph(
+        self,
+    ) -> None:
+        algo = Matcher(4, mode="basic")
+        assert algo.system is not None
+        algo.system.A.discard(0)
+        algo.system.B.discard(0)
+        algo.system.U.discard(0)
+
+        with pytest.raises(RuntimeError, match="does not partition"):
+            algo._Matcher__rematch_vertex(0)
+
     def test_bad_vertex_promotion_backfills_existing_inserted_edges(self) -> None:
         algo = Matcher(8, mode="multilevel")
 

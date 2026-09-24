@@ -908,10 +908,10 @@ class Matcher:
             self.__rematch_a(v)
             return
 
-        for w in self.graph.neighbors(v):
-            if w not in self.matched_vertices:
-                self.add_match(v, w)
-                return
+        raise RuntimeError(
+            "active z-system does not partition the vertex being rematched: "
+            f"vertex={v}, missing from A/B/U"
+        )
 
     def __rematch_u(self, u: Vertex) -> None:
         assert self.system is not None
