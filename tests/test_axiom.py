@@ -647,6 +647,20 @@ class TestMatcher:
         assert algo.level_phase_updates == [8, 8, 8, 0, 0]
         assert algo.level_phase_indices == [0, 0, 0, 1, 2]
 
+    def test_multilevel_rebuild_resets_clocks_when_z_schedule_changes(self) -> None:
+        matcher = Matcher(16, mode="multilevel")
+        matcher.level_zs = [8]
+        matcher.level_phase_lengths = [16]
+        matcher.level_phase_updates = [7]
+        matcher.level_phase_indices = [3]
+        matcher.update_count = 1
+
+        matcher.policy.rebuild(matcher)
+
+        assert matcher.level_zs == [4]
+        assert matcher.level_phase_updates == [0]
+        assert matcher.level_phase_indices == [0]
+
     def test_recursive_rebuild_inherits_level_one_without_rebuilding(self, monkeypatch):
         dense = Adjacency(16)
         for left in range(16):

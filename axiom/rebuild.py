@@ -285,6 +285,7 @@ class Multilevel:
 
     def rebuild(self, matcher: Matcher) -> None:
         previous_lengths = list(matcher.level_phase_lengths)
+        previous_schedule = list(matcher.level_zs)
         level_zs, phase_lengths, eta = self._schedule(matcher)
         self._validate_nested_schedule(level_zs, phase_lengths)
         matcher.level_zs = level_zs
@@ -297,9 +298,11 @@ class Multilevel:
         # synchronized with the schedule used to build the new hierarchy.
         matcher.z = level_zs[-1]
         matcher.subphase_length = max(1, matcher.phase_length // matcher.z)
-        schedule_changed = previous_lengths != phase_lengths or len(
-            matcher.level_phase_updates
-        ) != len(phase_lengths)
+        schedule_changed = (
+            previous_schedule != level_zs
+            or previous_lengths != phase_lengths
+            or len(matcher.level_phase_updates) != len(phase_lengths)
+        )
         if schedule_changed:
             self._reset_phase_clocks(matcher)
         parent_boundary = matcher.update_count > 0 and (
