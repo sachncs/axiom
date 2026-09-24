@@ -794,6 +794,9 @@ class Matcher:
             graph_objects.append(self.multi.graph)
             graph_objects.extend(level.graph for level in self.multi.levels)
         memo = {id(graph): graph for graph in graph_objects if graph is not None}
+        graph_snapshots = {
+            id(graph): (graph, set(graph.edges())) for graph in memo.values()
+        }
         snapshot = {
             name: copy.deepcopy(value, memo)
             for name, value in self.__dict__.items()
@@ -802,11 +805,22 @@ class Matcher:
         try:
             yield
         except BaseException:
-            current_edges = set(self.graph.edges())
-            for left, right in current_edges - original_edges:
-                self.graph.remove_edge(left, right)
-            for left, right in original_edges - current_edges:
-                self.graph.add_edge(left, right)
+            # Restore every graph object in place.  Multilevel rebuilds can
+            # mutate a phase graph or an inherited level graph before a later
+            # invariant check fails; restoring only ``self.graph`` would leave
+            # those same-identity objects observably split from the snapshot.
+            for graph, expected_edges in graph_snapshots.values():
+                current_edges = set(graph.edges())
+                for left, right in current_edges - expected_edges:
+                    graph.remove_edge(left, right)
+                for left, right in expected_edges - current_edges:
+                    graph.add_edge(left, right)
+                if set(graph.edges()) != expected_edges:
+                    raise RuntimeError(
+                        "atomic rollback could not restore a managed graph"
+                    )
+            if set(self.graph.edges()) != original_edges:
+                raise RuntimeError("atomic rollback could not restore the live graph")
             self.__dict__.update(snapshot)
             raise
 

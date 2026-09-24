@@ -1323,7 +1323,13 @@ class TestMatcher:
             "phase_edges": set(algo.phase_graph.edges())
             if algo.phase_graph is not None
             else set(),
+            "phase_graph_id": id(algo.phase_graph),
             "hierarchy_edges": set(algo.multi.graph.edges()),
+            "hierarchy_graph_id": id(algo.multi.graph),
+            "level_graphs": [
+                (id(level.graph), set(level.graph.edges()))
+                for level in algo.multi.levels
+            ],
             "levels": [
                 (
                     set(level.A),
@@ -1352,9 +1358,14 @@ class TestMatcher:
         assert algo.inserted_edges == before["inserted"]
         assert algo.deleted_edges == before["deleted"]
         assert algo.phase_graph is not None
+        assert id(algo.phase_graph) == before["phase_graph_id"]
         assert set(algo.phase_graph.edges()) == before["phase_edges"]
         assert algo.multi is not None
+        assert id(algo.multi.graph) == before["hierarchy_graph_id"]
         assert set(algo.multi.graph.edges()) == before["hierarchy_edges"]
+        assert [
+            (id(level.graph), set(level.graph.edges())) for level in algo.multi.levels
+        ] == before["level_graphs"]
         assert [
             (set(level.A), set(level.B), set(level.U), set(level.M))
             for level in algo.multi.levels
