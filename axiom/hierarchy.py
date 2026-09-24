@@ -568,6 +568,20 @@ def refine_hierarchy(
         else:
             new_b.add(vertex)
 
+    def normalize_b(vertex: Vertex) -> None:
+        if vertex in new_b and not any(
+            vertex in edge and (edge[0] in new_u or edge[1] in new_u) for edge in chosen
+        ):
+            new_b.remove(vertex)
+            new_a.add(vertex)
+
+    def normalize_b_neighbors(vertex: Vertex) -> None:
+        for edge in tuple(chosen):
+            if vertex not in edge:
+                continue
+            other = edge[1] if edge[0] == vertex else edge[0]
+            normalize_b(other)
+
     def promote(vertex: Vertex) -> None:
         if vertex not in new_u:
             return
@@ -579,6 +593,9 @@ def refine_hierarchy(
             new_a.add(vertex)
         else:
             new_b.add(vertex)
+        # Removing ``vertex`` from U can invalidate I1 for B-neighbours
+        # that used it as their last M-witness.  Repair them immediately.
+        normalize_b_neighbors(vertex)
 
     for vertex in sorted(tuple(new_u)):
         if degree[vertex] >= z_prime - h:
@@ -640,24 +657,36 @@ def refine_hierarchy(
                 changed = True
                 continue
 
-            # ProcProcess, second branch: use B vertices only when there
-            # are z' available B neighbours.  Each swap removes an existing
-            # B-U edge (the paper's Z(v) witness) before inserting (u,v).
-            b_candidates: list[tuple[Vertex, Edge]] = []
-            for neighbor in sorted(working_graph.neighbors(vertex)):
-                edge = canonical(vertex, neighbor)
-                if neighbor not in new_b or edge in chosen:
-                    continue
-                witnesses = sorted(
-                    old_edge
-                    for old_edge in chosen
-                    if neighbor in old_edge
-                    and degree[neighbor] > z_prime - h
-                    and (old_edge[0] in new_u or old_edge[1] in new_u)
-                )
-                if witnesses:
-                    b_candidates.append((neighbor, witnesses[0]))
-            if len(b_candidates) >= z_prime:
+            # ProcProcess, second branch: the paper tests the number of B
+            # neighbours, then performs exactly ``need`` swaps.  Every B
+            # vertex must have a Z(v) witness edge into U by I1; if that
+            # invariant is absent, fail instead of silently leaving the
+            # vertex unprocessed.
+            b_neighbors = [
+                neighbor
+                for neighbor in sorted(working_graph.neighbors(vertex))
+                if neighbor in new_b
+            ]
+            if len(b_neighbors) >= z_prime:
+                b_candidates: list[tuple[Vertex, Edge]] = []
+                for neighbor in b_neighbors:
+                    edge = canonical(vertex, neighbor)
+                    if edge in chosen:
+                        continue
+                    witnesses = sorted(
+                        old_edge
+                        for old_edge in chosen
+                        if neighbor in old_edge
+                        and (old_edge[0] in new_u or old_edge[1] in new_u)
+                    )
+                    if witnesses:
+                        b_candidates.append((neighbor, witnesses[0]))
+                if len(b_candidates) < need:
+                    raise RuntimeError(
+                        "recursive refinement lost a B-to-U witness required "
+                        f"for ProcProcess({vertex}); needed={need}, "
+                        f"available={len(b_candidates)}"
+                    )
                 for neighbor, removed in b_candidates[:need]:
                     chosen.remove(removed)
                     for endpoint in removed:
@@ -665,6 +694,7 @@ def refine_hierarchy(
                     chosen.add(canonical(vertex, neighbor))
                     degree[vertex] += 1
                     degree[neighbor] += 1
+                    normalize_b(neighbor)
                 promote(vertex)
                 changed = True
 
