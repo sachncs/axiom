@@ -503,7 +503,7 @@ class SeparableFans:
                 fan.color_at(vertex) not in coloring.missing(vertex)
                 for vertex in fan.vertices
             )
-            or fan.edges & coloring.edges()
+            or any(edge in coloring for edge in fan.edges)
         ]
         for fan in damaged:
             self.discard(fan)
@@ -519,9 +519,9 @@ def activate_fan(coloring: PartialColoring, fans: SeparableFans, fan: UFan) -> E
         canonical(fan.center, fan.first_leaf),
         canonical(fan.center, fan.second_leaf),
     }
-    if not spokes <= set(coloring.graph.edges()):
+    if any(not coloring.graph.has_edge(*edge) for edge in spokes):
         raise ValueError("u-fan spokes must belong to the graph")
-    if spokes & coloring.edges():
+    if any(edge in coloring for edge in spokes):
         raise ValueError("u-fan spokes must both be uncolored")
     for vertex, color in (
         (fan.center, fan.center_color),
