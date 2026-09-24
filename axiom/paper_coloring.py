@@ -1587,6 +1587,13 @@ def construct_u_fans(
         coloring.validate()
         result.assert_valid()
         result.assert_compatible(coloring)
+        colored = sum(edge in coloring for edge in uncolored_edges)
+        required = max(1, (len(uncolored_edges) + 17) // 18)
+        if colored + len(result) < required:
+            raise RuntimeError(
+                "ConUFans failed its constant-fraction progress certificate: "
+                f"colored={colored}, fans={len(result)}, required={required}"
+            )
         return result
     except BaseException:
         coloring._colors = before
