@@ -48,7 +48,7 @@ export const PROBLEM = [
   {
     step: "01",
     title: "The stream",
-    body: "Edges arrive and depart one at a time — insertions, deletions, insertions again. The graph never sleeps, and the matching must keep up without ever rebuilding from scratch.",
+    body: "Edges arrive and depart one at a time — insertions, deletions, insertions again. Axiom repairs updates locally and uses explicit phase rebuilds to refresh its bounded hierarchy state.",
   },
   {
     step: "02",
