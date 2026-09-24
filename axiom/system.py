@@ -241,8 +241,6 @@ class System:
         """
         if set(self.L_lists) != self.A:
             return False
-        if set(self.L_lists) != self.A:
-            return False
         for a in self.A:
             for w in self.partner_in(a):
                 if w not in self.S:
@@ -456,7 +454,7 @@ def switch(
                         # though ``u`` is in U, not B.
                         continue
                     e = canonical(curr, w)
-                    if e not in M and w in graph.neighbors(curr):
+                    if e not in M:
                         if (w, 0) not in parent:
                             parent[(w, 0)] = (curr, 1)
                             if deg_M[w] < z:
@@ -667,6 +665,8 @@ def build(graph: Graph, z: int) -> System:
         polynomial.  Empirically the loop converges in a handful of
         rounds on sparse inputs.
     """
+    if not isinstance(z, int) or isinstance(z, bool) or z <= 0:
+        raise ValueError(f"z must be a positive integer, got {z!r}")
     # --- Step 1: greedy maximal M with degree cap z ---
     M: set[Edge] = set()
     deg_M: dict[Vertex, int] = {v: 0 for v in range(graph.n)}

@@ -358,6 +358,13 @@ class TestMatching:
 class TestSystem:
     """Tests for :class:`axiom.system.System`."""
 
+    def test_build_rejects_nonpositive_z(self) -> None:
+        graph = Adjacency(2)
+        with pytest.raises(ValueError, match="positive integer"):
+            build(graph, 0)
+        with pytest.raises(ValueError, match="positive integer"):
+            build(graph, True)  # type: ignore[arg-type]
+
     def test_basic_properties(self) -> None:
         g = Adjacency(6)
         g.add_edge(0, 1)
