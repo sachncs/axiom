@@ -867,6 +867,11 @@ class TestMatcher:
         with pytest.raises(ValueError):
             Matcher(5, mode="fast")
 
+    @pytest.mark.parametrize("mode", [None, 1, [], {}])
+    def test_invalid_mode_types_are_normalized(self, mode: object) -> None:
+        with pytest.raises(ValueError, match="mode"):
+            Matcher(4, mode=mode)  # type: ignore[arg-type]
+
     def test_negative_vertices(self) -> None:
         with pytest.raises(ValueError):
             Matcher(-1)

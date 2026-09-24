@@ -125,7 +125,7 @@ class Matcher:
             raise ValueError(f"n must be an integer, got {n!r}")
         if n < 0:
             raise ValueError(f"n must be non-negative, got {n}")
-        if mode not in {"basic", "multilevel"}:
+        if not isinstance(mode, str) or mode not in {"basic", "multilevel"}:
             raise ValueError(f"mode must be 'basic' or 'multilevel', got {mode}")
         if colorer is not None and not callable(getattr(colorer, "color", None)):
             raise ValueError(
