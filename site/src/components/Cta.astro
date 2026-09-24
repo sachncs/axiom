@@ -4,8 +4,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
 <section class="section--tight shell" id="install">
-  <div class="cta card" data-reveal>
-    <div class="cta__glow" aria-hidden="true"></div>
+  <div class="cta" data-reveal>
     <div class="cta__inner">
       <span class="eyebrow"><span class="dot" aria-hidden="true"></span>Ready for the stream</span>
       <h2>
@@ -38,19 +37,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 <style>
   .cta {
-    padding: clamp(56px, 8vw, 108px);
-    overflow: hidden;
+    padding: clamp(56px, 8vw, 108px) 0;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
     text-align: center;
     display: grid;
     justify-items: center;
-  }
-  .cta__glow {
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(58% 60% at 50% -20%, rgba(91, 140, 255, 0.22), transparent 70%),
-      radial-gradient(40% 46% at 82% 120%, rgba(160, 107, 255, 0.16), transparent 72%);
-    pointer-events: none;
   }
   .cta__inner {
     position: relative;
