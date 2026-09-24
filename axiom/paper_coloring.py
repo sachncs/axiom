@@ -1103,11 +1103,24 @@ def _maximal_fan(
 
 
 def _construct_vizing_fan(
-    coloring: PartialColoring, center: Vertex, first_leaf: Vertex
+    coloring: PartialColoring,
+    center: Vertex,
+    first_leaf: Vertex,
+    blocked: Mapping[Vertex, set[Color]] | None = None,
 ) -> tuple[list[Vertex], list[Color]]:
     """Construct the paper's deterministic ``VizingF`` sequence."""
     leaves = [first_leaf]
-    leaf_colors = [coloring.first_missing(first_leaf)]
+
+    def choose_leaf_color(vertex: Vertex) -> Color:
+        unavailable = set() if blocked is None else blocked.get(vertex, set())
+        for color in coloring.missing(vertex):
+            if color not in unavailable:
+                return color
+        raise RuntimeError(
+            f"U-avoiding Vizing fan has no available leaf color: vertex={vertex}"
+        )
+
+    leaf_colors = [choose_leaf_color(first_leaf)]
     while True:
         terminal = leaf_colors[-1]
         if coloring.is_missing(center, terminal) or terminal in leaf_colors[:-1]:
@@ -1126,12 +1139,18 @@ def _construct_vizing_fan(
                 "Vizing fan construction could not find the terminal-color edge"
             )
         leaves.append(extension)
-        leaf_colors.append(coloring.first_missing(extension))
+        leaf_colors.append(choose_leaf_color(extension))
 
 
-def _build_vizing_chain(coloring: PartialColoring, u_edge: _UEdge) -> _VizingChain:
+def _build_vizing_chain(
+    coloring: PartialColoring,
+    u_edge: _UEdge,
+    blocked: Mapping[Vertex, set[Color]] | None = None,
+) -> _VizingChain:
     """Build the paper's Vizing fan and its maximal chain for one u-edge."""
-    leaves, leaf_colors = _construct_vizing_fan(coloring, u_edge.center, u_edge.leaf)
+    leaves, leaf_colors = _construct_vizing_fan(
+        coloring, u_edge.center, u_edge.leaf, blocked
+    )
     leaves_tuple = tuple(leaves)
     colors_tuple = tuple(leaf_colors)
     terminal = colors_tuple[-1]
@@ -1390,6 +1409,19 @@ def _choose_u_fan_center_color(
     )
 
 
+def _u_component_colors(
+    fans: SeparableFans, u_edges: tuple[_UEdge, ...]
+) -> dict[Vertex, set[Color]]:
+    """Build the ``C_U`` blocked-color index for a pruning pass."""
+    blocked: dict[Vertex, set[Color]] = {}
+    for fan in fans:
+        for vertex in fan.vertices:
+            blocked.setdefault(vertex, set()).add(fan.color_at(vertex))
+    for item in u_edges:
+        blocked.setdefault(item.center, set()).add(item.center_color)
+    return blocked
+
+
 def _prune_vizing_fans(
     coloring: PartialColoring,
     fans: SeparableFans,
@@ -1411,7 +1443,8 @@ def _prune_vizing_fans(
 
     active: list[tuple[_UEdge, list[Vertex]]] = []
     for item in u_edges:
-        leaves = _maximal_fan(coloring, item.center, item.leaf)
+        blocked = _u_component_colors(fans, u_edges)
+        leaves, _ = _construct_vizing_fan(coloring, item.center, item.leaf, blocked)
         collision = None
         for vertex in (item.center, *leaves):
             if any(
@@ -1492,7 +1525,8 @@ def _reduce_u_edges(
     extended = 0
     active = list(u_edges)
     while active:
-        chains = tuple(_build_vizing_chain(coloring, item) for item in active)
+        blocked = _u_component_colors(fans, tuple(active))
+        chains = tuple(_build_vizing_chain(coloring, item, blocked) for item in active)
         event = _explore_vizing_chains(chains)
         if event.terminal is not None:
             selected: tuple[_UEdge, ...] = (event.terminal.u_edge,)
