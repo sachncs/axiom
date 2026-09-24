@@ -9,6 +9,7 @@ classical complete coloring as an interchangeable substitute.
 
 from __future__ import annotations
 
+import math
 from collections.abc import ItemsView, Iterator, Mapping
 from dataclasses import dataclass
 from itertools import pairwise
@@ -768,7 +769,11 @@ def _complete_partial_coloring(
     """Complete a partial coloring through Extend and deterministic fan chains."""
     separable_fans = collect_separable_fans(start, all_edges - start.edges())
     if separable_fans:
-        extend_recursive(start, separable_fans, 10)
+        eta = _paper_eta(delta, start.color_count)
+        if eta is None:
+            color_small(start, separable_fans)
+        else:
+            extend_recursive(start, separable_fans, eta)
         start.validate()
     for edge in sorted(all_edges - start.edges()):
         if edge not in start:
@@ -777,6 +782,21 @@ def _complete_partial_coloring(
     if start.edges() != all_edges:
         raise RuntimeError("fan-chain completion left edges uncolored")
     return dict(start.items())
+
+
+def _paper_eta(delta: int, color_count: int) -> int | None:
+    """Return the ABB+26 ``eta`` parameter when recursive Extend applies.
+
+    The type-sparsification construction requires ``10 <= eta <= mu/10``
+    for a ``mu``-coloring.  Below that threshold the paper uses its
+    ``Color-Small`` base case instead of forcing an invalid block partition.
+    """
+    if delta < 2 or color_count < 100:
+        return None
+    eta = 10 * max(1, math.ceil(2 ** math.sqrt(math.log2(delta))))
+    if eta > color_count // 10:
+        return None
+    return eta
 
 
 def _euler_partition(graph: Graph) -> tuple[Adjacency, Adjacency]:

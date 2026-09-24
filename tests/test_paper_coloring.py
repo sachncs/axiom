@@ -10,6 +10,7 @@ from axiom.paper_coloring import (
     PartialColoring,
     SeparableFans,
     UFan,
+    _paper_eta,
     activate_fan,
     classify_type_sparsification,
     collect_direct_fans,
@@ -23,6 +24,12 @@ from axiom.paper_coloring import (
     shift_edge_to_fan,
     sparsify_types,
 )
+
+
+def test_paper_eta_selects_only_a_valid_recursive_regime() -> None:
+    assert _paper_eta(128, 129) is None
+    assert _paper_eta(1024, 1025) == 90
+    assert _paper_eta(1024, 99) is None
 
 
 def test_separable_fans_enforce_edge_and_vertex_color_disjointness() -> None:
