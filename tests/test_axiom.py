@@ -1,4 +1,4 @@
-"""Comprehensive unit tests for the FDMM reproduction.
+"""Comprehensive unit tests for the FDMM implementation.
 
 Tests cover graph layer, edge colouring, :math:`z`-system construction and
 invariants, dynamic update maintenance, accounting counters, simulation
@@ -7,16 +7,17 @@ utilities, and stress tests.
 
 from __future__ import annotations
 
+import math
 import random
 
 import pytest
 
+from axiom.augment import augment
 from axiom.color import Vizing
 from axiom.core import Matcher
 from axiom.graph import Adjacency
-from axiom.hierarchy import Hierarchy
-from axiom.invariant import check_maximal_matching
-from axiom.matching import greedy, partner_in, partners
+from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
+from axiom.matching import greedy, is_maximal_matching, partner_in, partners
 from axiom.simulation import random_updates
 from axiom.simulation import replay as replay
 from axiom.system import System, build
@@ -65,21 +66,32 @@ class TestAdjacency:
 
     def test_neighbors(self) -> None:
         g = Adjacency(4)
-        g.add_edge(0, 1)
         g.add_edge(0, 2)
-        assert set(g.neighbors(0)) == {1, 2}
+        g.add_edge(0, 1)
+        assert list(g.neighbors(0)) == [1, 2]
 
     def test_edges_iterator(self) -> None:
         g = Adjacency(4)
-        g.add_edge(0, 1)
         g.add_edge(1, 2)
-        edges = set(g.edges())
-        assert edges == {(0, 1), (1, 2)}
+        g.add_edge(0, 1)
+        assert list(g.edges()) == [(0, 1), (1, 2)]
 
     def test_invalid_vertex(self) -> None:
         g = Adjacency(3)
         with pytest.raises(ValueError):
             g.degree(5)
+
+    def test_matcher_rejects_invalid_update_vertices(self) -> None:
+        matcher = Matcher(3)
+        with pytest.raises(ValueError):
+            matcher.insert(-1, 1)
+        with pytest.raises(ValueError):
+            matcher.delete(1, 3)
+
+    def test_matcher_rejects_invalid_partner_vertex(self) -> None:
+        matcher = Matcher(3)
+        with pytest.raises(ValueError, match="vertex must be in"):
+            matcher.partner(3)
 
     def test_copy(self) -> None:
         g = Adjacency(3)
@@ -223,6 +235,17 @@ class TestColor:
         coloring = Vizing().color(g, 0)
         assert coloring == {}
 
+    def test_matching_graph_uses_exact_single_color_path(self) -> None:
+        g = Adjacency(6)
+        g.add_edge(0, 1)
+        g.add_edge(2, 3)
+        g.add_edge(4, 5)
+        assert Vizing().color(g, 1) == {
+            (0, 1): 0,
+            (2, 3): 0,
+            (4, 5): 0,
+        }
+
     def test_cycle(self) -> None:
         g = Adjacency(5)
         for i in range(5):
@@ -290,6 +313,15 @@ class TestColor:
         for e in g.edges():
             assert e in coloring
 
+    def test_fan_rotation_colors_adversarial_partial_state(self) -> None:
+        """Regression for the former two-path fallback failure."""
+        g = Adjacency(6)
+        for edge in ((0, 4), (0, 5), (2, 3), (3, 5)):
+            g.add_edge(*edge)
+        coloring = Vizing().color(g, 2)
+        assert len(coloring) == g.num_edges()
+        assert self._is_proper(g, coloring)
+
 
 # ------------------------------------------------------------------
 # Matching helpers
@@ -305,7 +337,7 @@ class TestMatching:
         g.add_edge(1, 2)
         g.add_edge(2, 3)
         m = greedy(g)
-        assert check_maximal_matching(g, m)
+        assert is_maximal_matching(g, m)
 
     def test_greedy_empty_graph(self) -> None:
         g = Adjacency(3)
@@ -331,6 +363,13 @@ class TestMatching:
 
 class TestSystem:
     """Tests for :class:`axiom.system.System`."""
+
+    def test_build_rejects_nonpositive_z(self) -> None:
+        graph = Adjacency(2)
+        with pytest.raises(ValueError, match="positive integer"):
+            build(graph, 0)
+        with pytest.raises(ValueError, match="positive integer"):
+            build(graph, True)  # type: ignore[arg-type]
 
     def test_basic_properties(self) -> None:
         g = Adjacency(6)
@@ -412,6 +451,31 @@ class TestSystem:
         system.U = {1, 2}
         system.M = {(0, 2)}
         assert not system.check_p2()
+
+    def test_check_rejects_stale_m_edge(self) -> None:
+        g = Adjacency(2)
+        system = System(graph=g, z=1, U={0, 1}, M={(0, 1)})
+        system.index()
+
+        assert not system.check_edges()
+        assert not system.check()
+
+    def test_check_rejects_non_partition(self) -> None:
+        g = Adjacency(2)
+        system = System(graph=g, z=1, U={0}, A={0, 1})
+        system.index()
+
+        assert not system.check_partition()
+        assert not system.check()
+
+    def test_check_rejects_stale_index_keys(self) -> None:
+        g = Adjacency(2)
+        system = System(graph=g, z=1, U={0, 1})
+        system.index()
+        system.lambda_lists[2] = []
+
+        assert not system.check_lambda()
+        assert not system.check()
 
     def test_all_invariants_on_empty(self) -> None:
         g = Adjacency(0)
@@ -499,10 +563,482 @@ class TestMatcher:
         assert algo.mode == "basic"
         assert algo.maximal()
 
+    def test_matcher_rejects_non_integer_size(self) -> None:
+        with pytest.raises(ValueError, match="integer"):
+            Matcher(True)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="integer"):
+            Matcher(4.5)  # type: ignore[arg-type]
+
     def test_multilevel_init(self) -> None:
         algo = Matcher(10, mode="multilevel")
         assert algo.mode == "multilevel"
         assert algo.maximal()
+        assert algo.multi is not None
+        assert algo.multi.check()
+
+    def test_multilevel_scheduler_tracks_finest_level_budget(self) -> None:
+        algo = Matcher(16, mode="multilevel")
+        assert algo.eta == 4
+        assert algo.level_zs == [4]
+        assert algo.level_phase_lengths == [16]
+        assert algo.phase_length == 16
+
+        dense = Adjacency(16)
+        for u in range(16):
+            for v in range(u + 1, 16):
+                dense.add_edge(u, v)
+        dense_algo = Matcher(16, mode="multilevel", graph=dense)
+        assert dense_algo.eta == 4
+        assert dense_algo.level_zs == [16, 8, 4, 2, 1]
+        assert dense_algo.level_phase_lengths == [64, 32, 16, 8, 4]
+        assert dense_algo.phase_length == 4
+
+    def test_multilevel_scheduler_switches_at_type_two_boundary(self) -> None:
+        edges = [(left, right) for left in range(8) for right in range(left + 1, 8)]
+
+        type_one = Adjacency(8)
+        for edge in edges[:22]:
+            type_one.add_edge(*edge)
+        type_one_matcher = Matcher(8, mode="multilevel", graph=type_one)
+        assert type_one_matcher.level_zs == [3]
+        assert type_one_matcher.level_phase_lengths == [8]
+
+        type_two = Adjacency(8)
+        for edge in edges[:23]:
+            type_two.add_edge(*edge)
+        type_two_matcher = Matcher(8, mode="multilevel", graph=type_two)
+        assert type_two_matcher.level_zs == [8, 4, 2, 1]
+        assert type_two_matcher.level_phase_lengths == [32, 16, 8, 4]
+
+    def test_multilevel_rebuild_updates_active_z_after_density_transition(self) -> None:
+        edges = [(left, right) for left in range(8) for right in range(left + 1, 8)]
+        initial = Adjacency(8)
+        for edge in edges[:22]:
+            initial.add_edge(*edge)
+
+        matcher = Matcher(8, mode="multilevel", graph=initial)
+        absent = edges[22:]
+        for edge in absent:
+            matcher.insert(*edge)
+        for edge in edges[:2]:
+            matcher.delete(*edge)
+
+        assert matcher.level_zs == [8, 4, 2, 1]
+        assert matcher.z == 1
+        assert matcher.phase_length == 4
+        assert matcher.subphase_length == 4
+        assert matcher.multi is not None and matcher.multi.check()
+
+    def test_multilevel_phase_clocks_are_nested_across_fine_rebuilds(self) -> None:
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        edges = list(algo.graph.edges())
+        for edge in edges[:4]:
+            algo.delete(*edge)
+
+        # The finest phase has rebuilt, but all parent clocks retain their
+        # progress.  Only the finest level has reached its boundary.
+        assert algo.level_phase_updates == [4, 4, 4, 4, 0]
+        assert algo.level_phase_indices == [0, 0, 0, 0, 1]
+
+        for edge in edges[4:8]:
+            algo.delete(*edge)
+
+        # The next parent boundary closes after two finest phases; the
+        # higher levels continue in the same inherited phase.
+        assert algo.level_phase_updates == [8, 8, 8, 0, 0]
+        assert algo.level_phase_indices == [0, 0, 0, 1, 2]
+
+    def test_inserted_edge_index_scope_follows_nested_phase_boundaries(self) -> None:
+        n = 16
+        missing = {(0, vertex) for vertex in range(1, 10)}
+        graph = Adjacency(n)
+        for left in range(n):
+            for right in range(left + 1, n):
+                if (left, right) not in missing:
+                    graph.add_edge(left, right)
+
+        algo = Matcher(n, mode="multilevel", graph=graph)
+        inserted = [(0, vertex) for vertex in range(1, 9)]
+        for edge in inserted[:4]:
+            algo.insert(*edge)
+
+        # The finest phase has rebuilt, but its parent phase is still live.
+        assert algo.update_count == 0
+        assert algo.inserted_edges == set(inserted[:4])
+        assert algo.inserted_incident_edges[0] == set(inserted[:4])
+        assert algo._Matcher__check_auxiliary_indexes()
+
+        for edge in inserted[4:]:
+            algo.insert(*edge)
+
+        # The parent boundary consumes E_I and resets its endpoint index.
+        assert algo.update_count == 0
+        assert algo.inserted_edges == set()
+        assert all(not edges for edges in algo.inserted_incident_edges.values())
+        assert algo._Matcher__check_auxiliary_indexes()
+
+    def test_multilevel_rebuild_resets_clocks_when_z_schedule_changes(self) -> None:
+        matcher = Matcher(16, mode="multilevel")
+        matcher.level_zs = [8]
+        matcher.level_phase_lengths = [16]
+        matcher.level_phase_updates = [7]
+        matcher.level_phase_indices = [3]
+        matcher.update_count = 1
+
+        matcher.policy.rebuild(matcher)
+
+        assert matcher.level_zs == [4]
+        assert matcher.level_phase_updates == [0]
+        assert matcher.level_phase_indices == [0]
+
+    def test_multilevel_child_schedule_uses_phase_start_density(self) -> None:
+        from axiom.rebuild import Multilevel
+
+        edges = [(left, right) for left in range(32) for right in range(left + 1, 32)]
+        base = Adjacency(32)
+        for edge in edges[:182]:
+            base.add_edge(*edge)
+
+        matcher = Matcher(32, mode="multilevel", graph=base)
+        initial_schedule = list(matcher.level_zs)
+        assert len(initial_schedule) > 1
+
+        for edge in edges[182:262]:
+            matcher.graph.add_edge(*edge)
+        matcher.level_phase_updates = [1] * len(matcher.level_phase_lengths)
+
+        child_schedule, _, _ = Multilevel._schedule(matcher)
+
+        assert child_schedule == initial_schedule
+
+    def test_recursive_rebuild_inherits_level_one_without_rebuilding(self, monkeypatch):
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        assert len(algo.level_zs) > 1
+        edge = next(iter(algo.graph.edges()))
+
+        import axiom.rebuild as rebuild_module
+
+        def unexpected_base_rebuild(*args, **kwargs):
+            raise AssertionError("recursive rebuild rebuilt level one")
+
+        monkeypatch.setattr(rebuild_module, "build", unexpected_base_rebuild)
+        algo.graph.remove_edge(*edge)
+        algo.deleted_edges.add(edge)
+        algo.policy.rebuild(algo)
+
+        assert algo.multi is not None
+        assert algo.multi.check()
+
+    def test_removed_mode_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="basic.*multilevel"):
+            Matcher(10, mode="tiered")
+
+    def test_policy_injection_is_not_part_of_public_api(self) -> None:
+        with pytest.raises(TypeError, match="policy"):
+            Matcher(4, mode="basic", policy=object())  # type: ignore[call-arg]
+
+    def test_matcher_rejects_invalid_colorer(self) -> None:
+        with pytest.raises(ValueError, match="colorer"):
+            Matcher(4, colorer=object())  # type: ignore[arg-type]
+
+    def test_multilevel_rejects_non_paper_colorer(self) -> None:
+        with pytest.raises(ValueError, match="PaperFanColorer"):
+            Matcher(4, mode="multilevel", colorer=Vizing())
+
+    def test_matcher_has_no_forwarding_wrapper_methods(self) -> None:
+        assert not hasattr(Matcher, "augment")
+        assert not hasattr(Matcher, "try_augment")
+        assert not hasattr(Matcher, "flip")
+        assert not hasattr(Matcher, "maintain_i3")
+
+    def test_legacy_invariant_wrapper_module_is_removed(self) -> None:
+        import importlib
+
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module("axiom.invariant")
+
+    def test_matcher_rejects_graph_with_different_size(self) -> None:
+        with pytest.raises(ValueError, match="graph.n must equal matcher n"):
+            Matcher(4, graph=Adjacency(5))
+
+    def test_matcher_rejects_graph_missing_protocol_methods(self) -> None:
+        class IncompleteGraph:
+            n = 4
+
+        with pytest.raises(ValueError, match="Graph protocol"):
+            Matcher(4, graph=IncompleteGraph())  # type: ignore[arg-type]
+
+    def test_matcher_rejects_inconsistent_custom_graph(self) -> None:
+        graph = Adjacency(2)
+        graph.adj[0].add(1)
+
+        with pytest.raises(ValueError, match="graph"):
+            Matcher(2, graph=graph)
+
+    def test_matcher_rejects_noop_custom_graph_mutators_atomically(self) -> None:
+        class NoopAddGraph(Adjacency):
+            def add_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                return
+
+        add_graph = NoopAddGraph(2)
+        add_matcher = Matcher(2, graph=add_graph)
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
+            add_matcher.insert(0, 1)
+        assert set(add_graph.edges()) == set()
+        assert add_matcher.matching() == set()
+
+        class NoopRemoveGraph(Adjacency):
+            def remove_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                return
+
+        remove_graph = NoopRemoveGraph(2)
+        remove_graph.add_edge(0, 1)
+        remove_matcher = Matcher(2, graph=remove_graph)
+        before = remove_matcher.matching()
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
+            remove_matcher.delete(0, 1)
+        assert set(remove_graph.edges()) == {(0, 1)}
+        assert remove_matcher.matching() == before
+
+    def test_matcher_rejects_custom_graph_extra_mutations(self) -> None:
+        class ExtraAddGraph(Adjacency):
+            def add_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                super().add_edge(u, v, strict=strict)
+                if (u, v) != (1, 2):
+                    super().add_edge(1, 2)
+
+        add_graph = ExtraAddGraph(3)
+        add_matcher = Matcher(3, graph=add_graph)
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
+            add_matcher.insert(0, 1)
+        assert set(add_graph.edges()) == set()
+
+        class ExtraRemoveGraph(Adjacency):
+            def remove_edge(self, u: int, v: int, *, strict: bool = False) -> None:
+                super().remove_edge(u, v, strict=strict)
+                super().remove_edge(1, 2)
+
+        remove_graph = ExtraRemoveGraph(3)
+        remove_graph.add_edge(0, 1)
+        remove_graph.add_edge(1, 2)
+        remove_matcher = Matcher(3, graph=remove_graph)
+        with pytest.raises(RuntimeError, match="unexpected edge set"):
+            remove_matcher.delete(0, 1)
+        assert set(remove_graph.edges()) == {(0, 1), (1, 2)}
+
+    def test_custom_neighbor_order_does_not_change_deterministic_state(self) -> None:
+        class ReverseNeighbors(Adjacency):
+            def neighbors(self, v: int):
+                return iter(sorted(super().neighbors(v), reverse=True))
+
+        normal = Matcher(8, mode="multilevel")
+        reverse_graph = ReverseNeighbors(8)
+        reverse = Matcher(8, mode="multilevel", graph=reverse_graph)
+        operations = [
+            ("insert", 0, 7),
+            ("insert", 0, 2),
+            ("insert", 1, 6),
+            ("insert", 2, 5),
+            ("delete", 0, 7),
+            ("insert", 3, 4),
+            ("delete", 1, 6),
+            ("insert", 0, 6),
+        ]
+        for operation, left, right in operations:
+            getattr(normal, operation)(left, right)
+            getattr(reverse, operation)(left, right)
+            assert normal.matching() == reverse.matching()
+            assert normal.partners() == reverse.partners()
+
+    def test_dense_recursive_state_ignores_custom_neighbor_order(self) -> None:
+        class ReverseNeighbors(Adjacency):
+            def neighbors(self, v: int):
+                return iter(sorted(super().neighbors(v), reverse=True))
+
+        edges = [
+            (u, v)
+            for u in range(32)
+            for v in range(u + 1, 32)
+            if (u * 17 + v * 11) % 3 != 0
+        ]
+        normal_graph = Adjacency(32)
+        reverse_graph = ReverseNeighbors(32)
+        for edge in edges:
+            normal_graph.add_edge(*edge)
+            reverse_graph.add_edge(*edge)
+
+        normal = Matcher(32, mode="multilevel", graph=normal_graph)
+        reverse = Matcher(32, mode="multilevel", graph=reverse_graph)
+
+        def snapshot(matcher: Matcher):
+            return (
+                matcher.matching(),
+                matcher.partners(),
+                matcher.level_zs,
+                [system.M for system in matcher.multi.levels],
+                matcher.multi.A_levels,
+                matcher.multi.N_levels,
+                matcher.multi.R_levels,
+            )
+
+        assert snapshot(normal) == snapshot(reverse)
+        for operation, left, right in (
+            ("delete", 0, 1),
+            ("insert", 0, 1),
+            ("delete", 7, 23),
+            ("insert", 7, 23),
+        ):
+            getattr(normal, operation)(left, right)
+            getattr(reverse, operation)(left, right)
+            assert snapshot(normal) == snapshot(reverse)
+
+    def test_duplicate_and_self_loop_insertions_are_noops(self) -> None:
+        algo = Matcher(3, mode="multilevel")
+        algo.insert(0, 1)
+        snapshot = algo.stats
+        algo.insert(1, 0)
+        algo.insert(2, 2)
+        assert algo.graph.num_edges() == 1
+        assert algo.matching() == {(0, 1)}
+        assert algo.stats == snapshot
+
+    def test_fast_insert_rematches_the_exposed_partner(self) -> None:
+        operations = [
+            ("insert", 1, 2),
+            ("insert", 0, 1),
+            ("delete", 0, 1),
+            ("insert", 1, 3),
+            ("insert", 0, 3),
+            ("insert", 0, 1),
+            ("delete", 0, 1),
+            ("insert", 2, 3),
+            ("insert", 0, 2),
+            ("delete", 1, 3),
+            ("delete", 1, 2),
+            ("insert", 0, 1),
+        ]
+        algo = Matcher(4, mode="multilevel")
+        for operation, u, v in operations:
+            getattr(algo, operation)(u, v)
+            assert algo.maximal()
+
+    def test_rematch_bu_prioritizes_h_before_inserted_edges(self) -> None:
+        algo = Matcher(4, mode="multilevel")
+        system = algo.system
+        assert system is not None
+        # Make the target an unmatched U vertex with both sources available.
+        system.U = {0, 1, 2, 3}
+        system.A = set()
+        system.B = set()
+        system.lambda_lists = {0: [2], 1: [], 2: [0], 3: []}
+        algo.graph.add_edge(0, 2)
+        algo.matched_edges.clear()
+        algo.matched_vertices.clear()
+        algo.partner_map.clear()
+        algo.H_reverse = {2: {0}}
+        algo.inserted_edges = {(1, 2)}
+        algo.H_tilde = {(1, 2)}
+        algo.H_tilde_reverse = {2: {1}}
+        algo.bad_vertices = {2}
+
+        algo._Matcher__rematch_vertex(2)
+
+        assert algo.matching() == {(0, 2)}
+
+    def test_proc_update_preserves_incoming_h_tilde_targets(self) -> None:
+        algo = Matcher(4, mode="multilevel")
+        algo.H_tilde = {(1, 2), (2, 3)}
+        algo.H_tilde_reverse = {2: {1}, 3: {2}}
+        algo.matched_vertices = {2}
+
+        algo._Matcher__proc_update(2)
+
+        assert algo.H_tilde == {(1, 2)}
+        assert algo.H_tilde_reverse == {2: {1}}
+
+    def test_rematch_rejects_partition_corruption_instead_of_scanning_graph(
+        self,
+    ) -> None:
+        algo = Matcher(4, mode="basic")
+        assert algo.system is not None
+        algo.system.A.discard(0)
+        algo.system.B.discard(0)
+        algo.system.U.discard(0)
+
+        with pytest.raises(RuntimeError, match="does not partition"):
+            algo._Matcher__rematch_vertex(0)
+
+    def test_bad_vertex_promotion_backfills_existing_inserted_edges(self) -> None:
+        algo = Matcher(8, mode="multilevel")
+
+        # Vertex 1 becomes bad when its incident insertion count reaches z
+        # for this schedule. The edge (1, 2) predates that transition and
+        # must still become visible as an incoming tilde-H edge for its
+        # unmatched source.
+        algo.insert(0, 1)
+        algo.insert(1, 2)
+        assert 1 not in algo.bad_vertices
+        algo.insert(1, 3)
+
+        assert 1 in algo.bad_vertices
+        assert (2, 1) in algo.H_tilde
+        assert (3, 1) in algo.H_tilde
+
+    def test_tilde_h_reverse_index_tracks_promotion_and_deletion(self) -> None:
+        algo = Matcher(8, mode="multilevel")
+        for edge in [(0, 1), (1, 2), (1, 3)]:
+            algo.insert(*edge)
+
+        assert 1 in algo.bad_vertices
+        assert algo.H_tilde_reverse == {
+            target: {
+                source for source, candidate in algo.H_tilde if candidate == target
+            }
+            for target in {candidate for _, candidate in algo.H_tilde}
+        }
+
+        algo.delete(1, 2)
+
+        assert (2, 1) not in algo.H_tilde
+        assert 2 not in algo.H_tilde_reverse.get(1, set())
+        assert algo._Matcher__check_auxiliary_indexes()
+
+    def test_dense_multilevel_bad_threshold_uses_finest_z(self) -> None:
+        n = 64
+        graph = Adjacency(n)
+        missing = {(0, 1), (0, 2), (0, 3)}
+        for left in range(n):
+            for right in range(left + 1, n):
+                if (left, right) not in missing:
+                    graph.add_edge(left, right)
+
+        algo = Matcher(n, mode="multilevel", graph=graph)
+        assert algo.level_zs[-1] < math.ceil(math.sqrt(n))
+        threshold = algo.z
+
+        for right in range(1, threshold + 2):
+            if not algo.graph.has_edge(0, right):
+                algo.insert(0, right)
+
+        assert 0 in algo.bad_vertices
+
+    def test_augment_preserves_matching_on_three_edge_path(self) -> None:
+        graph = Adjacency(10)
+        for edge in [(0, 4), (4, 7), (7, 9), (1, 8)]:
+            graph.add_edge(*edge)
+        matching = {(1, 8), (4, 7)}
+        matched = {1, 8, 4, 7}
+        assert augment(matching, graph.neighbors, 0, matched.__contains__)
+        assert matching == {(0, 4), (1, 8), (7, 9)}
 
     def test_insert_then_delete_basic(self) -> None:
         algo = Matcher(4, mode="basic")
@@ -535,6 +1071,32 @@ class TestMatcher:
         assert algo.maximal()
         algo.delete(2, 3)
         assert algo.maximal()
+
+    def test_subphase_keeps_seed_inside_maintained_matching(self) -> None:
+        algo = Matcher(8, mode="basic")
+        algo.subphase_length = 1
+
+        algo.insert(0, 1)
+
+        assert algo.seed_matching <= algo.matched_edges
+        assert algo.matchings[0] == algo.seed_matching
+        assert algo.maximal()
+
+    def test_deleted_seed_edge_is_removed_immediately(self) -> None:
+        graph = Adjacency(8)
+        for left in range(8):
+            for right in range(left + 1, 8):
+                graph.add_edge(left, right)
+
+        for mode in ("basic", "multilevel"):
+            algo = Matcher(8, mode=mode, graph=graph.copy())
+            edge = next(iter(algo.seed_matching))
+
+            algo.delete(*edge)
+
+            assert edge not in algo.seed_matching
+            assert all(edge not in matching for matching in algo.matchings)
+            assert algo.maximal()
 
     def test_triangle_updates(self) -> None:
         algo = Matcher(3, mode="basic")
@@ -577,13 +1139,13 @@ class TestMatcher:
         assert "total_updates" in stats
 
     def test_rebuild_triggered(self) -> None:
-        algo = Matcher(2, mode="basic")
+        algo = Matcher(4, mode="basic")
         algo.phase_length = 3
         algo.insert(0, 1)
         assert algo.update_count == 1
-        algo.insert(0, 1)
+        algo.insert(2, 3)
         assert algo.update_count == 2
-        algo.insert(0, 1)
+        algo.insert(0, 2)
         assert algo.update_count == 0
         assert algo.maximal()
 
@@ -602,9 +1164,25 @@ class TestMatcher:
         with pytest.raises(ValueError):
             Matcher(5, mode="fast")
 
+    @pytest.mark.parametrize("mode", [None, 1, [], {}])
+    def test_invalid_mode_types_are_normalized(self, mode: object) -> None:
+        with pytest.raises(ValueError, match="mode"):
+            Matcher(4, mode=mode)  # type: ignore[arg-type]
+
     def test_negative_vertices(self) -> None:
         with pytest.raises(ValueError):
             Matcher(-1)
+
+    @pytest.mark.parametrize("value", [None, 1.5, True, "4"])
+    def test_adjacency_rejects_non_integer_sizes(self, value: object) -> None:
+        with pytest.raises(ValueError, match="integer"):
+            Adjacency(value)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("value", [None, 1.5, True, "1"])
+    def test_adjacency_rejects_non_integer_vertices(self, value: object) -> None:
+        graph = Adjacency(2)
+        with pytest.raises(ValueError, match="integer"):
+            graph.has_edge(value, 1)  # type: ignore[arg-type]
 
     def test_empty_graph_basic(self) -> None:
         algo = Matcher(0, mode="basic")
@@ -615,6 +1193,25 @@ class TestMatcher:
         algo = Matcher(0, mode="multilevel")
         assert algo.maximal()
         assert algo.size() == 0
+
+    def test_small_graph_matrix_sparse_and_dense(self) -> None:
+        for mode in ("basic", "multilevel"):
+            for n in range(11):
+                sparse = Matcher(n, mode=mode)
+                for vertex in range(max(0, n - 1)):
+                    sparse.insert(vertex, vertex + 1)
+                    assert sparse.maximal()
+
+                dense_graph = Adjacency(n)
+                for left in range(n):
+                    for right in range(left + 1, n):
+                        dense_graph.add_edge(left, right)
+                dense = Matcher(n, mode=mode, graph=dense_graph)
+                assert dense.maximal()
+                for left in range(n):
+                    for right in range(left + 1, n):
+                        dense.delete(left, right)
+                        assert dense.maximal()
 
     def test_single_vertex_graph(self) -> None:
         algo = Matcher(1, mode="basic")
@@ -753,10 +1350,10 @@ class TestMatcher:
         assert algo.partner(2) is None
 
     def test_phase_transition(self) -> None:
-        algo = Matcher(4, mode="basic")
+        algo = Matcher(6, mode="basic")
         algo.phase_length = 5
-        for _i in range(5):
-            algo.insert(0, 1)
+        for u, v in [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]:
+            algo.insert(u, v)
         assert algo.update_count == 0  # rebuild triggered
         assert algo.maximal()
 
@@ -809,6 +1406,18 @@ class TestMatcher:
         # in the underlying graph.
         assert canonical(0, 3) not in algo.matched_edges
 
+    def test_rematch_u_consumes_incoming_h_edge(self) -> None:
+        """ProcRematchBU follows H's source-to-target direction."""
+        algo = Matcher(4, mode="basic")
+        algo.graph.add_edge(0, 1)
+        assert algo.system is not None
+        algo.system.U.update({0, 1})
+        algo.H = {1: {0}}
+        algo.H_reverse = {0: {1}}
+        algo.S_hat = set()
+        algo._Matcher__rematch_u(0)
+        assert algo.matching() == {(0, 1)}
+
     def test_partition_color_range_error(self) -> None:
         """Regression: out-of-range colors from a colorer must raise."""
         from axiom.color import Greedy
@@ -823,6 +1432,105 @@ class TestMatcher:
         algo.insert(1, 2)
         with pytest.raises(RuntimeError):
             algo.policy.rebuild(algo)
+
+    def test_failed_update_rolls_back_all_mutable_state(self) -> None:
+        """A failed repair cannot expose a partially applied update."""
+        algo = Matcher(2, mode="basic")
+        algo.phase_length = 1
+        before = {
+            "edges": set(algo.graph.edges()),
+            "matching": algo.matching(),
+            "matched_vertices": set(algo.matched_vertices),
+            "partners": dict(algo.partner_map),
+            "stats": algo.stats,
+            "update_count": algo.update_count,
+        }
+
+        def fail_color(graph: object, delta: int) -> dict[tuple[int, int], int]:
+            raise RuntimeError("injected rebuild failure")
+
+        algo.colorer.color = fail_color  # type: ignore[assignment]
+        with pytest.raises(RuntimeError, match="injected rebuild failure"):
+            algo.insert(0, 1)
+
+        assert set(algo.graph.edges()) == before["edges"]
+        assert algo.matching() == before["matching"]
+        assert algo.matched_vertices == before["matched_vertices"]
+        assert algo.partner_map == before["partners"]
+        assert algo.stats == before["stats"]
+        assert algo.update_count == before["update_count"]
+
+    def test_failed_multilevel_update_rolls_back_hierarchy_state(self) -> None:
+        """A failed recursive rebuild cannot leak a partial phase update."""
+        algo = Matcher(16, mode="multilevel")
+        assert algo.multi is not None
+        algo.phase_length = 1
+        before = {
+            "edges": set(algo.graph.edges()),
+            "matching": algo.matching(),
+            "matched_vertices": set(algo.matched_vertices),
+            "partners": dict(algo.partner_map),
+            "stats": algo.stats,
+            "update_count": algo.update_count,
+            "subphase_count": algo.subphase_count,
+            "inserted": set(algo.inserted_edges),
+            "inserted_incident": {
+                vertex: set(edges)
+                for vertex, edges in algo.inserted_incident_edges.items()
+            },
+            "deleted": set(algo.deleted_edges),
+            "phase_edges": set(algo.phase_graph.edges())
+            if algo.phase_graph is not None
+            else set(),
+            "phase_graph_id": id(algo.phase_graph),
+            "hierarchy_edges": set(algo.multi.graph.edges()),
+            "hierarchy_graph_id": id(algo.multi.graph),
+            "level_graphs": [
+                (id(level.graph), set(level.graph.edges()))
+                for level in algo.multi.levels
+            ],
+            "levels": [
+                (
+                    set(level.A),
+                    set(level.B),
+                    set(level.U),
+                    set(level.M),
+                )
+                for level in algo.multi.levels
+            ],
+        }
+
+        def fail_color(graph: object, delta: int) -> dict[tuple[int, int], int]:
+            raise RuntimeError("injected multilevel rebuild failure")
+
+        algo.colorer.color = fail_color  # type: ignore[assignment]
+        with pytest.raises(RuntimeError, match="injected multilevel rebuild failure"):
+            algo.insert(0, 1)
+
+        assert set(algo.graph.edges()) == before["edges"]
+        assert algo.matching() == before["matching"]
+        assert algo.matched_vertices == before["matched_vertices"]
+        assert algo.partner_map == before["partners"]
+        assert algo.stats == before["stats"]
+        assert algo.update_count == before["update_count"]
+        assert algo.subphase_count == before["subphase_count"]
+        assert algo.inserted_edges == before["inserted"]
+        assert algo.inserted_incident_edges == before["inserted_incident"]
+        assert algo.deleted_edges == before["deleted"]
+        assert algo.phase_graph is not None
+        assert id(algo.phase_graph) == before["phase_graph_id"]
+        assert set(algo.phase_graph.edges()) == before["phase_edges"]
+        assert algo.multi is not None
+        assert id(algo.multi.graph) == before["hierarchy_graph_id"]
+        assert set(algo.multi.graph.edges()) == before["hierarchy_edges"]
+        assert [
+            (id(level.graph), set(level.graph.edges())) for level in algo.multi.levels
+        ] == before["level_graphs"]
+        assert [
+            (set(level.A), set(level.B), set(level.U), set(level.M))
+            for level in algo.multi.levels
+        ] == before["levels"]
+        assert algo.multi.check()
 
 
 # ------------------------------------------------------------------
@@ -850,6 +1558,364 @@ class TestHierarchy:
         ]
         assert len(mls.levels) == 2
 
+    def test_recursive_builder_retains_valid_levels(self) -> None:
+        g = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                g.add_edge(u, v)
+        hierarchy = build_hierarchy(g, [8, 4, 2])
+        assert hierarchy.k == 3
+        assert len(hierarchy.levels) == 3
+        assert hierarchy.check()
+        assert all(level.graph is hierarchy.graph for level in hierarchy.levels)
+
+    def test_recursive_builder_colors_each_preceding_matching(self) -> None:
+        """Each refinement input is the preceding level's matching subgraph."""
+        from axiom.paper_coloring import PaperFanColorer
+
+        class RecordingColorer(PaperFanColorer):
+            def __init__(self) -> None:
+                self.calls: list[set[tuple[int, int]]] = []
+                self.colorings: list[dict[tuple[int, int], int]] = []
+
+            def color(self, graph: Adjacency, delta: int) -> dict[tuple[int, int], int]:
+                coloring = super().color(graph, delta)
+                self.calls.append(set(graph.edges()))
+                self.colorings.append(coloring)
+                return coloring
+
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        colorer = RecordingColorer()
+
+        hierarchy = build_hierarchy(graph, [8, 4, 2], colorer=colorer)
+
+        assert len(colorer.calls) == 2
+        assert colorer.calls[0] == set(hierarchy.levels[0].M)
+        assert colorer.calls[1] == set(hierarchy.levels[1].M)
+        selected_colors = sorted(set(colorer.colorings[1].values()))[:2]
+        selected_edges = {
+            edge
+            for edge, color in colorer.colorings[1].items()
+            if color in selected_colors
+        }
+        assert set(hierarchy.levels[2].M) <= selected_edges
+
+    def test_recursive_regions_follow_multilevel_definition(self) -> None:
+        graph = Adjacency(10)
+        for u in range(10):
+            for v in range(u + 1, 10):
+                graph.add_edge(u, v)
+
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        final_b = set(hierarchy.levels[-1].B)
+        final_u = set(hierarchy.levels[-1].U)
+
+        for index, region in enumerate(hierarchy.R_levels):
+            below = set().union(*hierarchy.A_levels[index + 1 :]) | final_b | final_u
+            assert region == below - hierarchy.N_levels[index]
+            assert hierarchy.N_levels[index] <= (
+                set().union(*hierarchy.A_levels[index + 1 :]) | final_b
+            )
+        assert all(
+            hierarchy.R_levels[index + 1] <= hierarchy.R_levels[index]
+            for index in range(hierarchy.k - 1)
+        )
+
+    def test_hierarchy_check_detects_intermediate_index_corruption(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        source = next(iter(hierarchy.levels[0].U))
+        hierarchy.levels[0].lambda_lists[source] = []
+
+        assert not hierarchy.check()
+
+    def test_hierarchy_check_detects_level_degree_corruption(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        level = hierarchy.levels[-1]
+        saturated = next(
+            vertex for vertex in level.A | level.B if level.degree(vertex) == level.z
+        )
+        extra = next(
+            edge for edge in graph.edges() if saturated in edge and edge not in level.M
+        )
+        level.M.add(extra)
+
+        assert not hierarchy.check()
+
+    def test_hierarchy_check_detects_intermediate_upper_bound_corruption(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        level = hierarchy.levels[0]
+        vertex = max(range(graph.n), key=level.degree)
+        missing = [
+            edge for edge in graph.edges() if vertex in edge and edge not in level.M
+        ]
+        for edge in missing[: level.z - level.degree(vertex) + 1]:
+            level.M.add(edge)
+
+        assert not hierarchy.check()
+
+    def test_hierarchy_check_rejects_a_detached_level_graph(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        detached = Adjacency(graph.n)
+        for edge in hierarchy.graph.edges():
+            detached.add_edge(*edge)
+        hierarchy.levels[1].graph = detached
+
+        assert not hierarchy.check()
+
+    def test_hierarchy_check_rejects_a_non_decreasing_z_schedule(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+
+        hierarchy.levels[1].z = hierarchy.levels[0].z
+
+        assert not hierarchy.check()
+
+        hierarchy.levels[1].z = 2.5  # type: ignore[assignment]
+
+        assert not hierarchy.check()
+
+    def test_hierarchy_sync_graph_validates_edge_inputs(self) -> None:
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(graph, [2])
+
+        with pytest.raises(ValueError, match="excluded_edges"):
+            hierarchy.sync_graph(graph, excluded_edges={(1, 0)})
+        with pytest.raises(ValueError, match="changed_edge"):
+            hierarchy.sync_graph(graph, changed_edge=(0, 0))
+
+    def test_hierarchy_check_detects_stale_intermediate_matching_edge(self) -> None:
+        graph = Adjacency(8)
+        for left in range(7):
+            graph.add_edge(left, left + 1)
+        hierarchy = build_hierarchy(graph, [2, 1])
+        assert hierarchy.check()
+
+        hierarchy.levels[0].M.add((0, 7))
+
+        assert not hierarchy.check()
+
+    def test_hierarchy_check_rejects_intermediate_u_u_matching_edge(self) -> None:
+        graph = Adjacency(8)
+        for left in range(8):
+            for right in range(left + 1, 8):
+                graph.add_edge(left, right)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+        assert {6, 7} <= hierarchy.levels[1].U
+        assert (6, 7) not in hierarchy.levels[1].M
+
+        hierarchy.levels[1].M.add((6, 7))
+
+        assert not hierarchy.check()
+
+    def test_recursive_builder_random_sparse_graphs(self) -> None:
+        for seed in range(12):
+            rng = random.Random(seed)
+            graph = Adjacency(10)
+            for u in range(10):
+                for v in range(u + 1, 10):
+                    if rng.random() < 0.35:
+                        graph.add_edge(u, v)
+            hierarchy = build_hierarchy(graph, [4, 2])
+            assert hierarchy.check(), seed
+
+    def test_recursive_builder_removes_base_only_u_u_edges(self) -> None:
+        # The base construction removes U-U edges before materializing the
+        # system; this invariant is required at every level.
+        graph = Adjacency(5)
+        for u in range(5):
+            for v in range(u + 1, 5):
+                graph.add_edge(u, v)
+
+        hierarchy = build_hierarchy(graph, [2, 1])
+
+        assert (3, 4) not in hierarchy.levels[0].M
+        assert (3, 4) not in hierarchy.levels[1].M
+        assert hierarchy.check()
+
+    def test_recursive_builder_is_deterministic(self) -> None:
+        first = Adjacency(10)
+        for u in range(10):
+            for v in range(u + 1, 10):
+                if (u * 13 + v * 7) % 5 < 2:
+                    first.add_edge(u, v)
+        second = Adjacency(10)
+        for edge in first.edges():
+            second.add_edge(*edge)
+
+        left = build_hierarchy(first, [10, 5, 3, 2])
+        right = build_hierarchy(second, [10, 5, 3, 2])
+
+        assert left.check() and right.check()
+        assert [system.M for system in left.levels] == [
+            system.M for system in right.levels
+        ]
+        assert left.A_levels == right.A_levels
+        assert left.N_levels == right.N_levels
+        assert left.R_levels == right.R_levels
+
+    def test_dense_recursive_builder_repartitions_recolored_alpha_groups(self) -> None:
+        """Dense recursive coloring must not batch chains across alpha groups."""
+        graph = Adjacency(66)
+        for left in range(66):
+            for right in range(left + 1, 66):
+                graph.add_edge(left, right)
+
+        hierarchy = build_hierarchy(graph, [128, 64, 32, 16, 8, 4, 2, 1])
+
+        assert hierarchy.check()
+
+    def test_recursive_builder_rejects_non_paper_colorer(self) -> None:
+        graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                graph.add_edge(u, v)
+
+        class RecordingColorer(Vizing):
+            def color(self, graph: Adjacency, delta: int) -> dict[tuple[int, int], int]:
+                return super().color(graph, delta)
+
+        with pytest.raises(ValueError, match="PaperFanColorer"):
+            build_hierarchy(graph, [8, 4, 2], RecordingColorer())
+
+    def test_refinement_applies_edge_subsets_and_insertions(self) -> None:
+        old_graph = Adjacency(8)
+        for u in range(8):
+            for v in range(u + 1, 8):
+                old_graph.add_edge(u, v)
+        old_graph.remove_edge(0, 7)
+        base = build_hierarchy(old_graph, [8])
+        deleted = {(0, 1)}
+        inserted = {(0, 7)}
+        refined = refine_hierarchy(
+            base,
+            4,
+            deleted=deleted,
+            inserted=inserted,
+        )
+        assert refined.check()
+        assert (0, 7) in set(refined.graph.edges())
+        assert len(refined.deferred_deletions) <= len(deleted) * 4 // 8
+
+    def test_refinement_counts_empty_color_classes_for_deleted_edge_bound(self) -> None:
+        graph = Adjacency(16)
+        for u in range(0, 16, 2):
+            graph.add_edge(u, u + 1)
+
+        base = build_hierarchy(graph, [8])
+        deleted = set(base.levels[0].M)
+        refined = refine_hierarchy(base, 4, deleted=deleted)
+
+        assert len(refined.deferred_deletions) <= len(deleted) * 4 // 8
+
+    def test_deferred_deletions_propagate_geometrically_across_levels(self) -> None:
+        graph = Adjacency(16)
+        for u in range(16):
+            for v in range(u + 1, 16):
+                graph.add_edge(u, v)
+
+        base = build_hierarchy(graph, [16])
+        deleted = set(list(base.levels[0].M)[:13])
+        level_two = refine_hierarchy(base, 8, deleted=deleted)
+        assert level_two.deferred_deletions <= deleted
+        assert len(level_two.deferred_deletions) <= len(deleted) * 8 // 16
+
+        level_three = refine_hierarchy(
+            level_two,
+            4,
+            deleted=set(level_two.deferred_deletions),
+        )
+
+        assert level_three.check()
+        assert all(
+            not (left in level_three.levels[-1].U and right in level_three.levels[-1].U)
+            for left, right in level_three.levels[-1].M
+        )
+        assert level_three.deferred_deletions <= level_two.deferred_deletions
+        assert len(level_three.deferred_deletions) <= (
+            len(level_two.deferred_deletions) * 4 // 8
+        )
+
+    def test_refinement_removes_non_deferred_phase_deletions(self) -> None:
+        """ED is removed from the refined graph except for bounded ED'."""
+        graph = Adjacency(16)
+        for u in range(16):
+            for v in range(u + 1, 16):
+                graph.add_edge(u, v)
+
+        base = build_hierarchy(graph, [16])
+        deleted = set(list(base.levels[0].M)[:12])
+        refined = refine_hierarchy(base, 8, deleted=deleted)
+
+        assert refined.check()
+        assert refined.deferred_deletions <= deleted
+        assert len(refined.deferred_deletions) <= len(deleted) * 8 // 16
+        assert not (deleted - refined.deferred_deletions) & set(refined.graph.edges())
+
+    def test_refinement_rejects_invalid_update_edge_sets(self) -> None:
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        base = build_hierarchy(graph, [2])
+
+        with pytest.raises(ValueError, match="deleted edges must belong"):
+            refine_hierarchy(base, 1, deleted={(2, 3)})
+        with pytest.raises(ValueError, match="canonical endpoints"):
+            refine_hierarchy(base, 1, inserted={(1, 0)})
+        with pytest.raises(ValueError, match="inserted edges must be absent"):
+            refine_hierarchy(base, 1, inserted={(0, 1)})
+
+    def test_phase_sync_retains_deferred_deletions(self) -> None:
+        phase_graph = Adjacency(4)
+        phase_graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(phase_graph, [2, 1])
+        hierarchy.deferred_deletions = {(2, 3)}
+
+        live_graph = Adjacency(4)
+        live_graph.add_edge(0, 1)
+        hierarchy.sync_graph(live_graph)
+
+        assert hierarchy.graph.has_edge(2, 3)
+
+    def test_hierarchy_check_rejects_missing_deferred_phase_edges(self) -> None:
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(graph, [2, 1])
+        hierarchy.deferred_deletions = {(2, 3)}
+
+        assert not hierarchy.check()
+
     def test_check_i3_empty(self) -> None:
         g = Adjacency(0)
         mls = Hierarchy(graph=g, k=1)
@@ -870,6 +1936,54 @@ class TestHierarchy:
         # is 2*tau = 2 * (32 * 10 / 2) = 320; the matching trivially
         # satisfies I3.
         assert mls.check_i3({(0, 3)}, r=10, z=2) is True
+
+    def test_check_i3_floors_final_threshold(self) -> None:
+        """I3 uses floor(2*tau), not 2*floor(tau)."""
+        g = Adjacency(2)
+        mls = Hierarchy(graph=g, k=1, A1={0}, R1={1})
+
+        # tau = 32/40, so floor(2*tau) == 1 while 2*floor(tau) == 0.
+        assert mls.check_i3({(0, 1)}, r=1, z=40) is True
+
+    def test_maintain_i3_removes_all_excess_crossings(self) -> None:
+        g = Adjacency(6)
+        mls = Hierarchy(graph=g, k=1, A1={0, 1, 2}, R1={3, 4, 5})
+        matching = {(0, 3), (1, 4), (2, 5)}
+
+        repaired = mls.maintain_i3(
+            matching,
+            r=1,
+            z=128,
+            partner_of=lambda vertex: None,
+            rematch=lambda vertex: None,
+        )
+
+        assert repaired == 3
+        assert matching == set()
+        assert mls.check_i3(matching, r=1, z=64)
+
+    def test_matcher_i3_repair_keeps_partner_indexes_synchronized(self) -> None:
+        matcher = Matcher(4, mode="multilevel")
+        assert matcher.multi is not None
+        matcher.multi.A1 = {0}
+        matcher.multi.R1 = {1}
+        matcher.matched_edges = {(0, 1)}
+        matcher.matched_vertices = {0, 1}
+        matcher.partner_map = {0: 1, 1: 0}
+
+        repaired = matcher.multi.maintain_i3(
+            matcher.matched_edges,
+            r=1,
+            z=128,
+            partner_of=matcher.partner,
+            rematch=lambda _vertex: None,
+            drop_match=matcher.drop_match,
+        )
+
+        assert repaired == 1
+        assert matcher.matched_edges == set()
+        assert matcher.matched_vertices == set()
+        assert matcher.partner_map == {}
 
 
 # ------------------------------------------------------------------
@@ -912,6 +2026,118 @@ class TestPerformance:
         assert algo.maximal()
         assert algo.size() == n // 2
 
+    def test_random_insert_delete_multilevel_preserves_maximality(self) -> None:
+        algo = Matcher(12, mode="multilevel")
+        for op, u, v in random_updates(12, 300, random.Random(991)):
+            getattr(algo, op)(u, v)
+            assert algo.maximal()
+            seen: set[int] = set()
+            for left, right in algo.matching():
+                assert left not in seen
+                assert right not in seen
+                seen.update((left, right))
+                assert algo.partner(left) == right
+                assert algo.partner(right) == left
+
+    def test_auxiliary_indexes_follow_matching_and_lambda(self) -> None:
+        algo = Matcher(8, mode="multilevel")
+        for op, u, v in random_updates(8, 80, random.Random(414)):
+            getattr(algo, op)(u, v)
+            assert algo.system is not None
+            assert algo.S_hat == {
+                vertex
+                for vertex in algo.system.S
+                if vertex not in algo.matched_vertices
+            }
+            for vertex in algo.system.U:
+                expected = {
+                    neighbor
+                    for neighbor in algo.system.lambda_lists.get(vertex, [])
+                    if algo.graph.has_edge(vertex, neighbor)
+                }
+                if vertex not in algo.matched_vertices:
+                    assert algo.H.get(vertex, set()) == expected
+                else:
+                    assert vertex not in algo.H
+            for source, targets in algo.H.items():
+                for target in targets:
+                    assert source in algo.H_reverse.get(target, set())
+
+    def test_auxiliary_indexes_survive_adversarial_update_sequences(self) -> None:
+        """Incremental H indexes must match their authoritative state."""
+        for seed in range(32):
+            algo = Matcher(8, mode="multilevel")
+            for op, u, v in random_updates(8, 80, random.Random(seed)):
+                getattr(algo, op)(u, v)
+                assert algo._Matcher__check_auxiliary_indexes()
+
+    def test_proc_update_removes_replaced_h_reverse_entries(self) -> None:
+        graph = Adjacency(8)
+        for vertex in range(7):
+            graph.add_edge(vertex, vertex + 1)
+        algo = Matcher(8, mode="multilevel", graph=graph)
+        if not algo.H:
+            return
+        source = next(iter(algo.H))
+        old_target = next(iter(algo.H[source]))
+
+        assert source in algo.H_reverse[old_target]
+        assert algo.system is not None
+        algo.system.graph.remove_edge(source, old_target)
+        algo.system.index()
+        algo._Matcher__proc_update(source)
+
+        assert old_target not in algo.H.get(source, set())
+        assert source not in algo.H_reverse.get(old_target, set())
+
+    def test_inserted_edge_badness_is_phase_persistent(self) -> None:
+        algo = Matcher(4, mode="multilevel")
+        algo.phase_length = 100
+        algo.insert(0, 1)
+        assert 0 not in algo.bad_vertices
+        algo.insert(0, 2)
+        assert 0 in algo.bad_vertices
+        algo.insert(0, 3)
+        algo.delete(0, 1)
+        assert 0 in algo.bad_vertices
+        for left, right in algo.H_tilde:
+            assert right in algo.bad_vertices
+            assert (min(left, right), max(left, right)) in algo.inserted_edges
+            assert left not in algo.matched_vertices
+
+    def test_inserted_edge_incident_index_tracks_lifecycle(self) -> None:
+        algo = Matcher(8, mode="multilevel")
+
+        algo.insert(0, 1)
+        algo.insert(0, 2)
+        assert algo.inserted_incident_edges[0] == {(0, 1), (0, 2)}
+        assert algo.inserted_incident_edges[1] == {(0, 1)}
+        assert algo.inserted_incident_edges[2] == {(0, 2)}
+
+        algo.delete(0, 1)
+        assert algo.inserted_incident_edges[0] == {(0, 2)}
+        assert algo.inserted_incident_edges[1] == set()
+        assert algo.inserted_incident_edges[2] == {(0, 2)}
+        assert algo._Matcher__check_auxiliary_indexes()
+
+    def test_auxiliary_validator_detects_inserted_incident_index_corruption(
+        self,
+    ) -> None:
+        algo = Matcher(8, mode="multilevel")
+        algo.insert(0, 1)
+
+        algo.inserted_incident_edges[0].clear()
+
+        assert not algo._Matcher__check_auxiliary_indexes()
+
+    def test_multilevel_phase_graph_excludes_inserted_edges(self) -> None:
+        algo = Matcher(4, mode="multilevel")
+        algo.insert(0, 1)
+
+        assert algo.graph.has_edge(0, 1)
+        assert algo.multi is not None
+        assert not algo.multi.graph.has_edge(0, 1)
+
     def test_large_graph_multilevel(self) -> None:
         n = 100
         algo = Matcher(n, mode="multilevel")
@@ -919,6 +2145,26 @@ class TestPerformance:
             algo.insert(i, i + 1)
         assert algo.maximal()
         assert algo.size() == n // 2
+
+    def test_dense_multilevel_rebuilds_preserve_hierarchy(self) -> None:
+        n = 16
+        graph = Adjacency(n)
+        for u in range(n):
+            for v in range(u + 1, n):
+                graph.add_edge(u, v)
+
+        algo = Matcher(n, mode="multilevel", graph=graph)
+        rng = random.Random(20260923)
+        for _ in range(360):
+            u, v = sorted(rng.sample(range(n), 2))
+            if rng.random() < 0.55:
+                algo.insert(u, v)
+            else:
+                algo.delete(u, v)
+            assert algo.maximal()
+            assert algo.multi is not None and algo.multi.check()
+
+        assert algo.stats()["phase_rebuilds"] >= 2
 
     def test_dense_graph_basic(self) -> None:
         n = 20
@@ -973,19 +2219,12 @@ class TestRefactor:
         algo = Matcher(4, mode="basic")
         assert isinstance(algo.policy, Basic)
 
-    def test_policy_default_is_tiered(self) -> None:
-        """Matcher with mode='tiered' has a Tiered policy."""
-        from axiom.rebuild import Tiered
+    def test_policy_default_is_multilevel(self) -> None:
+        """Matcher with mode='multilevel' has a Multilevel policy."""
+        from axiom.rebuild import Multilevel
 
-        algo = Matcher(4, mode="tiered")
-        assert isinstance(algo.policy, Tiered)
-
-    def test_policy_explicit_overrides_mode(self) -> None:
-        """Passing policy=Basic() overrides a 'tiered' mode string."""
-        from axiom.rebuild import Basic
-
-        algo = Matcher(4, mode="tiered", policy=Basic())
-        assert isinstance(algo.policy, Basic)
+        algo = Matcher(4, mode="multilevel")
+        assert isinstance(algo.policy, Multilevel)
 
     def test_no_aux_graph_attribute(self) -> None:
         """The dead aux_graph field has been removed from Matcher."""
@@ -1074,34 +2313,6 @@ class TestCoverage:
         replay(algo, updates)
         assert algo.maximal()
 
-    def test_augment_method_returns_count(self) -> None:
-        """Matcher.augment() returns the number of paths applied."""
-        algo = Matcher(6, mode="basic")
-        algo.insert(0, 1)
-        algo.insert(2, 3)
-        algo.insert(4, 5)
-        # Force a rebuild via policy so the system has an S partition.
-        algo.policy.rebuild(algo)
-        # Manually drive augment(); the result is an int >= 0.
-        count = algo.augment()
-        assert isinstance(count, int)
-        assert count >= 0
-
-    def test_try_augment_returns_bool(self) -> None:
-        """Matcher.try_augment returns a boolean."""
-        algo = Matcher(4, mode="basic")
-        algo.insert(0, 1)
-        algo.policy.rebuild(algo)
-        result = algo.try_augment(2, set())
-        assert isinstance(result, bool)
-
-    def test_flip_path_no_op_on_empty(self) -> None:
-        """flip() on a single-vertex path does nothing."""
-        algo = Matcher(4, mode="basic")
-        seed_before = set(algo.seed_matching)
-        algo.flip([0])
-        assert algo.seed_matching == seed_before
-
     def test_greedy_colorer_proper(self) -> None:
         """Greedy().color returns a proper coloring."""
         from axiom.color import Greedy
@@ -1128,7 +2339,6 @@ class TestCoverage:
         ledger.record_rematch_u_scan(5)
         ledger.record_rematch_b_scan(3)
         ledger.record_rematch_a_scan(2)
-        ledger.record_greedy_rebuild()
         ledger.record_stale_cleanup(2)
         snap = ledger.snapshot()
         assert snap["total_updates"] == 2
@@ -1140,12 +2350,28 @@ class TestCoverage:
         assert snap["stale_cleanups"] >= 1
 
     def test_compare_modes_returns_both(self) -> None:
-        """compare returns results for both basic and tiered modes."""
+        """compare returns results for both basic and multilevel modes."""
         from axiom.parallel import compare
 
         results = compare(n=20, updates=20, seed=1, max_workers=1)
         assert "basic" in results
-        assert "tiered" in results
+        assert "multilevel" in results
+
+    @pytest.mark.parametrize(
+        "arguments",
+        [
+            (-1, "basic", 1, 1),
+            (4, "tiered", 1, 1),
+            (4, "basic", -1, 1),
+            (4, "basic", 1, True),
+        ],
+    )
+    def test_worker_rejects_invalid_benchmark_inputs(self, arguments) -> None:
+        """worker rejects invalid configs before doing any benchmark work."""
+        from axiom.parallel import worker
+
+        with pytest.raises(ValueError):
+            worker(*arguments)
 
     def test_compare_with_one_update_handles_zero_elapsed(self) -> None:
         """compare with very small updates exercises the float('inf') branch."""
@@ -1153,9 +2379,9 @@ class TestCoverage:
 
         results = compare(n=10, updates=1, seed=1, max_workers=1)
         assert results["basic"].is_maximal
-        assert results["tiered"].is_maximal
+        assert results["multilevel"].is_maximal
         assert results["basic"].matching_size >= 0
-        assert results["tiered"].matching_size >= 0
+        assert results["multilevel"].matching_size >= 0
 
     def test_compare_alternating_seeds(self) -> None:
         """compare runs deterministically across multiple seeds."""
@@ -1164,7 +2390,7 @@ class TestCoverage:
         for seed in (1, 7, 42):
             results = compare(n=15, updates=10, seed=seed, max_workers=1)
             assert results["basic"].is_maximal
-            assert results["tiered"].is_maximal
+            assert results["multilevel"].is_maximal
 
     def test_run_parallel_empty_configs(self) -> None:
         """run_parallel with no configs returns an empty list."""
@@ -1172,13 +2398,31 @@ class TestCoverage:
 
         assert run_parallel([], max_workers=1) == []
 
+    @pytest.mark.parametrize(
+        "configs, max_workers",
+        [
+            ([(4, "basic", 1)], 1),
+            ([(4, "tiered", 1, 1)], 1),
+            ([(4, "basic", -1, 1)], 1),
+            ([], 0),
+        ],
+    )
+    def test_run_parallel_rejects_invalid_configuration(
+        self, configs, max_workers
+    ) -> None:
+        """Malformed configs fail before multiprocessing starts."""
+        from axiom.parallel import run_parallel
+
+        with pytest.raises(ValueError):
+            run_parallel(configs, max_workers=max_workers)
+
     def test_run_parallel_respects_max_workers(self) -> None:
         """run_parallel completes a small batch with explicit max_workers."""
         from axiom.parallel import run_parallel
 
         configs = [
             (10, "basic", 5, 1),
-            (10, "tiered", 5, 2),
+            (10, "multilevel", 5, 2),
         ]
         results = run_parallel(configs, max_workers=2)
         assert len(results) == 2

@@ -1,0 +1,59 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { INSTALL } from "../lib/data";
+---
+
+<DocLayout title="Get started" eyebrow="First five minutes" description="Install Axiom, maintain a matching through live updates, and verify the result without leaving this site." next={{ label: "Understand the model", href: "/concepts/" }}>
+  <h2>Install the development build</h2>
+  <p>Axiom is currently installed directly from the repository. This is the honest path while the public package release is being prepared.</p>
+  <pre data-copy={INSTALL.pip}><code>{INSTALL.pip}</code></pre>
+
+  <h2>Create a matcher</h2>
+  <p>Choose one of the two supported modes explicitly. There are no legacy mode names or compatibility wrappers.</p>
+  <pre data-verify="python" data-copy={`from axiom import Matcher
+
+matcher = Matcher(n=6, mode="basic")
+matcher.insert(0, 1)
+matcher.insert(2, 3)
+matcher.delete(1, 0)
+
+print(matcher.matching())
+print(matcher.partner(2))
+print(matcher.stats()["matching_size"])
+print(matcher.maximal())`}><code>{`from axiom import Matcher
+
+matcher = Matcher(n=6, mode="basic")
+matcher.insert(0, 1)
+matcher.insert(2, 3)
+matcher.delete(1, 0)
+
+print(matcher.matching())
+print(matcher.partner(2))
+print(matcher.stats()["matching_size"])
+print(matcher.maximal())`}</code></pre>
+
+  <h3>Expected result</h3>
+  <pre><code>{`{(2, 3)}
+3
+1
+True`}</code></pre>
+
+  <h2>What to expect</h2>
+  <ol>
+    <li><strong>Vertices are numbered</strong> from <code>0</code> through <code>n - 1</code>.</li>
+    <li><strong>Updates are explicit:</strong> insert an edge before deleting it.</li>
+    <li><strong>Maximality is maintained</strong> after each accepted update.</li>
+    <li><strong>Both modes are deterministic</strong> for the same input sequence.</li>
+  </ol>
+  <div class="doc-callout"><p><strong>Implementation status.</strong> <code>basic</code> is the conservative starting point. <code>multilevel</code> is available for research and evaluation while its full paper-level guarantees remain under validation.</p></div>
+
+  <h2>Use the state safely</h2>
+  <p><code>matching()</code>, <code>partners()</code>, and <code>stats()</code> return inspection data. They do not become a second mutation API. Keep one owner for each matcher and serialize updates when a stream is shared across workers.</p>
+
+  <h2>Choose your next step</h2>
+  <ul>
+    <li><a class="text-link" href="../examples/">Follow a complete update recipe</a> for a stream of graph changes.</li>
+    <li><a class="text-link" href="../modes/">Compare basic and multilevel</a> before selecting a mode.</li>
+    <li><a class="text-link" href="../api/">Read the API reference</a> for validation and inspection methods.</li>
+  </ul>
+</DocLayout>

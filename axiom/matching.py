@@ -8,7 +8,7 @@ documented API for "give me a maximal matching of this graph" and
 
 Responsibilities:
     * Produce a maximal matching from scratch via a deterministic greedy
-      scan (used as a baseline and as a fallback when repair fails).
+      scan for standalone callers and reference checks.
     * Verify maximality in :math:`O(n + m)` by checking every vertex.
     * Provide :math:`O(|M|)` partner lookups and :math:`O(1)` partner
       maps used by the dynamic update code in :mod:`axiom.core`.
@@ -31,8 +31,8 @@ def greedy(graph: Graph) -> Matching:
     neighbour is chosen.  This guarantees determinism for a fixed graph
     regardless of the underlying set iteration order, since the loop
     always uses the same access pattern.  The construction is used as a
-    baseline for the paper's incremental rebuild of ``M*`` and as a
-    safe fallback whenever dynamic repair cannot recover maximality.
+    baseline for standalone callers and reference checks. The dynamic matcher
+    does not silently fall back to this helper on repair failure.
 
     Args:
         graph: The graph to match against.

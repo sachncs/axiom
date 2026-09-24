@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Verify release version and tag
+        run: |
+          project_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          tag_version="${GITHUB_REF_NAME#v}"
+          case "$project_version" in
+            *dev*|*a*|*b*|*rc*)
+              echo "Refusing to publish prerelease version: $project_version"
+              exit 1
+              ;;
+          esac
+          test "$project_version" = "$tag_version"
+
+      - name: Refuse a major release with documented implementation gaps
+        run: |
+          project_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          major_version="${project_version%%.*}"
+          if [ "$major_version" -ge 1 ] && rg -n 'IMPLEMENTATION-GAP' docs/paper_restatement.md; then
+            echo "Refusing a major release while paper implementation gaps remain"
+            exit 1
+          fi
+
+      - name: Run release quality gates
+        run: |
+          python -m pip install -e ".[dev]"
+          pytest -q
+          ruff format --check axiom/ tests/ scripts/ benchmarks/ examples/
+          ruff check .
+          mypy axiom
+
+      - name: Build release artifacts
+        run: |
+          python -m pip install --upgrade pip build twine
+          rm -rf build dist axiom_matching.egg-info
+          python -m build
+          python -m twine check dist/*
+          if unzip -l dist/*.whl | grep -q 'axiom/invariant.py'; then
+            echo "Deleted compatibility module found in wheel"
+            exit 1
+          fi
+          if tar -tf dist/*.tar.gz | grep -q 'axiom/invariant.py'; then
+            echo "Deleted compatibility module found in source distribution"
+            exit 1
+          fi
+
+      - name: Verify reproducible release artifacts
+        run: |
+          first="$RUNNER_TEMP/axiom-release-one"
+          second="$RUNNER_TEMP/axiom-release-two"
+          SOURCE_DATE_EPOCH=0 python -m build --outdir "$first"
+          SOURCE_DATE_EPOCH=0 python -m build --outdir "$second"
+          python scripts/normalize_sdist.py "$first"/*.tar.gz "$second"/*.tar.gz
+          diff -u \
+            <(sha256sum "$first"/* | sed "s#$first/##" | sort) \
+            <(sha256sum "$second"/* | sed "s#$second/##" | sort)
+
+      - name: Attest release artifacts
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: "dist/*"
+
+      - name: Prepare artifacts for detached signing
+        run: |
+          mkdir -p signed
+          cp dist/*.whl dist/*.tar.gz signed/
+
+      - name: Sign release artifacts with Sigstore
+        uses: sigstore/gh-action-sigstore-python@5b79a39c381910c090341a2c9b0bf022c8b387e1 # v3.4.0
+        with:
+          inputs: signed/*
+
+      - name: Publish to PyPI with trusted publishing
+        uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0 # v1.9.0
+
+      - name: Generate release checksums
+        run: sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* signed/* --generate-notes

@@ -1,0 +1,42 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+<DocLayout title="Architecture" eyebrow="Under the hood" description="The internal boundaries that make updates observable, deterministic, and safe to validate." next={{ label: "Research status", href: "/research/" }}>
+  <h2>The state boundary</h2>
+  <p>Axiom treats one accepted update as a transaction over related state. The graph is the source of truth for edges; the matching and partner map are the fast inspection view; z-system indexes and hierarchy levels are derived structures. None of those views is public until they agree.</p>
+  <table class="doc-table">
+    <thead><tr><th>State</th><th>Owns</th><th>Must agree with</th></tr></thead>
+    <tbody>
+      <tr><td>Graph</td><td>Vertices and active edges</td><td>Matching endpoints and adjacency indexes</td></tr>
+      <tr><td>Matching</td><td>Disjoint matched edges</td><td>Partner map and maximality validator</td></tr>
+      <tr><td>z-system</td><td><code>(A, B, U)</code>, saturation, and index lists</td><td>Graph identity and active phase</td></tr>
+      <tr><td>Hierarchy</td><td>Recursive levels, thresholds, and deferred work</td><td>Parent snapshots and (I3) checks</td></tr>
+    </tbody>
+  </table>
+
+  <h2>One update, four boundaries</h2>
+  <ol>
+    <li><strong>Validate.</strong> Reject malformed vertices, self-loops, missing deletions, and unsupported operations before mutating the accepted state.</li>
+    <li><strong>Stage.</strong> Snapshot the coupled state and apply the graph operation to the working view.</li>
+    <li><strong>Repair.</strong> Rematch the affected neighborhood, update indexes, and rebuild a phase or level when its schedule requires it.</li>
+    <li><strong>Commit or roll back.</strong> Run the relevant validators. A valid state becomes visible; a failed repair restores the prior state and reports the failure.</li>
+  </ol>
+  <div class="doc-callout"><p>The atomic boundary is an implementation guarantee about state exposure, not a claim that every paper-level asymptotic bound has been reproduced. See <a class="text-link" href="../research/">research status</a> for that distinction.</p></div>
+
+  <h2>Basic: one scheduled level</h2>
+  <p>The <code>basic</code> engine owns one z-system and its phase/subphase schedule. Inserts and deletes update the graph, repair local matching state, and refresh the indexes used by the next operation. Validators check matching validity, maximality, graph identity, and index consistency.</p>
+
+  <h2>Multilevel: derived, not parallel</h2>
+  <p>The <code>multilevel</code> engine derives child state from phase-start snapshots and the required edge subsets; it does not maintain unrelated copies of the whole graph. Each level carries its threshold, inherited structure, local partitions, and deferred work. A schedule boundary rebuilds the affected hierarchy, then validates level ordering, shared graph identity, and the cross-level (I3) condition before commit.</p>
+  <p>This is why multilevel is useful for implementation and research evaluation, but remains labelled <strong>Research validation</strong>: the complete paper-faithful coloring construction and ABB+26 end-to-end bound are not claimed yet.</p>
+
+  <h2>What is intentionally not hidden</h2>
+  <ul>
+    <li><strong>Failure is explicit:</strong> an invariant violation raises a diagnostic error instead of silently switching engines or falling back to a different algorithm.</li>
+    <li><strong>Inspection is read-only:</strong> matching, partner, and stats results are snapshots; updates still go through the matcher.</li>
+    <li><strong>Complexity is measured:</strong> phase rebuilds, rematch scans, and cleanup work are exposed through <code>stats()</code> so a benchmark can explain its cost.</li>
+  </ul>
+
+  <h2>Contribution boundary</h2>
+  <p>Start with the public behavior in <a class="text-link" href="../api/">the API reference</a> and the invariant vocabulary in <a class="text-link" href="../concepts/">Concepts</a>. Then use this page to locate the state boundary before tracing the engine source. A contribution should make the state easier to validate, not add an alias around an unclear behavior.</p>
+</DocLayout>

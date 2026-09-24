@@ -1,0 +1,26 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { SITE } from "../lib/data";
+---
+<DocLayout title="Research status" eyebrow="Honest scope" description="Axiom is an implementation project informed by the Chuzhoy–Khanna–Song paper. This page separates shipped behavior from work still being validated." next={{ label: "See the changelog", href: "/changelog/" }}>
+  <h2>Implemented today</h2>
+  <ul><li>Canonical <code>basic</code> and <code>multilevel</code> matcher modes.</li><li>Deterministic updates with explicit invariant checks.</li><li>Atomic refresh validation and rollback-safe state exposure.</li><li>Recursive hierarchy state and level schedule validation.</li></ul>
+  <h2>Still under validation</h2>
+  <ul><li>Complete paper-faithful recursive coloring behavior.</li><li>End-to-end ABB+26 asymptotic guarantee.</li><li>Full stress evidence across every multilevel transition.</li></ul>
+
+  <h2>Paper-to-code map</h2>
+  <table class="doc-table">
+    <thead><tr><th>Paper area</th><th>Current implementation</th><th>Boundary</th></tr></thead>
+    <tbody>
+      <tr><td>Single-level z-system</td><td>Implemented</td><td>Validated partitions, saturation, adjacency indexes, and maximality.</td></tr>
+      <tr><td>Recursive levels</td><td>Implemented and checked</td><td>Child levels inherit the previous structure and validate <code>A_i</code>, <code>N_i</code>, <code>R_i</code>, and <code>I3</code>.</td></tr>
+      <tr><td>Dynamic transitions</td><td>Implemented locally</td><td>Insertion, deletion, rematching, deferred edges, and phase rebuilds are covered by runtime checks; proof-level equivalence remains open.</td></tr>
+      <tr><td>Deterministic coloring</td><td>Paper-oriented construction</td><td>Fan operations and explicit failure diagnostics are present; the complete ABB+26 construction and bound are not claimed.</td></tr>
+      <tr><td>Asymptotic theorem</td><td>Not claimed</td><td>Python hash-set adjacency and incomplete ABB+26 validation differ from the theorem's model.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>How to use this page</h2>
+  <p>Use <a class="text-link" href="../modes/">Modes</a> to choose an engine, <a class="text-link" href="../api/">API reference</a> to integrate it, and <a class="text-link" href="../architecture/">Architecture</a> to inspect state ownership and update boundaries. If your result depends on the paper's asymptotic guarantee, record it as a research experiment rather than a production benchmark.</p>
+  <div class="doc-callout"><p>Read the <a class="text-link" href={SITE.paper} target="_blank" rel="noopener">paper</a> for the research result. Read this site for the current implementation boundary.</p></div>
+</DocLayout>

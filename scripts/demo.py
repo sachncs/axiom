@@ -2,7 +2,7 @@
 
 Usage::
 
-    python scripts/demo.py [--n N] [--mode {basic,tiered,multilevel}]
+    python scripts/demo.py [--n N] [--mode {basic,multilevel}]
 
 Example::
 
@@ -28,7 +28,7 @@ def run_demo(n: int, mode: str, num_updates: int, seed: int = 42) -> int:
 
     Args:
         n: Number of vertices.
-        mode: ``"basic"`` or ``"tiered"`` (or deprecated ``"multilevel"``).
+        mode: ``"basic"`` or ``"multilevel"``.
         num_updates: Total number of update operations.
         seed: Random seed for reproducibility.
 
@@ -69,9 +69,9 @@ def main() -> int:
     parser.add_argument("--n", type=int, default=20, help="Number of vertices")
     parser.add_argument(
         "--mode",
-        choices=["basic", "tiered", "multilevel"],
+        choices=["basic", "multilevel"],
         default="basic",
-        help="Algorithm mode (basic = single-level, tiered = multi-level)",
+        help="Algorithm mode (basic = single-level, multilevel = recursive)",
     )
     parser.add_argument(
         "--updates", type=int, default=200, help="Number of update operations"

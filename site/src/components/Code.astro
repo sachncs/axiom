@@ -1,0 +1,304 @@
+---
+import { API_SNIPPET, CLI_SNIPPET, REBUILD_SNIPPET, INSTALL } from "../lib/data";
+
+const TABS = ["API", "CLI", "Ledger"] as const;
+const BODIES = { API: API_SNIPPET, CLI: CLI_SNIPPET, Ledger: REBUILD_SNIPPET };
+const PROMPTS = { API: "$ python demo.py", CLI: "$ bash", Ledger: "$ python benchmarks/bench_axiom.py --n 200 --updates 5000 --mode multilevel" };
+const HEADERS = { API: "axiom·demo.py", CLI: "axiom·cli", Ledger: "axiom·ledger" };
+const INSTALL_PIP = INSTALL.pip;
+---
+
+<section class="section shell code" id="code">
+  <div class="code__grid">
+    <div class="code__intro" data-reveal>
+      <span class="eyebrow">Get moving</span>
+      <h2>
+        One import.
+        <br />
+        Keep it <span class="serif gradient-text">current.</span>
+      </h2>
+      <p>
+        A small, typed surface for a graph that keeps changing. Insert an edge,
+        delete an edge, inspect the matching, and keep the invariant visible.
+      </p>
+
+      <ul class="code__bites">
+        <li>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>
+          <span>Insert, delete, and inspect through one focused API</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>
+          <span>Verify the matching after every accepted update</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>
+          <span>Replayable traces for experiments and debugging</span>
+        </li>
+      </ul>
+
+      <div class="code__install">
+        <code class="mono" data-copy={INSTALL_PIP}>{INSTALL_PIP}</code>
+      </div>
+    </div>
+
+    <div class="terminal card" data-reveal style="--reveal-delay: 120ms" data-terminal>
+      <div class="terminal__bar">
+        <div class="terminal__lights" aria-hidden="true"><span></span><span></span><span></span></div>
+        <span class="terminal__title mono" data-term-title>{HEADERS.API}</span>
+        <div class="terminal__tabs" role="tablist" aria-label="Code examples">
+          {
+            TABS.map((t, i) => (
+              <button
+                type="button"
+                role="tab"
+                id={`tab-${t}`}
+                aria-selected={i === 0 ? "true" : "false"}
+                aria-controls={`panel-${t}`}
+                data-tab={t}
+              >
+                {t}
+              </button>
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="terminal__prompt mono">
+        <span class="terminal__ps" aria-hidden="true">❯</span>
+        <span data-term-prompt>{PROMPTS.API}</span>
+      </div>
+
+      {
+        TABS.map((t) => (
+          <pre
+            class="terminal__body mono"
+            role="tabpanel"
+            id={`panel-${t}`}
+            aria-labelledby={`tab-${t}`}
+            data-panel={t}
+            data-copy={BODIES[t]}
+          ><code>{BODIES[t]}</code></pre>
+        ))
+      }
+
+      <div class="terminal__foot mono">
+        <span class="terminal__ok">maximal ✓</span>
+        <span>zero runtime deps</span>
+        <span>python 3.10 – 3.13</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .code__grid {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: clamp(36px, 5vw, 64px);
+    align-items: center;
+  }
+  .code__grid > * {
+    min-width: 0;
+  }
+  .code__intro code {
+    max-width: 100%;
+  }
+
+  .code__intro h2 {
+    font-size: clamp(34px, 4.6vw, 52px);
+    line-height: 1.04;
+    letter-spacing: -0.028em;
+    font-weight: 670;
+    margin: 18px 0 0;
+  }
+  .code__intro p {
+    color: var(--ink-dim);
+    font-size: 16.5px;
+    line-height: 1.66;
+    margin: 18px 0 0;
+  }
+
+  .code__bites {
+    list-style: none;
+    margin: 26px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 11px;
+  }
+  .code__bites li {
+    display: flex;
+    gap: 11px;
+    align-items: baseline;
+    font-size: 14.8px;
+    color: var(--ink-dim);
+  }
+  .code__bites svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    color: var(--mint);
+    transform: translateY(2px);
+  }
+  .code__bites code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .code__install {
+    margin-top: 30px;
+  }
+  .code__install code {
+    position: relative;
+    display: block;
+    font-size: 13.5px;
+    color: var(--ink-dim);
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* ---------------- terminal ---------------- */
+
+  .terminal {
+    overflow: hidden;
+    background: #05070c;
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+  }
+  html[data-theme="light"] .terminal {
+    background: #0a0d14;
+  }
+  .terminal .copy-btn {
+    top: 40px;
+  }
+
+  .terminal__bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .terminal__lights {
+    display: inline-flex;
+    gap: 6px;
+  }
+  .terminal__lights span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.16);
+  }
+  .terminal__lights span:nth-child(1) {
+    background: #ff5f57;
+  }
+  .terminal__lights span:nth-child(2) {
+    background: #febc2e;
+  }
+  .terminal__lights span:nth-child(3) {
+    background: #28c840;
+  }
+  .terminal__title {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.38);
+  }
+  .terminal__tabs {
+    margin-left: auto;
+    display: flex;
+    gap: 2px;
+  }
+  .terminal__tabs button {
+    padding: 6px 13px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.42);
+    transition: color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+  }
+  .terminal__tabs button[aria-selected="true"] {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .terminal__tabs button:hover {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .terminal__prompt {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 14px 18px 4px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+  .terminal__ps {
+    color: var(--mint);
+  }
+
+  .terminal__body {
+    position: relative;
+    margin: 0;
+    padding: 10px 18px 20px;
+    font-size: 13px;
+    line-height: 1.78;
+    color: rgba(233, 238, 248, 0.86);
+    overflow-x: auto;
+    tab-size: 4;
+  }
+  .terminal__body[hidden] {
+    display: none;
+  }
+
+  .terminal__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    align-items: center;
+    padding: 12px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .terminal__ok {
+    color: var(--mint);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 980px) {
+    .code__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  const term = document.querySelector<HTMLElement>("[data-terminal]");
+  const tabs = term?.querySelectorAll<HTMLButtonElement>("[data-tab]");
+  const panels = term?.querySelectorAll<HTMLElement>("[data-panel]");
+  const title = term?.querySelector<HTMLElement>("[data-term-title]");
+  const prompt = term?.querySelector<HTMLElement>("[data-term-prompt]");
+
+  const INFOS: Record<string, { title: string; prompt: string }> = {
+    API: { title: "axiom·demo.py", prompt: "…" },
+    CLI: { title: "axiom·cli", prompt: "axiom --n 20 --mode basic --updates 200 --seed 42" },
+    Ledger: { title: "axiom·bench", prompt: "python benchmarks/bench_axiom.py --n 200 --mode multilevel --updates 5000" },
+  };
+
+  tabs?.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+      panels?.forEach((p) => (p.hidden = p.dataset.panel !== tab.dataset.tab));
+      if (title) title.textContent = INFOS[tab.dataset.tab!].title;
+      if (prompt) prompt.textContent = INFOS[tab.dataset.tab!].prompt;
+    });
+  });
+</script>

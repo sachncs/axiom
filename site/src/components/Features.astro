@@ -1,0 +1,115 @@
+---
+import { FEATURES } from "../lib/data";
+
+const FEATURE_STEPS = FEATURES.slice(0, 4);
+---
+
+<section class="section shell features" id="features">
+  <div class="section-head" data-reveal>
+    <span class="eyebrow">The product principle</span>
+    <h2>
+      A graph can change.
+      <br />
+      Your <span class="serif gradient-text">invariant</span> does not.
+    </h2>
+    <p>
+      Axiom keeps the matching current as edges arrive and leave. Every
+      accepted update has one observable outcome: a valid, maximal matching
+      and a ledger that explains the work.
+    </p>
+  </div>
+
+  <div class="features__list">
+    {
+      FEATURE_STEPS.map((f, i) => (
+        <article class="feature" data-reveal style={`--reveal-delay: ${i * 90}ms`}>
+          <span class="feature__index mono">0{i + 1}</span>
+          <div class="feature__copy">
+            <h3>{f.title}</h3>
+            <p>{f.body}</p>
+          </div>
+          <span class="feature__arrow" aria-hidden="true">↗</span>
+        </article>
+      ))
+    }
+  </div>
+
+  <div class="features__chips mono" data-reveal>
+    <span>deterministic</span>
+    <span>pure python</span>
+    <span>zero deps</span>
+    <span>mypy · strict</span>
+  </div>
+</section>
+
+<style>
+  .features__list {
+    border-top: 1px solid var(--line-strong);
+  }
+  .feature {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) 28px;
+    gap: 24px;
+    align-items: start;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .feature__index {
+    padding-top: 3px;
+    color: var(--cobalt);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+  .feature__copy {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.55fr) minmax(0, 1fr);
+    gap: 32px;
+    align-items: baseline;
+  }
+  .feature h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .feature p {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .feature__arrow {
+    color: var(--ink-faint);
+    font-size: 20px;
+    line-height: 1;
+  }
+  .features__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin-top: 30px;
+    color: var(--ink-faint);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  .features__chips span::before {
+    content: "·";
+    margin-right: 9px;
+    color: var(--mint);
+  }
+  .features__chips span:first-child::before { display: none; }
+
+  @media (max-width: 700px) {
+    .feature {
+      grid-template-columns: 40px minmax(0, 1fr) 18px;
+      gap: 12px;
+      padding: 22px 0;
+    }
+    .feature__copy {
+      display: block;
+    }
+    .feature p {
+      margin-top: 8px;
+    }
+  }
+</style>

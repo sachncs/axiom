@@ -19,7 +19,7 @@ data flow through the algorithm.
         ▼                ▼                ▼
 ┌───────────────┐ ┌───────────────┐ ┌─────────────────┐
 │  axiom.graph  │ │  axiom.system │ │  axiom.rebuild   │
-│  Adjacency    │ │  System +     │ │  Basic + Tiered  │
+│  Adjacency    │ │  System +     │ │ Basic + Multilevel│
 │               │ │  build/promote│ │                 │
 └───────────────┘ │  /switch      │ └────────┬────────┘
                   └───────┬───────┘          │
@@ -28,7 +28,7 @@ data flow through the algorithm.
                    ┌───────────────┐  ┌─────────────────┐
                    │ axiom.hierarchy│  │ axiom.core       │
                    │ Hierarchy +   │  │ Matcher: local   │
-                   │ check_i3 /    │  │ insert/delete/   │
+                   │ System/       │  │ insert/delete/   │
                    │ maintain_i3   │  │ rematch dispatch │
                   └───────┬───────┘
                           │
@@ -46,7 +46,7 @@ data flow through the algorithm.
                   └───────────────┘  └─────────────────┘
 
                   ┌───────────────┐  ┌─────────────────┐
-                  │ axiom.invariant│ │ axiom.visualize   │
+                  │ axiom.matching │ │ axiom.visualize   │
                   │ invariant     │  │  ASCII renderer  │
                   │ checkers      │  └─────────────────┘
                   └───────────────┘
@@ -70,23 +70,26 @@ data flow through the algorithm.
 
 ## Algorithm data flow
 
-### `Matcher.__init__(n, mode, graph, colorer, policy)`
+### `Matcher.__init__(n, mode, graph, colorer)`
 
-1. Validate `n >= 0` and `mode in {"basic", "tiered", "multilevel"}`.
-2. Construct `self.graph = Adjacency(n)`, `self.colorer = Greedy()` (or
-   the provided colourer).
+1. Validate `n >= 0` and `mode in {"basic", "multilevel"}`.
+2. Construct `self.graph = Adjacency(n)`. The default colourer is `Vizing()`
+   for `basic` and `PaperFanColorer()` for `multilevel`. A custom colourer is
+   accepted only for `basic`; multilevel rejects any non-paper colourer.
 3. Allocate `matched_edges`, `matched_vertices`, `partners` (empty).
-4. Resolve `self.policy`: explicit `policy=` wins, otherwise
-   `from_mode(mode)` returns `Basic()` or `Tiered()`.
+   The matcher also maintains the paper's directed `H`, reverse-`H`,
+   `H_tilde`, and `S_hat` indexes from the live matching state.
+4. Resolve the internal rebuild policy from the canonical mode:
+   `basic` selects `Basic()` and `multilevel` selects `Multilevel()`.
 5. Call `policy.configure(self)` to set `z`, `phase_length`,
    `subphase_length`, `k`, `level_zs`.
 6. Call `policy.rebuild(self)` to perform the initial rebuild:
    - `Basic` builds a single `System`, partitions its `M` into colour
      classes, picks `seed_matching = matchings[0]`, then calls
      `Matcher.refresh()` to extend the seed to a maximal matching.
-   - `Tiered` builds `k` independent `System` levels, splits the
-     level-1 `A` into `A1/A2`, derives `N1 = A2 | B` and
-     `R1 = V \ (A1 | N1)`, sets `system` to the innermost level, then
+   - `Multilevel` recursively derives `k` levels, retains inherited
+     regions and lists, uses the configured `colorer` for every recursive
+     edge partition, sets `system` to the innermost level, then
      calls `Matcher.refresh()`.
 
 ### `Matcher.insert(u, v)`
@@ -100,14 +103,13 @@ __handle_insertion(u, v)
     │ other in U and the U-endpoint is currently matched and the
     │ A-endpoint is unmatched, swap their matches.
     │ otherwise
+    │ local insertion repair (match the two endpoints only when both
+    │ are unmatched; never rebuild or silently substitute an algorithm)
     ▼
-refresh() [only if not maximal after fast path]
-    │
-    ▼
-__advance_update_counter()
+    __advance_update_counter()
     │ increment update_count
-    │ check subphase boundary -> augment() (public)
-    │ check i3 -> maintain_i3() (public)
+    │ check subphase boundary -> internal augmentation
+    │ check i3 -> internal I3 repair
     ▼
 if update_count >= phase_length:
     policy.rebuild(self)
@@ -125,7 +127,8 @@ if graph.has_edge(u, v):
         │ __cleanup_stale_edges()
         │ __rematch_vertex(u), __rematch_vertex(v)
         │ __cleanup_stale_edges()
-        │ if not maximal: refresh()
+        │ if the repaired state is not maximal: raise a diagnostic
+        │ invariant error; no greedy/rebuild fallback is installed
         ▼
     __advance_update_counter()
 else:
@@ -134,12 +137,10 @@ else:
 
 ### `Matcher.refresh()`
 
-If `system is None`, run `greedy(graph)` and rebuild `partners` from
-the result.
-
-Otherwise, start from `seed_matching`, greedily extend to a maximal
-matching over `graph`, drop any duplicate-vertex edges from the seed
-first, and rebuild `partners` from the resulting `matched_edges`.
+Start from `seed_matching`, verify that it is a valid matching over
+`graph`, greedily extend it to a maximal matching, and rebuild `partners`
+from the resulting `matched_edges`.  An invalid seed is a hard invariant
+failure; it is never silently repaired.
 
 ### `policy.rebuild(matcher)`
 
@@ -153,13 +154,10 @@ update_count = subphase_count = 0
 accountant.record_phase_rebuild()
 ```
 
-`Tiered.rebuild`:
+`Multilevel.rebuild`:
 
 ```
-multi = Hierarchy(graph=graph, k=k)
-for z in level_zs:
-    multi.levels.append(build(graph, z))
-# split level-1 A into A1/A2, derive N1, R1
+multi = build_hierarchy(graph, level_zs)
 system = multi.levels[-1]        # innermost level
 z = level_zs[-1]
 partition()
@@ -167,20 +165,6 @@ refresh()
 update_count = subphase_count = 0
 accountant.record_phase_rebuild()
 ```
-
-### `Matcher.augment()` (public, was `__augment_seed_at_subphase_boundary`)
-
-For every vertex in `system.S` that is currently unmatched in the seed
-matching, run `try_augment` (a BFS over alternating paths). Return the
-number of paths applied.
-
-### `Matcher.try_augment(start, matched)` (public)
-
-Delegate to `axiom.augment.augment(seed_matching, graph.neighbors, start, matched.__contains__)`.
-
-### `Matcher.flip(path)` (public)
-
-Delegate to `axiom.augment.flip(seed_matching, path)`.
 
 ### `Hierarchy.check_i3(matching, r, z)` (public)
 
@@ -190,15 +174,15 @@ cross between `A1` and `R1`.
 ### `Hierarchy.maintain_i3(matching, r, z, partner_of, rematch)`
 
 Break up to `2 * tau` offending `(A1, R1)` edges and call
-`rematch(endpoint)` on each endpoint. Used by `Matcher.maintain_i3()`
-which is called after every update in tiered mode.
+`rematch(endpoint)` on each endpoint. The matcher invokes this internally
+after every update in multilevel mode.
 
 ## State held by Matcher
 
 | Field | Type | Purpose |
 |---|---|---|
 | `n` | `int` | vertex count (fixed) |
-| `mode` | `str` | `"basic"` or `"tiered"` |
+| `mode` | `str` | `"basic"` or `"multilevel"` |
 | `graph` | `Adjacency` | underlying dynamic graph |
 | `colorer` | `Colorer` | used to colour `M` for partitioning |
 | `matched_edges` | `Matching` (`set[Edge]`) | the reported maximal matching |
@@ -212,8 +196,14 @@ which is called after every update in tiered mode.
 | `system` | `System \| None` | active single-level system (or innermost level) |
 | `matchings` | `list[Matching]` | colour classes of the most recent colouring |
 | `seed_matching` | `Matching` | first colour class, kept as the seed |
-| `multi` | `Hierarchy \| None` | multi-level system, present in `"tiered"` mode |
+| `multi` | `Hierarchy \| None` | multi-level system, present in `"multilevel"` mode |
 | `level_zs` | `list[int]` | per-level `z` values in decreasing order |
+| `level_phase_lengths` | `list[int]` | per-level `z_i · eta` phase budgets |
+| `level_phase_updates` | `list[int]` | updates consumed in each active nested level phase |
+| `level_phase_indices` | `list[int]` | completed phase count at each recursive level |
+| `eta` | `int` | power-of-two scheduler scale |
+| `H`, `H_reverse`, `H_tilde`, `H_tilde_reverse` | directed indexes | rematching indexes for live and inserted edges |
+| `S_hat` | `set[Vertex]` | unmatched saturated vertices |
 | `k` | `int` | number of levels |
 | `accountant` | `Ledger` | bookkeeping counters |
 
@@ -228,8 +218,10 @@ class Rebuild(Protocol):
     def rebuild(matcher): ...        # full z-system rebuild
 ```
 
-`Basic` is the single-level `&Otilde;(n^{2/3})` strategy; `Tiered`
-is the multi-level `n^{1/2+o(1)}` strategy. The Matcher holds one
+`Basic` is the single-level paper-target strategy; `Multilevel`
+is the recursive multi-level construction. The implementation does not claim
+the paper's asymptotic bounds until its deferred colouring and update pieces
+are complete. The Matcher holds one
 instance and delegates both configuration and rebuilding. This makes
 the algorithm pipeline traceable: every phase boundary hits
 `policy.rebuild(self)`, every construction step hits
@@ -247,7 +239,7 @@ the algorithm pipeline traceable: every phase boundary hits
 | Local repair | `axiom.core` (private `__handle_insertion`, `__handle_deletion`, `__rematch_*`) |
 | Augmenting-path search | `axiom.augment` |
 | Empirical counters | `axiom.ledger` |
-| Invariant validation | `axiom.invariant` |
+| Invariant validation | `System.check`, `Hierarchy.check` |
 | Update sequences | `axiom.simulation` |
 | Parallel benchmarks | `axiom.parallel` |
 | ASCII visualisation | `axiom.visualize` |

@@ -2,7 +2,7 @@
 
 This module provides utilities for running multiple
 :class:`Matcher` instances in parallel, useful for
-benchmarking and comparing the basic and tiered modes.
+ benchmarking and comparing the basic and multilevel modes.
 
 **Engineering utility** -- not part of the paper's baseline algorithm.
 
@@ -34,7 +34,7 @@ class Benchmark:
 
     Attributes:
         n: Number of vertices.
-        mode: Algorithm mode (``"basic"`` or ``"tiered"``).
+        mode: Algorithm mode (``"basic"`` or ``"multilevel"``).
         updates: Number of update operations replayed.
         elapsed_sec: Wall-clock time elapsed in seconds.
         updates_per_sec: ``updates / elapsed_sec`` (``inf`` when no
@@ -56,6 +56,20 @@ class Benchmark:
     subphase_rebuilds: int
 
 
+def _validate_benchmark_inputs(n: int, mode: str, updates: int, seed: int) -> None:
+    """Validate benchmark inputs before creating a worker process."""
+    if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+        raise ValueError(f"n must be a non-negative integer, got {n!r}")
+    if mode not in {"basic", "multilevel"}:
+        raise ValueError(
+            f"mode must be 'basic' or 'multilevel' for benchmarks, got {mode!r}"
+        )
+    if not isinstance(updates, int) or isinstance(updates, bool) or updates < 0:
+        raise ValueError(f"updates must be a non-negative integer, got {updates!r}")
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError(f"seed must be an integer, got {seed!r}")
+
+
 def worker(
     n: int,
     mode: str,
@@ -68,6 +82,7 @@ def worker(
     """
     import time
 
+    _validate_benchmark_inputs(n, mode, updates, seed)
     from axiom.core import Matcher
 
     algo = Matcher(n, mode=mode)
@@ -123,17 +138,33 @@ def run_parallel(
     Example:
         >>> configs = [
         ...     (100, "basic", 1000, 42),
-        ...     (100, "tiered", 1000, 42),
+        ...     (100, "multilevel", 1000, 42),
         ...     (200, "basic", 1000, 42),
         ... ]
         >>> results = run_parallel(configs)
-        >>> for r in results:
-        ...     print(f"{r.mode}: {r.updates_per_sec:.0f} ops/sec")
+    >>> for r in results:
+    ...     print(f"{r.mode}: {r.updates_per_sec:.0f} ops/sec")
     """
+    if max_workers is not None and (
+        not isinstance(max_workers, int)
+        or isinstance(max_workers, bool)
+        or max_workers <= 0
+    ):
+        raise ValueError(f"max_workers must be a positive integer, got {max_workers!r}")
+    normalized: list[tuple[int, str, int, int]] = []
+    for index, config in enumerate(configs):
+        if not isinstance(config, (tuple, list)) or len(config) != 4:
+            raise ValueError(
+                "each benchmark config must be a 4-item sequence "
+                f"(n, mode, updates, seed); index={index}"
+            )
+        n, mode, updates, seed = config
+        _validate_benchmark_inputs(n, mode, updates, seed)
+        normalized.append((n, mode, updates, seed))
     with multiprocessing.Pool(processes=max_workers) as pool:
         results = pool.starmap(
             worker,
-            configs,
+            normalized,
         )
     return list(results)
 
@@ -144,7 +175,7 @@ def compare(
     seed: int = 42,
     max_workers: int | None = None,
 ) -> dict[str, Benchmark]:
-    """Compare basic and tiered modes on the same graph size.
+    """Compare basic and multilevel modes on the same graph size.
 
     Runs the same update sequence (seeded identically) against both
     modes and returns the per-mode results keyed by mode name.  This is
@@ -158,12 +189,12 @@ def compare(
         max_workers: Maximum parallel workers.
 
     Returns:
-        Dict mapping mode name (``"basic"`` / ``"tiered"``) to
+        Dict mapping mode name (``"basic"`` / ``"multilevel"``) to
         :class:`Benchmark`.
     """
     configs = [
         (n, "basic", updates, seed),
-        (n, "tiered", updates, seed),
+        (n, "multilevel", updates, seed),
     ]
     results = run_parallel(configs, max_workers)
-    return {"basic": results[0], "tiered": results[1]}
+    return {"basic": results[0], "multilevel": results[1]}

@@ -1,0 +1,76 @@
+---
+import { METRICS } from "../lib/data";
+---
+
+<section class="metrics shell" aria-label="Key metrics">
+  <div class="metrics__grid" data-reveal>
+    {
+      METRICS.map((m) => (
+        <div class="metric">
+          <span class="metric__value"><span class="metric__inner">{m.value}</span></span>
+          <div class="metric__label">{m.label}</div>
+          <div class="metric__note">{m.note}</div>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .metrics {
+    padding-block: 0 clamp(54px, 7vw, 90px);
+  }
+  .metrics__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .metric {
+    padding: 22px 20px 24px 0;
+    display: grid;
+    gap: 3px;
+    align-content: start;
+    border-right: 1px solid var(--line);
+  }
+  .metric:not(:first-child) { padding-left: 20px; }
+  .metric:last-child { border-right: 0; }
+  .metric__value {
+    font-size: clamp(22px, 2.5vw, 30px);
+    font-weight: 680;
+    letter-spacing: -0.04em;
+    overflow: hidden;
+  }
+  .metric__inner {
+    background: var(--brand-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .metric__label {
+    font-size: 14px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .metric__note {
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+  }
+  @media (max-width: 700px) {
+    .metrics__grid { grid-template-columns: repeat(2, 1fr); }
+    .metric:nth-child(2) { border-right: 0; }
+    .metric:nth-child(-n + 2) { border-bottom: 1px solid var(--line); }
+    .metric:nth-child(odd) { padding-left: 0; }
+    .metric:nth-child(even) { padding-left: 16px; }
+  }
+  @media (max-width: 420px) {
+    .metrics__grid { grid-template-columns: 1fr; }
+    .metric, .metric:not(:first-child), .metric:nth-child(even), .metric:nth-child(odd) {
+      padding: 18px 0;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .metric:last-child { border-bottom: 0; }
+  }
+</style>

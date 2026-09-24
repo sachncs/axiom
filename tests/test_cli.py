@@ -50,20 +50,20 @@ class TestCliMain:
         assert rc == 0
         assert "Maximal: True" in buf.getvalue()
 
-    def test_tiered_mode_runs(self) -> None:
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            rc = cli.main(
-                ["--n", "12", "--mode", "tiered", "--updates", "10", "--seed", "3"]
-            )
-        assert rc == 0
-        assert "Maximal: True" in buf.getvalue()
-
     def test_multilevel_mode_runs(self) -> None:
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = cli.main(
-                ["--n", "12", "--mode", "multilevel", "--updates", "10", "--seed", "3"]
+                [
+                    "--n",
+                    "12",
+                    "--mode",
+                    "multilevel",
+                    "--updates",
+                    "10",
+                    "--seed",
+                    "3",
+                ]
             )
         assert rc == 0
         assert "Maximal: True" in buf.getvalue()

@@ -44,7 +44,7 @@ Maintain a **maximal matching** in an $n$-vertex simple undirected graph $G$ und
 | $H$ | Directed auxiliary graph on $B\cup U$ |
 | $A_1,A_2$ | Split of level-1 $A$ in multi-level system |
 | $N_1,R_1$ | Subsets for level-1 restriction |
-| $z_i$ | Level-$i$ degree parameter ($z_1=n$, $z_i=z_{i-1}/2$, $z_k\approx\sqrt n$) |
+| $z_i$ | Type-2 level-$i$ degree parameter ($z_1$ is the least power of two above the phase-start average degree, $z_i=z_{i-1}/2$, down to $\sqrt n/(4\log n)$) |
 | $k$ | Number of levels, $\Theta(\log n)$ |
 
 ---
@@ -118,7 +118,10 @@ Invariants enforced throughout a subphase:
 
 ### 6.2 Multi-level algorithm
 
-Choose decreasing sequence $z_1>z_2>\dots>z_k$ with $z_1=n$, $z_i=z_{i-1}/2$, $z_k\approx\sqrt n$. Then $k=\Theta(\log n)$.
+For a dense type-2 phase, choose $z_1$ as the least power of two at least
+the phase-start average degree, then set $z_i=z_{i-1}/2$ until
+$z_k\ge\sqrt n/(4\log n)$. Sparse type-1 phases use the single value
+$z=\lceil\sqrt n\rceil$ instead.
 
 Level-1 phases of length $r_1$ begin with full $z_1$-system built in $\tilde O(m+n)$ time.
 Rather than using it directly, construct a $z_2$-system from it in $O(n^{1+o(1)}z_1)$ time, faster than rebuilding when graph is dense.
@@ -133,7 +136,10 @@ Given $z_1$-system $\mathcal S$ and deleted-edge set $E_D$ not yet applied to $\
 - For $a\in A_2$, standard requirement $L(a)=N_G(a)\cap U$ holds.
 - **Invariant I3:** At most $2\tau$ vertices of $A_1$ are matched by $M^*$ into $R_1$.
 
-Extending to $k=O(\log n)$ levels with $z_k\approx\sqrt n$ and level-$k$ phases of roughly $n$ updates achieves $n^{1/2+o(1)}$ amortized bound.
+Extending the dense regime to $k=O(\log n)$ levels with
+$z_k=\tilde\Theta(\sqrt n)$ and level-$k$ phases of
+$z_k\eta$ updates is the paper's route to the
+$n^{1/2+o(1)}$ amortized bound.
 
 ---
 
@@ -149,7 +155,7 @@ When an edge $e\in M^*$ is deleted, its endpoints become free. Repair by rematch
 
 - **Rematching $U$:** Each $u\in U$ has $O(z)$ neighbors in $U\cup B$ via $\Lambda(u)$. Scan $\hat S$ (size $O(r/z)$). Time $\tilde O(z+r/z)$.
 - **Rematching $B$:** Use directed auxiliary graph $H$ on $B\cup U$. For unmatched $u\in U$, outgoing edges to $\Lambda(u)$. If $b\in B$ becomes unmatched, check incoming edge in $H$ for unmatched $u\in U$; otherwise scan $\hat S$. Updates to $H$ cost $\tilde O(z)$ per status change.
-- **Rematching $A$:** Difficult because $L(a)$ can be long. Give $A$ priority: scan first $2\tau+1$ entries of $L(a)$. By I2, some encountered $u$ is not matched to $A$ in $M^*$. Insert $(a,u)$ into $M^*$. If $u$ was matched to $u'\in B\cup U$, delete that edge (from $M^*$ and from $M_1$ if present) and rematch $u'$ efficiently. Scan cost $O(r/z)$.
+- **Rematching $A$:** Difficult because $L(a)$ can be long. Give $A$ priority: scan the first $18n\log^2(n)/z+1$ entries of $L(a)$. By the paper's settledness invariant, some encountered $u$ is not matched to $A$ in $M^*$. Insert $(a,u)$ into $M^*$. If $u$ was matched to $u'\in B\cup U$, delete that edge (from $M^*$ and from $M_1$ if present) and rematch $u'$ efficiently. Scan cost $O(n\log^2(n)/z)$.
 
 At subphase boundaries, augment $M_1$ using augmenting paths in $M_i\cup M_1$ (for an appropriate $M_i$ that still leaves few $S$-vertices unmatched), restoring invariants with only $O(r/z)$ vertices changing status.
 
@@ -168,7 +174,7 @@ $\tilde O\bigl(n^2 + n^{1+o(1)}z + r(z + r/z)\bigr)$. Dividing by $r$ and substi
 
 ## 9. Edge-Colouring / Auxiliary Mechanisms
 
-Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)})$ time. The paper uses this to split $M$ (max degree $\le z$) into $z+1$ matchings. Full pseudocode of ABB+26 is **not provided**.
+Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)})$ time. The paper uses this to split $M$ (max degree $\le z$) into $z+1$ matchings. This repository now contains the explicit u-fan, `Color-Small`, recursive `Extend`, `Sparsify-Types`, and `Modify-Types` state boundaries; the complete ABB+26 construction and its asymptotic data structures remain an implementation gap.
 
 ---
 
@@ -191,7 +197,7 @@ Theorem 2.4 (ABB+26): deterministic $(\Delta+1)$-edge-colouring in $O(m^{1+o(1)}
 
 Parameters:
 - Basic: $z=n^{2/3}$, $r=n^{4/3}$, subphase length $r/z=n^{2/3}$.
-- Multi-level: $z_1=n$, $z_i=z_{i-1}/2$, $z_k\approx\sqrt n$, $k=\Theta(\log n)$.
+- Multi-level: type-1 phases use $z=\lceil\sqrt n\rceil$ for $m\le n^{3/2}$; type-2 phases use the density-sensitive power-of-two sequence $z_i=z_{i-1}/2$ down to $\sqrt n/(4\log n)$.
 
 ---
 
@@ -203,27 +209,51 @@ Parameters:
 
 ## 13. Open Problems / Deferred Ideas
 
-**Not present** in the provided excerpt.
+The authoritative full paper is available at
+`https://arxiv.org/html/2605.00797v1`.  The implementation status below is
+about this repository, not about missing source material.
 
 ---
 
-## 14. UNKNOWNs / Ambiguities — Status (v0.5.0)
+## 14. UNKNOWNs / Ambiguities — Status (v0.6.0)
 
 Each item below is tagged with one of:
 
 - **RESOLVED** &mdash; the implementation addresses this with the cited paper constant or a clearly documented heuristic.
-- **DEFERRED-OPEN-PROBLEM** &mdash; the paper excerpt does not provide enough detail to implement faithfully. Documented here so the gap is visible.
+- **IMPLEMENTATION-GAP** &mdash; the full paper specifies the behavior, but this
+  repository does not yet implement or verify it completely.
 - **ACCEPTED-HEURISTIC** &mdash; the implementation substitutes a documented alternative algorithm with the same correctness contract.
 
-1. **Theorem 2.4 full statement and algorithm** &mdash; DEFERRED-OPEN-PROBLEM. Text truncated mid-theorem; the cited *O*(*m*<sup>1+o(1)</sup>) bound is not implemented.
-2. **Sections 3-6 (truncated)** &mdash; DEFERRED-OPEN-PROBLEM. Full construction pseudocode, update procedures, multi-level derivation, and analysis not provided in the excerpt.
-3. **Exact phase constants** &mdash; RESOLVED. Paper states $\tau=32r/z$ and $2\tau$ bounds. Implemented in `axiom.core.Matcher` and `axiom.rebuild.Tiered`.
-4. **Insertion handling pseudocode** &mdash; ACCEPTED-HEURISTIC. Paper outlines the decremental algorithm; insertions are handled by the same verification-and-repair framework (Observation 2.3) with a fast-path swap for (A, U) edges.
-5. **Subphase boundary augmentation** &mdash; RESOLVED. Exact augmenting-path procedure implemented in `axiom.augment.augment` (BFS over alternating paths) and exposed publicly as `Matcher.augment()`.
-6. **Multi-level recursive derivation** &mdash; DEFERRED-OPEN-PROBLEM. Deriving $z_i$-system from $z_{i-1}$-system described at high level. Exact edge-set selection $E'_D$ and list-inheritance mechanics unspecified. Each level is rebuilt independently.
-7. **Exact partition rule for $A_1/A_2$ and $N_1$** &mdash; ACCEPTED-HEURISTIC. Paper says "maintain $N_1\subseteq A_2\cup B$ so that every $M$-edge incident to $A_1$ stays inside $A_1\cup N_1$." Construction rule not provided. Implemented as a sorted split of $A$ into $A_1$ and $A_2$.
-8. **ABB+26 edge-colouring** &mdash; ACCEPTED-HEURISTIC. No pseudocode provided. Substituted with `Vizing` (Vizing's theorem with backtracking fallback) and `Greedy` (degree-ordered greedy).
-9. **Auxiliary graph $H$ update rules** &mdash; RESOLVED. The auxiliary graph $H$ was removed entirely (see commit 17, `refactor!: remove dead aux_graph`). The rematch dispatch over $\Lambda(u)$ and /L(a) achieves the same routing without an explicit graph structure.
-10. **Exact constant in I3** &mdash; RESOLVED. Paper says "at most $O(r/z)$" and in the multi-level summary says "$2\tau$" ($\tau=32r/z$), so $64r/z$ is the constant. Implemented in `axiom.hierarchy.Hierarchy.check_i3` and `axiom.invariant.check_i3`; maintained after every update in tiered mode via `Hierarchy.maintain_i3`.
+1. **Theorem 2.4 full statement and algorithm** &mdash; IMPLEMENTATION-GAP. The
+   authoritative ABB+26 source is [Vizing's Theorem in Deterministic
+   Almost-Linear Time](https://arxiv.org/abs/2510.12619). The repository now
+   has deterministic fan-shift/activation, `Modify-Types`, and local
+   `Sparsify-Types` operations with explicit invariant checks, but not the
+   complete ABB+26 construction, data structures, or asymptotic bound.
+2. **Sections 3-6** &mdash; IMPLEMENTATION-GAP. The full construction and update
+   procedures are available; the repository has not yet completed a
+   proof-level implementation and verification of every transition.
+3. **Exact phase constants** &mdash; RESOLVED. Paper states $\tau=32r/z$ and $2\tau$ bounds. Implemented in `axiom.core.Matcher` and `axiom.rebuild.Multilevel`.
+4. **Insertion handling pseudocode** &mdash; IMPLEMENTATION-GAP. The repository
+   implements the documented local transitions and explicit invariant
+   failures, but the full paper transition proof is not yet complete.
+5. **Subphase boundary augmentation** &mdash; RESOLVED. Exact augmenting-path procedure implemented in `axiom.augment.augment` (BFS over alternating paths) and used internally at subphase boundaries.
+6. **Multi-level recursive derivation** &mdash; IMPLEMENTATION-GAP.
+   `axiom.hierarchy.refine_hierarchy` derives each level from the previous
+   level, retains inherited regions and lists, selects all color classes
+   including empty classes, and performs the promotion pass. Proof-level
+   verification of every construction transition remains a release gate.
+7. **Exact partition rule for $A_i/N_i/R_i$** &mdash; RESOLVED. The full paper's recursive construction is implemented: prior $A_i/N_i/R_i$ sets are inherited, prior $B$ is partitioned by the selected matching, and the new $N_{h+1}=B$, $R_{h+1}=U$ sets are maintained through promotion.
+8. **ABB+26 edge-colouring** &mdash; IMPLEMENTATION-GAP. The local
+   implementation uses deterministic fan-shift/activation, `Modify-Types`,
+   `Sparsify-Types`, and deterministic Vizing activation/reduction; the cited ABB+26
+   almost-linear algorithm and its data structures are not implemented. See
+   the [primary ABB+26 paper](https://arxiv.org/abs/2510.12619).
+9. **Auxiliary graph $H$ update rules** &mdash; IMPLEMENTATION-GAP. The runtime
+   maintains directed `H`, reverse-$H$, and `$\tilde H$` indexes from the
+   live matching and inserted-edge state. The paper's complete
+   `ProcUpdate`/`ProcRematchBU` transition protocol still remains a release
+   gate.
+10. **Exact constant in I3** &mdash; RESOLVED. Paper says "at most $O(r/z)$" and in the multi-level summary says "$2\tau$" ($\tau=32r/z$), so $64r/z$ is the constant. Implemented in `axiom.hierarchy.Hierarchy.check_i3`; maintained after every update in multilevel mode via `Hierarchy.maintain_i3`.
 11. **Rebuild of $M^*$ from $M_1$** &mdash; RESOLVED. Paper says "inspect all $u\in U$ and all pairs inside $\hat S$, costing $\tilde O(nz+nr/z)$." Implemented in `Matcher.refresh()` as a deterministic greedy scan over vertices in increasing order.
 12. **Deterministic seeding / tie-breaking** &mdash; RESOLVED. Greedy steps use sorted vertex order for determinism; reproducible from the seed.

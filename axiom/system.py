@@ -34,12 +34,11 @@ Assumptions:
       from :class:`axiom.graph.Graph`).
     * The system is freshly constructed via :func:`build`; it is
       the caller's responsibility to maintain :math:`\Lambda` and
-      :math:`L` thereafter (or to invoke :meth:`build_lambda_and_L`).
+      :math:`L` thereafter (or to invoke :meth:`index`).
 
 Limitations:
-    * The exact edge-switching rule of the paper's Step 2 construction
-      is replaced with a BFS-based augmenting-path heuristic.  See the
-      notes on :func:`switch`.
+    * :func:`switch` remains available as a standalone alternating-path
+      utility, but the canonical builder uses the paper's witness swaps.
 """
 
 from __future__ import annotations
@@ -71,10 +70,10 @@ class System:
         A system is normally built by :func:`build`.  After any
         mutation of ``self.graph`` the cached lists in ``lambda_lists``
         and ``L_lists`` must be refreshed via
-        :meth:`build_lambda_and_L`.  Mutating ``A``, ``B``, ``U``, or
+        :meth:`index`.  Mutating ``A``, ``B``, ``U``, or
         ``M`` directly is permitted (this is what the dynamic update
         code does) but should be followed by
-        :meth:`check_all_invariants` to verify the system stays legal.
+        :meth:`check` to verify the system stays legal.
 
     Thread-safety:
         Not thread-safe.  A ``System`` should be touched only
@@ -158,6 +157,47 @@ class System:
                 return False
         return True
 
+    def check_edges(self) -> bool:
+        r"""Check that every stored :math:`M` edge is a live canonical edge.
+
+        Degree checks iterate the host graph and therefore cannot observe an
+        edge that was left stale in ``M`` after a graph transition.  Rejecting
+        such state explicitly keeps the subgraph-system certificate tied to
+        its graph rather than silently ignoring the stale edge.
+        """
+        for left, right in self.M:
+            if (
+                not isinstance(left, int)
+                or isinstance(left, bool)
+                or not isinstance(right, int)
+                or isinstance(right, bool)
+                or not 0 <= left < self.graph.n
+                or not 0 <= right < self.graph.n
+                or left >= right
+                or not self.graph.has_edge(left, right)
+            ):
+                return False
+        return True
+
+    def check_no_u_u_edges(self) -> bool:
+        r"""Check that :math:`M` contains no edge with both endpoints in
+        :math:`U`.
+
+        The paper's initial construction removes these edges after the
+        degree-capped greedy pass.  Keeping the condition explicit prevents
+        a base-level system from being accepted with a weaker invariant than
+        the recursive construction requires.
+        """
+        return all(left not in self.U or right not in self.U for left, right in self.M)
+
+    def check_partition(self) -> bool:
+        """Check that ``A``, ``B``, and ``U`` partition the graph vertices."""
+        vertices = set(range(self.graph.n))
+        return (
+            not (self.A & self.B or self.A & self.U or self.B & self.U)
+            and self.A | self.B | self.U == vertices
+        )
+
     def check_u(self) -> bool:
         r"""Check :math:`|N_G(u) \cap U| \le z` for all :math:`u \in U`.
 
@@ -170,6 +210,8 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        if set(self.lambda_lists) != self.U:
+            return False
         for u in self.U:
             count = sum(1 for w in self.graph.neighbors(u) if w in self.U)
             if count > self.z:
@@ -208,6 +250,8 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        if set(self.L_lists) != self.A:
+            return False
         for a in self.A:
             for w in self.partner_in(a):
                 if w not in self.S:
@@ -228,6 +272,8 @@ class System:
             :math:`O(n + m)` dominated by the recomputation of the
             expected lists.
         """
+        if set(self.lambda_lists) != self.U:
+            return False
         for u in self.U:
             expected = sorted(
                 w for w in self.graph.neighbors(u) if w in self.B or w in self.U
@@ -240,7 +286,7 @@ class System:
     def check_L(self) -> bool:
         r"""Check that each :math:`L(a)` equals :math:`N_G(a) \cap U`.
 
-        Symmetric to :meth:`check_lambda_lists` but for :math:`A`-vertices.
+        Symmetric to :meth:`check_lambda` but for :math:`A`-vertices.
 
         Returns:
             ``True`` iff every cached list is current.
@@ -248,6 +294,8 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        if set(self.L_lists) != self.A:
+            return False
         for a in self.A:
             expected = sorted(w for w in self.graph.neighbors(a) if w in self.U)
             actual = sorted(self.L_lists.get(a, []))
@@ -258,13 +306,10 @@ class System:
     def check(self) -> bool:
         """Return ``True`` iff every invariant of the :math:`z`-system holds.
 
-        Equivalent to a logical AND of:
-        :meth:`check_degree_bounds`,
-        :meth:`check_U_degree_in_U`,
-        :meth:`check_P1`,
-        :meth:`check_P2`,
-        :meth:`check_lambda_lists`, and
-        :meth:`check_L_lists`.
+        Equivalent to a logical AND of :meth:`check_edges`,
+        :meth:`check_no_u_u_edges`, :meth:`check_partition`,
+        :meth:`check_bound`, :meth:`check_u`, :meth:`check_p1`,
+        :meth:`check_p2`, :meth:`check_lambda`, and :meth:`check_L`.
 
         Returns:
             ``True`` iff the system is legal.
@@ -273,7 +318,10 @@ class System:
             :math:`O(n + m)`.
         """
         return (
-            self.check_bound()
+            self.check_edges()
+            and self.check_no_u_u_edges()
+            and self.check_partition()
+            and self.check_bound()
             and self.check_u()
             and self.check_p1()
             and self.check_p2()
@@ -303,8 +351,7 @@ class System:
     def maximal(self, matching: Matching) -> bool:
         """Return ``True`` iff ``matching`` is maximal in the current ``graph``.
 
-        Convenience wrapper around the global helper; lives here so tests
-        can assert maximality directly from a system instance.
+        Validate a candidate matching directly against this system's graph.
 
         Args:
             matching: The candidate matching.
@@ -375,6 +422,8 @@ def switch(
     saturated_b = [b for b in b_neighbors if deg_M[b] >= z]
 
     for b_start in saturated_b:
+        saved_M = set(M)
+        saved_deg = dict(deg_M)
         # ``parent`` maps (vertex, parity) to its predecessor.  We seed
         # the search at ``b_start`` with parity 0 -- the hypothetical
         # edge ``(u, b_start)`` is not yet in M, so we arrived there via
@@ -392,9 +441,9 @@ def switch(
             if parity == 0:
                 # Arrived via a non-M edge; the next alternating step
                 # must follow an M edge from ``curr`` to a B vertex.
-                for w in graph.neighbors(curr):
+                for w in sorted(graph.neighbors(curr)):
                     e = canonical(curr, w)
-                    if e in M and graph.has_edge(curr, w):
+                    if w != u and e in M and graph.has_edge(curr, w):
                         if (w, 1) not in parent:
                             parent[(w, 1)] = (curr, 0)
                             # Short-circuit: if ``w`` is unsaturated in
@@ -408,13 +457,13 @@ def switch(
                 # Arrived via an M edge (``curr`` is saturated); the
                 # next step must follow a non-M edge to another B vertex
                 # (the B-B alternating edge).
-                for w in graph.neighbors(curr):
+                for w in sorted(graph.neighbors(curr)):
                     if w == u:
                         # Defensive: avoid stepping back onto ``u`` even
                         # though ``u`` is in U, not B.
                         continue
                     e = canonical(curr, w)
-                    if e not in M and w in graph.neighbors(curr):
+                    if e not in M:
                         if (w, 0) not in parent:
                             parent[(w, 0)] = (curr, 1)
                             if deg_M[w] < z:
@@ -446,20 +495,41 @@ def switch(
         deg_M[u] += 1
         deg_M[b_start] += 1
 
-        # Step 2: flip alternating edges along the path.  Edges tagged
-        # parity-0 were not in M and must enter M; edges tagged parity-1
-        # were in M and must leave M.
+        # Step 2: flip alternating edges along the path.  At a parity-0
+        # state the next edge is an existing M-edge and must leave M; at a
+        # parity-1 state the next edge is a non-M edge and must enter M.
         for i in range(len(vertices) - 1):
             e = canonical(vertices[i], vertices[i + 1])
             _, p = path[i]
             if p == 0:
-                M.add(e)
-                deg_M[vertices[i]] += 1
-                deg_M[vertices[i + 1]] += 1
-            else:
                 M.discard(e)
                 deg_M[vertices[i]] -= 1
                 deg_M[vertices[i + 1]] -= 1
+            else:
+                M.add(e)
+                deg_M[vertices[i]] += 1
+                deg_M[vertices[i + 1]] += 1
+
+        # Recompute the counters from the committed edge set.  The path
+        # representation can contain a repeated endpoint when the host graph
+        # has multiple alternating routes; deriving the counters from M
+        # keeps the invariant authoritative and prevents stale increments.
+        for vertex in deg_M:
+            deg_M[vertex] = 0
+        for left, right in M:
+            deg_M[left] += 1
+            deg_M[right] += 1
+
+        if any(degree > z for degree in deg_M.values()) or any(
+            deg_M[vertex] != z
+            for vertex, degree in saved_deg.items()
+            if degree == z and vertex != u
+        ):
+            M.clear()
+            M.update(saved_M)
+            deg_M.clear()
+            deg_M.update(saved_deg)
+            continue
 
         return True
 
@@ -477,11 +547,9 @@ def promote(
     r"""Try to promote a U-vertex ``u`` to :math:`B` by giving it
     :math:`z` matching edges to B-neighbours.
 
-    The procedure runs in two phases.  First, it greedily adds edges
-    from ``u`` to unsaturated B-neighbours until either ``z`` such edges
-    exist or no unsaturated neighbour remains.  Second, it invokes
-    :func:`switch` to recover capacity from saturated
-    B-vertices until the count reaches ``z``.
+    The procedure follows the paper's ``ProcProcessU`` construction.  It
+    selects B-neighbours and, for each saturated neighbour, swaps out its
+    existing B-U witness edge before inserting the new edge.
 
     After promotion, ``u`` is moved from ``U`` to ``B``; any B-vertex
     that ends up with no remaining :math:`M`-edge to a U-vertex is
@@ -499,54 +567,70 @@ def promote(
         ``True`` iff ``u`` ended up with :math:`\deg_M(u) = z` and was
         moved to ``B``.
     """
-    b_neighbors = [w for w in graph.neighbors(u) if w in system.B]
-    if len(b_neighbors) < z:
+    b_neighbors = [
+        w
+        for w in sorted(graph.neighbors(u))
+        if w in system.B and canonical(u, w) not in M
+    ]
+    needed = z - deg_M[u]
+    if needed <= 0:
+        system.U.discard(u)
+        system.B.add(u)
+        return True
+    if len(b_neighbors) < needed:
         # Cannot reach the cap even with every neighbour -- leave u in U.
         return False
 
-    # Phase 1: take edges to unsaturated B-neighbours.  The check
-    # ``e not in M`` guards against adding the same edge twice during
-    # repeated calls of this routine.
-    added = 0
-    for w in b_neighbors:
-        if added >= z:
-            break
-        if deg_M[w] < z:
-            e = canonical(u, w)
-            if e not in M:
-                M.add(e)
-                deg_M[u] += 1
-                deg_M[w] += 1
-                added += 1
+    candidates: list[tuple[Vertex, Edge | None]] = []
+    for b in b_neighbors:
+        if deg_M[b] < z:
+            candidates.append((b, None))
+            continue
+        witnesses = sorted(
+            edge
+            for edge in M
+            if b in edge and (edge[0] in system.U or edge[1] in system.U)
+        )
+        if not witnesses:
+            raise RuntimeError(
+                f"B invariant violated: saturated vertex {b} has no U witness"
+            )
+        candidates.append((b, witnesses[0]))
 
-    # Phase 2: for any remaining slots, run augmenting-path switches
-    # that reclaim capacity by re-routing saturated B-edges.
-    if added < z:
-        needed = z - added
-        for _ in range(needed):
-            if switch(graph, M, deg_M, z, u, b_neighbors):
-                added += 1
-            else:
-                # Out of recoverable capacity -- leave u in U.
-                break
+    if len(candidates) < needed:
+        return False
+
+    for b, witness in candidates[:needed]:
+        if witness is not None:
+            M.remove(witness)
+            for endpoint in witness:
+                deg_M[endpoint] -= 1
+        edge = canonical(u, b)
+        M.add(edge)
+        deg_M[u] += 1
+        deg_M[b] += 1
 
     if deg_M[u] == z:
         system.U.discard(u)
-        system.B.add(u)
-        # Promote any B-vertex that lost all of its M-edges to U.
-        # Such vertices no longer match any U partner, which violates
-        # the spirit of the partition (B is meant to provide edges
-        # into U).
-        for w in graph.neighbors(u):
-            if w in system.B:
-                has_M_to_U = False
-                for x in graph.neighbors(w):
-                    if canonical(w, x) in M and x in system.U:
-                        has_M_to_U = True
-                        break
-                if not has_M_to_U:
-                    system.B.discard(w)
-                    system.A.add(w)
+        if any(
+            endpoint in system.U
+            for edge in M
+            if u in edge
+            for endpoint in edge
+            if endpoint != u
+        ):
+            system.B.add(u)
+            system.A.discard(u)
+        else:
+            system.A.add(u)
+            system.B.discard(u)
+
+        for b in list(system.B):
+            if not any(
+                b in edge and (edge[0] in system.U or edge[1] in system.U) for edge in M
+            ):
+                system.B.discard(b)
+                system.A.add(b)
         return True
     return False
 
@@ -573,13 +657,8 @@ def build(graph: Graph, z: int) -> System:
     * :math:`v \in U` iff :math:`\deg_M(v) < z`.
 
     Step 2 -- promote U-vertices to B until no further promotion is
-    possible.  Promotion is handled by :func:`promote` which
-    tries direct edges first and falls back to edge-switching inside B.
-
-    **Fidelity note:** Step 2 uses an alternating-path edge-switching
-    heuristic that approximates the paper's exact switching rule.  The
-    paper states that edge-switching inside B preserves degree bounds;
-    our implementation achieves this via BFS-based augmenting paths.
+    possible.  Promotion is handled by :func:`promote` using the paper's
+    direct B/U witness-swap construction.
 
     Args:
         graph: The host graph.
@@ -587,7 +666,7 @@ def build(graph: Graph, z: int) -> System:
 
     Returns:
         A :class:`System` satisfying every invariant checked
-        by :meth:`System.check_all_invariants`.
+        by :meth:`System.check`.
 
     Complexity:
         :math:`O(n + m)` per promotion round; the number of rounds is
@@ -595,6 +674,8 @@ def build(graph: Graph, z: int) -> System:
         polynomial.  Empirically the loop converges in a handful of
         rounds on sparse inputs.
     """
+    if not isinstance(z, int) or isinstance(z, bool) or z <= 0:
+        raise ValueError(f"z must be a positive integer, got {z!r}")
     # --- Step 1: greedy maximal M with degree cap z ---
     M: set[Edge] = set()
     deg_M: dict[Vertex, int] = {v: 0 for v in range(graph.n)}
@@ -607,14 +688,23 @@ def build(graph: Graph, z: int) -> System:
             deg_M[v] += 1
 
     # --- Partition: S are saturated; A/B differ on whether an S-vertex
-    # has an M-edge reaching into U.
+    # has an M-edge reaching into U.  The paper removes all U-U edges from
+    # the greedy edge set before creating the system.  S is determined from
+    # the capped greedy pass, while deg_M below is updated to describe the
+    # actual matching retained by the system.
     S = {v for v in range(graph.n) if deg_M[v] == z}
     U_set = {v for v in range(graph.n) if deg_M[v] < z}
+    removed_u_u = {edge for edge in M if edge[0] in U_set and edge[1] in U_set}
+    for u, v in removed_u_u:
+        M.remove((u, v))
+        deg_M[u] -= 1
+        deg_M[v] -= 1
+
     A: set[Vertex] = set()
     B: set[Vertex] = set()
     for v in S:
         has_neighbor_in_U = False
-        for w in graph.neighbors(v):
+        for w in sorted(graph.neighbors(v)):
             if canonical(v, w) in M and w not in S:
                 has_neighbor_in_U = True
                 break
@@ -633,7 +723,7 @@ def build(graph: Graph, z: int) -> System:
     changed = True
     while changed:
         changed = False
-        for u in list(system.U):
+        for u in sorted(system.U):
             if promote(graph, system, M, deg_M, z, u):
                 changed = True
 

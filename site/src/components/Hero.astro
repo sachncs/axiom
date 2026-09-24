@@ -1,0 +1,389 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<section class="hero shell" id="top" data-reveal>
+  <div class="hero__glow grid-glow" aria-hidden="true"></div>
+
+  <div class="hero__content">
+    <span class="eyebrow"><span class="dot" aria-hidden="true"></span>Axiom&nbsp;·&nbsp;dynamic matching engine</span>
+    <h1 class="hero__title">
+      The graph moves.
+      <br />
+      The answer <span class="serif gradient-text">stays.</span>
+    </h1>
+    <p class="hero__sub">
+      Axiom is the deterministic Python engine for engineers and researchers
+      maintaining a maximal matching as edges arrive and disappear — with every
+      accepted update checked, inspectable, and ready for the next one.
+    </p>
+
+    <p class="hero__status"><span class="dot" aria-hidden="true"></span><strong>Current build:</strong> basic is the recommended starting point · multilevel is under research validation</p>
+
+    <div class="hero__cta">
+      <a class="btn btn--primary" href={`${base}/get-started/`}>
+        Start building
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 8h10M9 4l4 4-4 4" />
+        </svg>
+      </a>
+      <a class="btn btn--ghost" href={`${base}/playground/`}>
+        Open the playground
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 3.3a1 1 0 0 1 1.52-.85l5.4 4.7a1.12 1.12 0 0 1 0 1.7l-5.4 4.7a1 1 0 0 1-1.52-.85V3.3Z"/></svg>
+      </a>
+    </div>
+
+    <p class="hero__trust mono">
+      struct axiom · pure python · zero deps &middot; mypy&nbsp;strict
+    </p>
+  </div>
+
+  <div class="demo card" data-demo data-reveal style="--reveal-delay: 140ms">
+    <div class="demo__topbar">
+      <div class="demo__live">
+        <span class="demo__live-dot"></span>
+        <span class="mono">interactive model</span>
+      </div>
+      <div class="demo__modes" data-demo-modes role="group" aria-label="Simulation mode">
+        <button type="button" data-mode="basic" class="is-on" aria-pressed="true">Basic</button>
+        <button type="button" data-mode="multilevel" aria-pressed="false">Multilevel</button>
+      </div>
+      <div class="demo__controls" role="group" aria-label="Demo controls">
+        <button type="button" data-demo-play aria-pressed="true">
+          <span>Pause</span>
+        </button>
+        <button type="button" data-demo-shuffle aria-label="New graph">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15.5 4.5 18 7l-2.5 2.5M18 7H6a3 3 0 0 0-3 3M4.5 15.5 2 13l2.5-2.5M2 13h12a3 3 0 0 0 3-3" />
+          </svg>
+        </button>
+        <button type="button" data-demo-reset aria-label="Reset">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 7V4m0 0h3M4 4l2.5 2.5A5 5 0 1 1 5 10" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="demo__canvas-wrap">
+      <canvas data-demo-canvas tabindex="0" aria-label="Interactive graph visualization. Use arrow keys to select a node and Enter to toggle an edge."></canvas>
+      <span class="sr-only" data-demo-status aria-live="polite"></span>
+      <div class="demo__hint">
+        <span class="dot" aria-hidden="true"></span>
+        add or remove edges · arrows + Enter also work
+      </div>
+    </div>
+
+    <div class="demo__stats mono">
+      <span><i data-out-max>Maximal ✓</i></span>
+      <span>n <b data-out-n>—</b></span>
+      <span>|E| <b data-out-e>—</b></span>
+      <span>|M*| <b data-out-m>—</b></span>
+      <span>repair <b data-out-scan>—</b></span>
+      <span class="demo__tick" data-out-tick>0000 updates</span>
+    </div>
+    <div class="demo__legend">
+      <span><strong>M*</strong> current matching</span>
+      <span><strong>repair</strong> work after the last update</span>
+      <span><strong>Maximal</strong> every edge remains covered</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    padding-top: clamp(54px, 7vw, 96px);
+    padding-bottom: clamp(54px, 7vw, 96px);
+    display: grid;
+    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
+    gap: clamp(36px, 6vw, 88px);
+    align-items: center;
+  }
+
+  .hero__content {
+    display: grid;
+    justify-items: start;
+    text-align: left;
+    gap: 20px;
+    max-width: 560px;
+  }
+
+  .hero__title {
+    margin: 0;
+    font-size: clamp(42px, 5.4vw, 72px);
+    line-height: 0.98;
+    letter-spacing: -0.034em;
+    font-weight: 680;
+  }
+  .hero__title em {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .hero__sub {
+    margin: 0;
+    font-size: clamp(16px, 1.55vw, 18px);
+    line-height: 1.58;
+    color: var(--ink-dim);
+    max-width: 640px;
+  }
+  .hero__mono {
+    color: var(--ink);
+    font-size: 0.86em;
+    white-space: nowrap;
+  }
+  .hero__mono sup {
+    font-size: 0.7em;
+  }
+
+  .hero__cta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-top: 6px;
+  }
+
+  .hero__trust {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-faint);
+  }
+
+  .hero__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: -8px 0 0;
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+  .hero__status strong { color: var(--ink-dim); font-weight: 600; }
+  .hero__status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); }
+
+  /* ---------------- demo ---------------- */
+
+  .demo {
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+    overflow: hidden;
+    border-radius: var(--r-xl);
+    background: var(--glass);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .demo__topbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .demo__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--cobalt);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .demo__live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--cobalt);
+    animation: none;
+  }
+
+  .demo__modes {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 11px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .demo__modes button {
+    padding: 6px 15px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    color: var(--ink-dim);
+    transition: color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+  }
+  .demo__modes button.is-on {
+    color: var(--ink);
+    background: var(--surface-3);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  .demo__controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .demo__controls button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-dim);
+    transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+  }
+  .demo__controls button:hover {
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .demo__controls svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .demo__canvas-wrap {
+    position: relative;
+  }
+  .demo__canvas-wrap canvas {
+    width: 100%;
+    height: clamp(300px, 40vw, 420px);
+    display: block;
+    touch-action: manipulation;
+  }
+
+  .demo__hint {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+    font-size: 11.5px;
+    letter-spacing: 0.01em;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .demo__hint .dot {
+    width: 5px;
+    height: 5px;
+    background: var(--cobalt);
+    animation: none;
+  }
+
+  .demo__stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 20px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--ink-faint);
+    background: var(--surface);
+  }
+  .demo__stats i {
+    font-style: normal;
+    color: var(--mint);
+    font-weight: 650;
+  }
+  .demo__stats b {
+    color: var(--ink-dim);
+    font-weight: 600;
+  }
+  .demo__tick {
+    margin-left: auto;
+  }
+
+  .demo__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    padding: 10px 16px 13px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-faint);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .demo__legend strong {
+    color: var(--ink-dim);
+    font-weight: 650;
+  }
+
+  @media (max-width: 860px) {
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 34px;
+    }
+    .hero__content {
+      justify-items: center;
+      text-align: center;
+      max-width: 760px;
+      margin-inline: auto;
+    }
+    .hero__cta {
+      justify-content: center;
+    }
+    .demo {
+      max-width: 760px;
+      margin-inline: auto;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .demo__topbar {
+      grid-template-columns: 1fr 1fr;
+    }
+    .demo__modes {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      justify-self: center;
+    }
+    .demo__live {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .demo__controls {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .demo__stats {
+      gap: 4px 14px;
+    }
+    .demo__hint {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import { initDemo } from "../scripts/demo";
+  document.addEventListener("astro:page-load", () => {
+    const host = document.querySelector<HTMLElement>("[data-demo]");
+    if (host) initDemo(host);
+  });
+  if (document.readyState !== "loading") {
+    const root = document.querySelector<HTMLElement>("[data-demo]");
+    if (root) initDemo(root);
+  }
+</script>

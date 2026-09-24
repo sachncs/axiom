@@ -2,9 +2,10 @@ r"""Adjacency-set graph layer.
 
 **Fidelity note:** The paper states that adjacency lists are stored as binary
 search trees to support :math:`O(\log n)` insertion, deletion, and lookup.
-In this Python reproduction we use the built-in ``set`` type, which provides
-amortised :math:`O(1)` operations.  The asymptotic guarantees of the
-algorithm are preserved; only the hidden constant factors differ.
+This Python implementation uses the built-in ``set`` type, which provides
+amortised :math:`O(1)` operations.  The paper's asymptotic bounds are not
+claimed for this storage layer; the set-backed implementation is a practical
+engineering substitute with different complexity and memory characteristics.
 
 Responsibilities:
     * Maintain the live edge set under online insertions and deletions.
@@ -59,6 +60,8 @@ class Adjacency:
         Complexity:
             ``O(n)`` time and space for the adjacency list of empty sets.
         """
+        if not isinstance(n, int) or isinstance(n, bool):
+            raise ValueError(f"n must be an integer, got {n!r}")
         if n < 0:
             raise ValueError(f"n must be non-negative, got {n}")
         self.n: int = n
@@ -182,7 +185,7 @@ class Adjacency:
             :math:`O(\deg(v))` to drain the iterator.
         """
         self.validate_vertex(v)
-        yield from self.adj[v]
+        yield from sorted(self.adj[v])
 
     def edges(self) -> Iterator[Edge]:
         """Iterate over all edges in the graph exactly once.
@@ -195,7 +198,7 @@ class Adjacency:
             The ``u < v`` guard avoids double-counting symmetric pairs.
         """
         for u in range(self.n):
-            for v in self.adj[u]:
+            for v in sorted(self.adj[u]):
                 if u < v:
                     yield (u, v)
 
@@ -214,7 +217,9 @@ class Adjacency:
         Raises:
             ValueError: If ``v`` is out of range.
         """
-        if not (0 <= v < self.n):
+        if not isinstance(v, int) or isinstance(v, bool):
+            raise ValueError(f"Vertex {v!r} must be an integer")
+        if not 0 <= v < self.n:
             raise ValueError(f"Vertex {v} out of range [0, {self.n})")
 
     def copy(self) -> Adjacency:

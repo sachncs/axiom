@@ -1,0 +1,233 @@
+---
+import { MODES } from "../lib/data";
+
+const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
+  cobalt: {
+    badge: "var(--cobalt)",
+    ring: "rgba(91,140,255,0.16)",
+    text: "var(--cobalt)",
+  },
+  violet: {
+    badge: "var(--violet)",
+    ring: "rgba(160,107,255,0.18)",
+    text: "var(--violet)",
+  },
+};
+---
+
+<section class="section shell modes" id="modes">
+  <div class="section-head" data-reveal>
+    <span class="eyebrow">Operating modes</span>
+    <h2>
+      One API.
+      <br />
+      Two <span class="serif gradient-text">strategies.</span>
+    </h2>
+    <p>
+      Start with <code>basic</code>, the recommended single-level path. Both
+      modes expose the same strict, typed API; <code>multilevel</code> is the
+      recursive path under research validation and derives its depth from the
+      graph rather than asking callers to configure a recursion level.
+    </p>
+  </div>
+
+  <div class="modes__grid">
+    {
+      MODES.map((m, i) => {
+        const a = ACCENTS[m.accent];
+        return (
+          <article
+            class="card mode"
+            data-reveal
+            style={`--reveal-delay: ${i * 110}ms; --acc-badge: ${a.badge}; --acc-ring: ${a.ring}; --acc-text: ${a.text}`}
+          >
+            <div class="mode__head">
+              <div class="mode__name-row">
+                <h3>{m.name}</h3>
+                <span class="mode__tag mono">{m.tag}</span>
+                <span class="mode__status">{m.status}</span>
+              </div>
+              <div class="mode__complexity">
+                <span class="mode__value">{m.complexity}</span>
+                <span class="mode__period">{m.period}</span>
+              </div>
+            </div>
+
+            <ul class="mode__points">
+              {
+                m.points.map((p) => (
+                  <li>
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>
+                    <span>{p}</span>
+                  </li>
+                ))
+              }
+            </ul>
+
+            <div class="mode__foot">
+              <span class="mode__pick mono">strategy = </span>
+              <code class="mode__cta mono">{m.cta}</code>
+            </div>
+          </article>
+        );
+      })
+    }
+  </div>
+
+  <p class="modes__note" data-reveal>
+    Use the canonical strings <code class="mono">basic</code> and
+    <code class="mono">multilevel</code> with <code class="mono">mode=</code>.
+  </p>
+</section>
+
+<style>
+  .modes__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+    align-items: stretch;
+  }
+
+  .mode {
+    padding: clamp(28px, 3.4vw, 44px) clamp(20px, 3.4vw, 44px) clamp(28px, 3.4vw, 44px) 0;
+    display: grid;
+    gap: 30px;
+    align-content: start;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .mode + .mode { padding-left: clamp(20px, 3.4vw, 44px); border-left: 1px solid var(--line); }
+
+  .mode__name-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .mode__name-row h3 {
+    margin: 0;
+    font-size: clamp(26px, 3vw, 34px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  .mode__tag {
+    font-size: 12px;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .mode__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--acc-text);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+  }
+  .mode__status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--acc-badge);
+  }
+
+  .mode__complexity {
+    margin-top: 22px;
+    display: grid;
+    gap: 4px;
+    padding: 18px 20px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--acc-ring);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--acc-badge) 9%, transparent), transparent);
+  }
+  .mode__value {
+    font-size: clamp(24px, 2.8vw, 32px);
+    font-weight: 720;
+    letter-spacing: -0.02em;
+    color: var(--acc-text);
+    font-family: var(--font-mono);
+  }
+  .mode__period {
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+
+  .mode__points {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 13px;
+  }
+  .mode__points li {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    font-size: 15px;
+    color: var(--ink-dim);
+    line-height: 1.55;
+  }
+  .mode__points svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    color: var(--acc-text);
+    transform: translateY(2px);
+  }
+
+  .mode__foot {
+    margin-top: auto;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+  }
+
+  @media (max-width: 700px) {
+    .modes__grid { grid-template-columns: 1fr; }
+    .mode, .mode + .mode {
+      padding: 28px 0;
+      border-left: 0;
+    }
+    .mode + .mode { border-top: 1px solid var(--line); }
+  }
+  .mode__pick {
+    color: var(--ink-faint);
+  }
+  .mode__cta {
+    color: var(--acc-text);
+    font-weight: 600;
+  }
+
+  .modes__note {
+    margin: 34px auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 14.5px;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+  .modes__note code {
+    display: inline-block;
+    margin-inline: 3px;
+    padding: 3px 9px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-dim);
+  }
+
+  @media (max-width: 900px) {
+    .modes__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

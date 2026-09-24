@@ -35,7 +35,7 @@ algo.delete(1, 2)
 ### Multi-level mode
 
 ```python
-algo = Matcher(n=50, mode="tiered")
+algo = Matcher(n=50, mode="multilevel")
 algo.insert(0, 1)
 algo.insert(2, 3)
 ```
@@ -63,6 +63,6 @@ axiom --n 20 --mode basic --updates 200 --seed 42
 ## Next steps
 
 - Read [Architecture](architecture.md) to understand the module layout.
-- Read [Modes](modes.md) to choose between `basic` and `tiered`.
+- Read [Modes](modes.md) to choose between `basic` and `multilevel`.
 - Read [API](api.md) for the full public surface.
 - Read [Paper restatement](paper_restatement.md) for the theoretical background.

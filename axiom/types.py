@@ -150,8 +150,8 @@ class Colorer(Protocol):
 
     Any edge coloring implementation must produce a proper coloring using
     at most delta + 1 colors.  Two implementations are provided:
-    :class:`axiom.color.Greedy` and
-    :class:`axiom.color.Vizing`.
+    :class:`axiom.color.Greedy`, :class:`axiom.color.Vizing`, and
+    :class:`axiom.paper_coloring.PaperFanColorer`.
     """
 
     def color(self, graph: Graph, delta: int) -> Coloring:

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The breaking `basic`/`multilevel` API and recursive hierarchy work are under
+validation. The 1.0.0 release remains gated on the complete paper-faithful
+multilevel update pipeline and coloring implementation.
+
+## [0.6.0.dev0] - 2026-09-23
+
+### Breaking changes
+
+- `multilevel` is the canonical recursive hierarchy mode.
+- Removed the historical recursive-mode spelling, `from_mode`, and all
+  compatibility aliases.
+- Multilevel rebuilds now recursively refine each level from its predecessor.
+
+### Added
+
+- Recursive hierarchy validation through `Hierarchy.check()`.
+- Small-graph termination and recursive-construction regression tests.
+- Wheel validation, dependency auditing, and release automation in CI.
+
 ### Added
 
 - `docs/assets/social-preview.png` (1280x640) for the GitHub social
@@ -118,18 +137,24 @@ tests, examples, and CI is updated to match.
   - `run_benchmark_worker` &rarr; `worker`
   - `run_parallel_benchmarks` &rarr; `run_parallel`
   - `compare_modes` &rarr; `compare`
-- The mode string `"multilevel"` is deprecated in favour of `"tiered"`. The deprecated value still works but logs a deprecation note.
+- The canonical recursive mode is `"multilevel"`; the breaking release does
+  not retain the historical mode spelling.
 - The free function `check_multi_level_i3` is renamed to `check_i3` to match the `Hierarchy.check_i3` method.
 
 ### Added
 
-- **Strategy pattern for phase rebuilds.** `axiom.rebuild` exposes a `Rebuild` Protocol with two implementations: `Basic` (single-level) and `Tiered` (multi-level). The `Matcher` holds one and delegates configuration and rebuilding.
-- **Augmenting-path API is public.** `Matcher.augment()`, `Matcher.try_augment()`, `Matcher.flip()` are first-class methods (no longer name-mangled private).
-- **Invariant (I3) is implemented.** `Hierarchy.check_i3(matching, r, z)` returns whether at most `2 * tau = 64 r / z` edges of `matching` cross between `A1` and `R1`. `Hierarchy.maintain_i3` repairs violations. `Matcher.maintain_i3()` is called after every update in `tiered` mode.
-- **Partner dict for O(1) lookup.** `Matcher.partners: dict[Vertex, Vertex]` is maintained in lockstep with the matching via the public helpers `add_match` / `drop_match`.
+- **Strategy pattern for phase rebuilds.** `axiom.rebuild` exposes a `Rebuild` Protocol with two implementations: `Basic` (single-level) and `Multilevel` (multi-level). The `Matcher` holds one and delegates configuration and rebuilding.
+- The historical `Matcher.augment()`, `Matcher.try_augment()`, and
+  `Matcher.flip()` methods are not part of the current API; the current
+  release keeps augmenting-path operations in `axiom.augment` and the
+  dynamic update pipeline private.
+- **Invariant (I3) is implemented.** `Hierarchy.check_i3(matching, r, z)` returns whether at most `2 * tau = 64 r / z` edges of `matching` cross between `A1` and `R1`. `Hierarchy.maintain_i3` repairs violations; the matcher invokes that repair path internally after recursive-mode updates.
+- The current API exposes `Matcher.partner()` and `Matcher.partners()` for
+  partner queries; `partner_map` is internal state and is maintained in
+  lockstep with the matching.
 - **`axiom.augment`** &mdash; free-function BFS over alternating paths and alternating-path flip.
-- **`axiom.repair`** &mdash; local insertion/deletion handling and rematch dispatch (extracted from `Matcher`).
-- **`axiom.modes`** documentation and **`axiom.api`** reference for the complete public surface.
+- The former `axiom.repair`, `axiom.modes`, and `axiom.api` refactor artifacts
+  were subsequently consolidated into the current package modules and docs.
 
 ### Removed
 
@@ -141,7 +166,8 @@ tests, examples, and CI is updated to match.
 ### Fixed
 
 - `Adjacency.remove_edge` self-loop handling is now symmetric with `add_edge`: silent no-op in default mode, `ValueError` in `strict` mode.
-- `refresh()` is now defensive against corrupt seed matchings: any duplicate-vertex edges from the colourer are silently dropped before the greedy extension runs.
+- `refresh()` rejects conflicting seed edges instead of silently dropping them,
+  so coloring errors cannot be hidden by a fallback matching.
 - The two pre-existing test failures (`test_rematch_u_no_phantom_edge_from_stale_list` and `test_partition_m_color_range_error`) are fixed; both were stale references to private `__rebuild_basic` and the deleted `axiom.dynamic_matching` module.
 - Two `Security.md` / `CODE_OF_CONDUCT.md` placeholder strings are replaced with the actual contact email.
 

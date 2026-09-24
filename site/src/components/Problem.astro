@@ -1,0 +1,80 @@
+---
+import { PROBLEM } from "../lib/data";
+---
+
+<section class="section shell problem" id="product">
+  <div class="section-head" data-reveal>
+    <span class="eyebrow">The problem</span>
+    <h2>
+      Graphs change every second.
+      <br />
+      The answer is <span class="serif gradient-text">always current.</span>
+    </h2>
+    <p>
+      Fully dynamic maximal matching is the workhorse at the heart of scheduling,
+      real-time routing, and large-graph approximation. The hard part isn't finding
+      a matching — it's that the graph refuses to stay still.
+    </p>
+  </div>
+
+  <div class="problem__list">
+    {
+      PROBLEM.map((p, i) => (
+        <article class="problem__row" data-reveal style={`--reveal-delay: ${i * 90}ms`}>
+          <div class="problem__step mono">{p.step}</div>
+          <h3>{p.title}</h3>
+          <p>{p.body}</p>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .problem__list {
+    border-top: 1px solid var(--line-strong);
+  }
+  .problem__row {
+    display: grid;
+    grid-template-columns: 72px minmax(180px, 0.56fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: baseline;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .problem__step {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--cobalt);
+    font-weight: 600;
+  }
+  .problem__row h3 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+  }
+  .problem__row p {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 15.5px;
+    line-height: 1.62;
+  }
+
+  @media (max-width: 900px) {
+    .problem__row {
+      grid-template-columns: 56px minmax(130px, 0.5fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+  }
+  @media (max-width: 620px) {
+    .problem__row {
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 10px 14px;
+      padding: 22px 0;
+    }
+    .problem__row p {
+      grid-column: 2;
+    }
+  }
+</style>

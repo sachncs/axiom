@@ -24,21 +24,21 @@ from axiom.types import Edge, Vertex, canonical
 def flip(coloring: set[Edge], path: list[Vertex]) -> None:
     """Flip alternating edges along ``path`` in the matching ``coloring``.
 
-    The path must have even length (vertices alternating matched/unmatched
-    under the matching).  Edges at even positions are removed from the
-    matching; edges at odd positions are added.  The matching ``coloring``
-    is mutated in place.
+    The path must have an odd number of edges, with non-matching edges at
+    even positions and matching edges at odd positions.  The even-position
+    edges are added and the odd-position edges are removed.  The matching
+    ``coloring`` is mutated in place.
 
     Args:
         coloring: The matching to mutate.
         path: An alternating vertex path of even length >= 2.
     """
-    for i in range(0, len(path) - 1, 2):
+    for i in range(len(path) - 1):
         e = canonical(path[i], path[i + 1])
-        if e in coloring:
-            coloring.discard(e)
-        else:
+        if i % 2 == 0:
             coloring.add(e)
+        else:
+            coloring.discard(e)
 
 
 def augment(
@@ -63,28 +63,36 @@ def augment(
     Returns:
         ``True`` if an augmenting path was found and applied.
     """
-    visited: set[tuple[Vertex, bool]] = {(start, False)}
+    if is_matched(start):
+        return False
+    # ``expect_matching`` describes the next edge in the path.  An
+    # augmenting path starts with a non-matching edge and alternates from
+    # there.  The previous implementation inverted these transitions, which
+    # could corrupt the seed matching and was previously masked by silently
+    # dropping conflicting seed edges during refresh.
+    visited: set[Vertex] = {start}
     queue: deque[tuple[Vertex, bool, list[Vertex]]] = deque()
     queue.append((start, False, [start]))
 
     while queue:
-        curr, via_match, path = queue.popleft()
+        curr, expect_matching, path = queue.popleft()
 
         for w in neighbors(curr):
             e = canonical(curr, w)
             is_match = e in matching
 
-            if via_match and not is_match:
-                if (w, True) not in visited:
-                    new_path = path + [w]
-                    if not is_matched(w):
-                        flip(matching, new_path)
-                        return True
-                    visited.add((w, True))
-                    queue.append((w, True, new_path))
-            elif not via_match and is_match:
-                if (w, False) not in visited:
-                    visited.add((w, False))
-                    queue.append((w, False, path + [w]))
+            if is_match != expect_matching:
+                continue
+            new_path = path + [w]
+            if not expect_matching:
+                if not is_matched(w):
+                    flip(matching, new_path)
+                    return True
+                next_state = True
+            else:
+                next_state = False
+            if w not in visited:
+                visited.add(w)
+                queue.append((w, next_state, new_path))
 
     return False

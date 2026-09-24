@@ -6,14 +6,19 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
           cache: "pip"
@@ -24,10 +29,10 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Lint with ruff
-        run: ruff check axiom/ tests/ scripts/
+        run: ruff check axiom/ tests/ scripts/ benchmarks/ examples/
 
       - name: Check formatting with ruff
-        run: ruff format --check axiom/ tests/ scripts/
+        run: ruff format --check axiom/ tests/ scripts/ benchmarks/ examples/
 
       - name: Type check with mypy
         run: mypy axiom/
@@ -40,10 +45,12 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -56,8 +63,202 @@ jobs:
       - name: Test with pytest
         run: pytest --cov=axiom --cov-report=xml --cov-fail-under=80 tests/
 
+      - name: Test with optimized Python
+        env:
+          PYTHONOPTIMIZE: "1"
+        run: pytest -q tests/
+
       - name: Upload coverage
         if: matrix.python-version == '3.12'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@af09b5e394c93991b95a5e7646aeb90c1917f78f # v5.5.1
         with:
           files: ./coverage.xml
+
+  package:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Build and validate artifacts
+        run: |
+          python -m pip install --upgrade pip build twine
+          rm -rf build dist axiom_matching.egg-info
+          python -m build
+          python -m twine check dist/*
+          if unzip -l dist/*.whl | grep -q 'axiom/invariant.py'; then
+            echo "Deleted compatibility module found in wheel"
+            exit 1
+          fi
+          if tar -tf dist/*.tar.gz | grep -q 'axiom/invariant.py'; then
+            echo "Deleted compatibility module found in source distribution"
+            exit 1
+          fi
+
+      - name: Verify reproducible artifacts
+        run: |
+          first="$RUNNER_TEMP/axiom-build-one"
+          second="$RUNNER_TEMP/axiom-build-two"
+          SOURCE_DATE_EPOCH=0 python -m build --outdir "$first"
+          SOURCE_DATE_EPOCH=0 python -m build --outdir "$second"
+          python scripts/normalize_sdist.py "$first"/*.tar.gz "$second"/*.tar.gz
+          diff -u \
+            <(sha256sum "$first"/* | sed "s#$first/##" | sort) \
+            <(sha256sum "$second"/* | sed "s#$second/##" | sort)
+
+      - name: Install wheel in a clean environment
+        run: |
+          python -m venv /tmp/axiom-wheel-env
+          /tmp/axiom-wheel-env/bin/pip install dist/*.whl
+          /tmp/axiom-wheel-env/bin/python -c "from axiom import Matcher; assert Matcher(8, mode='multilevel').maximal()"
+          /tmp/axiom-wheel-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
+
+      - name: Install source distribution in a clean environment
+        run: |
+          python -m venv /tmp/axiom-source-env
+          /tmp/axiom-source-env/bin/pip install dist/*.tar.gz
+          /tmp/axiom-source-env/bin/python -c "from axiom import Matcher; assert Matcher(8, mode='multilevel').maximal()"
+          /tmp/axiom-source-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
+
+      - name: Audit dependencies
+        run: |
+          python -m pip install pip-audit
+          python - <<'PY'
+          import subprocess
+
+          try:
+              subprocess.run(["pip-audit"], check=True, timeout=120)
+          except subprocess.TimeoutExpired as error:
+              raise SystemExit(
+                  "pip-audit did not complete within 120 seconds; "
+                  "dependency security status is unverified"
+              ) from error
+          PY
+
+  clean-install:
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Build artifacts
+        run: |
+          python -m pip install --upgrade pip build
+          rm -rf build dist axiom_matching.egg-info
+          python -m build
+
+      - name: Install wheel in a clean environment
+        run: |
+          python -m venv "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}"
+          "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/pip" install dist/*.whl
+          "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/python" -c "from axiom import Matcher; assert Matcher(10, mode='multilevel').maximal()"
+          "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/axiom" --n 10 --mode multilevel --updates 8 --seed 1
+
+      - name: Install source distribution in a clean environment
+        run: |
+          python -m venv "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}"
+          "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/pip" install dist/*.tar.gz
+          "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/python" -c "from axiom import Matcher; assert Matcher(10, mode='multilevel').maximal()"
+          "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/axiom" --n 10 --mode multilevel --updates 8 --seed 1
+
+  stress:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run bounded adversarial multilevel stress test
+        run: timeout --signal=TERM 60s python -m pytest -q tests/test_property.py
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install site dependencies
+        run: npm ci
+        working-directory: site
+
+      - name: Check site types
+        run: npm run check
+        working-directory: site
+
+      - name: Reject removed API names in shipped docs
+        run: |
+          if rg -n -i 'tiered|from_mode|GreedyColorer|VizingColorer|Matcher\.(augment|try_augment|flip|maintain_i3)' README.md docs site/src site/public; then
+            echo "Removed or non-canonical API text found in shipped documentation"
+            exit 1
+          fi
+
+      - name: Build documentation site
+        run: npm run build
+        working-directory: site
+
+      - name: Execute verified documentation examples
+        run: python scripts/verify_site_examples.py
+
+      - name: Check generated routes and accessibility
+        run: npm run check:links
+        working-directory: site
+
+  workflow-security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install workflow scanner
+        run: python -m pip install zizmor
+
+      - name: Scan GitHub Actions workflows
+        run: zizmor .github/workflows

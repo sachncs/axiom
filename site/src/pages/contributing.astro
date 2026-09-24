@@ -1,0 +1,32 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+<DocLayout title="Contributing" eyebrow="Build with us" description="Contributions should make the algorithm easier to trust: small changes, explicit invariants, and reproducible tests." next={{ label: "Back to get started", href: "/get-started/" }}>
+  <h2>Before opening a change</h2>
+  <ol><li>Read the relevant <a class="text-link" href="../concepts/">concept</a> and <a class="text-link" href="../architecture/">architecture</a> pages.</li><li>Write down the invariant or public behavior the change preserves.</li><li>Add a deterministic regression, property-based test, or benchmark evidence for the failure mode.</li><li>Keep the canonical API small: do not add aliases, wrappers, compatibility shims, or silent fallback paths.</li></ol>
+
+  <h2>Choose the right change surface</h2>
+  <table class="doc-table">
+    <thead><tr><th>If you are changing…</th><th>Also update…</th><th>Evidence expected</th></tr></thead>
+    <tbody>
+      <tr><td>Public API or errors</td><td><a class="text-link" href="../api/">API reference</a> and get-started example</td><td>Executable example plus regression tests</td></tr>
+      <tr><td>Matching or graph state</td><td>Concepts and architecture boundary</td><td>Validity, maximality, and rollback coverage</td></tr>
+      <tr><td>Multilevel behavior</td><td><a class="text-link" href="../research/">Research status</a> and modes guidance</td><td>Recursive derivation and deterministic transition tests</td></tr>
+      <tr><td>Claims or benchmarks</td><td>Changelog and limitation language</td><td>Reproducible command, environment, and measured output</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What belongs in a pull request?</h2>
+  <p>Include the smallest coherent implementation, tests for the failure mode, and documentation when behavior or guarantees change. Explain the state transition and why the relevant invariant still holds. If a paper-level claim is not fully validated, label it as research work rather than upgrading the product claim.</p>
+
+  <h2>Local quality gate</h2>
+  <pre><code>python -m pytest -q
+ruff check axiom/ tests/ scripts/ benchmarks/ examples/
+mypy axiom/
+cd site &amp;&amp; npm run check &amp;&amp; npm run build
+cd .. &amp;&amp; python scripts/verify_site_examples.py</code></pre>
+  <p>Keep the site examples executable: a new user should be able to copy the documented path and get the documented result. Release and security checks run in CI; do not bypass them to make a change appear green.</p>
+
+  <h2>Where to work</h2>
+  <p>The repository contains source, tests, engineering policies, and release automation. The website is the visitor-facing product surface. If a behavior is difficult to explain here, treat that as a design signal and clarify the implementation or its boundary before merging.</p>
+</DocLayout>

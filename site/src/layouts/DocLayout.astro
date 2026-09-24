@@ -1,0 +1,94 @@
+---
+import Base from "./Base.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  eyebrow: string;
+  next?: { label: string; href: string };
+}
+
+const { title, description, eyebrow, next } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const active = (path: string) => Astro.url.pathname.endsWith(path);
+---
+
+<Base title={title} description={description}>
+  <div class="docs-shell">
+    <aside class="docs-sidebar" aria-label="Documentation navigation">
+      <p class="docs-sidebar__label">Learn Axiom</p>
+      <nav>
+        <a class:list={{ active: active("/get-started/") }} aria-current={active("/get-started/") ? "page" : undefined} href={`${base}/get-started/`}>Get started</a>
+        <a class:list={{ active: active("/playground/") }} aria-current={active("/playground/") ? "page" : undefined} href={`${base}/playground/`}>Playground</a>
+        <a class:list={{ active: active("/concepts/") }} aria-current={active("/concepts/") ? "page" : undefined} href={`${base}/concepts/`}>Concepts</a>
+        <a class:list={{ active: active("/modes/") }} aria-current={active("/modes/") ? "page" : undefined} href={`${base}/modes/`}>Modes</a>
+        <a class:list={{ active: active("/api/") }} aria-current={active("/api/") ? "page" : undefined} href={`${base}/api/`}>API reference</a>
+        <a class:list={{ active: active("/examples/") }} aria-current={active("/examples/") ? "page" : undefined} href={`${base}/examples/`}>Examples</a>
+        <a class:list={{ active: active("/architecture/") }} aria-current={active("/architecture/") ? "page" : undefined} href={`${base}/architecture/`}>Architecture</a>
+      </nav>
+      <p class="docs-sidebar__label docs-sidebar__label--lower">Project</p>
+      <nav>
+        <a class:list={{ active: active("/research/") }} aria-current={active("/research/") ? "page" : undefined} href={`${base}/research/`}>Research status</a>
+        <a class:list={{ active: active("/changelog/") }} aria-current={active("/changelog/") ? "page" : undefined} href={`${base}/changelog/`}>Changelog</a>
+        <a class:list={{ active: active("/contributing/") }} aria-current={active("/contributing/") ? "page" : undefined} href={`${base}/contributing/`}>Contributing</a>
+      </nav>
+    </aside>
+
+    <article class="doc-page">
+      <header class="doc-page__header">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span>{eyebrow}</p>
+        <h1>{title}</h1>
+        <p class="doc-page__lede">{description}</p>
+      </header>
+      <div class="doc-page__body"><slot /></div>
+      {next && (
+        <a class="doc-next" href={`${base}/${next.href.replace(/^\//, "")}`}>
+          <span><small>Next</small><strong>{next.label}</strong></span>
+          <span aria-hidden="true">→</span>
+        </a>
+      )}
+    </article>
+  </div>
+</Base>
+
+<style is:global>
+  .docs-shell { width: min(1180px, calc(100% - 2 * var(--gutter))); margin: 0 auto; display: grid; grid-template-columns: 190px minmax(0, 760px); gap: clamp(44px, 8vw, 110px); padding-block: clamp(54px, 8vw, 100px) 40px; }
+  .docs-sidebar { position: sticky; top: calc(var(--nav-h) + 28px); align-self: start; }
+  .docs-sidebar__label { margin: 0 0 12px; color: var(--ink-faint); font: 600 11px/1.2 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
+  .docs-sidebar__label--lower { margin-top: 34px; }
+  .docs-sidebar nav { display: grid; gap: 3px; }
+  .docs-sidebar a { padding: 8px 10px; margin-left: -10px; border-radius: 8px; color: var(--ink-dim); font-size: 14px; }
+  .docs-sidebar a:hover, .docs-sidebar a:focus-visible { color: var(--ink); background: var(--surface); }
+  .docs-sidebar a.active { color: var(--ink); background: var(--surface-2); box-shadow: inset 2px 0 var(--cobalt); }
+  .doc-page__header { padding-bottom: 48px; border-bottom: 1px solid var(--line); }
+  .doc-page__header h1 { margin: 24px 0 16px; font-size: clamp(42px, 6vw, 72px); line-height: .98; letter-spacing: -.045em; font-weight: 650; }
+  .doc-page__lede { max-width: 650px; margin: 0; color: var(--ink-dim); font-size: clamp(18px, 2vw, 21px); line-height: 1.55; }
+  .doc-page__body { padding-top: 46px; }
+  .doc-page__body h2 { margin: 52px 0 14px; font-size: 28px; line-height: 1.15; letter-spacing: -.025em; }
+  .doc-page__body h3 { margin: 34px 0 10px; font-size: 19px; }
+  .doc-page__body p, .doc-page__body li { color: var(--ink-dim); line-height: 1.72; }
+  .doc-page__body ul, .doc-page__body ol { padding-left: 22px; }
+  .doc-page__body li + li { margin-top: 8px; }
+  .doc-page__body strong { color: var(--ink); font-weight: 650; }
+  .doc-page__body code:not(pre code) { padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--cyan); font: 0.88em var(--font-mono); }
+  .doc-page__body pre { overflow-x: auto; margin: 22px 0; padding: 22px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgba(0,0,0,.22); color: var(--ink); font: 13.5px/1.75 var(--font-mono); }
+  .doc-callout { margin: 28px 0; padding: 18px 20px; border-left: 3px solid var(--cobalt); border-radius: 0 var(--r-sm) var(--r-sm) 0; background: var(--cobalt-soft); }
+  .doc-callout p { margin: 0; }
+  .doc-table { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 14px; }
+  .doc-table th, .doc-table td { padding: 13px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .doc-table th { color: var(--ink); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .doc-next { display: flex; justify-content: space-between; align-items: center; margin-top: 68px; padding: 20px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+  .doc-next:hover { border-color: var(--line-strong); background: var(--surface-2); }
+  .doc-next small, .doc-next strong { display: block; }
+  .doc-next small { color: var(--ink-faint); font: 11px var(--font-mono); text-transform: uppercase; letter-spacing: .1em; }
+  .doc-next strong { margin-top: 4px; font-size: 16px; }
+  @media (max-width: 760px) {
+    .docs-shell { display: block; padding-top: 34px; }
+    .docs-sidebar { position: static; display: flex; gap: 10px; overflow-x: auto; margin: 0 -4px 42px; padding-bottom: 6px; }
+    .docs-sidebar__label { display: none; }
+    .docs-sidebar nav { display: flex; gap: 4px; white-space: nowrap; }
+    .docs-sidebar a { margin: 0; padding: 8px 11px; border: 1px solid var(--line); }
+    .doc-page__header h1 { font-size: clamp(42px, 13vw, 62px); }
+    .doc-table { display: block; overflow-x: auto; }
+  }
+</style>
