@@ -1177,6 +1177,26 @@ def fan_is_social(fan: UFan, blocks: tuple[frozenset[Color], ...]) -> bool:
     return center_block // 2 == leaf_block // 2
 
 
+def _damages_social_fan(
+    fan: UFan,
+    paths: tuple[tuple[tuple[Vertex, ...], Color, Color], ...],
+    social: set[UFan],
+) -> bool:
+    """Return whether flipping ``paths`` can damage an existing social fan."""
+    for path_vertices, source, target in paths:
+        endpoints = (path_vertices[0], path_vertices[-1])
+        for other in social:
+            if other is fan:
+                continue
+            if any(
+                endpoint in other.vertices
+                and other.color_at(endpoint) in {source, target}
+                for endpoint in endpoints
+            ):
+                return True
+    return False
+
+
 def relevant_paths(
     coloring: PartialColoring,
     fan: UFan,
@@ -1400,6 +1420,8 @@ def _sparsify_types_unchecked(
         pair_index = min(
             range(len(pairs)), key=lambda index: (pair_counts[index], index)
         )
+        # This is the paper's B_k filter: a non-social fan is k-bad exactly
+        # when one of its k-relevant paths would damage an already social fan.
         good_by_type: dict[tuple[int, int], list[UFan]] = {}
         for fan in fans:
             if fan_is_social(fan, blocks):
@@ -1408,15 +1430,7 @@ def _sparsify_types_unchecked(
                 paths = relevant_paths(coloring, fan, blocks, pair_index)
             except ValueError:
                 continue
-            damages_social = any(
-                endpoint in other.vertices
-                and other.color_at(endpoint) in {source, target}
-                for path_vertices, source, target in paths
-                for endpoint in (path_vertices[0], path_vertices[-1])
-                for other in social
-                if other is not fan
-            )
-            if damages_social:
+            if _damages_social_fan(fan, paths, social):
                 continue
             center_block = _block_index(blocks, fan.center_color)
             leaf_block = _block_index(blocks, fan.first_color)
@@ -1430,7 +1444,7 @@ def _sparsify_types_unchecked(
             )
         batch_key = max(
             good_by_type,
-            key=lambda key: (len(good_by_type[key]), tuple(-value for value in key)),
+            key=lambda key: (len(good_by_type[key]), -key[0], -key[1]),
         )
         batch = tuple(good_by_type[batch_key])
         social_before = len(social)
