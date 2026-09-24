@@ -36,17 +36,41 @@ def _snapshot(graph: Graph) -> Graph:
     return result
 
 
+def _copy_system(system: System, graph: Graph) -> System:
+    """Copy a system state onto an isolated graph snapshot."""
+    copied = System(
+        graph=graph,
+        z=system.z,
+        A=set(system.A),
+        B=set(system.B),
+        U=set(system.U),
+        M=set(system.M),
+    )
+    copied.index()
+    return copied
+
+
+def _with_edges(graph: Graph, edges: set[tuple[int, int]]) -> Graph:
+    """Return a graph snapshot containing ``graph`` plus ``edges``."""
+    result = _snapshot(graph)
+    for left, right in edges:
+        if not result.has_edge(left, right):
+            result.add_edge(left, right)
+    return result
+
+
 def _base_snapshot(matcher: Matcher) -> tuple[Graph, System]:
-    """Build the phase-start base system for recursive refinement.
+    """Snapshot the inherited level-1 system for recursive refinement.
 
     The theorem-4.4 refinement requires a valid h-level input system.  The
-    level-1 system is rebuilt on the isolated phase snapshot so that a prior
-    refinement cannot leak an approximate matching or stale degree counters
-    into the next recursive construction.
+    level-1 partition and matching are part of that input and must be
+    inherited rather than rebuilt independently.  The graph is copied so the
+    refinement can apply its deleted/inserted edge sets without mutating the
+    live hierarchy.
     """
     assert matcher.multi is not None
-    assert matcher.phase_graph is not None
-    previous = matcher.multi.levels[0]
+    assert matcher.phase_base_graph is not None
+    assert matcher.phase_base_system is not None
     # Keep the phase-start graph and its M edges intact: theorem 4.4 treats
     # ED as deletions from that input system and chooses the bounded subset
     # that may be deferred into the refined hierarchy.  Insertions remain in
@@ -55,8 +79,14 @@ def _base_snapshot(matcher: Matcher) -> tuple[Graph, System]:
     # retain the bounded deferred-deletion set E_D' from the preceding
     # refinement; the live matcher graph intentionally does not contain
     # current-phase deletions.
-    graph = _snapshot(matcher.phase_graph)
-    system = build(graph, previous.z)
+    graph = _snapshot(matcher.phase_base_graph)
+    previous = matcher.phase_base_system
+    system = _copy_system(previous, graph)
+    if not system.check():
+        raise RuntimeError(
+            "phase snapshot cannot inherit the previous level-1 system: "
+            "its partition or matching is no longer valid"
+        )
     return graph, system
 
 
@@ -208,6 +238,8 @@ class Multilevel:
         previous_level_zs = (
             [level.z for level in previous.levels] if previous is not None else []
         )
+        phase_base_graph: Graph
+        phase_base_system: System
         if (
             previous is not None
             and previous.levels
@@ -216,16 +248,20 @@ class Multilevel:
             and (matcher.inserted_edges or matcher.deleted_edges)
         ):
             old_graph, base_system = _base_snapshot(matcher)
+            deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
+            phase_base_graph = old_graph
+            phase_base_system = _copy_system(base_system, old_graph)
+            refine_graph = _with_edges(old_graph, deleted)
+            working_base_system = _copy_system(base_system, refine_graph)
             matcher.multi = Hierarchy(
-                graph=old_graph,
+                graph=refine_graph,
                 k=1,
-                levels=[base_system],
+                levels=[working_base_system],
                 A_levels=[set(base_system.A)],
                 N_levels=[set(base_system.B)],
                 R_levels=[set(base_system.U)],
-                L_levels=[dict(base_system.L_lists)],
+                L_levels=[dict(working_base_system.L_lists)],
             )
-            deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
             inserted = set(matcher.inserted_edges)
             for z in matcher.level_zs[1:]:
                 matcher.multi = refine_hierarchy(
@@ -237,6 +273,13 @@ class Multilevel:
                 )
                 deleted = set(matcher.multi.deferred_deletions)
         else:
+            # Preserve the exact level-1 input before recursive refinement
+            # rebinds retained levels to each narrower working graph.  This
+            # is the inherited h-level system required by Theorem 4.4 for
+            # the next recursive rebuild; rebuilding it would discard the
+            # prior partition and matching state.
+            phase_base_graph = _snapshot(matcher.graph)
+            phase_base_system = build(phase_base_graph, matcher.level_zs[0])
             matcher.multi = build_hierarchy(
                 matcher.graph, matcher.level_zs, colorer=matcher.colorer
             )
@@ -274,6 +317,12 @@ class Multilevel:
                 "continue with stale recursive state"
             )
         matcher.phase_graph = _snapshot(matcher.multi.graph)
+        matcher.phase_base_graph = phase_base_graph
+        matcher.phase_base_system = phase_base_system
+        if not phase_base_system.check():
+            raise RuntimeError(
+                "multilevel rebuild produced an invalid inherited phase base"
+            )
         matcher.update_count = 0
         matcher.subphase_count = 0
         matcher.accountant.record_phase_rebuild()

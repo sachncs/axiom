@@ -157,6 +157,8 @@ class Matcher:
 
         self.multi: Hierarchy | None = None
         self.phase_graph: Graph | None = None
+        self.phase_base_graph: Graph | None = None
+        self.phase_base_system: System | None = None
         self.level_zs: list[int] = []
         self.level_phase_lengths: list[int] = []
         self.eta: int = 0
