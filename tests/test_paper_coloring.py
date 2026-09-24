@@ -213,6 +213,12 @@ def test_color_blocks_are_ordered_and_disjoint() -> None:
     assert all(len(pair) == 10 for pair in pairs)
 
 
+@pytest.mark.parametrize("color_count", [0, -1, True, 100.0])
+def test_color_blocks_rejects_invalid_palette_sizes(color_count: object) -> None:
+    with pytest.raises(ValueError, match="color_count"):
+        color_blocks(color_count, 10)  # type: ignore[arg-type]
+
+
 def test_type_sparsification_certificate_is_deterministic_and_non_mutating() -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)

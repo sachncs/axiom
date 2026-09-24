@@ -1136,6 +1136,10 @@ def color_blocks(
     color_count: int, eta: int
 ) -> tuple[tuple[frozenset[Color], ...], tuple[frozenset[Color], ...]]:
     """Return the paper's ordered ``C_i`` blocks and paired ``𝒞_k`` blocks."""
+    if not isinstance(color_count, int) or isinstance(color_count, bool):
+        raise ValueError("color_count must be an integer")
+    if color_count <= 0:
+        raise ValueError("color_count must be positive")
     if not isinstance(eta, int) or isinstance(eta, bool) or eta < 10:
         raise ValueError("eta must be an integer at least 10")
     if color_count < 10 * eta:
