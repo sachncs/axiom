@@ -789,6 +789,7 @@ def collect_separable_fans(
     fan_edges = {edge for fan in fans for edge in fan.edges}
     pending = sorted(set(uncolored_edges) - fan_edges)
     if len(fans) >= minimum_progress:
+        fans.assert_compatible(coloring)
         return fans
     for edge in pending:
         if edge in coloring or edge in fan_edges:
@@ -799,6 +800,10 @@ def collect_separable_fans(
         else:
             _extend_edge_by_fan_chain(coloring, edge, coloring.color_count)
             extended_edges += 1
+            # Fan-chain flips can change a missing color assigned to an
+            # existing fan.  Remove those fans before exposing the
+            # collection to Color-Small or Amplify.
+            fans.discard_damaged(coloring)
         if len(fans) + extended_edges >= minimum_progress:
             break
     fans.assert_valid()
@@ -808,6 +813,7 @@ def collect_separable_fans(
             "fan collection made insufficient deterministic progress: "
             f"progress={progress}, required={minimum_progress}"
         )
+    fans.assert_compatible(coloring)
     return fans
 
 
