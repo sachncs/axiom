@@ -1505,6 +1505,20 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_check_rejects_intermediate_u_u_matching_edge(self) -> None:
+        graph = Adjacency(8)
+        for left in range(8):
+            for right in range(left + 1, 8):
+                graph.add_edge(left, right)
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+        assert {6, 7} <= hierarchy.levels[1].U
+        assert (6, 7) not in hierarchy.levels[1].M
+
+        hierarchy.levels[1].M.add((6, 7))
+
+        assert not hierarchy.check()
+
     def test_recursive_builder_random_sparse_graphs(self) -> None:
         for seed in range(12):
             rng = random.Random(seed)

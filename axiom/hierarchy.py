@@ -194,6 +194,7 @@ class Hierarchy:
             # graph exactly.
             if (
                 not level.check_edges()
+                or not level.check_no_u_u_edges()
                 or not level.check_partition()
                 or not level.check_lambda()
                 or not level.check_L()
@@ -544,10 +545,9 @@ def refine_hierarchy(
     old_b = set(previous.B)
     old_u = set(previous.U)
     levels = [set(level) for level in hierarchy.A_levels]
-    # A one-level base system may contain U-U edges.  The multilevel
-    # definition forbids those edges from level 2 onward, so discard
-    # inherited U-U matching edges before the promotion pass; U vertices
-    # have no lower matching-degree requirement.
+    # The base construction already removes U-U matching edges.  Keep this
+    # defensive normalization for explicitly supplied/custom hierarchies;
+    # U vertices have no lower matching-degree requirement.
     for edge in tuple(chosen):
         if edge[0] in old_u and edge[1] in old_u:
             chosen.remove(edge)
