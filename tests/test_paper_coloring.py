@@ -64,6 +64,9 @@ def test_partial_coloring_flip_preserves_properness() -> None:
     assert coloring[(1, 2)] == 0
     assert coloring[(2, 3)] == 1
     assert coloring.missing(1) == [1, 2]
+    assert coloring.is_missing(1, 1)
+    assert not coloring.is_missing(1, 0)
+    assert coloring.first_missing(1) == 1
 
 
 def test_activate_fan_extends_one_uncolored_spoke() -> None:

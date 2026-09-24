@@ -186,6 +186,19 @@ class PartialColoring:
             if color not in self._incident[vertex]
         ]
 
+    def is_missing(self, vertex: Vertex, color: Color) -> bool:
+        """Return whether ``color`` is available at ``vertex`` in O(1)."""
+        if not 0 <= color < self.color_count:
+            return False
+        return color not in self._incident[vertex]
+
+    def first_missing(self, vertex: Vertex) -> Color:
+        """Return the smallest available color, or fail explicitly."""
+        for color in range(self.color_count):
+            if color not in self._incident[vertex]:
+                return color
+        raise RuntimeError(f"vertex {vertex} has no missing color")
+
     def validate(self) -> None:
         """Validate that every stored edge color is proper and in range."""
         seen: dict[Vertex, set[Color]] = {
@@ -260,7 +273,7 @@ class PartialColoring:
         """Return the maximal simple path starting with ``second_color``."""
         if first_color == second_color:
             raise ValueError("alternating path colors must differ")
-        if first_color not in self.missing(start):
+        if not self.is_missing(start, first_color):
             raise ValueError("first color must be missing at the path start")
         path = [start]
         visited = {start}
@@ -500,7 +513,7 @@ class SeparableFans:
             fan
             for fan in self
             if any(
-                fan.color_at(vertex) not in coloring.missing(vertex)
+                not coloring.is_missing(vertex, fan.color_at(vertex))
                 for vertex in fan.vertices
             )
             or any(edge in coloring for edge in fan.edges)
@@ -528,7 +541,7 @@ def activate_fan(coloring: PartialColoring, fans: SeparableFans, fan: UFan) -> E
         (fan.first_leaf, fan.first_color),
         (fan.second_leaf, fan.second_color),
     ):
-        if color not in coloring.missing(vertex):
+        if not coloring.is_missing(vertex, color):
             raise ValueError("u-fan colors must be missing at their vertices")
     paths = [
         (fan.first_leaf, fan.first_color),
