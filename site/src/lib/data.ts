@@ -15,10 +15,9 @@ export const SITE = {
 export const NAV = [
   { label: "Get started", href: "get-started/" },
   { label: "Playground", href: "playground/" },
-  { label: "Concepts", href: "concepts/" },
+  { label: "Docs", href: "concepts/" },
   { label: "Modes", href: "modes/" },
   { label: "API", href: "api/" },
-  { label: "Examples", href: "examples/" },
 ] as const;
 
 export const METRICS = [

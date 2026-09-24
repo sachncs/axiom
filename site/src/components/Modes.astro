@@ -83,25 +83,22 @@ const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
   .modes__grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 18px;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
     align-items: stretch;
   }
 
   .mode {
-    padding: clamp(28px, 3.4vw, 44px);
+    padding: clamp(28px, 3.4vw, 44px) clamp(20px, 3.4vw, 44px) clamp(28px, 3.4vw, 44px) 0;
     display: grid;
     gap: 30px;
     align-content: start;
-    box-shadow: var(--ring);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
-  .mode:first-child:hover {
-    border-color: rgba(91, 140, 255, 0.35);
-    box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.2), var(--shadow-md);
-  }
-  .mode:last-child:hover {
-    border-color: rgba(160, 107, 255, 0.38);
-    box-shadow: 0 0 0 1px rgba(160, 107, 255, 0.22), var(--shadow-md);
-  }
+  .mode + .mode { padding-left: clamp(20px, 3.4vw, 44px); border-left: 1px solid var(--line); }
 
   .mode__name-row {
     display: flex;
@@ -173,6 +170,15 @@ const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
     padding-top: 20px;
     border-top: 1px solid var(--line);
     font-size: 13px;
+  }
+
+  @media (max-width: 700px) {
+    .modes__grid { grid-template-columns: 1fr; }
+    .mode, .mode + .mode {
+      padding: 28px 0;
+      border-left: 0;
+    }
+    .mode + .mode { border-top: 1px solid var(--line); }
   }
   .mode__pick {
     color: var(--ink-faint);

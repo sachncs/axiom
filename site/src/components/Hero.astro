@@ -87,23 +87,25 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 <style>
   .hero {
     position: relative;
-    padding-top: clamp(64px, 9vw, 128px);
-    padding-bottom: clamp(56px, 7vw, 96px);
+    padding-top: clamp(54px, 7vw, 96px);
+    padding-bottom: clamp(54px, 7vw, 96px);
     display: grid;
-    justify-items: center;
+    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
+    gap: clamp(36px, 6vw, 88px);
+    align-items: center;
   }
 
   .hero__content {
     display: grid;
-    justify-items: center;
-    text-align: center;
-    gap: 24px;
-    max-width: 780px;
+    justify-items: start;
+    text-align: left;
+    gap: 20px;
+    max-width: 560px;
   }
 
   .hero__title {
     margin: 0;
-    font-size: clamp(44px, 7.4vw, 84px);
+    font-size: clamp(42px, 5.4vw, 72px);
     line-height: 0.98;
     letter-spacing: -0.034em;
     font-weight: 680;
@@ -117,7 +119,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   .hero__sub {
     margin: 0;
-    font-size: clamp(17px, 1.9vw, 20.5px);
+    font-size: clamp(16px, 1.55vw, 18px);
     line-height: 1.58;
     color: var(--ink-dim);
     max-width: 640px;
@@ -134,7 +136,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   .hero__cta {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 12px;
     margin-top: 6px;
   }
@@ -161,8 +163,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   .demo {
     width: 100%;
-    max-width: 760px;
-    margin-top: clamp(48px, 6vw, 72px);
+    max-width: none;
+    margin-top: 0;
     overflow: hidden;
     border-radius: var(--r-xl);
     background: var(--glass);
@@ -305,6 +307,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   }
   .demo__tick {
     margin-left: auto;
+  }
+
+  @media (max-width: 860px) {
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 34px;
+    }
+    .hero__content {
+      justify-items: center;
+      text-align: center;
+      max-width: 760px;
+      margin-inline: auto;
+    }
+    .hero__cta {
+      justify-content: center;
+    }
+    .demo {
+      max-width: 760px;
+      margin-inline: auto;
+    }
   }
 
   @media (max-width: 620px) {

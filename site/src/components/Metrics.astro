@@ -7,9 +7,7 @@ import { METRICS } from "../lib/data";
     {
       METRICS.map((m) => (
         <div class="metric">
-          <span class="metric__value">
-            <span class="metric__inner">{m.value}</span>
-          </span>
+          <span class="metric__value"><span class="metric__inner">{m.value}</span></span>
           <div class="metric__label">{m.label}</div>
           <div class="metric__note">{m.note}</div>
         </div>
@@ -20,30 +18,27 @@ import { METRICS } from "../lib/data";
 
 <style>
   .metrics {
-    padding-block: 10px clamp(40px, 5vw, 64px);
+    padding-block: 0 clamp(54px, 7vw, 90px);
   }
   .metrics__grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    background: linear-gradient(180deg, var(--surface), transparent);
-    overflow: hidden;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
   }
   .metric {
-    padding: clamp(22px, 3vw, 34px) clamp(18px, 2.4vw, 28px);
-    border-right: 1px solid var(--line);
+    padding: 22px 20px 24px 0;
     display: grid;
-    gap: 4px;
+    gap: 3px;
     align-content: start;
+    border-right: 1px solid var(--line);
   }
-  .metric:last-child {
-    border-right: 0;
-  }
+  .metric:not(:first-child) { padding-left: 20px; }
+  .metric:last-child { border-right: 0; }
   .metric__value {
-    font-size: clamp(22px, 2.6vw, 30px);
-    font-weight: 700;
-    letter-spacing: -0.025em;
+    font-size: clamp(22px, 2.5vw, 30px);
+    font-weight: 680;
+    letter-spacing: -0.04em;
     overflow: hidden;
   }
   .metric__inner {
@@ -53,37 +48,29 @@ import { METRICS } from "../lib/data";
     color: transparent;
   }
   .metric__label {
-    font-size: 14.5px;
+    font-size: 14px;
     color: var(--ink);
     font-weight: 600;
   }
   .metric__note {
-    font-size: 12.5px;
+    font-size: 11.5px;
     color: var(--ink-faint);
     font-family: var(--font-mono);
   }
-
-  @media (max-width: 900px) {
-    .metrics__grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .metric:nth-child(2) {
-      border-right: 0;
-    }
-    .metric:nth-child(-n + 2) {
-      border-bottom: 1px solid var(--line);
-    }
+  @media (max-width: 700px) {
+    .metrics__grid { grid-template-columns: repeat(2, 1fr); }
+    .metric:nth-child(2) { border-right: 0; }
+    .metric:nth-child(-n + 2) { border-bottom: 1px solid var(--line); }
+    .metric:nth-child(odd) { padding-left: 0; }
+    .metric:nth-child(even) { padding-left: 16px; }
   }
-  @media (max-width: 520px) {
-    .metrics__grid {
-      grid-template-columns: 1fr;
-    }
-    .metric {
+  @media (max-width: 420px) {
+    .metrics__grid { grid-template-columns: 1fr; }
+    .metric, .metric:not(:first-child), .metric:nth-child(even), .metric:nth-child(odd) {
+      padding: 18px 0;
       border-right: 0;
       border-bottom: 1px solid var(--line);
     }
-    .metric:last-child {
-      border-bottom: 0;
-    }
+    .metric:last-child { border-bottom: 0; }
   }
 </style>
