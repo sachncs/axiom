@@ -48,6 +48,22 @@ matcher.stats()     # update and rebuild ledger`}</code></pre>
     </tbody>
   </table>
 
+  <h3><code>stats()</code> schema</h3>
+  <table class="doc-table">
+    <thead><tr><th>Key</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>n</code>, <code>m</code></td><td>Vertex and live-edge counts at the time of the snapshot.</td></tr>
+      <tr><td><code>matching_size</code></td><td>Number of edges in the maintained maximal matching.</td></tr>
+      <tr><td><code>updates_since_rebuild</code></td><td>Updates applied since the active phase rebuild.</td></tr>
+      <tr><td><code>phase_length</code>, <code>subphase_length</code></td><td>Configured rebuild and seed-maintenance boundaries.</td></tr>
+      <tr><td><code>subphase_count</code></td><td>Number of subphase maintenance events completed.</td></tr>
+      <tr><td><code>z</code></td><td>Active saturation threshold for the current mode.</td></tr>
+      <tr><td><code>total_updates</code>, <code>total_insertions</code>, <code>total_deletions</code></td><td>Cumulative accepted update counters.</td></tr>
+      <tr><td><code>phase_rebuilds</code>, <code>subphase_rebuilds</code></td><td>Cumulative phase and subphase maintenance counts.</td></tr>
+      <tr><td><code>rematch_*_scans</code>, <code>stale_cleanups</code></td><td>Empirical work counters for rematching and removed matching edges.</td></tr>
+    </tbody>
+  </table>
+
   <h2>Validation and failure</h2>
   <p>Invalid vertices, malformed edges, and unsupported modes are rejected explicitly. Duplicate insertions and missing deletions follow the documented no-op semantics. A failed update must not expose a partially applied graph or matching state.</p>
   <table class="doc-table">
