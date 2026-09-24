@@ -225,9 +225,11 @@ Each item below is tagged with one of:
 - **ACCEPTED-HEURISTIC** &mdash; the implementation substitutes a documented alternative algorithm with the same correctness contract.
 
 1. **Theorem 2.4 full statement and algorithm** &mdash; IMPLEMENTATION-GAP. The
-   repository now has deterministic fan-shift/activation, `Modify-Types`, and
-   local `Sparsify-Types` operations with explicit invariant checks, but not
-   the complete ABB+26 construction, data structures, or asymptotic bound.
+   authoritative ABB+26 source is [Vizing's Theorem in Deterministic
+   Almost-Linear Time](https://arxiv.org/abs/2510.12619). The repository now
+   has deterministic fan-shift/activation, `Modify-Types`, and local
+   `Sparsify-Types` operations with explicit invariant checks, but not the
+   complete ABB+26 construction, data structures, or asymptotic bound.
 2. **Sections 3-6** &mdash; IMPLEMENTATION-GAP. The full construction and update
    procedures are available; the repository has not yet completed a
    proof-level implementation and verification of every transition.
@@ -245,7 +247,8 @@ Each item below is tagged with one of:
 8. **ABB+26 edge-colouring** &mdash; IMPLEMENTATION-GAP. The local
    implementation uses deterministic fan-shift/activation, `Modify-Types`,
    `Sparsify-Types`, and deterministic Vizing activation/reduction; the cited ABB+26
-   almost-linear algorithm and its data structures are not implemented.
+   almost-linear algorithm and its data structures are not implemented. See
+   the [primary ABB+26 paper](https://arxiv.org/abs/2510.12619).
 9. **Auxiliary graph $H$ update rules** &mdash; IMPLEMENTATION-GAP. The runtime
    maintains directed `H`, reverse-$H$, and `$\tilde H$` indexes from the
    live matching and inserted-edge state. The paper's complete
