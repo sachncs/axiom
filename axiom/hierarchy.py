@@ -405,8 +405,10 @@ def build_hierarchy(
         entry per :math:`z` value.
 
     Complexity:
-        Linear in the number of levels times the cost of
-        :func:`axiom.system.build`.
+        Depends on the recursive edge-colouring and promotion work at each
+        level.  The repository does not claim the paper's asymptotic bound
+        until the complete ABB+26 construction and dynamic data structures
+        are implemented and verified.
     """
     if not level_zs:
         raise ValueError("level_zs must contain at least one positive value")
