@@ -587,6 +587,23 @@ class TestMatcher:
         assert dense_algo.level_phase_lengths == [64, 32, 16, 8, 4]
         assert dense_algo.phase_length == 4
 
+    def test_multilevel_scheduler_switches_at_type_two_boundary(self) -> None:
+        edges = [(left, right) for left in range(8) for right in range(left + 1, 8)]
+
+        type_one = Adjacency(8)
+        for edge in edges[:22]:
+            type_one.add_edge(*edge)
+        type_one_matcher = Matcher(8, mode="multilevel", graph=type_one)
+        assert type_one_matcher.level_zs == [3]
+        assert type_one_matcher.level_phase_lengths == [8]
+
+        type_two = Adjacency(8)
+        for edge in edges[:23]:
+            type_two.add_edge(*edge)
+        type_two_matcher = Matcher(8, mode="multilevel", graph=type_two)
+        assert type_two_matcher.level_zs == [8, 4, 2, 1]
+        assert type_two_matcher.level_phase_lengths == [32, 16, 8, 4]
+
     def test_multilevel_phase_clocks_are_nested_across_fine_rebuilds(self) -> None:
         dense = Adjacency(16)
         for left in range(16):
