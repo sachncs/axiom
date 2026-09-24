@@ -19,8 +19,8 @@
 ## Features
 
 - **Two operating modes**
-  - `basic` &mdash; the single-level &Otilde;(*n*<sup>2/3</sup>) algorithm
-  - `multilevel` &mdash; the recursive *k*-level version with *k* = &Theta;(log *n*)
+  - `basic` &mdash; the single-level z-subgraph implementation
+  - `multilevel` &mdash; the recursive *k*-level z-subgraph implementation
 - **Two canonical modes** &mdash; select `basic` or `multilevel` with the `mode=` string.
 - **z-subgraph system** &mdash; the (*A*, *B*, *U*) partition, *S* = *A* &cup; *B* saturation, &Lambda;(*u*) and *L*(*a*) index lists, and their implemented validators.
 - **Multi-level hierarchy** &mdash; the recursive hierarchy and I3 repair path are implemented and checked, without claiming the paper's complete dynamic theorem.
