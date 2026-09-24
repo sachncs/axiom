@@ -68,9 +68,14 @@ def _base_snapshot(matcher: Matcher) -> tuple[Graph, System]:
     refinement can apply its deleted/inserted edge sets without mutating the
     live hierarchy.
     """
-    assert matcher.multi is not None
-    assert matcher.phase_base_graph is not None
-    assert matcher.phase_base_system is not None
+    if (
+        matcher.multi is None
+        or matcher.phase_base_graph is None
+        or matcher.phase_base_system is None
+    ):
+        raise RuntimeError(
+            "multilevel rebuild is missing its inherited phase-base state"
+        )
     # Keep the phase-start graph and its M edges intact: theorem 4.4 treats
     # ED as deletions from that input system and chooses the bounded subset
     # that may be deferred into the refined hierarchy.  Insertions remain in
@@ -353,7 +358,8 @@ class Multilevel:
         # working subgraph.  The dynamic update pipeline owns a phase graph
         # consisting of live edges minus cumulative E_I, plus deferred E_D'.
         # E_D/E_I span child phases until their parent phase closes.
-        assert matcher.multi is not None
+        if matcher.multi is None:
+            raise RuntimeError("multilevel rebuild did not produce an active hierarchy")
         if parent_boundary:
             # The parent phase has closed: consume deferred deletions and
             # establish a new level-1 root over the current live graph.

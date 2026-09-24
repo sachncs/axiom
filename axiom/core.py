@@ -883,7 +883,8 @@ class Matcher:
         this local transition and normal insertion handling should continue.
         """
         system = self.system
-        assert system is not None
+        if system is None:
+            raise RuntimeError("fast insertion requires an active z-system")
         in_a = (u in system.A, v in system.A)
         if in_a == (True, False):
             a, u_vert = u, v
@@ -965,7 +966,8 @@ class Matcher:
         )
 
     def __rematch_u(self, u: Vertex) -> None:
-        assert self.system is not None
+        if self.system is None:
+            raise RuntimeError("U rematching requires an active z-system")
         # H is directed from an unmatched U source to its Lambda targets.
         # ProcRematchBU(u) therefore consumes incoming H edges for both U and
         # B vertices; scanning H[u] would inspect the wrong endpoint.
@@ -1008,7 +1010,8 @@ class Matcher:
         self.accountant.record_rematch_u_scan(scanned)
 
     def __rematch_b(self, b: Vertex) -> None:
-        assert self.system is not None
+        if self.system is None:
+            raise RuntimeError("B rematching requires an active z-system")
         scanned = 0
         for u in sorted(self.H_reverse.get(b, set())):
             if u not in self.matched_vertices and self.graph.has_edge(u, b):
@@ -1037,7 +1040,8 @@ class Matcher:
                     return
 
     def __rematch_a(self, a: Vertex) -> None:
-        assert self.system is not None
+        if self.system is None:
+            raise RuntimeError("A rematching requires an active z-system")
         level = self.__a_level(a)
         if level is not None:
             self.__rematch_a_level(level, a)
@@ -1073,7 +1077,8 @@ class Matcher:
 
     def __rematch_a_level(self, level: int | None, a: Vertex) -> None:
         """Run ProcRematchA for one level, including upward recursion."""
-        assert self.system is not None
+        if self.system is None:
+            raise RuntimeError("A-level rematching requires an active z-system")
         system = self.system
         # The paper permits only the first 18*n*log^2(n)/z + 1 entries.
         limit = self.__rematch_a_scan_limit()
@@ -1084,7 +1089,10 @@ class Matcher:
             allowed_region = None
             allowed_a = set(system.A)
         else:
-            assert self.multi is not None
+            if self.multi is None:
+                raise RuntimeError(
+                    "recursive A-level rematching requires an active hierarchy"
+                )
             candidates = self.multi.L_levels[level].get(a, [])
             allowed_region = self.multi.R_levels[level]
             allowed_a = set().union(*self.multi.A_levels[: level + 1])
@@ -1161,7 +1169,10 @@ class Matcher:
     def __advance_update_counter(self) -> None:
         self.update_count += 1
         if self.mode == "multilevel":
-            assert isinstance(self.policy, Multilevel)
+            if not isinstance(self.policy, Multilevel):
+                raise RuntimeError(
+                    "multilevel matcher has a non-multilevel rebuild policy"
+                )
             self.policy.advance_phase_clocks(self)
         self.__check_subphase_boundary()
         self.__maintain_i3()
