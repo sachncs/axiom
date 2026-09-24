@@ -11,6 +11,7 @@ from axiom.paper_coloring import (
     SeparableFans,
     UFan,
     _paper_eta,
+    _project_subproblem,
     activate_fan,
     classify_type_sparsification,
     collect_direct_fans,
@@ -69,6 +70,24 @@ def test_modify_types_rejects_fans_incompatible_with_coloring() -> None:
 
     assert dict(coloring.items()) == {((0, 1)): 0}
     assert tuple(fans) == (fan,)
+
+
+def test_project_subproblem_isolates_the_recursive_edge_scope() -> None:
+    graph = Adjacency(6)
+    for edge in ((0, 1), (0, 2), (3, 4), (4, 5)):
+        graph.add_edge(*edge)
+    coloring = PartialColoring(graph, 10)
+    coloring.assign((3, 4), 0)
+    coloring.assign((4, 5), 5)
+    fans = SeparableFans()
+    fans.add(UFan(0, 1, 2, 0, 1, 1))
+
+    child, child_fans, scope, _ = _project_subproblem(coloring, fans, frozenset({0, 1}))
+
+    assert scope == {(0, 1), (0, 2), (3, 4)}
+    assert set(child.graph.edges()) == scope
+    assert set(child.graph.edges()) != set(graph.edges())
+    assert tuple(child_fans) == tuple(fans)
 
 
 def test_partial_coloring_flip_preserves_properness() -> None:

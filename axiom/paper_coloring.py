@@ -1575,7 +1575,13 @@ def _project_subproblem(
             "Extend projected an infeasible subproblem: "
             f"maximum degree {maximum_degree} exceeds palette size {len(ordered)}"
         )
-    child = PartialColoring(coloring.graph, len(ordered))
+    # E_k is an actual edge-disjoint subproblem in ABB's Extend.  Give the
+    # child its own graph snapshot so later path operations cannot
+    # accidentally observe or mutate edges outside this color group.
+    child_graph = Adjacency(coloring.graph.n)
+    for edge in sorted(edge_scope):
+        child_graph.add_edge(*edge)
+    child = PartialColoring(child_graph, len(ordered))
     for edge in edge_scope:
         if edge in coloring:
             color = coloring[edge]
