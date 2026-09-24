@@ -40,7 +40,8 @@ for (const file of files) {
   if (!/<meta[^>]+name=["']description["'][^>]+content=["'][^"']+/i.test(html)) failures.push(`${relative}: missing description`);
   if ((html.match(/<h1\b/gi) ?? []).length !== 1) failures.push(`${relative}: expected exactly one h1`);
   if (html.includes('class="docs-sidebar"')) {
-    const currentRoutes = html.match(/<a\b[^>]*aria-current=["']page["'][^>]*>/gi) ?? [];
+    const sidebar = html.match(/<aside\b[^>]*class=["']docs-sidebar["'][\s\S]*?<\/aside>/i)?.[0] ?? "";
+    const currentRoutes = sidebar.match(/<a\b[^>]*aria-current=["']page["'][^>]*>/gi) ?? [];
     if (currentRoutes.length !== 1) failures.push(`${relative}: expected exactly one current documentation route`);
   }
   if (html.includes(`${basePath}/`)) failures.push(`${relative}: duplicate slash in site-base URL`);
