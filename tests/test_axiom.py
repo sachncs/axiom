@@ -2076,6 +2076,16 @@ class TestPerformance:
         assert algo.inserted_incident_edges[2] == {(0, 2)}
         assert algo._Matcher__check_auxiliary_indexes()
 
+    def test_auxiliary_validator_detects_inserted_incident_index_corruption(
+        self,
+    ) -> None:
+        algo = Matcher(8, mode="multilevel")
+        algo.insert(0, 1)
+
+        algo.inserted_incident_edges[0].clear()
+
+        assert not algo._Matcher__check_auxiliary_indexes()
+
     def test_multilevel_phase_graph_excludes_inserted_edges(self) -> None:
         algo = Matcher(4, mode="multilevel")
         algo.insert(0, 1)

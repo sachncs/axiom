@@ -49,6 +49,7 @@ from axiom.rebuild import Basic, Multilevel
 from axiom.system import System
 from axiom.types import (
     Colorer,
+    Edge,
     Graph,
     Matching,
     Vertex,
@@ -460,6 +461,16 @@ class Matcher:
 
     def __check_auxiliary_indexes(self) -> bool:
         """Validate H, reverse-H, H-tilde, and S-hat against live state."""
+        expected_inserted_incident: dict[Vertex, set[Edge]] = {
+            vertex: set() for vertex in range(self.n)
+        }
+        for edge in self.inserted_edges:
+            left, right = edge
+            expected_inserted_incident[left].add(edge)
+            expected_inserted_incident[right].add(edge)
+        if self.inserted_incident_edges != expected_inserted_incident:
+            return False
+
         if self.system is None:
             return not (
                 self.H
