@@ -1233,10 +1233,18 @@ def _damages_social_fan(
 ) -> bool:
     """Return whether flipping ``paths`` can damage an existing social fan."""
     for path_vertices, source, target in paths:
+        path_edges = {canonical(left, right) for left, right in pairwise(path_vertices)}
         endpoints = (path_vertices[0], path_vertices[-1])
         for other in social:
             if other is fan:
                 continue
+            # ModifyB flips every colored edge on each relevant path.  A
+            # protected fan is damaged if one of its spokes is on that path,
+            # even when neither path endpoint is a fan vertex.  Endpoint-only
+            # checks are insufficient because alternating paths may cross a
+            # fan edge in their interior.
+            if path_edges & other.edges:
+                return True
             if any(
                 endpoint in other.vertices
                 and other.color_at(endpoint) in {source, target}
