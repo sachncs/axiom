@@ -1364,6 +1364,14 @@ def _sparsify_types_unchecked(
         except ValueError:
             fans.discard(fan)
 
+    retained = len(fans)
+    minimum_retained = (3 * initial + 4) // 5
+    if retained < minimum_retained:
+        raise RuntimeError(
+            "Sparsify-Types preprocessing discarded too many u-fans: "
+            f"retained={retained}, required={minimum_retained}, initial={initial}"
+        )
+
     # The paper's constant-fraction bound is integral in the implementation:
     # every non-empty input must retain at least one social fan.
     target = max(1, (initial + 99) // 100)
@@ -1433,6 +1441,15 @@ def _sparsify_types_unchecked(
     result = SeparableFans()
     for fan in social:
         result.add(fan)
+    if len(result) < target:
+        raise RuntimeError(
+            "Sparsify-Types returned fewer social fans than its constant-fraction "
+            f"bound: retained={len(result)}, required={target}"
+        )
+    if any(not fan_is_social(fan, blocks) for fan in result):
+        raise RuntimeError("Sparsify-Types returned a non-social u-fan")
+    if any(len(group) > coloring.color_count // eta for group in pairs):
+        raise RuntimeError("Sparsify-Types returned an oversized color group")
     if coloring.edges() != colored_edges:
         raise RuntimeError("Sparsify-Types changed the set of colored edges")
     return pairs, result
