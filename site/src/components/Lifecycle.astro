@@ -1,0 +1,112 @@
+<section class="section shell lifecycle" id="lifecycle">
+  <div class="section-head" data-reveal>
+    <span class="eyebrow">Inside one update</span>
+    <h2>
+      From changing edge
+      <br />
+      to a <span class="serif gradient-text">checked answer.</span>
+    </h2>
+    <p>
+      Axiom treats the matcher as one state boundary. The graph, matching,
+      partner map, indexes, and hierarchy move together; a new snapshot is
+      visible only after the invariant checks pass.
+    </p>
+  </div>
+
+  <ol class="lifecycle__steps">
+    <li data-reveal style="--reveal-delay: 0ms">
+      <span class="lifecycle__number mono">01</span>
+      <div>
+        <h3>Accept the update</h3>
+        <p>Validate the endpoints and operation, then apply the edge change inside the matcher’s atomic boundary.</p>
+        <code>insert(u, v) · delete(u, v)</code>
+      </div>
+    </li>
+    <li data-reveal style="--reveal-delay: 80ms">
+      <span class="lifecycle__number mono">02</span>
+      <div>
+        <h3>Repair the neighborhood</h3>
+        <p>Update matching state and indexes, rematch affected vertices, and account for the work in the ledger.</p>
+        <code>matching · partners · stats</code>
+      </div>
+    </li>
+    <li data-reveal style="--reveal-delay: 160ms">
+      <span class="lifecycle__number mono">03</span>
+      <div>
+        <h3>Check the invariant</h3>
+        <p>Confirm that the matching remains valid and maximal before the new state is exposed to the caller.</p>
+        <code>maximal() → True</code>
+      </div>
+    </li>
+    <li data-reveal style="--reveal-delay: 240ms">
+      <span class="lifecycle__number mono">04</span>
+      <div>
+        <h3>Continue the stream</h3>
+        <p>Keep the same matcher as the owner of graph state; persist the trace when the result needs to be replayed.</p>
+        <a class="text-link" href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/examples/`}>See the update recipes&nbsp;→</a>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<style>
+  .lifecycle__steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--line-strong);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .lifecycle__steps li {
+    min-width: 0;
+    padding: 26px 24px 4px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .lifecycle__steps li + li {
+    padding-left: 24px;
+    border-left: 1px solid var(--line);
+  }
+  .lifecycle__number {
+    display: block;
+    margin-bottom: 34px;
+    color: var(--cobalt);
+    font-size: 12px;
+    letter-spacing: .1em;
+    font-weight: 650;
+  }
+  .lifecycle h3 {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: -.015em;
+  }
+  .lifecycle p {
+    margin: 12px 0 18px;
+    color: var(--ink-dim);
+    font-size: 14.5px;
+    line-height: 1.62;
+  }
+  .lifecycle code {
+    display: inline-block;
+    color: var(--ink-faint);
+    font: 11.5px/1.5 var(--font-mono);
+  }
+  .lifecycle .text-link {
+    font-size: 13px;
+  }
+  @media (max-width: 860px) {
+    .lifecycle__steps { grid-template-columns: repeat(2, 1fr); }
+    .lifecycle__steps li:nth-child(3) { padding-left: 0; border-left: 0; }
+    .lifecycle__steps li:nth-child(n + 3) { padding-top: 30px; }
+  }
+  @media (max-width: 560px) {
+    .lifecycle__steps { grid-template-columns: 1fr; }
+    .lifecycle__steps li,
+    .lifecycle__steps li + li,
+    .lifecycle__steps li:nth-child(3) {
+      padding: 22px 0;
+      border-left: 0;
+    }
+    .lifecycle__number { margin-bottom: 18px; }
+  }
+</style>
