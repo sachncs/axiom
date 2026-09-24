@@ -959,6 +959,25 @@ class TestMatcher:
         assert (2, 1) in algo.H_tilde
         assert (3, 1) in algo.H_tilde
 
+    def test_tilde_h_reverse_index_tracks_promotion_and_deletion(self) -> None:
+        algo = Matcher(8, mode="multilevel")
+        for edge in [(0, 1), (1, 2), (1, 3), (1, 4)]:
+            algo.insert(*edge)
+
+        assert 1 in algo.bad_vertices
+        assert algo.H_tilde_reverse == {
+            target: {
+                source for source, candidate in algo.H_tilde if candidate == target
+            }
+            for target in {candidate for _, candidate in algo.H_tilde}
+        }
+
+        algo.delete(1, 2)
+
+        assert (2, 1) not in algo.H_tilde
+        assert 2 not in algo.H_tilde_reverse.get(1, set())
+        assert algo._Matcher__check_auxiliary_indexes()
+
     def test_dense_multilevel_bad_threshold_uses_finest_z(self) -> None:
         n = 64
         graph = Adjacency(n)
