@@ -118,7 +118,7 @@ export const MODES = [
       "z₁ = a phase-start average-degree power of two",
       "k = density-sensitive recursive depth",
       "density-sensitive levels down to the √n / (4 log n) threshold",
-      "Invariant (I3) enforced after every update",
+      "Invariant (I3) checked after accepted updates",
     ],
     accent: "violet",
     cta: 'mode="multilevel"',
@@ -133,7 +133,7 @@ algo.insert(0, 1)      # edge arrives
 algo.insert(2, 3)
 algo.delete(1, 0)      # edge leaves
 
-assert algo.maximal()  # still maximal — instantly
+assert algo.maximal()  # verify the accepted state
 print(algo.matching()) # {(2, 3)}
 print(algo.size())     # 1
 print(algo.stats())    # amortised ledger`;
