@@ -7,8 +7,8 @@ fully dynamic maximal matching algorithm of Chuzhoy, Khanna, and Song
 Two operating modes are exposed through :class:`Matcher`:
 
 * ``"basic"`` -- a single-level :math:`z`-subgraph system.
-* ``"multilevel"`` -- a recursive :math:`k`-level system with
-  :math:`k = \\Theta(\\log n)`.
+* ``"multilevel"`` -- a density-sensitive recursive :math:`k`-level system
+  with up to :math:`\\Theta(\\log n)` levels.
 
 The supporting modules provide:
 
