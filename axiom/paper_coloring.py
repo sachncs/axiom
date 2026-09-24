@@ -1715,6 +1715,25 @@ def _block_index(blocks: tuple[frozenset[Color], ...], color: Color) -> int:
     raise ValueError(f"color {color} is outside the amplified color range")
 
 
+def _fan_sort_key(fan: UFan) -> tuple[int, int, int, int, int, int]:
+    """Return the canonical order used for deterministic fan batches."""
+    return (
+        fan.center,
+        fan.first_leaf,
+        fan.second_leaf,
+        fan.center_color,
+        fan.first_color,
+        fan.second_color,
+    )
+
+
+def _fan_block_type(fan: UFan, blocks: tuple[frozenset[Color], ...]) -> tuple[int, int]:
+    """Return the canonical pair of partition blocks containing a fan type."""
+    center_block = _block_index(blocks, fan.center_color)
+    leaf_block = _block_index(blocks, fan.first_color)
+    return min(center_block, leaf_block), max(center_block, leaf_block)
+
+
 def _color_in_block(
     blocks: tuple[frozenset[Color], ...], block_index: int, color: Color
 ) -> Color:
@@ -1979,6 +1998,12 @@ def _sparsify_types_unchecked(
     # every non-empty input must retain at least one social fan.
     target = max(1, (initial + 99) // 100)
     social = {fan for fan in fans if fan_is_social(fan, blocks)}
+    # U_{i,i'} is the set of fans whose two type colors lie in the indicated
+    # partition blocks.  The paper chooses k* by minimizing the union of the
+    # three diagonal/pair groups, before computing the k-bad set B_k.
+    by_block_type: dict[tuple[int, int], set[UFan]] = {}
+    for fan in fans:
+        by_block_type.setdefault(_fan_block_type(fan, blocks), set()).add(fan)
     iterations = 0
     # A successful iteration adds at least one previously non-social fan to
     # ``social``.  The input collection is finite, so its size is the exact
@@ -1992,20 +2017,20 @@ def _sparsify_types_unchecked(
                 "Sparsify-Types exceeded its deterministic iteration bound without "
                 "reaching the required social-fan mass"
             )
-        pair_counts = [
-            sum(
-                1
-                for fan in fans
-                if fan_is_social(fan, blocks) and fan.type <= pair_colors
-            )
-            for pair_colors in pairs
-        ]
         pair_index = min(
-            range(len(pairs)), key=lambda index: (pair_counts[index], index)
+            range(len(pairs)),
+            key=lambda index: (
+                len(
+                    by_block_type.get((2 * index, 2 * index + 1), set())
+                    | by_block_type.get((2 * index, 2 * index), set())
+                    | by_block_type.get((2 * index + 1, 2 * index + 1), set())
+                ),
+                index,
+            ),
         )
         # This is the paper's B_k filter: a non-social fan is k-bad exactly
         # when one of its k-relevant paths would damage an already social fan.
-        good_by_type: dict[tuple[int, int], list[UFan]] = {}
+        bad: set[UFan] = set()
         for fan in fans:
             if fan_is_social(fan, blocks):
                 continue
@@ -2017,13 +2042,13 @@ def _sparsify_types_unchecked(
                     f"non-social u-fan: {fan}"
                 ) from error
             if _damages_social_fan(fan, paths, social):
+                bad.add(fan)
                 continue
-            center_block = _block_index(blocks, fan.center_color)
-            leaf_block = _block_index(blocks, fan.first_color)
-            # A fan type is an unordered pair of color blocks.  Canonicalize
-            # the pair so opposite orientations share one paper batch.
-            key = (min(center_block, leaf_block), max(center_block, leaf_block))
-            good_by_type.setdefault(key, []).append(fan)
+        good_by_type = {
+            key: group - bad
+            for key, group in by_block_type.items()
+            if key[0] < key[1] and group - bad
+        }
         if not good_by_type:
             raise RuntimeError(
                 "Sparsify-Types could not find a good fan for the selected color pair"
@@ -2032,7 +2057,7 @@ def _sparsify_types_unchecked(
             good_by_type,
             key=lambda key: (len(good_by_type[key]), -key[0], -key[1]),
         )
-        batch = tuple(good_by_type[batch_key])
+        batch = tuple(sorted(good_by_type[batch_key], key=_fan_sort_key))
         social_before = len(social)
         modify_types(coloring, fans, batch, blocks, pair_index)
         social = {fan for fan in fans if fan_is_social(fan, blocks)}
