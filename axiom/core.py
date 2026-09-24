@@ -728,6 +728,7 @@ class Matcher:
                 self.multi.sync_graph(
                     self.graph,
                     excluded_edges=self.inserted_edges,
+                    changed_edge=edge,
                 )
             else:
                 self.__update_cached_lists(u, v, added=True)
@@ -785,6 +786,7 @@ class Matcher:
                 self.multi.sync_graph(
                     self.graph,
                     excluded_edges=self.inserted_edges,
+                    changed_edge=edge,
                 )
             else:
                 self.__update_cached_lists(u, v, added=False)

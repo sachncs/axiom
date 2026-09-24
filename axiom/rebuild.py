@@ -339,6 +339,17 @@ class Multilevel:
             matcher.multi = build_hierarchy(
                 phase_base_graph, matcher.level_zs, colorer=matcher.colorer
             )
+        # Recursive refinement constructs the finest system on a selected
+        # working subgraph.  The dynamic update pipeline, however, owns a
+        # full phase graph (live edges plus deferred deletions, excluding
+        # current-phase insertions).  Attach that authoritative phase view
+        # once at the rebuild boundary; subsequent updates can then apply
+        # single-edge deltas without rebuilding the entire graph.
+        assert matcher.multi is not None
+        # A completed phase rebuild incorporates all currently live
+        # insertions into the new phase baseline, so they must not remain in
+        # the transient E_I exclusion set while the graph is attached.
+        matcher.multi.sync_graph(matcher.graph)
         matcher.inserted_edges.clear()
         matcher.deleted_edges.clear()
         matcher.inserted_incident_counts = {vertex: 0 for vertex in range(matcher.n)}

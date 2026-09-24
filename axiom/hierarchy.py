@@ -27,6 +27,7 @@ References:
 
 from __future__ import annotations
 
+from bisect import insort
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import pairwise
@@ -68,7 +69,11 @@ class Hierarchy:
     deferred_deletions: set[Edge] = field(default_factory=set)
 
     def sync_graph(
-        self, graph: Graph, *, excluded_edges: set[Edge] | None = None
+        self,
+        graph: Graph,
+        *,
+        excluded_edges: set[Edge] | None = None,
+        changed_edge: Edge | None = None,
     ) -> None:
         """Synchronize the phase graph and its adjacency indexes.
 
@@ -82,9 +87,34 @@ class Hierarchy:
             raise ValueError(
                 "cannot synchronize a hierarchy with a graph of a different size"
             )
+        excluded = excluded_edges or set()
+        if changed_edge is not None:
+            left, right = changed_edge
+            if left >= right or left < 0 or right >= graph.n:
+                raise ValueError(f"changed_edge must be canonical: {changed_edge}")
+            if self.graph.n != graph.n:
+                raise ValueError(
+                    "cannot incrementally synchronize graphs of different sizes"
+                )
+            # The live graph has already applied the update.  A phase graph
+            # keeps deferred adversarial deletions and omits current-phase
+            # insertions, so only the changed edge's phase visibility can
+            # differ.  Preserve the shared phase graph object and update its
+            # indexes in O(log n) list work instead of rebuilding every level.
+            should_exist = (
+                graph.has_edge(left, right) or changed_edge in self.deferred_deletions
+            ) and changed_edge not in excluded
+            currently_exists = self.graph.has_edge(left, right)
+            if should_exist != currently_exists:
+                if should_exist:
+                    self.graph.add_edge(left, right)
+                else:
+                    self.graph.remove_edge(left, right)
+                self._update_edge_indexes(changed_edge, added=should_exist)
+            return
+
         from axiom.graph import Adjacency
 
-        excluded = excluded_edges or set()
         phase_graph = Adjacency(graph.n)
         phase_edges = set(graph.edges()) | set(self.deferred_deletions)
         for left, right in phase_edges:
@@ -100,6 +130,27 @@ class Hierarchy:
             _level_lists(phase_graph, vertices, self.R_levels[index])
             for index, vertices in enumerate(self.A_levels)
         ]
+
+    def _update_edge_indexes(self, edge: Edge, *, added: bool) -> None:
+        """Apply one phase-edge delta to all inherited adjacency indexes."""
+        left, right = edge
+        for system in self.levels:
+            for source, target in ((left, right), (right, left)):
+                if source in system.U and target in system.B | system.U:
+                    _update_sorted_list(
+                        system.lambda_lists.setdefault(source, []), target, added
+                    )
+                if source in system.A and target in system.U:
+                    _update_sorted_list(
+                        system.L_lists.setdefault(source, []), target, added
+                    )
+        for index, vertices in enumerate(self.A_levels):
+            region = self.R_levels[index]
+            for source, target in ((left, right), (right, left)):
+                if source in vertices and target in region:
+                    _update_sorted_list(
+                        self.L_levels[index].setdefault(source, []), target, added
+                    )
 
     def check(self) -> bool:
         """Validate the multi-level subgraph-system invariants."""
@@ -704,3 +755,12 @@ def _level_lists(
         )
         for vertex in vertices
     }
+
+
+def _update_sorted_list(values: list[Vertex], value: Vertex, added: bool) -> None:
+    """Apply one deterministic adjacency-list delta without rebuilding it."""
+    if added:
+        if value not in values:
+            insort(values, value)
+    elif value in values:
+        values.remove(value)
