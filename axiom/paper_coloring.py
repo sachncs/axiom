@@ -1529,7 +1529,7 @@ def _reduce_u_edges(
         chains = tuple(_build_vizing_chain(coloring, item, blocked) for item in active)
         event = _explore_vizing_chains(chains)
         if event.terminal is not None:
-            selected: tuple[_UEdge, ...] = (event.terminal.u_edge,)
+            selected_chains: tuple[_VizingChain, ...] = (event.terminal,)
         elif event.collision is not None:
             resolved, added = _resolve_chain_collision(coloring, fans, event.collision)
             if resolved:
@@ -1550,10 +1550,11 @@ def _reduce_u_edges(
             )
         else:
             raise RuntimeError("chain exploration returned an empty event")
-        for item in selected:
+        for chain in selected_chains:
+            item = chain.u_edge
             if item not in active or item.edge in coloring:
                 continue
-            _activate_vizing_chain(coloring, _build_vizing_chain(coloring, item))
+            _activate_vizing_chain(coloring, chain)
             active.remove(item)
             extended += 1
         fans.discard_damaged(coloring)
