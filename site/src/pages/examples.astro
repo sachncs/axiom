@@ -1,18 +1,58 @@
 ---
 import DocLayout from "../layouts/DocLayout.astro";
 ---
-<DocLayout title="Examples" eyebrow="Practical usage" description="Small, copyable recipes for the update stream you are likely to build first." next={{ label: "Read the architecture", href: "/architecture/" }}>
+<DocLayout title="Examples" eyebrow="Practical usage" description="Copyable workflows for live updates, reproducible traces, mode comparisons, and benchmark interpretation." next={{ label: "Read the architecture", href: "/architecture/" }}>
   <h2>Maintain a live stream</h2>
   <p>Keep the matcher as the owner of graph state. Feed it updates in order and inspect the matching after each operation.</p>
-  <pre><code>matcher = Matcher(n=8, mode="basic")
-matcher.insert(0, 1)
-matcher.delete(0, 1)
-assert matcher.maximal()</code></pre>
+  <pre><code>from axiom import Matcher
+
+matcher = Matcher(n=8, mode="basic")
+updates = [
+    ("insert", 0, 1),
+    ("insert", 1, 2),
+    ("insert", 4, 5),
+    ("delete", 0, 1),
+]
+
+for operation, u, v in updates:
+    getattr(matcher, operation)(u, v)
+    assert matcher.maximal()
+
+print(matcher.matching())
+print(matcher.partners())
+print(matcher.stats())</code></pre>
+
+  <h2>Replay a deterministic trace</h2>
+  <p>Generate a valid insert/delete sequence from a seeded random generator, save it with your experiment, and replay it against another matcher.</p>
+  <pre><code>import random
+from axiom import Matcher
+from axiom.simulation import random_updates, replay
+
+rng = random.Random(7)
+trace = list(random_updates(n=50, steps=100, rng=rng))
+
+matcher = Matcher(50, mode="multilevel")
+replay(matcher, trace)
+assert matcher.maximal()
+print(matcher.size(), matcher.stats()["matching_size"])</code></pre>
+
   <h2>Compare modes</h2>
-  <p>Use identical updates when comparing <code>basic</code> and <code>multilevel</code>. Record the selected mode and <code>stats()</code> ledger with the result.</p>
-  <pre><code>for mode in ("basic", "multilevel"):
-    matcher = Matcher(n=100, mode=mode)
-    print(mode, matcher.stats())</code></pre>
+  <p><code>compare</code> runs the same seeded workload in independent worker processes. Compare throughput only under the same graph size, update count, and seed.</p>
+  <pre><code>from axiom.parallel import compare
+
+if __name__ == "__main__":
+    results = compare(n=100, updates=1_000, seed=42)
+    for mode, result in results.items():
+        print(mode, round(result.updates_per_sec), result.is_maximal)</code></pre>
+  <p class="doc-note">Run this from a Python file or module. The main guard is required on platforms that use the <code>spawn</code> multiprocessing start method.</p>
+
+  <h2>Command line smoke test</h2>
+  <pre><code>$ axiom --n 20 --mode basic --updates 200 --seed 42
+Completed 200 updates in 0.001s
+Final edges: 12
+Matching size: 8
+Maximal: True</code></pre>
+
   <h2>Production checklist</h2>
-  <ul><li>Validate update ordering at your input boundary.</li><li>Persist the update stream if you need reproducibility.</li><li>Pin the Axiom version and record the selected mode.</li></ul>
+  <ul><li>Validate update ordering at your input boundary.</li><li>Persist the update trace if you need reproducibility.</li><li>Assert maximality in staging and benchmark runs.</li><li>Pin the Axiom version and record the selected mode.</li><li>Do not share one matcher instance across concurrent writers.</li></ul>
 </DocLayout>
