@@ -1474,9 +1474,19 @@ def _prune_vizing_fans(
 
     active: list[tuple[_UEdge, list[Vertex]]] = []
     pending = list(u_edges)
+    deferred: list[_UEdge] = []
     while pending:
-        item = pending.pop(0)
-        blocked = _u_component_colors(fans, u_edges)
+        original = pending.pop(0)
+        item = _refresh_u_edge(coloring, original)
+        if item is None:
+            continue
+        if item.center_color != alpha:
+            deferred.append(item)
+            continue
+        blocked = _u_component_colors(
+            fans,
+            tuple(entry[0] for entry in active) + (item,),
+        )
         leaves, _ = _construct_vizing_fan(coloring, item.center, item.leaf, blocked)
         collision = None
         for vertex in (item.center, *leaves):
@@ -1543,7 +1553,7 @@ def _prune_vizing_fans(
         pending = [entry[0] for entry in active] + pending
         active = []
 
-    refreshed = _refresh_u_edges(coloring, [item for item, _ in active])
+    refreshed = _refresh_u_edges(coloring, [item for item, _ in active] + deferred)
     fans.assert_valid()
     fans.assert_compatible(coloring)
     return tuple(refreshed)
