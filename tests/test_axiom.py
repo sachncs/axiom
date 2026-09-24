@@ -7,6 +7,7 @@ utilities, and stress tests.
 
 from __future__ import annotations
 
+import math
 import random
 
 import pytest
@@ -954,6 +955,25 @@ class TestMatcher:
         assert 1 in algo.bad_vertices
         assert (2, 1) in algo.H_tilde
         assert (3, 1) in algo.H_tilde
+
+    def test_dense_multilevel_bad_threshold_uses_finest_z(self) -> None:
+        n = 64
+        graph = Adjacency(n)
+        missing = {(0, 1), (0, 2), (0, 3)}
+        for left in range(n):
+            for right in range(left + 1, n):
+                if (left, right) not in missing:
+                    graph.add_edge(left, right)
+
+        algo = Matcher(n, mode="multilevel", graph=graph)
+        assert algo.level_zs[-1] < math.ceil(math.sqrt(n))
+        threshold = algo.z
+
+        for right in range(1, threshold + 2):
+            if not algo.graph.has_edge(0, right):
+                algo.insert(0, right)
+
+        assert 0 in algo.bad_vertices
 
     def test_augment_preserves_matching_on_three_edge_path(self) -> None:
         graph = Adjacency(10)

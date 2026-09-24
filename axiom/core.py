@@ -707,12 +707,12 @@ class Matcher:
                 if not was_deferred:
                     for vertex in edge:
                         self.inserted_incident_counts[vertex] += 1
-                        # The phase-0 construction uses t=ceil(sqrt(n)) as its
-                        # insertion budget; later dense phases use the active z
-                        # budget.  The paper marks a vertex bad once the
-                        # insertion budget is reached, and badness remains
-                        # phase-persistent.
-                        insertion_budget = max(self.z, math.ceil(math.sqrt(self.n)))
+                        # The paper's insertion protocol marks a vertex bad
+                        # when its incident E_I count reaches z + 1.  ``self.z``
+                        # is the active (finest) multilevel parameter; using
+                        # sqrt(n) as a floor would delay promotion in dense
+                        # type-2 schedules and make the tilde-H index stale.
+                        insertion_budget = max(1, self.z)
                         if (
                             self.inserted_incident_counts[vertex] > insertion_budget
                             and vertex not in self.bad_vertices
