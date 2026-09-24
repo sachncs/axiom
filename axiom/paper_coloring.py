@@ -1418,6 +1418,7 @@ def _modify_types_unchecked(
         )
     coloring.validate()
     fans.assert_valid()
+    fans.assert_compatible(coloring)
     if coloring.edges() != colored_edges:
         raise RuntimeError("Modify-Types changed the set of colored edges")
 
