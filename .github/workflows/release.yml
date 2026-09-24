@@ -73,6 +73,16 @@ jobs:
         with:
           subject-path: "dist/*"
 
+      - name: Prepare artifacts for detached signing
+        run: |
+          mkdir -p signed
+          cp dist/*.whl dist/*.tar.gz signed/
+
+      - name: Sign release artifacts with Sigstore
+        uses: sigstore/gh-action-sigstore-python@5b79a39c381910c090341a2c9b0bf022c8b387e1 # v3.4.0
+        with:
+          inputs: signed/*
+
       - name: Publish to PyPI with trusted publishing
         uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0 # v1.9.0
 
@@ -82,4 +92,4 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes
+        run: gh release create "${GITHUB_REF_NAME}" dist/* signed/* --generate-notes
