@@ -191,9 +191,8 @@ class PartialColoring:
         seen: dict[Vertex, set[Color]] = {
             vertex: set() for vertex in range(self.graph.n)
         }
-        graph_edges = set(self.graph.edges())
         for edge, color in self._colors.items():
-            if edge not in graph_edges:
+            if not self.graph.has_edge(*edge):
                 raise AssertionError(f"colored edge is outside graph: {edge}")
             if not 0 <= color < self.color_count:
                 raise AssertionError(f"color is outside palette: {edge}={color}")
@@ -214,7 +213,7 @@ class PartialColoring:
 
     def assign(self, edge: Edge, color: Color) -> None:
         edge = canonical(*edge)
-        if edge not in set(self.graph.edges()):
+        if not self.graph.has_edge(*edge):
             raise ValueError(f"cannot color an edge outside the graph: {edge}")
         if not isinstance(color, int) or isinstance(color, bool):
             raise ValueError("color must be an integer")
