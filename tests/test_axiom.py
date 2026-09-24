@@ -88,6 +88,11 @@ class TestAdjacency:
         with pytest.raises(ValueError):
             matcher.delete(1, 3)
 
+    def test_matcher_rejects_invalid_partner_vertex(self) -> None:
+        matcher = Matcher(3)
+        with pytest.raises(ValueError, match="vertex must be in"):
+            matcher.partner(3)
+
     def test_copy(self) -> None:
         g = Adjacency(3)
         g.add_edge(0, 1)

@@ -48,6 +48,14 @@ matcher.stats()     # update and rebuild ledger`}</code></pre>
 
   <h2>Validation and failure</h2>
   <p>Invalid vertices, malformed edges, and unsupported modes are rejected explicitly. Duplicate insertions and missing deletions follow the documented no-op semantics. A failed update must not expose a partially applied graph or matching state.</p>
+  <table class="doc-table">
+    <thead><tr><th>Condition</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Invalid <code>n</code>, vertex, mode, graph, or colorer</td><td><code>ValueError</code> before state changes.</td></tr>
+      <tr><td>Duplicate insertion, missing deletion, or self-loop update</td><td>Validated no-op; the graph and matching remain unchanged.</td></tr>
+      <tr><td>Internal repair or invariant failure</td><td><code>RuntimeError</code> after atomic rollback; inspect the diagnostic and preserve the input trace.</td></tr>
+    </tbody>
+  </table>
   <div class="doc-callout"><p>For reproducible experiments, record the mode, vertex count, update sequence, and <code>stats()</code> ledger alongside your result.</p></div>
 
   <h2>Custom implementations and concurrency</h2>

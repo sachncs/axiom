@@ -1328,6 +1328,7 @@ class Matcher:
             O(1) via the partner map maintained in lockstep with the
             matching.
         """
+        self.__validate_vertex(v)
         return self.partner_map.get(v)
 
     def partners(self) -> dict[Vertex, Vertex]:
