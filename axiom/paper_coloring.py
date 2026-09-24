@@ -1442,7 +1442,9 @@ def _prune_vizing_fans(
         raise ValueError("PruneVFans processes one alpha-primed group at a time")
 
     active: list[tuple[_UEdge, list[Vertex]]] = []
-    for item in u_edges:
+    pending = list(u_edges)
+    while pending:
+        item = pending.pop(0)
         blocked = _u_component_colors(fans, u_edges)
         leaves, _ = _construct_vizing_fan(coloring, item.center, item.leaf, blocked)
         collision = None
@@ -1477,6 +1479,8 @@ def _prune_vizing_fans(
                 raise RuntimeError("PruneVFans exposed an unavailable alpha edge")
             coloring.assign(exposed, alpha)
             active.pop(existing_index)
+            pending = [entry[0] for entry in active] + pending
+            active = []
             continue
 
         if existing_is_current_leaf:
@@ -1488,6 +1492,8 @@ def _prune_vizing_fans(
                 raise RuntimeError("PruneVFans exposed an unavailable alpha edge")
             coloring.assign(exposed, alpha)
             active.pop(existing_index)
+            pending = [entry[0] for entry in active] + pending
+            active = []
             continue
 
         # The first shared vertex is a leaf of both fans.  Rotating both fans
@@ -1503,6 +1509,8 @@ def _prune_vizing_fans(
         created = UFan(shared, item.center, existing.center, beta, alpha, alpha)
         fans.add(created)
         active.pop(existing_index)
+        pending = [entry[0] for entry in active] + pending
+        active = []
 
     fans.assert_valid()
     fans.assert_compatible(coloring)
