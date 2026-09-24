@@ -457,6 +457,23 @@ class Matcher:
                 expected_tilde.add((right, left))
         return self.H_tilde == expected_tilde
 
+    def __check_matching_state(self) -> bool:
+        """Validate the matching, vertex cache, and partner map together."""
+        expected_vertices: set[Vertex] = set()
+        expected_partners: dict[Vertex, Vertex] = {}
+        for left, right in self.matched_edges:
+            if left >= right or not self.graph.has_edge(left, right):
+                return False
+            if left in expected_vertices or right in expected_vertices:
+                return False
+            expected_vertices.update((left, right))
+            expected_partners[left] = right
+            expected_partners[right] = left
+        return (
+            self.matched_vertices == expected_vertices
+            and self.partner_map == expected_partners
+        )
+
     def add_match(self, u: Vertex, v: Vertex) -> None:
         """Add edge ``(u, v)`` to the maintained matching.
 
@@ -1066,6 +1083,10 @@ class Matcher:
             self.policy.advance_phase_clocks(self)
         self.__check_subphase_boundary()
         self.__maintain_i3()
+        if not self.__check_matching_state():
+            raise RuntimeError(
+                "matching views diverged from the authoritative live graph"
+            )
         # Matching transitions can expose vertices indirectly through a
         # recursive fan/I3 repair.  Rebuild the bounded auxiliary views from
         # the authoritative matching and current lambda lists before checking
