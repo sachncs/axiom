@@ -157,6 +157,30 @@ class Multilevel:
     name = "multilevel"
 
     @staticmethod
+    def _validate_nested_schedule(
+        level_zs: list[int], phase_lengths: list[int]
+    ) -> None:
+        """Reject schedules that do not encode the paper's binary nesting."""
+        if len(level_zs) != len(phase_lengths) or not level_zs:
+            raise RuntimeError("multilevel schedule has mismatched level state")
+        if any(
+            level_zs[index] <= 0 or phase_lengths[index] <= 0
+            for index in range(len(level_zs))
+        ):
+            raise RuntimeError("multilevel schedule contains a non-positive value")
+        for index in range(len(level_zs) - 1):
+            if level_zs[index] != 2 * level_zs[index + 1]:
+                raise RuntimeError(
+                    "multilevel z schedule is not recursively halved: "
+                    f"{level_zs[index]} -> {level_zs[index + 1]}"
+                )
+            if phase_lengths[index] != 2 * phase_lengths[index + 1]:
+                raise RuntimeError(
+                    "multilevel phase schedule is not binary nested: "
+                    f"{phase_lengths[index]} -> {phase_lengths[index + 1]}"
+                )
+
+    @staticmethod
     def _reset_phase_clocks(matcher: Matcher) -> None:
         """Reset the nested clocks after a schedule change or first build."""
         matcher.level_phase_updates = [0 for _ in matcher.level_phase_lengths]
@@ -185,6 +209,7 @@ class Multilevel:
 
     def configure(self, matcher: Matcher) -> None:
         level_zs, phase_lengths, eta = self._schedule(matcher)
+        self._validate_nested_schedule(level_zs, phase_lengths)
         matcher.level_zs = level_zs
         matcher.level_phase_lengths = phase_lengths
         matcher.eta = eta
@@ -228,9 +253,6 @@ class Multilevel:
         z = 1
         while z < required_z:
             z *= 2
-        # The maximum degree is at most n-1, so n is a safe cap for the
-        # non-power-of-two sizes supported by this implementation.
-        z = min(z, matcher.n)
         threshold = root_n / (4 * max(1.0, math.log2(matcher.n)))
         level_zs = [z]
         while z // 2 >= threshold and z > 1:
@@ -258,6 +280,7 @@ class Multilevel:
     def rebuild(self, matcher: Matcher) -> None:
         previous_lengths = list(matcher.level_phase_lengths)
         level_zs, phase_lengths, eta = self._schedule(matcher)
+        self._validate_nested_schedule(level_zs, phase_lengths)
         matcher.level_zs = level_zs
         matcher.level_phase_lengths = phase_lengths
         matcher.eta = eta
