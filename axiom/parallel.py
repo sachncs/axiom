@@ -142,13 +142,29 @@ def run_parallel(
         ...     (200, "basic", 1000, 42),
         ... ]
         >>> results = run_parallel(configs)
-        >>> for r in results:
-        ...     print(f"{r.mode}: {r.updates_per_sec:.0f} ops/sec")
+    >>> for r in results:
+    ...     print(f"{r.mode}: {r.updates_per_sec:.0f} ops/sec")
     """
+    if max_workers is not None and (
+        not isinstance(max_workers, int)
+        or isinstance(max_workers, bool)
+        or max_workers <= 0
+    ):
+        raise ValueError(f"max_workers must be a positive integer, got {max_workers!r}")
+    normalized: list[tuple[int, str, int, int]] = []
+    for index, config in enumerate(configs):
+        if not isinstance(config, (tuple, list)) or len(config) != 4:
+            raise ValueError(
+                "each benchmark config must be a 4-item sequence "
+                f"(n, mode, updates, seed); index={index}"
+            )
+        n, mode, updates, seed = config
+        _validate_benchmark_inputs(n, mode, updates, seed)
+        normalized.append((n, mode, updates, seed))
     with multiprocessing.Pool(processes=max_workers) as pool:
         results = pool.starmap(
             worker,
-            configs,
+            normalized,
         )
     return list(results)
 

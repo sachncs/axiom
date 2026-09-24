@@ -2097,6 +2097,24 @@ class TestCoverage:
 
         assert run_parallel([], max_workers=1) == []
 
+    @pytest.mark.parametrize(
+        "configs, max_workers",
+        [
+            ([(4, "basic", 1)], 1),
+            ([(4, "tiered", 1, 1)], 1),
+            ([(4, "basic", -1, 1)], 1),
+            ([], 0),
+        ],
+    )
+    def test_run_parallel_rejects_invalid_configuration(
+        self, configs, max_workers
+    ) -> None:
+        """Malformed configs fail before multiprocessing starts."""
+        from axiom.parallel import run_parallel
+
+        with pytest.raises(ValueError):
+            run_parallel(configs, max_workers=max_workers)
+
     def test_run_parallel_respects_max_workers(self) -> None:
         """run_parallel completes a small batch with explicit max_workers."""
         from axiom.parallel import run_parallel
