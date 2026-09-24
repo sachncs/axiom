@@ -127,6 +127,7 @@ class _VizingChain:
     u_edge: _UEdge
     fan_leaves: tuple[Vertex, ...]
     path: tuple[Vertex, ...]
+    leaf_colors: tuple[Color, ...] = ()
 
     @property
     def path_edges(self) -> tuple[Edge, ...]:
@@ -1121,45 +1122,51 @@ def _invert_color_component(
 def _maximal_fan(
     coloring: PartialColoring, center: Vertex, first_leaf: Vertex
 ) -> list[Vertex]:
-    fan = [first_leaf]
+    leaves, _ = _construct_vizing_fan(coloring, center, first_leaf)
+    return leaves
+
+
+def _construct_vizing_fan(
+    coloring: PartialColoring, center: Vertex, first_leaf: Vertex
+) -> tuple[list[Vertex], list[Color]]:
+    """Construct the paper's deterministic ``VizingF`` sequence."""
+    leaves = [first_leaf]
+    leaf_colors = [coloring.first_missing(first_leaf)]
     while True:
-        last = fan[-1]
-        used_at_last = {
-            color
-            for neighbor in coloring.graph.neighbors(last)
-            if (color := _edge_color_at(coloring, last, neighbor)) is not None
-        }
+        terminal = leaf_colors[-1]
+        if coloring.is_missing(center, terminal) or terminal in leaf_colors[:-1]:
+            return leaves, leaf_colors
         extension = next(
             (
                 neighbor
                 for neighbor in sorted(coloring.graph.neighbors(center))
-                if neighbor not in fan
-                and (edge_color := _edge_color_at(coloring, center, neighbor))
-                is not None
-                and edge_color not in used_at_last
+                if neighbor not in leaves
+                and _edge_color_at(coloring, center, neighbor) == terminal
             ),
             None,
         )
         if extension is None:
-            return fan
-        fan.append(extension)
+            raise RuntimeError(
+                "Vizing fan construction could not find the terminal-color edge"
+            )
+        leaves.append(extension)
+        leaf_colors.append(coloring.first_missing(extension))
 
 
 def _build_vizing_chain(coloring: PartialColoring, u_edge: _UEdge) -> _VizingChain:
     """Build the paper's Vizing fan and its maximal chain for one u-edge."""
-    leaves = tuple(_maximal_fan(coloring, u_edge.center, u_edge.leaf))
-    if len(leaves) == 1:
-        return _VizingChain(u_edge, leaves, ())
-    last_edge = canonical(u_edge.center, leaves[-1])
-    last_color = coloring[last_edge]
-    if coloring.is_missing(u_edge.center, last_color):
-        return _VizingChain(u_edge, leaves, ())
+    leaves, leaf_colors = _construct_vizing_fan(coloring, u_edge.center, u_edge.leaf)
+    leaves_tuple = tuple(leaves)
+    colors_tuple = tuple(leaf_colors)
+    terminal = colors_tuple[-1]
+    if coloring.is_missing(u_edge.center, terminal):
+        return _VizingChain(u_edge, leaves_tuple, (), colors_tuple)
     path = tuple(
-        coloring.alternating_path(u_edge.center, u_edge.center_color, last_color)
+        coloring.alternating_path(u_edge.center, u_edge.center_color, terminal)
     )
     if path and path[0] != u_edge.center:
         raise RuntimeError("Vizing chain does not start at its fan center")
-    return _VizingChain(u_edge, leaves, path)
+    return _VizingChain(u_edge, leaves_tuple, path, colors_tuple)
 
 
 def _explore_vizing_chains(
@@ -1211,6 +1218,59 @@ def _restore_fan_collection(fans: SeparableFans, snapshot: tuple[UFan, ...]) -> 
         fans.add(fan)
 
 
+def _activate_vizing_chain(coloring: PartialColoring, chain: _VizingChain) -> Edge:
+    """Run the paper's ``Vizing(F)`` operation for one materialized fan."""
+    center = chain.u_edge.center
+    leaves = list(chain.fan_leaves)
+    if not leaves:
+        raise RuntimeError("Vizing activation requires a non-empty fan")
+    edge = chain.u_edge.edge
+    if edge in coloring:
+        raise ValueError(f"u-edge is already colored: {edge}")
+    colors = list(chain.leaf_colors)
+    if len(colors) != len(leaves):
+        raise RuntimeError("Vizing chain is missing its fan leaf-color sequence")
+    terminal = colors[-1]
+    alpha = chain.u_edge.center_color
+    before = dict(coloring._colors)
+    try:
+        if coloring.is_missing(center, terminal):
+            # Trivial fan: rotate every assigned spoke and color the final
+            # spoke with the terminal missing color.
+            for index, color in enumerate(colors):
+                coloring._colors[canonical(center, leaves[index])] = color
+            coloring._colors[canonical(center, leaves[-1])] = terminal
+            coloring._reindex()
+            coloring.validate()
+            return edge
+
+        repeated = next(
+            (index for index, color in enumerate(colors[:-1]) if color == terminal),
+            None,
+        )
+        if repeated is None:
+            raise RuntimeError("non-trivial Vizing fan has no repeated terminal color")
+        if not chain.path or chain.path[0] != center:
+            raise RuntimeError("non-trivial Vizing fan has no source-defined path")
+        path_ends_at_repeated_leaf = chain.path[-1] == leaves[repeated]
+        if path_ends_at_repeated_leaf:
+            coloring.flip(list(chain.path), alpha, terminal)
+            _rotate_fan(coloring, center, leaves, len(leaves) - 1)
+            coloring._colors[canonical(center, leaves[-1])] = terminal
+            coloring._reindex()
+        else:
+            _rotate_fan(coloring, center, leaves, repeated + 1)
+            coloring.flip(list(chain.path), alpha, terminal)
+        coloring.assign(edge, alpha)
+        coloring.validate()
+        return edge
+    except BaseException:
+        coloring._colors = before
+        coloring._reindex()
+        coloring.validate()
+        raise
+
+
 def _resolve_chain_collision(
     coloring: PartialColoring,
     fans: SeparableFans,
@@ -1253,10 +1313,8 @@ def _resolve_chain_collision(
             beta = coloring[first_predecessor]
             coloring.unassign(first_predecessor)
             coloring.unassign(second_predecessor)
-            _extend_edge_by_fan_chain(coloring, first.u_edge.edge, coloring.color_count)
-            _extend_edge_by_fan_chain(
-                coloring, second.u_edge.edge, coloring.color_count
-            )
+            _activate_vizing_chain(coloring, first)
+            _activate_vizing_chain(coloring, second)
             center = first.path[first_index]
             first_leaf = _other_endpoint(first_predecessor, center)
             second_leaf = _other_endpoint(second_predecessor, center)
@@ -1268,8 +1326,8 @@ def _resolve_chain_collision(
             return True, 2
 
         coloring.unassign(shared)
-        _extend_edge_by_fan_chain(coloring, first.u_edge.edge, coloring.color_count)
-        _extend_edge_by_fan_chain(coloring, second.u_edge.edge, coloring.color_count)
+        _activate_vizing_chain(coloring, first)
+        _activate_vizing_chain(coloring, second)
         if shared in coloring:
             raise RuntimeError("opposite-direction shift recolored the shared edge")
         return True, 2
@@ -1467,7 +1525,7 @@ def _reduce_u_edges(
         for item in selected:
             if item not in active or item.edge in coloring:
                 continue
-            _extend_edge_by_fan_chain(coloring, item.edge, coloring.color_count)
+            _activate_vizing_chain(coloring, _build_vizing_chain(coloring, item))
             active.remove(item)
             extended += 1
         fans.discard_damaged(coloring)

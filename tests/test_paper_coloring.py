@@ -194,12 +194,23 @@ def test_collect_separable_fans_extends_when_no_shift_is_available() -> None:
 
 
 def test_construct_u_fans_prunes_intersecting_vizing_fans() -> None:
-    graph = Adjacency(5)
-    for edge in ((0, 1), (0, 4), (2, 3), (2, 4)):
+    graph = Adjacency(8)
+    for edge in (
+        (0, 1),
+        (0, 4),
+        (1, 5),
+        (2, 3),
+        (2, 4),
+        (3, 6),
+        (3, 7),
+    ):
         graph.add_edge(*edge)
     coloring = PartialColoring(graph, 3)
     coloring.assign((0, 4), 1)
+    coloring.assign((1, 5), 0)
     coloring.assign((2, 4), 2)
+    coloring.assign((3, 6), 0)
+    coloring.assign((3, 7), 1)
 
     fans = construct_u_fans(coloring, {(0, 1), (2, 3)})
 
