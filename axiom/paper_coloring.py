@@ -121,6 +121,27 @@ class _UEdge:
 
 
 @dataclass(frozen=True, slots=True)
+class _VizingChain:
+    """A materialized Vizing fan and its source-defined alternating chain."""
+
+    u_edge: _UEdge
+    fan_leaves: tuple[Vertex, ...]
+    path: tuple[Vertex, ...]
+
+    @property
+    def path_edges(self) -> tuple[Edge, ...]:
+        return tuple(canonical(left, right) for left, right in pairwise(self.path))
+
+
+@dataclass(frozen=True, slots=True)
+class _ChainEvent:
+    """The first terminal path or prefix collision in a synchronized round."""
+
+    terminal: _VizingChain | None = None
+    collision: tuple[_VizingChain, _VizingChain] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class TypeSparsification:
     """Deterministic type accounting for a matching of uncolored edges.
 
@@ -1124,6 +1145,55 @@ def _maximal_fan(
         fan.append(extension)
 
 
+def _build_vizing_chain(coloring: PartialColoring, u_edge: _UEdge) -> _VizingChain:
+    """Build the paper's Vizing fan and its maximal chain for one u-edge."""
+    leaves = tuple(_maximal_fan(coloring, u_edge.center, u_edge.leaf))
+    if len(leaves) == 1:
+        return _VizingChain(u_edge, leaves, ())
+    last_edge = canonical(u_edge.center, leaves[-1])
+    last_color = coloring[last_edge]
+    if coloring.is_missing(u_edge.center, last_color):
+        return _VizingChain(u_edge, leaves, ())
+    path = tuple(
+        coloring.alternating_path(u_edge.center, u_edge.center_color, last_color)
+    )
+    if path and path[0] != u_edge.center:
+        raise RuntimeError("Vizing chain does not start at its fan center")
+    return _VizingChain(u_edge, leaves, path)
+
+
+def _explore_vizing_chains(
+    chains: tuple[_VizingChain, ...],
+) -> _ChainEvent:
+    """Explore chain prefixes in synchronized rounds.
+
+    Every round advances each still-live chain by one edge.  The owner index
+    is keyed by canonical edges, so meeting in either orientation is detected
+    as the same paper path collision.  The function does not mutate coloring;
+    callers must resolve the returned event atomically.
+    """
+    if not chains:
+        raise ValueError("chain exploration requires at least one chain")
+    owners: dict[Edge, _VizingChain] = {}
+    maximum = max((len(chain.path_edges) for chain in chains), default=0)
+    for depth in range(maximum + 1):
+        for chain in chains:
+            edges = chain.path_edges
+            if depth >= len(edges):
+                if depth == 0:
+                    return _ChainEvent(terminal=chain)
+                continue
+            edge = edges[depth]
+            owner = owners.get(edge)
+            if owner is not None and owner is not chain:
+                return _ChainEvent(collision=(owner, chain))
+            owners[edge] = chain
+        for chain in chains:
+            if len(chain.path_edges) == depth + 1:
+                return _ChainEvent(terminal=chain)
+    raise RuntimeError("Vizing chain exploration terminated without an event")
+
+
 def _seed_u_edges(
     coloring: PartialColoring, uncolored_edges: set[Edge]
 ) -> tuple[_UEdge, ...]:
@@ -1276,19 +1346,39 @@ def _reduce_u_edges(
     """Reduce the surviving pruned u-edges through deterministic Vizing chains.
 
     ``ReduceUEdges`` removes a surviving u-edge either by extending the
-    coloring or by preserving a newly formed u-fan.  The path state here is
-    advanced in deterministic u-edge order; every mutation is validated and
-    damaged fan state is removed before the next edge is processed.  The
-    parallel path-packing optimization from the paper is intentionally not
-    represented by this serial state machine.
+    coloring or by preserving a newly formed u-fan.  Chain prefixes are now
+    explored in synchronized rounds, with canonical-edge collision detection.
+    Collision resolution is still serialized through the existing atomic
+    Vizing extension until the paper's same/opposite-direction path-shift
+    transformations are added.
     """
     extended = 0
-    for item in u_edges:
-        edge = item.edge
-        if edge in coloring:
-            continue
-        _extend_edge_by_fan_chain(coloring, edge, coloring.color_count)
-        extended += 1
+    active = list(u_edges)
+    while active:
+        chains = tuple(_build_vizing_chain(coloring, item) for item in active)
+        event = _explore_vizing_chains(chains)
+        if event.terminal is not None:
+            selected: tuple[_UEdge, ...] = (event.terminal.u_edge,)
+        elif event.collision is not None:
+            # Keep collision handling atomic and deterministic.  The source
+            # algorithm replaces this branch with a same/opposite-direction
+            # path shift; until that operation is available, both affected
+            # u-edges are reduced explicitly rather than silently ignored.
+            selected = tuple(
+                chain.u_edge
+                for chain in sorted(
+                    event.collision,
+                    key=lambda chain: chain.u_edge.edge,
+                )
+            )
+        else:
+            raise RuntimeError("chain exploration returned an empty event")
+        for item in selected:
+            if item not in active or item.edge in coloring:
+                continue
+            _extend_edge_by_fan_chain(coloring, item.edge, coloring.color_count)
+            active.remove(item)
+            extended += 1
         fans.discard_damaged(coloring)
         coloring.validate()
         fans.assert_valid()
