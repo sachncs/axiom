@@ -45,6 +45,7 @@ const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
               <div class="mode__name-row">
                 <h3>{m.name}</h3>
                 <span class="mode__tag mono">{m.tag}</span>
+                <span class="mode__status">{m.status}</span>
               </div>
               <div class="mode__complexity">
                 <span class="mode__value">{m.complexity}</span>
@@ -116,6 +117,23 @@ const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
     font-size: 12px;
     color: var(--ink-faint);
     letter-spacing: 0.03em;
+  }
+  .mode__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--acc-text);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+  }
+  .mode__status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--acc-badge);
   }
 
   .mode__complexity {

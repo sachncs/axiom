@@ -98,6 +98,7 @@ export const MODES = [
   {
     name: "Basic",
     tag: "single-level · deterministic",
+    status: "Recommended",
     complexity: "single-level",
     period: "deterministic maximality",
     points: [
@@ -112,6 +113,7 @@ export const MODES = [
   {
     name: "Multilevel",
     tag: "multi-level · density-sensitive depth",
+    status: "Research validation",
     complexity: "recursive",
     period: "deterministic maximality",
     points: [
