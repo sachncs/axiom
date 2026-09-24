@@ -157,6 +157,36 @@ class System:
                 return False
         return True
 
+    def check_edges(self) -> bool:
+        r"""Check that every stored :math:`M` edge is a live canonical edge.
+
+        Degree checks iterate the host graph and therefore cannot observe an
+        edge that was left stale in ``M`` after a graph transition.  Rejecting
+        such state explicitly keeps the subgraph-system certificate tied to
+        its graph rather than silently ignoring the stale edge.
+        """
+        for left, right in self.M:
+            if (
+                not isinstance(left, int)
+                or isinstance(left, bool)
+                or not isinstance(right, int)
+                or isinstance(right, bool)
+                or not 0 <= left < self.graph.n
+                or not 0 <= right < self.graph.n
+                or left >= right
+                or not self.graph.has_edge(left, right)
+            ):
+                return False
+        return True
+
+    def check_partition(self) -> bool:
+        """Check that ``A``, ``B``, and ``U`` partition the graph vertices."""
+        vertices = set(range(self.graph.n))
+        return (
+            not (self.A & self.B or self.A & self.U or self.B & self.U)
+            and self.A | self.B | self.U == vertices
+        )
+
     def check_u(self) -> bool:
         r"""Check :math:`|N_G(u) \cap U| \le z` for all :math:`u \in U`.
 
@@ -272,7 +302,9 @@ class System:
             :math:`O(n + m)`.
         """
         return (
-            self.check_bound()
+            self.check_edges()
+            and self.check_partition()
+            and self.check_bound()
             and self.check_u()
             and self.check_p1()
             and self.check_p2()

@@ -439,6 +439,22 @@ class TestSystem:
         system.M = {(0, 2)}
         assert not system.check_p2()
 
+    def test_check_rejects_stale_m_edge(self) -> None:
+        g = Adjacency(2)
+        system = System(graph=g, z=1, U={0, 1}, M={(0, 1)})
+        system.index()
+
+        assert not system.check_edges()
+        assert not system.check()
+
+    def test_check_rejects_non_partition(self) -> None:
+        g = Adjacency(2)
+        system = System(graph=g, z=1, U={0}, A={0, 1})
+        system.index()
+
+        assert not system.check_partition()
+        assert not system.check()
+
     def test_all_invariants_on_empty(self) -> None:
         g = Adjacency(0)
         system = System(graph=g, z=0)
