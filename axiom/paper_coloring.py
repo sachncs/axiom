@@ -616,6 +616,7 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
             for fan in batch:
                 if fan not in set(fans):
                     continue
+                types_before = {member.vertices: member.type for member in fans}
                 try:
                     activate_fan(coloring, fans, fan)
                 except (RuntimeError, ValueError) as error:
@@ -623,6 +624,14 @@ def color_small(coloring: PartialColoring, fans: SeparableFans) -> int:
                         f"Color-Small could not activate valid fan {fan}"
                     ) from error
                 extended += 1
+                # ABB removes every surviving fan whose type changed during
+                # activation, not only fans whose assigned colors became
+                # invalid.  Otherwise a replacement fan can leak into a
+                # later most-common-type round with stale proof state.
+                for member in tuple(fans):
+                    previous_type = types_before.get(member.vertices)
+                    if previous_type is not None and member.type != previous_type:
+                        fans.discard(member)
                 fans.discard_damaged(coloring)
             fans.assert_valid()
         coloring.validate()
