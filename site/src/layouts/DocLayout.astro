@@ -18,19 +18,19 @@ const active = (path: string) => Astro.url.pathname.endsWith(path);
     <aside class="docs-sidebar" aria-label="Documentation navigation">
       <p class="docs-sidebar__label">Learn Axiom</p>
       <nav>
-        <a class:list={{ active: active("/get-started/") }} href={`${base}/get-started/`}>Get started</a>
-        <a class:list={{ active: active("/playground/") }} href={`${base}/playground/`}>Playground</a>
-        <a class:list={{ active: active("/concepts/") }} href={`${base}/concepts/`}>Concepts</a>
-        <a class:list={{ active: active("/modes/") }} href={`${base}/modes/`}>Modes</a>
-        <a class:list={{ active: active("/api/") }} href={`${base}/api/`}>API reference</a>
-        <a class:list={{ active: active("/examples/") }} href={`${base}/examples/`}>Examples</a>
-        <a class:list={{ active: active("/architecture/") }} href={`${base}/architecture/`}>Architecture</a>
+        <a class:list={{ active: active("/get-started/") }} aria-current={active("/get-started/") ? "page" : undefined} href={`${base}/get-started/`}>Get started</a>
+        <a class:list={{ active: active("/playground/") }} aria-current={active("/playground/") ? "page" : undefined} href={`${base}/playground/`}>Playground</a>
+        <a class:list={{ active: active("/concepts/") }} aria-current={active("/concepts/") ? "page" : undefined} href={`${base}/concepts/`}>Concepts</a>
+        <a class:list={{ active: active("/modes/") }} aria-current={active("/modes/") ? "page" : undefined} href={`${base}/modes/`}>Modes</a>
+        <a class:list={{ active: active("/api/") }} aria-current={active("/api/") ? "page" : undefined} href={`${base}/api/`}>API reference</a>
+        <a class:list={{ active: active("/examples/") }} aria-current={active("/examples/") ? "page" : undefined} href={`${base}/examples/`}>Examples</a>
+        <a class:list={{ active: active("/architecture/") }} aria-current={active("/architecture/") ? "page" : undefined} href={`${base}/architecture/`}>Architecture</a>
       </nav>
       <p class="docs-sidebar__label docs-sidebar__label--lower">Project</p>
       <nav>
-        <a class:list={{ active: active("/research/") }} href={`${base}/research/`}>Research status</a>
-        <a class:list={{ active: active("/changelog/") }} href={`${base}/changelog/`}>Changelog</a>
-        <a class:list={{ active: active("/contributing/") }} href={`${base}/contributing/`}>Contributing</a>
+        <a class:list={{ active: active("/research/") }} aria-current={active("/research/") ? "page" : undefined} href={`${base}/research/`}>Research status</a>
+        <a class:list={{ active: active("/changelog/") }} aria-current={active("/changelog/") ? "page" : undefined} href={`${base}/changelog/`}>Changelog</a>
+        <a class:list={{ active: active("/contributing/") }} aria-current={active("/contributing/") ? "page" : undefined} href={`${base}/contributing/`}>Contributing</a>
       </nav>
     </aside>
 
