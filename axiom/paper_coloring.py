@@ -1578,8 +1578,15 @@ def _reduce_u_edges(
         active = _refresh_u_edges(coloring, active)
         if not active:
             break
-        blocked = _u_component_colors(fans, tuple(active))
-        chains = tuple(_build_vizing_chain(coloring, item, blocked) for item in active)
+        # Chain collisions are defined within one alpha group.  A preceding
+        # activation can reseed an active u-edge to a different missing color,
+        # so the list that was originally grouped by alpha is no longer a
+        # valid batch.  Repartition after every mutation and process the
+        # smallest alpha group first to keep the reduction deterministic.
+        alpha = min(item.center_color for item in active)
+        group = tuple(item for item in active if item.center_color == alpha)
+        blocked = _u_component_colors(fans, group)
+        chains = tuple(_build_vizing_chain(coloring, item, blocked) for item in group)
         event = _explore_vizing_chains(chains)
         if event.terminal is not None:
             selected_chains: tuple[_VizingChain, ...] = (event.terminal,)

@@ -1534,6 +1534,17 @@ class TestHierarchy:
         assert left.N_levels == right.N_levels
         assert left.R_levels == right.R_levels
 
+    def test_dense_recursive_builder_repartitions_recolored_alpha_groups(self) -> None:
+        """Dense recursive coloring must not batch chains across alpha groups."""
+        graph = Adjacency(66)
+        for left in range(66):
+            for right in range(left + 1, 66):
+                graph.add_edge(left, right)
+
+        hierarchy = build_hierarchy(graph, [128, 64, 32, 16, 8, 4, 2, 1])
+
+        assert hierarchy.check()
+
     def test_recursive_builder_uses_configured_colorer(self) -> None:
         graph = Adjacency(8)
         for u in range(8):
