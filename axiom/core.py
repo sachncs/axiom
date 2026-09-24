@@ -515,6 +515,7 @@ class Matcher:
             edge for edge in self.seed_matching if self.graph.has_edge(edge[0], edge[1])
         }
         self.__augment_seed()
+        self.matchings[0] = set(self.seed_matching)
 
         # Keep the paper's M_1 subset M* invariant explicit.  A newly added
         # seed edge may displace an older M* edge at either endpoint; those

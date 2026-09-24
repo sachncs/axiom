@@ -706,6 +706,7 @@ class TestMatcher:
         algo.insert(0, 1)
 
         assert algo.seed_matching <= algo.matched_edges
+        assert algo.matchings[0] == algo.seed_matching
         assert algo.maximal()
 
     def test_deleted_seed_edge_is_removed_immediately(self) -> None:
