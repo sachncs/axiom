@@ -131,8 +131,10 @@ class Matcher:
             raise ValueError(
                 "colorer must provide a callable color(graph, delta) method"
             )
-        if mode == "multilevel" and colorer is not None and not isinstance(
-            colorer, PaperFanColorer
+        if (
+            mode == "multilevel"
+            and colorer is not None
+            and not isinstance(colorer, PaperFanColorer)
         ):
             raise ValueError(
                 "multilevel requires the deterministic PaperFanColorer; "

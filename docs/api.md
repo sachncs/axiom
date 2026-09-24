@@ -31,6 +31,7 @@ class Matcher:
     # Maintenance
     def partition(self) -> None: ...  # partition M into z+1 colour classes
     def refresh(self) -> None: ...  # rebuild M* from the current seed
+
     # Internal state (read-only by convention)
     n: int
     mode: str

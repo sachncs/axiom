@@ -286,9 +286,8 @@ class Multilevel:
         matcher.eta = eta
         matcher.k = len(level_zs)
         matcher.phase_length = self._phase_budget(matcher)
-        if (
-            previous_lengths != phase_lengths
-            or len(matcher.level_phase_updates) != len(phase_lengths)
+        if previous_lengths != phase_lengths or len(matcher.level_phase_updates) != len(
+            phase_lengths
         ):
             self._reset_phase_clocks(matcher)
         previous = matcher.multi
