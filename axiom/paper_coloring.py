@@ -475,11 +475,16 @@ class SeparableFans:
         return {fan_type: len(members) for fan_type, members in self._types.items()}
 
     def missing(self, coloring: PartialColoring, vertex: Vertex) -> Color:
+        """Return ``Missing-Color_U(vertex)`` from the bounded palette prefix."""
         used = self._fan_colors.get(vertex, set())
-        available = [color for color in coloring.missing(vertex) if color not in used]
-        if not available:
-            raise RuntimeError("no missing color remains outside the fan collection")
-        return available[0]
+        limit = min(coloring.color_count, coloring.graph.degree(vertex) + 1)
+        for color in range(limit):
+            if color not in used and coloring.is_missing(vertex, color):
+                return color
+        raise RuntimeError(
+            "no bounded missing color remains outside the fan collection; "
+            f"vertex={vertex}, degree={coloring.graph.degree(vertex)}"
+        )
 
     def assert_valid(self) -> None:
         if len(self._edges) != sum(len(fan.edges) for fan in self._fans):
