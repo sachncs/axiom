@@ -604,6 +604,25 @@ class TestMatcher:
         assert type_two_matcher.level_zs == [8, 4, 2, 1]
         assert type_two_matcher.level_phase_lengths == [32, 16, 8, 4]
 
+    def test_multilevel_rebuild_updates_active_z_after_density_transition(self) -> None:
+        edges = [(left, right) for left in range(8) for right in range(left + 1, 8)]
+        initial = Adjacency(8)
+        for edge in edges[:22]:
+            initial.add_edge(*edge)
+
+        matcher = Matcher(8, mode="multilevel", graph=initial)
+        absent = edges[22:]
+        for edge in absent:
+            matcher.insert(*edge)
+        for edge in edges[:2]:
+            matcher.delete(*edge)
+
+        assert matcher.level_zs == [8, 4, 2, 1]
+        assert matcher.z == 1
+        assert matcher.phase_length == 4
+        assert matcher.subphase_length == 4
+        assert matcher.multi is not None and matcher.multi.check()
+
     def test_multilevel_phase_clocks_are_nested_across_fine_rebuilds(self) -> None:
         dense = Adjacency(16)
         for left in range(16):

@@ -292,6 +292,11 @@ class Multilevel:
         matcher.eta = eta
         matcher.k = len(level_zs)
         matcher.phase_length = self._phase_budget(matcher)
+        # A density transition can change both the number of recursive levels
+        # and the active finest-level z value.  Keep the matcher-wide counters
+        # synchronized with the schedule used to build the new hierarchy.
+        matcher.z = level_zs[-1]
+        matcher.subphase_length = max(1, matcher.phase_length // matcher.z)
         schedule_changed = previous_lengths != phase_lengths or len(
             matcher.level_phase_updates
         ) != len(phase_lengths)
