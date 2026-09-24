@@ -811,6 +811,17 @@ def collect_separable_fans(
     fans = collect_direct_fans(coloring, set(uncolored_edges))
     fan_edges = {edge for fan in fans for edge in fan.edges}
     pending = sorted(set(uncolored_edges) - fan_edges)
+    # ConUFans starts from a matching of uncolored edges.  Use its explicit
+    # u-edge/Vizing-fan pruning phase whenever that precondition is available;
+    # the general non-matching case remains in the separate local path below.
+    endpoints = {endpoint for edge in pending for endpoint in edge}
+    is_matching = len(endpoints) == 2 * len(pending)
+    if len(pending) >= 2 and is_matching:
+        constructed = construct_u_fans(coloring, set(pending))
+        for fan in constructed:
+            fans.add(fan)
+            fan_edges.update(fan.edges)
+        pending = [edge for edge in pending if edge not in coloring]
     if len(fans) >= minimum_progress:
         fans.assert_compatible(coloring)
         return fans
