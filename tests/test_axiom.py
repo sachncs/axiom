@@ -723,6 +723,30 @@ class TestMatcher:
             remove_matcher.delete(0, 1)
         assert set(remove_graph.edges()) == {(0, 1), (1, 2)}
 
+    def test_custom_neighbor_order_does_not_change_deterministic_state(self) -> None:
+        class ReverseNeighbors(Adjacency):
+            def neighbors(self, v: int):
+                return iter(sorted(super().neighbors(v), reverse=True))
+
+        normal = Matcher(8, mode="multilevel")
+        reverse_graph = ReverseNeighbors(8)
+        reverse = Matcher(8, mode="multilevel", graph=reverse_graph)
+        operations = [
+            ("insert", 0, 7),
+            ("insert", 0, 2),
+            ("insert", 1, 6),
+            ("insert", 2, 5),
+            ("delete", 0, 7),
+            ("insert", 3, 4),
+            ("delete", 1, 6),
+            ("insert", 0, 6),
+        ]
+        for operation, left, right in operations:
+            getattr(normal, operation)(left, right)
+            getattr(reverse, operation)(left, right)
+            assert normal.matching() == reverse.matching()
+            assert normal.partners() == reverse.partners()
+
     def test_duplicate_and_self_loop_insertions_are_noops(self) -> None:
         algo = Matcher(3, mode="multilevel")
         algo.insert(0, 1)

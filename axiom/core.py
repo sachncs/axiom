@@ -555,7 +555,7 @@ class Matcher:
         for u in range(self.n):
             if u in matched:
                 continue
-            for v in self.graph.neighbors(u):
+            for v in sorted(self.graph.neighbors(u)):
                 if v not in matched:
                     matching.add(canonical(u, v))
                     matched.add(u)
@@ -613,7 +613,7 @@ class Matcher:
                 # vertices.  The normal recursive dispatcher is allowed to
                 # replace an existing partner, which could evict a seed edge
                 # that was just installed.
-                for neighbor in self.graph.neighbors(vertex):
+                for neighbor in sorted(self.graph.neighbors(vertex)):
                     if (
                         neighbor not in protected
                         and neighbor not in self.matched_vertices
@@ -652,7 +652,7 @@ class Matcher:
             if s not in matched_in_seed:
                 if _augment(
                     self.seed_matching,
-                    self.graph.neighbors,
+                    lambda vertex: sorted(self.graph.neighbors(vertex)),
                     s,
                     matched_in_seed.__contains__,
                 ):

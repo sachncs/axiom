@@ -434,7 +434,7 @@ def switch(
             if parity == 0:
                 # Arrived via a non-M edge; the next alternating step
                 # must follow an M edge from ``curr`` to a B vertex.
-                for w in graph.neighbors(curr):
+                for w in sorted(graph.neighbors(curr)):
                     e = canonical(curr, w)
                     if w != u and e in M and graph.has_edge(curr, w):
                         if (w, 1) not in parent:
@@ -450,7 +450,7 @@ def switch(
                 # Arrived via an M edge (``curr`` is saturated); the
                 # next step must follow a non-M edge to another B vertex
                 # (the B-B alternating edge).
-                for w in graph.neighbors(curr):
+                for w in sorted(graph.neighbors(curr)):
                     if w == u:
                         # Defensive: avoid stepping back onto ``u`` even
                         # though ``u`` is in U, not B.
@@ -561,7 +561,9 @@ def promote(
         moved to ``B``.
     """
     b_neighbors = [
-        w for w in graph.neighbors(u) if w in system.B and canonical(u, w) not in M
+        w
+        for w in sorted(graph.neighbors(u))
+        if w in system.B and canonical(u, w) not in M
     ]
     needed = z - deg_M[u]
     if needed <= 0:
@@ -684,7 +686,7 @@ def build(graph: Graph, z: int) -> System:
     B: set[Vertex] = set()
     for v in S:
         has_neighbor_in_U = False
-        for w in graph.neighbors(v):
+        for w in sorted(graph.neighbors(v)):
             if canonical(v, w) in M and w not in S:
                 has_neighbor_in_U = True
                 break
@@ -703,7 +705,7 @@ def build(graph: Graph, z: int) -> System:
     changed = True
     while changed:
         changed = False
-        for u in list(system.U):
+        for u in sorted(system.U):
             if promote(graph, system, M, deg_M, z, u):
                 changed = True
 
