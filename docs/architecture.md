@@ -103,11 +103,10 @@ __handle_insertion(u, v)
     │ other in U and the U-endpoint is currently matched and the
     │ A-endpoint is unmatched, swap their matches.
     │ otherwise
+    │ local insertion repair (match the two endpoints only when both
+    │ are unmatched; never rebuild or silently substitute an algorithm)
     ▼
-refresh() [only if not maximal after fast path]
-    │
-    ▼
-__advance_update_counter()
+    __advance_update_counter()
     │ increment update_count
     │ check subphase boundary -> internal augmentation
     │ check i3 -> internal I3 repair
@@ -128,7 +127,8 @@ if graph.has_edge(u, v):
         │ __cleanup_stale_edges()
         │ __rematch_vertex(u), __rematch_vertex(v)
         │ __cleanup_stale_edges()
-        │ if not maximal: refresh()
+        │ if the repaired state is not maximal: raise a diagnostic
+        │ invariant error; no greedy/rebuild fallback is installed
         ▼
     __advance_update_counter()
 else:
@@ -202,7 +202,7 @@ after every update in multilevel mode.
 | `level_phase_updates` | `list[int]` | updates consumed in each active nested level phase |
 | `level_phase_indices` | `list[int]` | completed phase count at each recursive level |
 | `eta` | `int` | power-of-two scheduler scale |
-| `H`, `H_reverse`, `H_tilde` | directed indexes | rematching indexes for live and inserted edges |
+| `H`, `H_reverse`, `H_tilde`, `H_tilde_reverse` | directed indexes | rematching indexes for live and inserted edges |
 | `S_hat` | `set[Vertex]` | unmatched saturated vertices |
 | `k` | `int` | number of levels |
 | `accountant` | `Ledger` | bookkeeping counters |
