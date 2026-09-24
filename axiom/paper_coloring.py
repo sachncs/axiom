@@ -1628,8 +1628,10 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
     """
     coloring.validate()
     fans.assert_valid()
+    fans.assert_compatible(coloring)
     if not fans:
         return 0
+    colored_before = len(coloring.edges())
     if coloring.color_count <= 10 * eta:
         return color_small(coloring, fans)
 
@@ -1651,4 +1653,9 @@ def extend_recursive(coloring: PartialColoring, fans: SeparableFans, eta: int) -
         total += extend_recursive(child, child_fans, eta)
         _merge_subproblem(coloring, child, edge_scope, local_colors)
     coloring.validate()
+    colored_after = len(coloring.edges())
+    if total <= 0 or colored_after <= colored_before:
+        raise RuntimeError(
+            "Extend made no coloring progress for a non-empty fan collection"
+        )
     return total
