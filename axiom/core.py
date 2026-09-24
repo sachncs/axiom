@@ -187,6 +187,7 @@ class Matcher:
         self.H: dict[Vertex, set[Vertex]] = {}
         self.H_reverse: dict[Vertex, set[Vertex]] = {}
         self.H_tilde: set[tuple[Vertex, Vertex]] = set()
+        self.H_tilde_reverse: dict[Vertex, set[Vertex]] = {}
         self.S_hat: set[Vertex] = set()
 
         self.accountant = Ledger()
@@ -343,6 +344,7 @@ class Matcher:
         self.H = {}
         self.H_reverse = {}
         self.H_tilde = set()
+        self.H_tilde_reverse = {}
         self.S_hat = set()
         if self.system is None:
             return
@@ -364,9 +366,9 @@ class Matcher:
 
         for left, right in self.inserted_edges:
             if left not in self.matched_vertices and right in self.bad_vertices:
-                self.H_tilde.add((left, right))
+                self.__add_h_tilde((left, right))
             if right not in self.matched_vertices and left in self.bad_vertices:
-                self.H_tilde.add((right, left))
+                self.__add_h_tilde((right, left))
 
     def __proc_update(self, vertex: Vertex) -> None:
         """Apply the paper's ProcUpdate transition for one vertex."""
@@ -395,22 +397,16 @@ class Matcher:
                 for target in targets:
                     self.H_reverse.setdefault(target, set()).add(vertex)
 
-        if matched:
-            # ProcUpdate removes only edges leaving a newly matched vertex.
-            # Incoming edges to a bad target remain valid: their sources may
-            # still be unmatched and must remain discoverable by
-            # ProcRematchBU.
-            self.H_tilde = {edge for edge in self.H_tilde if edge[0] != vertex}
-        else:
-            # For an unmatched vertex, replace only its outgoing entries;
-            # incoming entries remain valid and are owned by their sources.
-            self.H_tilde = {edge for edge in self.H_tilde if edge[0] != vertex}
+        # ProcUpdate removes only edges leaving a status-changing vertex.
+        # Incoming edges to a bad target remain valid: their sources may
+        # still be unmatched and must remain discoverable by ProcRematchBU.
+        self.__remove_h_tilde_source(vertex)
         if not matched:
             for left, right in self.inserted_edges:
                 if left == vertex and right in self.bad_vertices:
-                    self.H_tilde.add((left, right))
+                    self.__add_h_tilde((left, right))
                 elif right == vertex and left in self.bad_vertices:
-                    self.H_tilde.add((right, left))
+                    self.__add_h_tilde((right, left))
 
     def __remove_h_source(self, source: Vertex) -> None:
         """Remove one source and all of its reverse-H index entries."""
@@ -422,10 +418,35 @@ class Matcher:
                 if not incoming:
                     self.H_reverse.pop(target, None)
 
+    def __add_h_tilde(self, edge: tuple[Vertex, Vertex]) -> None:
+        """Insert one ``H_tilde`` edge and its incoming-edge index."""
+        source, target = edge
+        if edge in self.H_tilde:
+            return
+        self.H_tilde.add(edge)
+        self.H_tilde_reverse.setdefault(target, set()).add(source)
+
+    def __remove_h_tilde_source(self, source: Vertex) -> None:
+        """Remove all outgoing ``H_tilde`` edges for one source."""
+        outgoing = [edge for edge in self.H_tilde if edge[0] == source]
+        for left, target in outgoing:
+            self.H_tilde.remove((left, target))
+            incoming = self.H_tilde_reverse.get(target)
+            if incoming is not None:
+                incoming.discard(source)
+                if not incoming:
+                    self.H_tilde_reverse.pop(target, None)
+
     def __check_auxiliary_indexes(self) -> bool:
         """Validate H, reverse-H, H-tilde, and S-hat against live state."""
         if self.system is None:
-            return not (self.H or self.H_reverse or self.H_tilde or self.S_hat)
+            return not (
+                self.H
+                or self.H_reverse
+                or self.H_tilde
+                or self.H_tilde_reverse
+                or self.S_hat
+            )
 
         expected_s_hat = {
             vertex for vertex in self.system.S if vertex not in self.matched_vertices
@@ -458,7 +479,13 @@ class Matcher:
                 expected_tilde.add((left, right))
             if right not in self.matched_vertices and left in self.bad_vertices:
                 expected_tilde.add((right, left))
-        return self.H_tilde == expected_tilde
+        expected_tilde_reverse: dict[Vertex, set[Vertex]] = {}
+        for source, target in expected_tilde:
+            expected_tilde_reverse.setdefault(target, set()).add(source)
+        return (
+            self.H_tilde == expected_tilde
+            and self.H_tilde_reverse == expected_tilde_reverse
+        )
 
     def __check_matching_state(self) -> bool:
         """Validate the matching, vertex cache, and partner map together."""
@@ -727,9 +754,9 @@ class Matcher:
                 for bad in newly_bad:
                     for left, right in sorted(self.inserted_edges):
                         if right == bad and left not in self.matched_vertices:
-                            self.H_tilde.add((left, right))
+                            self.__add_h_tilde((left, right))
                         if left == bad and right not in self.matched_vertices:
-                            self.H_tilde.add((right, left))
+                            self.__add_h_tilde((right, left))
             if self.multi is not None:
                 self.multi.sync_graph(
                     self.graph,
@@ -1004,12 +1031,8 @@ class Matcher:
                     return
         # Bad vertices receive the bounded incoming-edge index in H_tilde
         # (ProcRematchBU, step 4); it is intentionally consulted last.
-        for source, target in sorted(self.H_tilde):
-            if (
-                target == u
-                and source not in self.matched_vertices
-                and self.graph.has_edge(source, u)
-            ):
+        for source in sorted(self.H_tilde_reverse.get(u, set())):
+            if source not in self.matched_vertices and self.graph.has_edge(source, u):
                 self.add_match(source, u)
                 self.accountant.record_rematch_u_scan()
                 return
@@ -1040,9 +1063,9 @@ class Matcher:
                     self.add_match(b, other)
                     return
         else:
-            for left, right in sorted(self.H_tilde):
-                if right == b and left not in self.matched_vertices:
-                    self.add_match(b, left)
+            for source in sorted(self.H_tilde_reverse.get(b, set())):
+                if source not in self.matched_vertices:
+                    self.add_match(b, source)
                     return
 
     def __rematch_a(self, a: Vertex) -> None:
@@ -1145,9 +1168,9 @@ class Matcher:
                     self.add_match(a, other)
                     return
         else:
-            for left, right in sorted(self.H_tilde):
-                if right == a and left not in self.matched_vertices:
-                    self.add_match(a, left)
+            for source in sorted(self.H_tilde_reverse.get(a, set())):
+                if source not in self.matched_vertices:
+                    self.add_match(a, source)
                     return
 
     def __maintain_i3(self) -> int:
