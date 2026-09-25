@@ -75,7 +75,9 @@ export function initDemo(host: HTMLElement): void {
   const outMax = host.querySelector<HTMLElement>("[data-out-max]");
   const outTick = host.querySelector<HTMLElement>("[data-out-tick]");
   const demoStatus = host.querySelector<HTMLElement>("[data-demo-status]");
+  const demoEvent = host.querySelector<HTMLElement>("[data-demo-event]");
   if (!canvas || !host) return;
+  const isHome = host.hasAttribute("data-demo-home");
 
   const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) return;
@@ -93,12 +95,21 @@ export function initDemo(host: HTMLElement): void {
   };
 
   let mode = "basic" as keyof typeof MODES;
-  let world = buildWorld(MODES[mode].n);
-  let running = true;
+  let world = buildWorld(isHome ? 12 : MODES[mode].n);
+  let running = !isHome;
   let tickAt = 0;
   let totalUpdates = 0;
   let totalScan = 0;
   let lastScan = 0;
+  let sequenceIndex = 0;
+  const authoredSequence: { type: "insert" | "delete"; a: number; b: number }[] = [
+    { type: "insert", a: 2, b: 5 },
+    { type: "insert", a: 5, b: 8 },
+    { type: "insert", a: 2, b: 7 },
+    { type: "delete", a: 2, b: 5 },
+    { type: "insert", a: 8, b: 9 },
+    { type: "delete", a: 5, b: 8 },
+  ];
 
   const flashes: { key: string; life: number; insert: boolean }[] = [];
   const newMatches: { a: number; b: number; life: number }[] = [];
@@ -162,6 +173,24 @@ export function initDemo(host: HTMLElement): void {
     totalScan += lastScan;
   }
 
+  function applyAuthoredUpdate() {
+    const update = authoredSequence[sequenceIndex];
+    if (!update) return;
+    if (update.type === "insert") addEdge(update.a, update.b);
+    else removeEdge(update.a, update.b);
+    totalUpdates++;
+    sequenceIndex++;
+    const result = `invariant verified · ${update.type} (${update.a}, ${update.b})`;
+    if (demoEvent) demoEvent.textContent = `${String(sequenceIndex).padStart(2, "0")}  ${result}`;
+    if (demoStatus) demoStatus.textContent = result;
+    if (sequenceIndex === authoredSequence.length) {
+      running = false;
+      playBtn?.setAttribute("aria-pressed", "false");
+      const label = playBtn?.querySelector("span");
+      if (label) label.textContent = "Replay update sequence";
+    }
+  }
+
   function randomAdjacentPair(rejectIf: (a: number, b: number) => boolean): [number, number] {
     for (let tries = 0; tries < 200; tries++) {
       const a = Math.floor(rand() * world.n);
@@ -174,6 +203,10 @@ export function initDemo(host: HTMLElement): void {
   }
 
   function step() {
+    if (isHome) {
+      applyAuthoredUpdate();
+      return;
+    }
     const { n } = world;
     const density = MODES[mode].density;
     const maxE = Math.round((n * (n - 1) * density) / 2);
@@ -229,6 +262,10 @@ export function initDemo(host: HTMLElement): void {
   let keyboardCursor = 0;
 
   function announceSelection() {
+    if (isHome && selected === null) {
+      canvas?.setAttribute("aria-label", "Live graph. Press Play update sequence to watch deterministic updates.");
+      return;
+    }
     const state = selected === null
       ? `Node ${keyboardCursor + 1} of ${world.n} is focused. Press Enter to select it.`
       : `Node ${keyboardCursor + 1} of ${world.n} is focused. Node ${selected + 1} is selected; press Enter to toggle an edge.`;
@@ -365,15 +402,46 @@ export function initDemo(host: HTMLElement): void {
   const mods = Array.from(host.querySelectorAll<HTMLButtonElement>("[data-mode]"));
   mods.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as keyof typeof MODES)));
 
+  function resetHome() {
+    world = buildWorld(12);
+    selected = null;
+    keyboardCursor = 0;
+    flashes.length = 0;
+    newMatches.length = 0;
+    totalUpdates = 0;
+    totalScan = 0;
+    lastScan = 0;
+    sequenceIndex = 0;
+    tickAt = 0;
+    for (const [a, b] of [[0, 1], [3, 4], [6, 7]]) {
+      world.edges.add(edgeKey(a, b));
+      world.adj[a].add(b);
+      world.adj[b].add(a);
+    }
+    restoreMaximality();
+    newMatches.length = 0;
+    running = false;
+    if (demoEvent) demoEvent.textContent = "Ready to play · six deterministic updates";
+    if (demoStatus) demoStatus.textContent = "Ready to play. Press Play update sequence.";
+    const label = playBtn?.querySelector("span");
+    if (label) label.textContent = "Play update sequence";
+    playBtn?.setAttribute("aria-pressed", "false");
+  }
+
   playBtn?.addEventListener("click", () => {
+    if (isHome && sequenceIndex >= authoredSequence.length) resetHome();
     running = !running;
     playBtn.classList.toggle("is-paused", !running);
     playBtn.setAttribute("aria-pressed", String(!running));
     const icon = playBtn.querySelector("span");
-    if (icon) icon.textContent = running ? "Pause" : "Resume";
+    if (icon) icon.textContent = running ? "Pause" : (isHome ? "Play update sequence" : "Resume");
   });
 
   resetBtn?.addEventListener("click", () => {
+    if (isHome) {
+      resetHome();
+      return;
+    }
     world = buildWorld(world.n);
     selected = null;
     flashes.length = 0;
@@ -412,9 +480,9 @@ export function initDemo(host: HTMLElement): void {
     ctx.clearRect(0, 0, w, h);
 
     const ink = css.getPropertyValue("--ink").trim();
-    const inkFaint = css.getPropertyValue("--ink-faint").trim();
     const cobalt = css.getPropertyValue("--cobalt").trim();
-    const violet = css.getPropertyValue("--violet").trim();
+    const changed = css.getPropertyValue("--cyan").trim();
+    const warning = css.getPropertyValue("--amber").trim();
     const lineC = rgba(ink, 0.16);
 
     if (n) {
@@ -440,7 +508,7 @@ export function initDemo(host: HTMLElement): void {
       const [x1, y1] = toCanvasPos(a);
       const [x2, y2] = toCanvasPos(b);
       const a1 = f.life;
-      ctx.strokeStyle = f.insert ? rgba(violet, a1 * 0.85) : rgba(inkFaint, a1 * 0.6);
+      ctx.strokeStyle = f.insert ? rgba(changed, a1 * 0.85) : rgba(warning, a1 * 0.6);
       ctx.lineWidth = 1.6 + a1 * 1.4;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -450,22 +518,19 @@ export function initDemo(host: HTMLElement): void {
       if (f.life <= 0) flashes.splice(i, 1);
     }
 
-    /* matched edges — flowing gradient energy */
+    /* matching edges stay solid; only update events move */
     for (const [a, b] of world.matched) {
       if (a >= b) continue;
       const [x1, y1] = toCanvasPos(a);
       const [x2, y2] = toCanvasPos(b);
-      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-      grad.addColorStop(0, cobalt);
-      grad.addColorStop(1, violet);
-      ctx.strokeStyle = grad;
+      ctx.strokeStyle = cobalt;
       ctx.lineWidth = 2.4;
       ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
-      if (!reduceMotion) {
+      if (!reduceMotion && !isHome) {
         ctx.setLineDash([7, 9]);
         ctx.lineDashOffset = -t * 0.05;
         ctx.strokeStyle = rgba("#ffffff", 0.35);
@@ -481,7 +546,7 @@ export function initDemo(host: HTMLElement): void {
       const [x1, y1] = toCanvasPos(m.a);
       const [x2, y2] = toCanvasPos(m.b);
       const r = 6 + (1 - m.life) * 14;
-      ctx.strokeStyle = rgba(violet, m.life * 0.5);
+      ctx.strokeStyle = rgba(changed, m.life * 0.5);
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -500,16 +565,14 @@ export function initDemo(host: HTMLElement): void {
       const isMatched = world.matched.has(v);
       const isSel = selected === v;
       const isCursor = document.activeElement === canvas && keyboardCursor === v;
-      const pulse = 1 + Math.sin(t * 0.002 + v * 0.9) * 0.06;
+      const pulse = 1;
 
       if (isMatched) {
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, 9 * pulse);
-        grad.addColorStop(0, rgba(cobalt, 0.95));
-        grad.addColorStop(1, rgba(cobalt, 0));
-        ctx.fillStyle = grad;
+        ctx.strokeStyle = rgba(cobalt, 0.9);
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(x, y, 9 * pulse, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(x, y, 7 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.fillStyle = rgba(ink, 0.98);
         ctx.beginPath();
         ctx.arc(x, y, 4.1 * pulse, 0, Math.PI * 2);
@@ -549,17 +612,21 @@ export function initDemo(host: HTMLElement): void {
     requestAnimationFrame(draw);
   }
 
-  for (let i = 0; i < world.n * 2.2; i++) {
-    if (rand() < 0.09) {
-      const [a, b] = randomAdjacentPair((x, y) => world.edges.has(edgeKey(x, y)));
-      if (a === -1) break;
-      world.edges.add(edgeKey(a, b));
-      world.adj[a].add(b);
-      world.adj[b].add(a);
+  if (isHome) {
+    resetHome();
+  } else {
+    for (let i = 0; i < world.n * 2.2; i++) {
+      if (rand() < 0.09) {
+        const [a, b] = randomAdjacentPair((x, y) => world.edges.has(edgeKey(x, y)));
+        if (a === -1) break;
+        world.edges.add(edgeKey(a, b));
+        world.adj[a].add(b);
+        world.adj[b].add(a);
+      }
     }
+    restoreMaximality();
   }
-  restoreMaximality();
   updateStats();
-  announceSelection();
+  if (!isHome) announceSelection();
   requestAnimationFrame(draw);
 }

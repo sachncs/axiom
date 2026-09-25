@@ -10,19 +10,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         <a class="brand" href={`${base}/`} aria-label="Axiom — home">
           <span class="brand__mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none">
-              <path d="M6 24 15.9 6 26 24" stroke="url(#foot1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M10.8 17.5h10.4" stroke="url(#foot2)" stroke-width="1.8" stroke-linecap="round" />
-              <circle cx="15.9" cy="6" r="2.4" fill="var(--bg-2)" stroke="url(#foot2)" stroke-width="1.6" />
-              <circle cx="6" cy="24" r="2.4" fill="var(--bg-2)" stroke="url(#foot2)" stroke-width="1.6" />
-              <circle cx="26" cy="24" r="2.4" fill="var(--bg-2)" stroke="url(#foot2)" stroke-width="1.6" />
-              <defs>
-                <linearGradient id="foot1" x1="0" y1="0" x2="32" y2="32">
-                  <stop stop-color="#6ea1ff" /><stop offset="1" stop-color="#a06bff" />
-                </linearGradient>
-                <linearGradient id="foot2" x1="10" y1="11" x2="22" y2="21">
-                  <stop stop-color="#4fd7ff" /><stop offset="1" stop-color="#a06bff" />
-                </linearGradient>
-              </defs>
+              <path d="M6 24 15.9 6 26 24" stroke="var(--cobalt)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M10.8 17.5h10.4" stroke="var(--cyan)" stroke-width="1.8" stroke-linecap="round" />
+              <circle cx="15.9" cy="6" r="2.4" fill="var(--bg-2)" stroke="var(--cyan)" stroke-width="1.6" />
+              <circle cx="6" cy="24" r="2.4" fill="var(--bg-2)" stroke="var(--cyan)" stroke-width="1.6" />
+              <circle cx="26" cy="24" r="2.4" fill="var(--bg-2)" stroke="var(--cyan)" stroke-width="1.6" />
             </svg>
           </span>
           <span class="brand__name">axiom</span>
@@ -61,7 +53,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 <style>
   .footer {
     border-top: 1px solid var(--line);
-    background: linear-gradient(180deg, transparent, var(--surface));
+    background: var(--surface);
     margin-top: clamp(48px, 6vw, 80px);
   }
 

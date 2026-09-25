@@ -1,10 +1,10 @@
 ---
 import { API_SNIPPET, CLI_SNIPPET, REBUILD_SNIPPET, INSTALL } from "../lib/data";
 
-const TABS = ["API", "CLI", "Ledger"] as const;
-const BODIES = { API: API_SNIPPET, CLI: CLI_SNIPPET, Ledger: REBUILD_SNIPPET };
-const PROMPTS = { API: "$ python demo.py", CLI: "$ bash", Ledger: "$ python benchmarks/bench_axiom.py --n 200 --updates 5000 --mode multilevel" };
-const HEADERS = { API: "axiom·demo.py", CLI: "axiom·cli", Ledger: "axiom·ledger" };
+const TABS = ["API", "CLI", "Trace"] as const;
+const BODIES = { API: API_SNIPPET, CLI: CLI_SNIPPET, Trace: REBUILD_SNIPPET };
+const PROMPTS = { API: "$ python demo.py", CLI: "$ bash", Trace: "$ python benchmarks/bench_axiom.py --n 200 --updates 5000 --mode multilevel" };
+const HEADERS = { API: "axiom·demo.py", CLI: "axiom·cli", Trace: "axiom·trace" };
 const INSTALL_PIP = INSTALL.pip;
 ---
 
@@ -299,7 +299,7 @@ const INSTALL_PIP = INSTALL.pip;
   const INFOS: Record<string, { title: string; prompt: string }> = {
     API: { title: "axiom·demo.py", prompt: "…" },
     CLI: { title: "axiom·cli", prompt: "axiom --n 20 --mode basic --updates 200 --seed 42" },
-    Ledger: { title: "axiom·bench", prompt: "python benchmarks/bench_axiom.py --n 200 --mode multilevel --updates 5000" },
+    Trace: { title: "axiom·trace", prompt: "illustrative update trace · not a performance claim" },
   };
 
   tabs?.forEach((tab) => {

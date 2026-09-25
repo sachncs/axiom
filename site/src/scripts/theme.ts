@@ -5,10 +5,7 @@ export function initTheme(): void {
   const toggle = document.querySelector<HTMLButtonElement>("[data-theme-toggle]");
 
   const stored = localStorage.getItem(key);
-  const initial =
-    stored === "light" || stored === "dark"
-      ? stored
-      : "light";
+  const initial = stored === "light" || stored === "dark" ? stored : "dark";
   document.documentElement.dataset.theme = initial;
   toggle?.setAttribute("aria-pressed", String(initial === "light"));
 

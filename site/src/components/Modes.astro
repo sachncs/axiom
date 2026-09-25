@@ -4,12 +4,12 @@ import { MODES } from "../lib/data";
 const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
   cobalt: {
     badge: "var(--cobalt)",
-    ring: "rgba(91,140,255,0.16)",
+    ring: "rgba(108,124,255,0.14)",
     text: "var(--cobalt)",
   },
   violet: {
     badge: "var(--violet)",
-    ring: "rgba(160,107,255,0.18)",
+    ring: "rgba(232,184,109,0.14)",
     text: "var(--violet)",
   },
 };
@@ -141,7 +141,7 @@ const ACCENTS: Record<string, { badge: string; ring: string; text: string }> = {
     padding: 18px 20px;
     border-radius: var(--r-md);
     border: 1px solid var(--acc-ring);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--acc-badge) 9%, transparent), transparent);
+    background: var(--surface);
   }
   .mode__value {
     font-size: clamp(24px, 2.8vw, 32px);
