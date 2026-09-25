@@ -1,6 +1,6 @@
 export const SITE = {
   title: "Axiom",
-  tagline: "The deterministic graph engine",
+  tagline: "Deterministic dynamic graph matching",
   description:
     "Axiom keeps a maximal matching current as edges arrive and disappear.",
   repo: "https://github.com/sachncs/axiom",
@@ -13,21 +13,22 @@ export const SITE = {
 } as const;
 
 export const NAV = [
-  { label: "Get started", href: "get-started/" },
-  { label: "Playground", href: "playground/" },
+  { label: "Research", href: "research/" },
   { label: "Docs", href: "docs/" },
+  { label: "Playground", href: "playground/" },
+  { label: "GitHub", href: "https://github.com/sachncs/axiom" },
 ] as const;
 
 export const METRICS = [
   {
-    value: "2",
-    label: "canonical modes",
-    note: "basic · multilevel",
+    value: "6",
+    label: "public methods",
+    note: "insert · delete · inspect",
   },
   {
-    value: "3",
-    label: "update verbs",
-    note: "insert · delete · inspect",
+    value: "1",
+    label: "state owner",
+    note: "atomic accepted state",
   },
   {
     value: "0",
@@ -100,10 +101,10 @@ export const MODES = [
     complexity: "single-level",
     period: "deterministic maximality",
     points: [
-      "z = ⌈n^(2/3)⌉ saturation threshold",
-      "phase length r = ⌈n^(4/3)⌉",
-      "subphase length r / z",
-      "production-oriented API and diagnostics",
+      "single-level z-system",
+      "deterministic maximality",
+      "atomic state validation",
+      "recommended integration path",
     ],
     accent: "cobalt",
     cta: 'mode="basic"',
@@ -115,10 +116,10 @@ export const MODES = [
     complexity: "recursive",
     period: "deterministic maximality",
     points: [
-      "z₁ = a phase-start average-degree power of two",
-      "k = density-sensitive recursive depth",
-      "density-sensitive levels down to the √n / (4 log n) threshold",
-      "Invariant (I3) checked after accepted updates",
+      "recursive hierarchy",
+      "density-sensitive depth",
+      "Invariant (I3) checked at runtime",
+      "paper-level validation ongoing",
     ],
     accent: "violet",
     cta: 'mode="multilevel"',
@@ -146,8 +147,9 @@ Maximal: True`;
 export const REBUILD_SNIPPET = `# Strobes of work land on a dark chart —
 # matching size stays maximal through every
 # update, while the ledger explains the cost.
+# Illustrative trace — not a performance claim.
 
-n=200 · updates=5000 · mode=multilevel   ───■── 6.2k upd/s
+n=200 · updates=5000 · mode=multilevel   ───■── example trace
 rebuilds          827
 rematch scans     12,913
 cleanup work      31`;
@@ -162,6 +164,7 @@ export const FOOTER_LINKS = [
     group: "Project",
     links: [
       { label: "Get started", href: "get-started/" },
+      { label: "Research", href: "research/" },
       { label: "Examples", href: "examples/" },
       { label: "Changelog", href: "changelog/" },
       { label: "Contributing", href: "contributing/" },

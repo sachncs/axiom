@@ -27,12 +27,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
           </span>
           <span class="brand__name">axiom</span>
         </a>
-        <p>
-          Axiom keeps a maximal matching current as a graph changes. Built in
-          Python for people who need the answer to stay correct.
-        </p>
+        <p>Deterministic dynamic graph matching for Python.</p>
         <a class="footer__paper mono" href={SITE.paper} target="_blank" rel="noopener">
-          arXiv:2605.00797v1
+          Read the paper
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11l6-6M6.5 5H11v4.5"/></svg>
         </a>
       </div>
@@ -52,18 +49,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         ))
       }
 
-      <div class="footer__col footer__cite">
-        <h4>Cite</h4>
-        <blockquote class="mono" data-copy={SITE.citation}>{SITE.citation}</blockquote>
-      </div>
     </div>
 
     <div class="footer__bottom">
       <span class="mono">© 2026 · Axiom</span>
-      <span class="footer__status">
-        <span class="dot" aria-hidden="true"></span>
-        matching stays maximal in every section
-      </span>
       <span class="mono">MIT licensed · pure Python 3.10+</span>
     </div>
   </div>
@@ -78,7 +67,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   .footer__main {
     display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
+    grid-template-columns: 1.5fr 1fr 1fr;
     gap: 40px;
     padding-block: clamp(48px, 6vw, 76px) 40px;
   }
@@ -132,17 +121,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     color: var(--ink);
   }
 
-  .footer__cite blockquote {
-    margin: 0;
-    padding: 16px 18px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface);
-    font-size: 12.5px;
-    line-height: 1.8;
-    color: var(--ink-dim);
-  }
-
   .footer__bottom {
     display: flex;
     flex-wrap: wrap;
@@ -153,18 +131,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     font-size: 12.5px;
     color: var(--ink-faint);
   }
-  .footer__status {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    margin-inline: auto;
-    color: var(--ink-faint);
-  }
-  .footer__status .dot {
-    width: 6px;
-    height: 6px;
-  }
-
   @media (max-width: 920px) {
     .footer__main {
       grid-template-columns: 1fr 1fr;
@@ -178,9 +144,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     .footer__bottom {
       justify-content: center;
       text-align: center;
-    }
-    .footer__status {
-      margin-inline: 0;
     }
   }
 </style>
