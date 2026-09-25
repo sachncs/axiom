@@ -15,9 +15,7 @@ export const SITE = {
 export const NAV = [
   { label: "Get started", href: "get-started/" },
   { label: "Playground", href: "playground/" },
-  { label: "Docs", href: "concepts/" },
-  { label: "Modes", href: "modes/" },
-  { label: "API", href: "api/" },
+  { label: "Docs", href: "docs/" },
 ] as const;
 
 export const METRICS = [
@@ -98,14 +96,14 @@ export const MODES = [
   {
     name: "Basic",
     tag: "single-level · deterministic",
-    status: "Recommended",
+    status: "Stable implementation · recommended",
     complexity: "single-level",
     period: "deterministic maximality",
     points: [
       "z = ⌈n^(2/3)⌉ saturation threshold",
       "phase length r = ⌈n^(4/3)⌉",
       "subphase length r / z",
-      "ideal for mid-size graphs & teaching",
+      "production-oriented API and diagnostics",
     ],
     accent: "cobalt",
     cta: 'mode="basic"',
@@ -113,7 +111,7 @@ export const MODES = [
   {
     name: "Multilevel",
     tag: "multi-level · density-sensitive depth",
-    status: "Research validation",
+    status: "Experimental · research validation",
     complexity: "recursive",
     period: "deterministic maximality",
     points: [
@@ -129,16 +127,13 @@ export const MODES = [
 
 export const API_SNIPPET = `from axiom import Matcher
 
-algo = Matcher(n=100, mode="basic")
+matcher = Matcher(n=100, mode="basic")
 
-algo.insert(0, 1)      # edge arrives
-algo.insert(2, 3)
-algo.delete(1, 0)      # edge leaves
+matcher.insert(0, 1)
+matcher.insert(2, 3)
+matcher.delete(0, 1)
 
-assert algo.maximal()  # verify the accepted state
-print(algo.matching()) # {(2, 3)}
-print(algo.size())     # 1
-print(algo.stats())    # amortised ledger`;
+assert matcher.maximal()  # every accepted state is checked`;
 
 export const CLI_SNIPPET = `$ axiom --n 20 --mode basic --updates 200 --seed 42
 

@@ -402,7 +402,7 @@ export function initDemo(host: HTMLElement): void {
       const ok = world.matched.size % 2 === 0;
       outMax.textContent = ok ? "Maximal ✓" : "Checking…";
     }
-    if (outTick) outTick.textContent = leadingZeros(totalUpdates, 4) + " updates";
+    if (outTick) outTick.textContent = String(totalUpdates);
   }
 
   /* --------------------------------------------------------------- frame */

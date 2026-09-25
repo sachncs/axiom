@@ -1,0 +1,34 @@
+---
+import Base from "../layouts/Base.astro";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const groups = [
+  { title: "Start here", links: [["Get started", "get-started/"], ["Concepts", "concepts/"], ["Examples", "examples/"]] },
+  { title: "Build", links: [["API reference", "api/"], ["Modes", "modes/"], ["Architecture", "architecture/"]] },
+  { title: "Research", links: [["Research status", "research/"], ["Changelog", "changelog/"]] },
+  { title: "Project", links: [["Contributing", "contributing/"], ["Playground", "playground/"]] },
+] as const;
+---
+<Base title="Documentation" description="Learn, integrate, inspect, and extend Axiom without leaving the product site.">
+  <section class="docs-index shell">
+    <header data-reveal><span class="eyebrow"><span class="dot" aria-hidden="true"></span>Axiom documentation</span><h1>Understand it.<br /><span class="serif gradient-text">Then use it.</span></h1><p>Start with the mental model, move through a working update stream, and open the architecture only when you need to inspect the engine.</p></header>
+    <div class="docs-index__grid">
+      {groups.map((group, index) => <section class="docs-index__group" data-reveal style={`--reveal-delay: ${index * 70}ms`}><span class="mono">0{index + 1}</span><h2>{group.title}</h2><ul>{group.links.map(([label, href]) => <li><a href={`${base}/${href}`}>{label}<span aria-hidden="true">→</span></a></li>)}</ul></section>)}
+    </div>
+  </section>
+</Base>
+
+<style>
+  .docs-index { padding-block: clamp(70px, 10vw, 140px); }
+  .docs-index header { max-width: 720px; }
+  .docs-index h1 { margin: 24px 0 18px; font-size: clamp(48px, 8vw, 92px); line-height: .95; letter-spacing: -.055em; }
+  .docs-index header p { max-width: 580px; margin: 0; color: var(--ink-dim); font-size: 19px; line-height: 1.6; }
+  .docs-index__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 90px; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
+  .docs-index__group { padding: 24px 24px 30px 0; border-right: 1px solid var(--line); }
+  .docs-index__group + .docs-index__group { padding-left: 24px; } .docs-index__group:last-child { border-right: 0; }
+  .docs-index__group > span { color: var(--cobalt); font-size: 11px; }
+  .docs-index h2 { margin: 22px 0 18px; font-size: 22px; }
+  .docs-index ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  .docs-index li a { display: flex; justify-content: space-between; gap: 10px; color: var(--ink-dim); } .docs-index li a:hover { color: var(--cobalt); }
+  @media (max-width: 800px) { .docs-index__grid { grid-template-columns: repeat(2, 1fr); } .docs-index__group:nth-child(2) { border-right: 0; } .docs-index__group:nth-child(n+3) { border-top: 1px solid var(--line); } }
+  @media (max-width: 500px) { .docs-index__grid { grid-template-columns: 1fr; } .docs-index__group, .docs-index__group + .docs-index__group { padding: 24px 0; border-right: 0; } .docs-index__group + .docs-index__group { border-top: 1px solid var(--line); } }
+</style>

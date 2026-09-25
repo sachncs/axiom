@@ -4,8 +4,8 @@ import Base from "../layouts/Base.astro";
 <Base title="Playground" description="Explore dynamic maximal matching updates in an interactive Axiom simulation.">
   <section class="playground shell">
     <header class="playground__header">
-      <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Interactive model</p>
-      <h1>See the invariant move.</h1>
+      <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Live engine</p>
+      <h1>Change an edge.<br />Watch the invariant hold.</h1>
       <p>Pause the stream, switch modes, or click nodes to add edges. The visualization is a browser simulation of the update story; use the Python package for measured algorithm behavior.</p>
     </header>
     <div class="playground__demo card" data-demo>
@@ -21,8 +21,8 @@ import Base from "../layouts/Base.astro";
         </div>
       </div>
       <div class="playground__canvas-wrap"><canvas data-demo-canvas tabindex="0" aria-label="Interactive graph visualization. Use arrow keys to select a node and Enter to toggle an edge."></canvas><span class="sr-only" data-demo-status aria-live="polite"></span><p class="playground__hint"><span class="dot" aria-hidden="true"></span>click two nodes to toggle an edge · arrows + Enter also work</p></div>
-      <div class="demo__stats mono"><span><i data-out-max>Maximal ✓</i></span><span>n <b data-out-n>—</b></span><span>|E| <b data-out-e>—</b></span><span>|M*| <b data-out-m>—</b></span><span>repair <b data-out-scan>—</b></span><span class="demo__tick" data-out-tick>0000 updates</span></div>
-      <div class="playground__legend"><span><strong>M*</strong> current matching</span><span><strong>repair</strong> work after the last update</span><span><strong>Maximal</strong> every edge remains covered</span></div>
+      <div class="demo__stats mono" aria-label="Live engine status"><span><i data-out-max>✓ Maximal</i></span><span>matching <b data-out-m>—</b></span><span>updates <b data-out-tick>0</b></span><span>edges <b data-out-e>—</b> · repair <b data-out-scan>—</b></span></div>
+      <div class="playground__legend"><span><strong>Maximal</strong> every live edge remains covered</span><span>notation: |E| edges · |M*| matching</span></div>
     </div>
     <div class="playground__explain">
       <div><span class="mono">01</span><h2>Edges change</h2><p>Updates arrive one at a time, just as they do through <code>insert</code> and <code>delete</code>.</p></div>

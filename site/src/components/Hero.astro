@@ -6,17 +6,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   <div class="hero__glow grid-glow" aria-hidden="true"></div>
 
   <div class="hero__content">
-    <span class="eyebrow"><span class="dot" aria-hidden="true"></span>Axiom&nbsp;·&nbsp;dynamic matching engine</span>
+    <span class="eyebrow"><span class="dot" aria-hidden="true"></span>Axiom Graph&nbsp;·&nbsp;dynamic matching</span>
     <h1 class="hero__title">
       The graph moves.
       <br />
       The answer <span class="serif gradient-text">stays.</span>
     </h1>
-    <p class="hero__sub">
-      Axiom is the deterministic Python engine for engineers and researchers
-      maintaining a maximal matching as edges arrive and disappear — with every
-      accepted update checked, inspectable, and ready for the next one.
-    </p>
+    <p class="hero__sub">Deterministic dynamic maximal matching for Python. Keep the answer current as your graph changes.</p>
+    <p class="hero__provenance">A small, inspectable engine for engineers and researchers — informed by current dynamic-matching research.</p>
 
     <p class="hero__status"><span class="dot" aria-hidden="true"></span><strong>Current build:</strong> basic is the recommended starting point · multilevel is under research validation</p>
 
@@ -42,7 +39,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     <div class="demo__topbar">
       <div class="demo__live">
         <span class="demo__live-dot"></span>
-        <span class="mono">interactive model</span>
+        <span class="mono">watch Axiom work</span>
       </div>
       <div class="demo__modes" data-demo-modes role="group" aria-label="Simulation mode">
         <button type="button" data-mode="basic" class="is-on" aria-pressed="true">Basic</button>
@@ -74,18 +71,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       </div>
     </div>
 
-    <div class="demo__stats mono">
-      <span><i data-out-max>Maximal ✓</i></span>
-      <span>n <b data-out-n>—</b></span>
-      <span>|E| <b data-out-e>—</b></span>
-      <span>|M*| <b data-out-m>—</b></span>
-      <span>repair <b data-out-scan>—</b></span>
-      <span class="demo__tick" data-out-tick>0000 updates</span>
+    <div class="demo__stats mono" aria-label="Live engine status">
+      <span><i data-out-max>✓ Maximal</i></span>
+      <span>matching <b data-out-m>—</b></span>
+      <span>updates <b data-out-tick>0</b></span>
+      <span class="demo__details">edges <b data-out-e>—</b> · repair <b data-out-scan>—</b></span>
     </div>
     <div class="demo__legend">
-      <span><strong>M*</strong> current matching</span>
-      <span><strong>repair</strong> work after the last update</span>
-      <span><strong>Maximal</strong> every edge remains covered</span>
+      <span><strong>Maximal</strong> every live edge remains covered</span>
+      <span class="demo__notation">notation: |E| edges · |M*| matching</span>
     </div>
   </div>
 </section>
@@ -129,6 +123,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     line-height: 1.58;
     color: var(--ink-dim);
     max-width: 640px;
+  }
+  .hero__provenance {
+    margin: -8px 0 0;
+    max-width: 540px;
+    color: var(--ink-faint);
+    font-size: 13.5px;
+    line-height: 1.55;
   }
   .hero__mono {
     color: var(--ink);
@@ -314,6 +315,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   .demo__tick {
     margin-left: auto;
   }
+  .demo__details, .demo__notation { color: var(--ink-faint); }
 
   .demo__legend {
     display: flex;

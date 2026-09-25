@@ -1,0 +1,23 @@
+<section class="section shell principles" aria-labelledby="principles-title">
+  <div class="section-head" data-reveal>
+    <span class="eyebrow">The product</span>
+    <h2 id="principles-title">The invariant is the <span class="serif gradient-text">interface.</span></h2>
+    <p>Change the graph. Keep the guarantee. Axiom makes algorithmic state deterministic, checked, and visible enough to debug.</p>
+  </div>
+  <div class="principles__grid">
+    <article data-reveal><span class="principles__number mono">01</span><h3>Deterministic</h3><p>The same update stream produces the same matching and the same repair path.</p></article>
+    <article data-reveal style="--reveal-delay: 90ms"><span class="principles__number mono">02</span><h3>Verified</h3><p>Accepted state is exposed only after matching and invariant checks pass.</p></article>
+    <article data-reveal style="--reveal-delay: 180ms"><span class="principles__number mono">03</span><h3>Observable</h3><p>Inspect matching state, rebuilds, repair scans, and the work ledger directly.</p></article>
+  </div>
+</section>
+
+<style>
+  .principles__grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
+  .principles__grid article { padding: 28px 30px 30px 0; border-right: 1px solid var(--line); }
+  .principles__grid article + article { padding-left: 30px; }
+  .principles__grid article:last-child { border-right: 0; }
+  .principles__number { color: var(--cobalt); font-size: 12px; }
+  .principles h3 { margin: 24px 0 8px; font-size: 25px; letter-spacing: -.025em; }
+  .principles p { margin: 0; color: var(--ink-dim); line-height: 1.65; font-size: 15px; }
+  @media (max-width: 700px) { .principles__grid { grid-template-columns: 1fr; } .principles__grid article, .principles__grid article + article { padding: 24px 0; border-right: 0; } .principles__grid article + article { border-top: 1px solid var(--line); } }
+</style>

@@ -38,6 +38,7 @@ const INSTALL_PIP = INSTALL.pip;
       </ul>
 
       <div class="code__install">
+        <span class="code__install-label mono">Developer Preview</span>
         <code class="mono" data-copy={INSTALL_PIP}>{INSTALL_PIP}</code>
       </div>
     </div>
@@ -148,6 +149,14 @@ const INSTALL_PIP = INSTALL.pip;
 
   .code__install {
     margin-top: 30px;
+  }
+  .code__install-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--violet);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
   }
   .code__install code {
     position: relative;
