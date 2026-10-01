@@ -11,7 +11,10 @@ from benchmarks import independent_load
 from benchmarks.independent_load import measure
 
 
-def test_separate_producer_saturation_and_exact_recovery(tmp_path, monkeypatch):
+@pytest.mark.parametrize("ipc_batch", [1, 16])
+def test_separate_producer_saturation_and_exact_recovery(
+    tmp_path, monkeypatch, ipc_batch
+):
     entered, release = threading.Event(), threading.Event()
     persist, submit = Durable._persist, Service.submit
     calls = 0
@@ -37,7 +40,14 @@ def test_separate_producer_saturation_and_exact_recovery(tmp_path, monkeypatch):
     monkeypatch.setattr(Durable, "_persist", paused)
     monkeypatch.setattr(Service, "submit", offered)
     try:
-        result = measure(tmp_path / "independent.db", 32, 10000, 1, queue_capacity=8)
+        result = measure(
+            tmp_path / "independent.db",
+            32,
+            10000,
+            1,
+            queue_capacity=8,
+            ipc_batch=ipc_batch,
+        )
     finally:
         release.set()
     assert (
@@ -67,7 +77,10 @@ def test_separate_producer_saturation_and_exact_recovery(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("code", [errno.EAGAIN, errno.ENOBUFS])
-def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch, code):
+@pytest.mark.parametrize("ipc_batch", [1, 2, 16])
+def test_producer_counts_ipc_drops_separately_without_blocking(
+    monkeypatch, code, ipc_batch
+):
     class Schedule:
         def __init__(self, *args):
             self.missed = 2
@@ -77,7 +90,7 @@ def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch, code
 
     class Channel:
         def send(self, packet, flags):
-            assert len(packet) == independent_load._PACKET.size
+            assert 0 < len(packet) <= independent_load._PACKET.size * ipc_batch
             raise OSError(code, "bounded IPC full")
 
         def close(self):
@@ -98,7 +111,7 @@ def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch, code
 
     report = Report()
     monkeypatch.setattr(independent_load, "Schedule", Schedule)
-    independent_load._produce(Channel(), report, 0, 10, 10, 1)
+    independent_load._produce(Channel(), report, 0, 10, 10, 1, ipc_batch)
     assert report.value[:2] == ([[0, 3, 2], [0, 3, 2]], [])
     assert report.value[2] > 0
 
@@ -115,6 +128,8 @@ def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch, code
         {"queue_capacity": 1},
         {"ipc_bytes": 0},
         {"ipc_bytes": 65537},
+        {"ipc_batch": 0},
+        {"ipc_batch": 65},
     ],
 )
 def test_invalid_envelope_never_starts_process_or_creates_store(tmp_path, options):

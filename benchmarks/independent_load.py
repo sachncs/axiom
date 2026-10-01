@@ -31,7 +31,7 @@ from benchmarks.service import Histogram, live_digest
 _PACKET = struct.Struct("<BQ")
 
 
-def _produce(channel, result, started, rate, query_rate, seconds):
+def _produce(channel, result, started, rate, query_rate, seconds, ipc_batch=1):
     """Send without blocking on IPC or update acknowledgment; return fixed counters."""
     stop = threading.Event()
     counters = [[0, 0, 0], [0, 0, 0]]
@@ -40,20 +40,30 @@ def _produce(channel, result, started, rate, query_rate, seconds):
     def offer(kind, offered_rate):
         schedule = Schedule(started, offered_rate, seconds, stop)
         sent = dropped = 0
+        packet = bytearray()
+
+        def flush():
+            nonlocal sent, dropped
+            count = len(packet) // _PACKET.size
+            try:
+                written = channel.send(packet, socket.MSG_DONTWAIT)
+                if written != len(packet):
+                    raise RuntimeError("partial datagram send")
+            except OSError as error:
+                if error.errno not in (errno.EAGAIN, errno.EWOULDBLOCK, errno.ENOBUFS):
+                    raise
+                dropped += count
+            else:
+                sent += count
+            packet.clear()
+
         try:
             for due in schedule:
-                try:
-                    channel.send(_PACKET.pack(kind, due), socket.MSG_DONTWAIT)
-                except OSError as error:
-                    if error.errno not in (
-                        errno.EAGAIN,
-                        errno.EWOULDBLOCK,
-                        errno.ENOBUFS,
-                    ):
-                        raise
-                    dropped += 1
-                else:
-                    sent += 1
+                packet.extend(_PACKET.pack(kind, due))
+                if len(packet) == ipc_batch * _PACKET.size:
+                    flush()
+            if packet:
+                flush()
         except BaseException as error:
             failures.append(repr(error))
             stop.set()
@@ -91,6 +101,7 @@ def measure(
     query_rate: int = 1000,
     queue_capacity: int = 512,
     ipc_bytes: int = 16384,
+    ipc_batch: int = 1,
 ) -> dict:
     """Reconcile every external offer, bounded admission, publication and recovery."""
     if (
@@ -103,6 +114,7 @@ def measure(
                 query_rate,
                 queue_capacity,
                 ipc_bytes,
+                ipc_batch,
             )
         )
         or not 8 <= vertices <= 1000000
@@ -112,6 +124,7 @@ def measure(
         or not 10 <= query_rate <= 10000
         or not 2 <= queue_capacity <= 4096
         or not 1024 <= ipc_bytes <= 65536
+        or not 1 <= ipc_batch <= 64
     ):
         raise ValueError("invalid bounded independent-load envelope")
     if path.exists():
@@ -137,7 +150,7 @@ def measure(
         started = time.perf_counter_ns() + 1_000_000_000
         process = context.Process(
             target=_produce,
-            args=(send, writer, started, rate, query_rate, seconds),
+            args=(send, writer, started, rate, query_rate, seconds, ipc_batch),
         )
         process.start()
         send.close()
@@ -173,40 +186,42 @@ def measure(
             if final is None and not process.is_alive() and not report.poll():
                 raise RuntimeError("independent producer exited without counters")
             try:
-                data = receive.recv(_PACKET.size + 1)
+                data = receive.recv(_PACKET.size * ipc_batch + 1)
             except TimeoutError:
                 continue
-            if len(data) != _PACKET.size:
+            if not data or len(data) % _PACKET.size:
                 raise RuntimeError("invalid independent offer packet")
-            kind, due = _PACKET.unpack(data)
-            if kind not in (0, 1) or not started <= due < started + seconds * 10**9:
-                raise RuntimeError("invalid independent offer timestamp/kind")
-            received[kind] += 1
-            if kind == 1:
-                try:
-                    version, partner = service.partner(0).result(0)
-                except BusyError:
-                    query_busy += 1
-                    continue
-                if version < previous or partner != (1 if version % 2 else None):
-                    raise RuntimeError("query disagrees with exact committed prefix")
-                previous = version
-                query_count += 1
-                queries.record(time.perf_counter_ns() - due)
-            else:
-                request = Request(
-                    accepted + 1, "delete" if accepted % 2 == 0 else "insert", 0, 1
-                )
-                try:
-                    receipt = service.submit(request)
-                except BusyError:
-                    busy += 1
+            for kind, due in _PACKET.iter_unpack(data):
+                if kind not in (0, 1) or not started <= due < started + seconds * 10**9:
+                    raise RuntimeError("invalid independent offer timestamp/kind")
+                received[kind] += 1
+                if kind == 1:
+                    try:
+                        version, partner = service.partner(0).result(0)
+                    except BusyError:
+                        query_busy += 1
+                        continue
+                    if version < previous or partner != (1 if version % 2 else None):
+                        raise RuntimeError(
+                            "query disagrees with exact committed prefix"
+                        )
+                    previous = version
+                    query_count += 1
+                    queries.record(time.perf_counter_ns() - due)
                 else:
-                    accepted += 1
-                    pending.append((accepted, receipt, due))
-                    peak_pending = max(peak_pending, len(pending))
-                    if len(pending) > queue_capacity + 256:
-                        raise RuntimeError("client receipt envelope exceeded")
+                    request = Request(
+                        accepted + 1, "delete" if accepted % 2 == 0 else "insert", 0, 1
+                    )
+                    try:
+                        receipt = service.submit(request)
+                    except BusyError:
+                        busy += 1
+                    else:
+                        accepted += 1
+                        pending.append((accepted, receipt, due))
+                        peak_pending = max(peak_pending, len(pending))
+                        if len(pending) > queue_capacity + 256:
+                            raise RuntimeError("client receipt envelope exceeded")
         counters, failures, producer_rss = final
         report.send("drained")
         if failures:
@@ -264,6 +279,7 @@ def measure(
         "query_rate": query_rate,
         "seconds": seconds,
         "ipc_buffers": buffers,
+        "ipc_batch": ipc_batch,
         "planned_updates": rate * seconds,
         "producer_missed_updates": counters[0][2],
         "ipc_dropped_updates": counters[0][1],
@@ -300,6 +316,7 @@ def main():
     parser.add_argument("--query-rate", type=int, default=1000)
     parser.add_argument("--queue-capacity", type=int, default=512)
     parser.add_argument("--ipc-bytes", type=int, default=16384)
+    parser.add_argument("--ipc-batch", type=int, default=1)
     args = parser.parse_args()
     options = vars(args)
     options["path"] = options.pop("database")
