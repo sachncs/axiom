@@ -7,6 +7,7 @@ Producer-missed, IPC-dropped, server-rejected and acknowledged counts stay disti
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import multiprocessing
 import platform
@@ -43,14 +44,21 @@ def _produce(channel, result, started, rate, query_rate, seconds):
             for due in schedule:
                 try:
                     channel.send(_PACKET.pack(kind, due), socket.MSG_DONTWAIT)
-                except BlockingIOError:
+                except OSError as error:
+                    if error.errno not in (
+                        errno.EAGAIN,
+                        errno.EWOULDBLOCK,
+                        errno.ENOBUFS,
+                    ):
+                        raise
                     dropped += 1
                 else:
                     sent += 1
-            counters[kind] = [sent, dropped, schedule.missed]
         except BaseException as error:
             failures.append(repr(error))
             stop.set()
+        finally:
+            counters[kind] = [sent, dropped, schedule.missed]
 
     threads = [
         threading.Thread(target=offer, args=(0, rate)),
@@ -65,6 +73,10 @@ def _produce(channel, result, started, rate, query_rate, seconds):
         result.send(
             (counters, failures, rss if sys.platform == "darwin" else rss * 1024)
         )
+        # Keep the datagram endpoint alive until all reported sends are drained.
+        # macOS can reset a receiving socketpair when its peer closes.
+        if not result.poll(30) or result.recv() != "drained":
+            raise RuntimeError("independent offer receiver did not confirm drain")
     finally:
         channel.close()
         result.close()
@@ -110,7 +122,7 @@ def measure(
     send.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, ipc_bytes)
     send_bytes = send.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
     receive.settimeout(0.01)
-    report, writer = context.Pipe(duplex=False)
+    report, writer = context.Pipe(duplex=True)
     service = None
     process = None
     pending = deque()
@@ -196,6 +208,7 @@ def measure(
                     if len(pending) > queue_capacity + 256:
                         raise RuntimeError("client receipt envelope exceeded")
         counters, failures, producer_rss = final
+        report.send("drained")
         if failures:
             raise RuntimeError(f"independent producer failed: {failures}")
         process.join(5)

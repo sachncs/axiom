@@ -1,5 +1,6 @@
 """Independent offers must reconcile every loss class and bound accepted work."""
 
+import errno
 import threading
 
 import pytest
@@ -65,7 +66,8 @@ def test_separate_producer_saturation_and_exact_recovery(tmp_path, monkeypatch):
     assert result["independent_exact_audit_and_recovery_passed"]
 
 
-def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch):
+@pytest.mark.parametrize("code", [errno.EAGAIN, errno.ENOBUFS])
+def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch, code):
     class Schedule:
         def __init__(self, *args):
             self.missed = 2
@@ -76,7 +78,7 @@ def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch):
     class Channel:
         def send(self, packet, flags):
             assert len(packet) == independent_load._PACKET.size
-            raise BlockingIOError("bounded IPC full")
+            raise OSError(code, "bounded IPC full")
 
         def close(self):
             pass
@@ -84,6 +86,12 @@ def test_producer_counts_ipc_drops_separately_without_blocking(monkeypatch):
     class Report:
         def send(self, value):
             self.value = value
+
+        def poll(self, timeout):
+            return True
+
+        def recv(self):
+            return "drained"
 
         def close(self):
             pass
