@@ -46,6 +46,10 @@ support remains unqualified and requires separate stages after the million gate.
 
 ## Evidence
 
-No full-engine result meets this target yet. Existing measurements are linked in
-[engineering.md](../engineering.md); record future qualification commands, source
-revision, raw data, workload/configuration, resource caps, and failure outcomes.
+A completed 30-minute million-vertex closed-loop service run sustains 13,611.8
+real durable updates/s with matching queries and exact recovery. Its query p99
+is 14.4 ms; overload/skew, hard resource ceilings, backup and actual power-loss
+qualification remain open. This is throughput evidence, not full product
+qualification. [Raw provenance and limits](../../benchmarks/results/service/README.md).
+Record future commands, source revision, raw data, configuration, resource caps
+and failure outcomes; do not transfer a result to changed code/workload.

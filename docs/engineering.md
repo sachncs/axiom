@@ -67,6 +67,17 @@ traces meet the throughput target only as a stage; proposed query latency,
 sustained/overload/skew/resource/backup gates remain open. See
 [service contracts/evidence](service.md) and [ADR 0011](adrs/0011-bounded-service-admission.md).
 
+The earlier queued-read service has now completed a 30-minute million-vertex soak:
+24,501,440 real durable updates at 13,611.8/s, 747 native checkpoints and exact
+independent recovery. Peak RSS is 204.5 MB; query p99 is still 14.4 ms. This proves
+the scoped sustained throughput stage, not overload/skew/resource/backup/power-loss
+qualification. [Raw provenance](../benchmarks/results/service/README.md).
+The newer published-partner read path avoids waiting for SQLite without exposing
+private batches; it adds a budgeted four bytes/vertex and supports concurrent
+clients on GIL-enabled CPython. [ADR 0012](adrs/0012-committed-partner-reads.md)
+records the tradeoff and pending latency measurements; the old soak is not evidence
+for changed code.
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

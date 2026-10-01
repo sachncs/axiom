@@ -41,3 +41,32 @@ hard RSS/disk caps, backup or device power-cut test. Query p99 remains 13.8–14
 not the proposed 10 ms gate, and query/ack maxima approach 200 ms. Throughput is
 above 10k on this richer staged workload; full production qualification remains
 open. See [service contracts](../../../docs/service.md).
+
+## Completed 30-minute queued-read soak
+
+`soak-million-599.json`: frozen benchmark source `e50b59b`, installed service
+`1a6bafb`, wheel SHA-256
+`792e4167c8c72955c6692519a6a3f3945a8e733c5a48ecda1dde5851696b774e`.
+Run on the same declared local machine, isolated installed wheel and archived
+benchmark runner (no checkout `axiom` on the import path):
+
+```bash
+python -I runner/benchmarks/service.py --database /private/local/path/soak.db \
+  --vertices 1000000 --pairs 100000000 --duration 1800 --timeout 1900 --seed 599
+```
+
+The requested duration completed: 1800.010 seconds, 24,501,440 real acknowledged
+changes, **13,611.8 changes/s**, 24,501,376 partner queries, 191,424 verified retry
+outcomes, and 747 native checkpoints. Ack p99 upper bound 28.1 ms (max 215.1 ms);
+query p99 14.4 ms (max 207.5 ms). Native retained capacity 73,006,480 bytes,
+peak process RSS 204,537,856 bytes, sampled DB/WAL/SHM peak 55,173,120 bytes.
+Independent exact topology/proper-maximal matching and live/recovered partner
+digest checks pass. Recovery/open 0.131 seconds; separate independent audit 3.207
+seconds. All accepted receipts finish, none remain outstanding.
+
+This establishes sustained throughput only for this closed-loop fixed-pool
+queued-read workload. It does not pass the proposed query-latency gate, prove hard
+resource ceilings, or qualify overload/skew/backup/device power loss. It predates
+the additional 4-byte/vertex committed-read index and must not be reported as a
+measurement of that new implementation. Current source `ec9926e` instead declares
+exactly one committed partner read per admitted update; old raw data is unchanged.
