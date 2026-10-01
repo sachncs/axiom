@@ -98,6 +98,26 @@ also counts producer-missed slots and admission rejections separately from actua
 durable delivery. [ADR 0015](adrs/0015-skew-and-offered-load-qualification.md) and
 [raw skew evidence](../benchmarks/results/service/README.md) record the limits.
 
+The budgeted sparse-free bitmap search now raises the same short million hub
+trace to 15322 durable updates/s with identical trace/matching hashes. A longer
+200000-update/200000-query stage reaches 16108/s, query p99 <=0.5 ms and ack p99
+<=24.9 ms; max acknowledgment remains 207.0 ms. The index adds 127160 bytes,
+not a whole-graph copy. [ADR 0016](adrs/0016-sparse-free-vertex-search.md).
+Read admission reservation protects concurrent partner clients under update
+saturation without bypassing the global cap: measured query Busy is zero at
+10k/100k update offers/s. The paced 10k-offer test still delivers only 9508/s;
+shared-GIL producer misses, checkpoint stalls, new-code soak, hard RSS/WAL/disk
+and actual power-loss qualification remain open.
+[ADR 0017](adrs/0017-read-admission-reservation.md).
+
+Thread safety is delivered at the local `Service` boundary: explicit admission,
+receipt, close and publication locks, one mutation owner, and coherent versioned
+reads on GIL-enabled CPython. Concurrent client tests and native sanitizer stress
+cover private batches and publication. This is not arbitrary concurrent access
+to the standalone C++ engine, free-threaded CPython support or a cross-call graph
+snapshot. SQLite stores complete recoverable checkpoint-plus-tail state; native
+adjacency/matching remains the live compute layer, not a second durable authority.
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

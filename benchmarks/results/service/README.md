@@ -137,3 +137,39 @@ different checkpoint positions. These are single short samples, not an isolated
 causal comparison or a hub SLA. The million result is below 10k; earlier uniform
 success cannot qualify this workload. Degree-sensitive free-neighbor search and
 maintenance remain engineering work. [ADR 0015](../../../docs/adrs/0015-skew-and-offered-load-qualification.md).
+
+## Budgeted free-vertex index and read reservation stage
+
+`free-hub-{32k,128k,million}.json` and `free-hub-million-long.json`:
+native source `a77b0a5`, service/frozen benchmark source `3bd0b32`, installed wheel
+SHA-256 `d05ac53bbfc637e14966fcac75dc3e051a593fc9f76733c41bd5f0dad8489378`.
+Same M3 Pro / 18 GiB / internal SSD/APFS, macOS 26.7.1, SQLite 3.53.4;
+this wheel environment reports CPython **3.14.8**. Sequential fresh isolated
+installed-package processes with an archived runner and no competing test/build
+jobs. Repeat the forced-hub command above; the long million run uses
+`--pairs 100000`. FULL/fullfsync, checkpoints and 1:1 partner reads remain enabled.
+Default read reservation is one of 512 slots.
+
+| Vertices / pairs | Hub degree | Real durable changes/s | Ack p99 upper | Query p99 upper | Peak RSS |
+| --- | --- | --- | --- | --- | --- |
+| 32000 / 10000 | 4096 | 18667 | 21.6 ms | 0.5 ms | 41.8 MB |
+| 128000 / 10000 | 8192 | 17897 | 22.7 ms | 0.5 ms | 51.4 MB |
+| 1000000 / 10000 | 65536 | 15322 | 205.3 ms | 0.5 ms | 283.1 MB |
+| 1000000 / 100000 | 65536 | 16108 | 24.9 ms | 0.5 ms | 283.3 MB |
+
+All independent exact topology/proper-maximal matching and exact recovery audits
+pass. The three short runs have identical update trace and matching digests to
+their respective previous failing-stage records. The million native index adds
+exactly 127160 retained bytes; final native allocation is 79233888 bytes.
+The short million trace includes one timed checkpoint, while the long trace
+reaches eight total checkpoints including bootstrap, completing
+200000 updates and 200000 queries in 12.416 seconds. Max acknowledgment is still
+207.0 ms in that longer run: p99 improvement does not remove checkpoint stalls.
+
+This is evidence of the delivered sparse-free search stage, not a controlled
+CPU-only causal comparison, sustained production arrival SLA or worst-case hub
+bound. Many free vertices can still require substantial search. The changed
+implementation has not repeated the old 30-minute soak. Paced offered-load still
+fails 10k delivered/s; hard RSS/disk and physical power-loss qualification remain
+open. [ADR 0016](../../../docs/adrs/0016-sparse-free-vertex-search.md) and
+[ADR 0017](../../../docs/adrs/0017-read-admission-reservation.md).

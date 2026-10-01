@@ -1,7 +1,7 @@
 # ADR 0016: Search sparse free vertices instead of every hub neighbor
 
-Date: 2026-10-02. Status: implemented and differential/regression tested;
-installed-package performance qualification pending.
+Date: 2026-10-02. Status: implemented, differential/regression tested and
+installed-package hub stage measured; broader qualification remains open.
 
 ## Context and decision
 
@@ -56,3 +56,17 @@ work must be included in checkpoint/recovery timings. No billion-scale, overload
 latency or hard process-memory claim follows from its compact size or unit tests.
 Retain before/after raw installed-package measurements and exact trace/matching
 digests; do not hide the previous failing skew result.
+
+## Measured installed-package stage
+
+Source `a77b0a5` with service/runner `3bd0b32` now measures 15322 durable
+updates/s for the same short million-vertex degree-65536 hub trace (previously
+9048), with identical trace and final matching hashes. A 200000-update run with
+exactly 200000 partner reads measures 16108/s, query p99 <=0.5 ms, acknowledgment
+p99 <=24.9 ms and maximum 207.0 ms. Independent full topology/proper-maximal and
+exact recovery checks pass. The short run's ack p99 is 205.3 ms; do not select
+the longer run's percentile to conceal checkpoint stalls.
+Actual native index delta is 127160 bytes at one million vertices. These single
+short samples are not an isolated CPU-only experiment, sustained arrival SLA,
+many-free-vertex worst-case bound or resource/power-loss qualification.
+[Raw evidence, artifact and reproduction](../../benchmarks/results/service/README.md).

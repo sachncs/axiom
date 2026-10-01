@@ -43,3 +43,28 @@ Queries rejected at admission have no successful latency sample—report their c
 not just p99 of successes. Results are single short hot-edge samples, not uniform
 network traffic, hub-overload, a sustained arrival SLA, or hard resource/power-loss
 qualification. [ADR 0015](../../../docs/adrs/0015-skew-and-offered-load-qualification.md).
+
+## Reserved read-admission stage
+
+`reserved-million-{10000,100000}.json`: native source `a77b0a5`, service and
+frozen runner `3bd0b32`, installed wheel SHA-256
+`d05ac53bbfc637e14966fcac75dc3e051a593fc9f76733c41bd5f0dad8489378`.
+Same machine/storage/software as above except installed CPython **3.14.8**.
+Fresh sequential isolated processes with no competing build/test jobs; same
+ten-second command and 1000 query offers/s. Default reserve is one of 512 slots.
+
+| Update offers/s | Missed update slots | Update Busy | Real acknowledged | Delivered/s incl. drain | Ack p99 upper | Query Busy / completed | Query p99 upper |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 10000 | 3154 | 1701 | 95145 | **9508** | 91.6 ms | 0 / 9954 | 0.6 ms |
+| 100000 | 306967 | 371955 | 321078 | 32062 | 238.0 ms | 0 / 9581 | 1.0 ms |
+
+All count reconciliations and independent exact audits/recovery pass.
+Query-producer missed slots remain 46/419. Peak outstanding remains 512 and
+client receipts 511; peak RSS is 178.6/177.7 MB (observed, not enforced).
+The reservation removes measured query admission rejections under update-only
+saturation without bypassing the global cap. Other reads can still consume it.
+
+The 10k-offer test **still fails to deliver 10k/s**; acknowledgment tails remain
+checkpoint-sensitive and the shared-GIL producer is not an independent network
+generator. Do not label either gross overload throughput or zero query Busy as
+full qualification. [ADR 0017](../../../docs/adrs/0017-read-admission-reservation.md).

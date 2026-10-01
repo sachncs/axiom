@@ -1,6 +1,7 @@
 # ADR 0017: Reserve bounded admission capacity for reads
 
-Date: 2026-10-02. Status: implemented/tested; saturation measurement pending.
+Date: 2026-10-02. Status: implemented/tested and saturation stage measured;
+full qualification pending.
 
 ## Context and decision
 
@@ -37,3 +38,12 @@ Busy. Releasing persistence drains exact outcomes and reuses capacity. Test
 single-slot defaults, explicit zero legacy behavior and invalid policies. Forced
 offered saturation verifies bounded receipts and no Busy partner calls when
 updates are the only outstanding work. Broad qualification remains open.
+
+The installed `3bd0b32` stage at one million vertices reports zero query Busy at
+both 10k and 100k update offers/s, compared with 167/4689 before reservation.
+Outstanding remains bounded at 512; query p99 is <=0.6/1.0 ms. Producer missed
+query slots remain 46/419. Delivered update throughput at 10k offered is still
+only 9508/s with acknowledgment p99 <=91.6 ms, so the target is not qualified.
+These are single shared-GIL paced samples, not an independent network generator
+or unconditional read availability guarantee.
+[Raw provenance and limitations](../../benchmarks/results/overload/README.md).
