@@ -41,6 +41,7 @@ Documentation = "https://sachncs.github.io/axiom/"
 Changelog = "https://github.com/sachncs/axiom/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
+benchmark = ["matplotlib>=3.7"]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",

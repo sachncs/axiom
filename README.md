@@ -138,6 +138,10 @@ assert algo.maximal()
 python benchmarks/bench_axiom.py --n 200 --updates 5000 --mode multilevel
 ```
 
+For controlled real insertion/deletion rates, latency distributions, rebuild
+boundaries, memory, and a recompute baseline, see the
+[performance measurement guide](docs/performance.md).
+
 ### Compare modes in parallel
 
 ```python
