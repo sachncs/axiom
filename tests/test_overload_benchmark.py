@@ -1,0 +1,59 @@
+"""Offered arrivals cannot count missed/rejected work as delivered updates."""
+
+import threading
+
+import pytest
+
+from benchmarks import overload
+from benchmarks.overload import Schedule, measure
+
+
+def test_schedule_reports_missed_slots_without_unbounded_catch_up(monkeypatch):
+    times = iter([0, 250000000, 300000000, 1000000000])
+    monkeypatch.setattr(overload.time, "perf_counter_ns", lambda: next(times))
+    schedule = Schedule(0, 10, 1, threading.Event())
+    assert list(schedule) == [0, 200000000, 300000000]
+    assert schedule.missed == 7 and schedule.total == 10
+
+
+def test_offered_load_counts_all_outcomes_and_audits_exact_recovery(tmp_path):
+    result = measure(
+        tmp_path / "offered.db", 32, 10000, 1, query_rate=1000, queue_capacity=8
+    )
+    assert result["planned_update_offers"] == 10000
+    assert (
+        result["real_acknowledged_updates"]
+        + result["busy_update_offers"]
+        + result["producer_missed_update_slots"]
+    ) == 10000
+    assert (
+        result["partner_queries"]
+        + result["busy_query_offers"]
+        + result["producer_missed_query_slots"]
+    ) == 1000
+    assert result["real_acknowledged_updates"] > 0
+    assert result["service_metrics"]["peak_outstanding"] <= 8
+    assert result["peak_client_receipts"] <= 264
+    assert result["final_status"]["sequence"] == result["real_acknowledged_updates"]
+    assert result["independent_exact_audit_and_recovery_passed"]
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"vertices": 9},
+        {"rate": 0},
+        {"seconds": 0},
+        {"query_rate": 0},
+        {"queue_capacity": 1},
+        {"seconds": True},
+        {"seconds": 1.5},
+    ],
+)
+def test_invalid_offered_envelope_never_creates_store(tmp_path, options):
+    settings = dict(vertices=32, rate=100, seconds=1)
+    settings.update(options)
+    path = tmp_path / "invalid.db"
+    with pytest.raises(ValueError):
+        measure(path, **settings)
+    assert not path.exists()
