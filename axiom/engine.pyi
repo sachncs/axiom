@@ -33,6 +33,9 @@ class Engine:
     def size(self) -> int:
         """Read the committed matching edge count in constant time."""
         ...
+    def committed_partner(self, vertex: int) -> tuple[int, int | None]:
+        """Atomically read the last published partner even during a private batch."""
+        ...
     def num_edges(self) -> int:
         """Read the committed graph edge count in constant time."""
         ...

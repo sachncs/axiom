@@ -42,11 +42,14 @@ and cannot exceed retention. `batch_wait_ms` defaults to 1 and caps at 100.
 - `close(timeout=...)` stops admission and drains. Timeout means drain continues;
   call close again. Explicit context/close use is required. Process exit may lose
   queued-only work, never converting it into a successful acknowledgment.
+  Concurrent close callers may receive `BusyError`; this prevents double release.
 
 ## Query and scheduling contract
 
 `partner`, `has_edge`, `page`, `status`, `checkpoint` and `check` return receipts.
-Queries run on the owner between bounded update groups and return committed state.
+`partner` reads the last publication directly, including while a private batch
+waits for durability. It returns an already completed receipt, never private
+partners. Other queries run on the owner between bounded update groups.
 They are not FIFO barriers against pending updates: wait for the update result
 before submitting a read-your-write query. They may include overlapping newer
 updates but never private intermediate graph/matching state. Stale page versions
@@ -55,7 +58,12 @@ reject without disabling a healthy owner; audits/certificate failure fail closed
 `metrics()` is an immediate bounded admission diagnostic, not a graph query.
 `next_admission_sequence` is **not** the durable sequence; `status().result()`
 reports the committed one. Assembly wait is not a maximum acknowledgment SLA.
-Native checkpoints/full audits/SQLite I/O block this worker. Receipt timing separates
+Concurrent client calls and receipt waiters are supported on GIL-enabled CPython;
+free-threaded engine builds explicitly reject. One worker owns mutation. There is
+no cross-call snapshot: compare returned versions when combining queries.
+[ADR 0012](adrs/0012-committed-partner-reads.md) records synchronization and the
+additional budgeted 4 bytes/vertex. Native checkpoints/full audits block the GIL;
+SQLite I/O blocks the worker but not published partner reads. Receipt timing separates
 queue/assembly wait from execution; client-observed latency also includes delivery
 and scheduling. Never measure only ordinary native edits to claim service latency.
 
@@ -67,11 +75,11 @@ python benchmarks/service.py --database /private/local/path/fresh.db \
 ```
 
 Four update clients each keep at most 64 individual updates in flight; one query
-client pipelines 128 reads. Shared server capacity is 512. Streaming churn uses
+client uses windows of 128 reads. Shared server capacity is 512. Streaming churn uses
 the same uniform-vertex fixed 8192-pair pool as the earlier durable benchmark;
 headline timing includes queries, original retries, native/SQLite checkpoints,
-construction of requests and client scheduling. At least one partner query per
-two real updates is completed; any remaining queries after writers stop also count
+construction of requests and client scheduling. The current benchmark issues exactly
+one partner query per real update; any remaining queries after writers stop also count
 in headline time. Report how many completed while writers were active.
 
 Histograms use fixed 100us buckets below one second and an explicit overflow bin;
@@ -87,7 +95,7 @@ hard RSS/disk caps, device power loss, backup or a production recovery SLA. The
 service and benchmark do not by themselves complete the accepted full-service
 qualification goal.
 
-## Staged concurrent evidence
+## Earlier queued-read evidence
 
 Source `546464e`, service `1a6bafb`; Apple M3 Pro / 18 GiB / internal SSD/APFS,
 macOS 26.7.1, CPython 3.14.7, SQLite 3.53.4. Fresh sequential processes, 200000

@@ -162,6 +162,40 @@ PyObject *partner(Native *self, PyObject *arg) {
     Py_RETURN_NONE;
   return PyLong_FromUnsignedLong(result);
 }
+PyObject *committedPartner(Native *self, PyObject *arg) {
+  uint64_t vertex;
+  // Read-only previous-publication view is explicitly allowed from another
+  // thread. This call retains the GIL for the coupled version/partner read.
+  if (!self->engine || self->engine->graph().poisoned) {
+    PyErr_SetString(PyExc_RuntimeError, "native engine is unavailable or poisoned");
+    return nullptr;
+  }
+  if (!number(arg, vertex))
+    return nullptr;
+  if (vertex >= self->engine->graph().n) {
+    PyErr_SetString(PyExc_ValueError, "vertex out of range");
+    return nullptr;
+  }
+  try {
+    auto result = self->engine->committedPartner(static_cast<uint32_t>(vertex));
+    PyObject *value = result.second == axiom::none
+                         ? Py_NewRef(Py_None)
+                         : PyLong_FromUnsignedLong(result.second);
+    if (!value)
+      return nullptr;
+    PyObject *version = PyLong_FromUnsignedLongLong(result.first);
+    if (!version) {
+      Py_DECREF(value);
+      return nullptr;
+    }
+    PyObject *tuple = PyTuple_Pack(2, version, value);
+    Py_DECREF(version);
+    Py_DECREF(value);
+    return tuple;
+  } catch (...) {
+    return error();
+  }
+}
 PyObject *count(Native *self, PyObject *) {
   return guard(self, true) ? PyLong_FromUnsignedLongLong(self->engine->size())
                            : nullptr;
@@ -395,6 +429,8 @@ PyMethodDef methods[] = {
      "Delete a real edge and certify deterministic matching repair."},
     {"partner", reinterpret_cast<PyCFunction>(partner), METH_O,
      "Read one committed partner."},
+    {"committed_partner", reinterpret_cast<PyCFunction>(committedPartner), METH_O,
+     "Read the last published version/partner, including during private edits."},
     {"size", reinterpret_cast<PyCFunction>(count), METH_NOARGS,
      "Read committed matching size."},
     {"num_edges", reinterpret_cast<PyCFunction>(edges), METH_NOARGS,
@@ -455,6 +491,14 @@ int clear(PyObject *module) {
   return 0;
 }
 int execute(PyObject *module) {
+#ifdef Py_GIL_DISABLED
+  // The binding deliberately holds the GIL through coupled native reads and
+  // writes. Do not allow a free-threaded build to silently remove this lock.
+  PyErr_SetString(PyExc_RuntimeError,
+                  "axiom.engine requires a GIL-enabled CPython build; "
+                  "free-threaded builds are not supported");
+  return -1;
+#endif
   auto *state = reinterpret_cast<State *>(PyModule_GetState(module));
   state->type = PyType_FromModuleAndSpec(module, &spec, nullptr);
   if (!state->type)

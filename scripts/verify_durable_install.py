@@ -1,14 +1,25 @@
 """Exercise installed checkpoint v2; invoke with Python -I to exclude checkout."""
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from axiom.durable import Durable, ExpiredError, Outcome, Request
+from axiom.engine import Engine
 from axiom.service import Service
 
 
 def verify() -> None:
     """Compact past history capacity, reopen exact state, retry and reject expiry."""
+    engine = Engine(16)
+    token = engine.begin()
+    engine.insert(0, 1)
+    with ThreadPoolExecutor(max_workers=1) as reader:
+        if reader.submit(engine.committed_partner, 0).result(5) != (0, None):
+            raise RuntimeError("installed native query exposed private state")
+    engine.commit(token)
+    if engine.committed_partner(0) != (1, 1) or not engine.check():
+        raise RuntimeError("installed native coupled publication failed")
     with TemporaryDirectory() as directory:
         path = Path(directory) / "graph.db"
         with Durable(

@@ -44,6 +44,12 @@ decisions, topology, properness, and maximality.
   reads reject unpublished state, even for the owner. `check` is an owner audit;
   `memory` exposes only allocation/status diagnostics. No writable graph or
   partner-map escape hatch is exposed. Ordinary access requires a single owner.
+- `committed_partner(vertex)` is a coupled `(version, partner)` read of the last
+  publication, allowed from other threads even during a private batch. An indexed
+  earliest undo value prevents intermediate partner leakage. The index adds four
+  budgeted bytes/vertex; ordinary queries keep their existing rejection behavior.
+  The binding retains the GIL; free-threaded CPython builds explicitly reject.
+  The C++ core itself is not a concurrent multi-writer API. See [ADR 0012](adrs/0012-committed-partner-reads.md).
 - Graph and partner old values are journaled before mutation. At most six partner
   writes occur per matched-edge deletion. Rollback allocates no native memory and
   restores topology, partners/count, and logical version, not retained buffer

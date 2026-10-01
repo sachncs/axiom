@@ -4,6 +4,7 @@ import random
 import subprocess
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -78,6 +79,50 @@ def test_grouped_single_requests_preserve_results_versions_and_exact_recovery(
         )
 
 
+def test_shared_receipt_waiters_and_concurrent_close_preserve_one_acknowledgment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "graph.db"
+    service = create(path, batch_wait_ms=0)
+    entered, release = threading.Event(), threading.Event()
+    original = service._owner._persist
+
+    def paused(rows: list) -> None:
+        entered.set()
+        if not release.wait(5):
+            raise RuntimeError("test release timed out")
+        original(rows)
+
+    monkeypatch.setattr(service._owner, "_persist", paused)
+    receipt = service.submit(Request(1, "insert", 0, 1))
+
+    def close_client() -> bool:
+        try:
+            service.close(5)
+        except BusyError:
+            return False  # Explicit backpressure, never a second concurrent release.
+        return True
+
+    try:
+        assert entered.wait(5)
+        with ThreadPoolExecutor(max_workers=12) as clients:
+            waiters = [clients.submit(receipt.result, 5) for _ in range(8)]
+            closers = [clients.submit(close_client) for _ in range(4)]
+            release.set()
+            assert [waiter.result(5) for waiter in waiters] == [Outcome(1, True, 1)] * 8
+            closed = [closer.result(5) for closer in closers]
+            assert any(closed)
+    finally:
+        release.set()
+        service.close(5)
+    assert receipt.result(0) == Outcome(1, True, 1)
+    assert service.metrics()["outstanding"] == 0
+    with pytest.raises(UnavailableError):
+        service.partner(0)
+    with Durable(path) as recovered:
+        assert recovered.partner(0) == (1, 1) and recovered.check()
+
+
 def test_pending_retries_share_one_mutation_and_consume_bounded_slots(
     tmp_path: Path,
 ) -> None:
@@ -121,6 +166,8 @@ def test_capacity_includes_active_work_and_queries_and_does_not_consume_rejected
             assert entered.wait(5)
             pending = [service.submit(r) for r in edits(2, 2)]
             query = service.partner(0)
+            assert query.done() and query.result(0) == (0, None)
+            duplicate = service.submit(edits(1, 1)[0])
             with pytest.raises(BusyError, match="nothing was admitted"):
                 service.submit(edits(4, 1)[0])
             with pytest.raises(BusyError):
@@ -134,9 +181,48 @@ def test_capacity_includes_active_work_and_queries_and_does_not_consume_rejected
             release.set()
         assert first.result(5) == Outcome(1, True, 1)
         assert completed(pending) == [Outcome(2, True, 2), Outcome(3, True, 3)]
-        assert query.result(5)[0] in (1, 3)
+        assert duplicate.result(5) == first.result(5)
         assert service.submit(edits(4, 1)[0]).result(5) == Outcome(4, True, 4)
         assert service.metrics()["peak_outstanding"] == 4
+
+
+@pytest.mark.parametrize("maintenance", [False, True])
+def test_partner_reads_published_state_during_owner_sync_without_queueing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, maintenance: bool
+) -> None:
+    with create(tmp_path / "graph.db", batch_wait_ms=0) as service:
+        assert service.submit(Request(1, "insert", 0, 1)).result(5) == Outcome(
+            1, True, 1
+        )
+        entered, release = threading.Event(), threading.Event()
+        target = "_persist_checkpoint" if maintenance else "_persist"
+        original = getattr(service._owner, target)
+
+        def paused(payload: object) -> None:
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test sync release timed out")
+            original(payload)
+
+        monkeypatch.setattr(service._owner, target, paused)
+        work = (
+            service.checkpoint()
+            if maintenance
+            else service.submit(Request(2, "delete", 0, 1))
+        )
+        try:
+            assert entered.wait(5)
+            for _ in range(100):
+                for vertex, partner in ((0, 1), (1, 0), (2, None)):
+                    receipt = service.partner(vertex)
+                    assert receipt.done() and receipt.result(0) == (1, partner)
+            assert not work.done()
+            assert service.metrics()["outstanding"] == 1
+        finally:
+            release.set()
+        work.result(5)
+        assert service.partner(0).result(0) == ((1, 1) if maintenance else (2, None))
+        assert service.check().result(5)
 
 
 def test_close_timeout_stops_admission_but_drains_without_cancelling_accepted_work(
@@ -206,7 +292,7 @@ def test_uncertain_update_fails_all_waiters_and_recovers_only_committed_prefix(
         assert entered.wait(5)
         duplicate = service.submit(edits(1, 1)[0])
         queued = [service.submit(r) for r in edits(5, 4)]
-        queued.append(service.partner(0))
+        queued.append(service.status())
     finally:
         release.set()
     for receipt in current + [duplicate]:
@@ -338,7 +424,7 @@ def test_failed_full_audit_disables_service_and_all_queued_queries(
         monkeypatch.setattr(service._owner, "check", lambda: False)
         with service._condition:
             audit = service.check()
-            query = service.partner(0)
+            query = service.status()
         with pytest.raises(UnavailableError, match="certificate"):
             audit.result(5)
         with pytest.raises(UnavailableError):
@@ -421,7 +507,7 @@ def test_concurrent_clients_and_queries_agree_with_exact_versioned_reference(
         max_operations=128,
     ) as service:
         admission = threading.Lock()
-        barrier = threading.Barrier(5)
+        barrier = threading.Barrier(8)
         cursor, results, failures = 0, {}, []
 
         def writer() -> None:
@@ -451,7 +537,7 @@ def test_concurrent_clients_and_queries_agree_with_exact_versioned_reference(
                 failures.append(error)
 
         workers = [threading.Thread(target=writer) for _ in range(4)]
-        workers.append(threading.Thread(target=reader))
+        workers.extend(threading.Thread(target=reader) for _ in range(4))
         for worker in workers:
             worker.start()
         for worker in workers:

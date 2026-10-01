@@ -12,6 +12,9 @@ using Edge = std::pair<uint32_t, uint32_t>;
 
 namespace axiom {
 struct Inspector {
+  static void corruptPublishedIndex(Engine &engine, uint32_t vertex) {
+    engine.firstWrite[vertex] = 12345;
+  }
   static void corruptPartner(Engine &engine, uint32_t vertex,
                              uint32_t partner) {
     engine.partners[vertex] = partner;
@@ -112,6 +115,12 @@ int main() {
         bool changed = reference.edit(u, v, adding);
         require((adding ? engine.insert(u, v) : engine.remove(u, v)) == changed,
                 "mutation outcome differs");
+        for (uint32_t vertex = 0; vertex < 96; ++vertex) {
+          auto published = engine.committedPartner(vertex);
+          require(published.first == version &&
+                      published.second == original.partners[vertex],
+                  "private mutation exposed unpublished partner/version");
+        }
       }
       audit(engine, reference);
       if (batch % 3) {
@@ -128,6 +137,10 @@ int main() {
         auto restored = axiom::Engine::restore(
             checkpoint.data(), checkpoint.size(), engine.budget());
         audit(*restored, reference);
+        for (uint32_t vertex = 0; vertex < 96; ++vertex)
+          require(restored->committedPartner(vertex) ==
+                      engine.committedPartner(vertex),
+                  "checkpoint changed published partner view");
         require(restored->graph().version == engine.graph().version,
                 "checkpoint changed logical version");
         std::vector<char> repeated(restored->snapshotSize());
@@ -137,6 +150,16 @@ int main() {
       }
     }
     // A budget that admits metadata but no partner undo cannot partly mutate.
+    axiom::Engine corruptIndex(4);
+    corruptIndex.insert(0, 1);
+    axiom::Inspector::corruptPublishedIndex(corruptIndex, 0);
+    require(!corruptIndex.check(), "corrupt published index passed full audit");
+    try {
+      corruptIndex.committedPartner(0);
+      throw std::runtime_error("corrupt published view served data");
+    } catch (const axiom::CertificateError &) {
+    }
+    require(corruptIndex.graph().poisoned, "corrupt published view did not poison");
     axiom::Engine probe(4);
     axiom::Engine tight(4, probe.allocated());
     try {

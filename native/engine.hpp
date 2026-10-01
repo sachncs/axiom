@@ -24,13 +24,16 @@ class Engine {
   uint64_t limit;
   Store storage;
   std::vector<uint32_t> partners;
+  // First undo record per vertex: O(1) access to the last published partner
+  // while a batch is private. This is not a whole-graph copy per update.
+  std::vector<uint32_t> firstWrite;
   std::vector<PartnerUndo> writes;
   uint64_t matched = 0, savedMatched = 0;
 
   static uint64_t overhead() { return sizeof(Engine) - sizeof(Store); }
 
   static uint64_t graphBudget(uint32_t vertices, uint64_t budget) {
-    uint64_t extra = overhead() + uint64_t(vertices) * sizeof(uint32_t);
+    uint64_t extra = overhead() + uint64_t(vertices) * 2 * sizeof(uint32_t);
     if (budget < extra || Store::base(vertices) > budget - extra)
       throw std::length_error("engine metadata exceeds native budget");
     return budget - extra;
@@ -39,6 +42,7 @@ class Engine {
   void rebudget() {
     uint64_t extra = overhead() +
                      uint64_t(partners.capacity()) * sizeof(uint32_t) +
+                     uint64_t(firstWrite.capacity()) * sizeof(uint32_t) +
                      uint64_t(writes.capacity()) * sizeof(PartnerUndo);
     if (extra > limit || storage.allocated() > limit - extra)
       throw std::length_error("engine native allocation exceeds budget");
@@ -46,6 +50,8 @@ class Engine {
   }
 
   void reserveWrites(uint64_t needed) {
+    if (needed > none)
+      throw std::length_error("partner journal addressing exhausted");
     if (needed <= writes.capacity())
       return;
     uint64_t maximum = (limit - allocated()) / sizeof(PartnerUndo);
@@ -66,6 +72,8 @@ class Engine {
   }
 
   void write(uint32_t vertex, uint32_t value) noexcept {
+    if (firstWrite[vertex] == none)
+      firstWrite[vertex] = static_cast<uint32_t>(writes.size());
     writes.push_back(PartnerUndo{vertex, partners[vertex], value});
     partners[vertex] = value;
   }
@@ -160,7 +168,9 @@ class Engine {
       for (size_t i = first; i < writes.size(); ++i) {
         endpointDelta +=
             int(writes[i].expected != none) - int(writes[i].previous != none);
-        if (!certified(writes[i].vertex))
+        uint32_t slot = firstWrite[writes[i].vertex];
+        if (slot == none || slot > i || writes[slot].vertex != writes[i].vertex ||
+            !certified(writes[i].vertex))
           throw CertificateError(
               "native partner dependency certificate failed");
       }
@@ -184,7 +194,7 @@ class Engine {
 public:
   explicit Engine(uint32_t vertices, uint64_t budget = defaultBudget)
       : limit(budget), storage(vertices, graphBudget(vertices, budget)),
-        partners(vertices, none) {
+        partners(vertices, none), firstWrite(vertices, none) {
     rebudget();
   }
 
@@ -199,10 +209,24 @@ public:
       throw std::invalid_argument("vertex out of range");
     return partners[vertex];
   }
+  std::pair<uint64_t, uint32_t> committedPartner(uint32_t vertex) {
+    storage.healthy();
+    if (vertex >= storage.n)
+      throw std::invalid_argument("vertex out of range");
+    uint32_t slot = firstWrite[vertex];
+    if (slot != none &&
+        (!storage.active || slot >= writes.size() || writes[slot].vertex != vertex)) {
+      storage.poisoned = true;
+      throw CertificateError("committed partner index certificate failed");
+    }
+    return {storage.active ? storage.savedVersion : storage.version,
+            slot == none ? partners[vertex] : writes[slot].previous};
+  }
   uint64_t budget() const { return limit; }
   uint64_t allocated() const {
     return overhead() + storage.allocated() +
            uint64_t(partners.capacity()) * sizeof(uint32_t) +
+           uint64_t(firstWrite.capacity()) * sizeof(uint32_t) +
            uint64_t(writes.capacity()) * sizeof(PartnerUndo);
   }
   uint64_t journal() const {
@@ -336,6 +360,8 @@ public:
   void commit(uint64_t value) {
     token(value);
     storage.commit(value);
+    for (const auto &entry : writes)
+      firstWrite[entry.vertex] = none;
     writes.clear();
   }
   void rollback(uint64_t value) {
@@ -348,6 +374,8 @@ public:
       partners[it->vertex] = it->previous;
     }
     storage.rollback(value);
+    for (const auto &entry : writes)
+      firstWrite[entry.vertex] = none;
     writes.clear();
     matched = savedMatched;
   }
@@ -360,6 +388,10 @@ public:
     uint64_t endpoints = 0;
     for (uint32_t u = 0; u < storage.n; ++u) {
       // Independent full audit, not a replay of the local certificate helper.
+      uint32_t slot = firstWrite[u];
+      if (slot != none &&
+          (!storage.active || slot >= writes.size() || writes[slot].vertex != u))
+        return false;
       uint32_t v = partners[u];
       if (v != none) {
         if (v >= storage.n || v == u || partners[v] != u || !storage.has(u, v))
@@ -373,6 +405,10 @@ public:
               return false;
       }
     }
+    for (size_t i = 0; i < writes.size(); ++i)
+      if (writes[i].vertex >= storage.n || firstWrite[writes[i].vertex] == none ||
+          firstWrite[writes[i].vertex] > i)
+        return false;
     return endpoints == 2 * matched;
   }
 

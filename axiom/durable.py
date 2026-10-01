@@ -170,6 +170,7 @@ class Durable:
                 "require a non-symlink file in an existing local directory"
             )
         self._lock = threading.Lock()
+        self._publication_lock = threading.RLock()
         self._closed = False
         self._failed = False
         self._requested_batch = max_batch
@@ -871,10 +872,10 @@ class Durable:
             version = self._engine.version
             if version + len(fresh) > _MAX:
                 raise CapacityError("durable mutation sequence exhausted")
-            token = self._engine.begin()
             rows = []
             tail = self._tail
             persisting = False
+            token = self._engine.begin()
             try:
                 for request in fresh:
                     adding = int(request.operation == "insert")
@@ -927,6 +928,32 @@ class Durable:
                     self._failed = True
                 raise
 
+    @property
+    def _failed(self) -> bool:
+        return self._is_failed
+
+    @_failed.setter
+    def _failed(self, value: bool) -> None:
+        with self._publication_lock:
+            self._is_failed = value
+
+    @property
+    def _closed(self) -> bool:
+        return self._is_closed
+
+    @_closed.setter
+    def _closed(self, value: bool) -> None:
+        with self._publication_lock:
+            self._is_closed = value
+
+    def _committed_partner(self, vertex: int) -> tuple[int, int | None]:
+        # Native coupled reads retain the GIL, including across private writes.
+        # Availability transitions/close serialize against the entire read.
+        with self._publication_lock:
+            if self._closed or self._failed:
+                raise UnavailableError("store is closed or failed; close and recover")
+            return self._engine.committed_partner(vertex)
+
     def partner(self, vertex: int) -> tuple[int, int | None]:
         """Read a partner and its coherent committed version without full copying."""
         with self._exclusive():
@@ -974,7 +1001,7 @@ class Durable:
 
     def check(self) -> bool:
         """Run an explicit full native audit, not an ordinary-update scan."""
-        with self._exclusive():
+        with self._exclusive(), self._publication_lock:
             try:
                 verified = self._engine.check()
             except BaseException:

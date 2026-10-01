@@ -118,8 +118,10 @@ class Service:
     """Aggregate updates with bounded outstanding work and coherent query results.
 
     One global request stream must be sequenced by callers. Pending identical IDs
-    share the original mutation/outcome. Reads are scheduled between update groups,
-    not as FIFO barriers: wait for an update acknowledgment before read-your-write.
+    share the original mutation/outcome. Partner reads use the last publication;
+    other reads run between groups. Neither is a FIFO barrier: wait for an update
+    acknowledgment before read-your-write. Concurrent client calls are supported
+    on GIL-enabled CPython; the native binding rejects free-threaded builds.
     Close explicitly to drain accepted work and release the persistent owner lock.
     """
 
@@ -265,9 +267,26 @@ class Service:
             return receipt
 
     def partner(self, vertex: int) -> Receipt[tuple[int, int | None]]:
-        """Admit an O(1) coherent committed partner query."""
+        """Read the last publication without waiting for the owner's sync barrier."""
         _integer(vertex, 0, self._vertices - 1, "vertex")
-        return self._read(lambda owner: owner.partner(vertex))
+        with self._condition:
+            self._admission()
+            receipt: Receipt[tuple[int, int | None]] = Receipt()
+            started = time.perf_counter_ns()
+            self._accepted_one()
+            try:
+                value = self._owner._committed_partner(vertex)
+            except BaseException as error:
+                if not isinstance(error, MemoryError):
+                    self._failure, self._closing = error, True
+                    self._condition.notify_all()
+                receipt._finish(None, error, started)
+            else:
+                receipt._finish(value, None, started)
+            finally:
+                self._outstanding -= 1
+                self._completed += 1
+            return receipt
 
     def has_edge(self, u: int, v: int) -> Receipt[tuple[int, bool]]:
         """Admit committed topology with its matching-compatible version."""
