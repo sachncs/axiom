@@ -135,6 +135,7 @@ class Service:
         budget: int = 1 << 30,
         queue_capacity: int = 1024,
         maintenance_capacity: int = 1,
+        query_reserve: int | None = None,
         max_batch: int | None = None,
         batch_wait_ms: float = 1.0,
         checkpoint_interval: int | None = None,
@@ -145,6 +146,9 @@ class Service:
     ) -> None:
         """Open native checkpoint v2 and start its single local mutation worker."""
         _integer(queue_capacity, 1, 16384, "queue_capacity")
+        if query_reserve is None:
+            query_reserve = min(1, queue_capacity - 1)
+        _integer(query_reserve, 0, queue_capacity - 1, "query_reserve")
         _integer(
             maintenance_capacity, 1, min(64, queue_capacity), "maintenance_capacity"
         )
@@ -158,6 +162,7 @@ class Service:
         self._reads: deque[_Work] = deque()
         self._pending: dict[int, _Work] = {}
         self._capacity = queue_capacity
+        self._query_reserve = query_reserve
         self._maintenance_capacity = maintenance_capacity
         self._maintenance = 0
         self._wait_ns = int(batch_wait_ms * 1_000_000)
@@ -203,11 +208,15 @@ class Service:
             self._owner.close()
             raise
 
-    def _admission(self) -> None:
+    def _admission(self, *, update: bool = False) -> None:
         if self._closing or self._closed or self._failure is not None:
             raise UnavailableError("service is closing, closed or failed")
         if self._outstanding >= self._capacity:
             raise BusyError("outstanding work capacity reached; nothing was admitted")
+        if update and self._outstanding >= self._capacity - self._query_reserve:
+            raise BusyError(
+                "update capacity reached; query slots reserved; nothing was admitted"
+            )
 
     def _accepted_one(self) -> None:
         self._outstanding += 1
@@ -252,7 +261,7 @@ class Service:
             max(request.u, request.v),
         )
         with self._condition:
-            self._admission()
+            self._admission(update=True)
             if request.sequence > self._next_sequence:
                 raise ValueError(
                     "new request sequences must be contiguous in admission order"
@@ -370,6 +379,8 @@ class Service:
             return {
                 "state": state,
                 "capacity": self._capacity,
+                "query_reserve": self._query_reserve,
+                "update_admission_limit": self._capacity - self._query_reserve,
                 "maintenance_capacity": self._maintenance_capacity,
                 "maintenance_outstanding": self._maintenance,
                 "outstanding": self._outstanding,

@@ -22,6 +22,8 @@ Dates use the project's user-facing calendar (1 October 2026).
 | [0013](0013-bounded-owner-backups.md) | Bounded self-contained SQLite snapshots with no-overwrite publication | Failure/crash/exact-restore tests; device-loss qualification pending |
 | [0014](0014-maintenance-admission.md) | Separate active/queued audit/checkpoint/backup work bound | Implemented; overload/RSS/disk qualification pending |
 | [0015](0015-skew-and-offered-load-qualification.md) | Force hub repair and reconcile scheduled/rejected/missed/acknowledged load | Benchmarks tested; million hub throughput below target |
+| [0016](0016-sparse-free-vertex-search.md) | Compact ordered free-vertex bitmaps accelerate nearly matched hub repair | Implemented/tested; performance qualification pending |
+| [0017](0017-read-admission-reservation.md) | Reserve bounded read capacity without bypassing global admission | Implemented/tested; saturation measurement pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent

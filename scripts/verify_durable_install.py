@@ -60,7 +60,9 @@ def verify() -> None:
                 pass
             else:
                 raise RuntimeError("installed expired retry was admitted")
-        with Service(path, queue_capacity=4, batch_wait_ms=100) as service:
+        with Service(
+            path, queue_capacity=4, query_reserve=0, batch_wait_ms=100
+        ) as service:
             receipts = [
                 service.submit(Request(seq, "insert" if seq % 2 else "delete", 0, 1))
                 for seq in range(41, 45)

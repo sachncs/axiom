@@ -40,6 +40,12 @@ and cannot exceed retention. `batch_wait_ms` defaults to 1 and caps at 100.
   1, maximum `min(64, queue_capacity)`). Active and queued jobs count until
   completion; excess gets synchronous `BusyError`. Ordinary work retains the
   global cap. [ADR 0014](adrs/0014-maintenance-admission.md).
+- `query_reserve` defaults to one slot (zero for capacity one). All submissions,
+  including retries/duplicates, stop at `queue_capacity - query_reserve`; reads
+  still obey the global cap. Select zero for the previous all-update capacity.
+  Other reads can fill reserved space; this is not an unconditional query SLA.
+  Use the metric `update_admission_limit` to size windows/setup groups.
+  [ADR 0017](adrs/0017-read-admission-reservation.md).
 - Fresh-group failure stops the service and resolves remaining receipts as errors.
   Even a healthy preparation rejection stops it to avoid admitted sequence gaps.
   Recovery decides the committed prefix. Previously delivered success stays success.

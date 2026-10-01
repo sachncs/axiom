@@ -27,6 +27,7 @@ def create(path: Path, **options: object) -> Service:
         n=33,
         width=0,
         queue_capacity=16,
+        query_reserve=0,  # Legacy full-capacity tests; reservation tested separately.
         max_batch=4,
         batch_wait_ms=100,
         checkpoint_interval=8,
@@ -223,6 +224,71 @@ def test_partner_reads_published_state_during_owner_sync_without_queueing(
         work.result(5)
         assert service.partner(0).result(0) == ((1, 1) if maintenance else (2, None))
         assert service.check().result(5)
+
+
+def test_default_read_reservation_preserves_queries_under_full_update_admission(
+    tmp_path, monkeypatch
+):
+    with Service(
+        tmp_path / "graph.db",
+        n=16,
+        width=0,
+        queue_capacity=4,
+        max_batch=1,
+        checkpoint_interval=8,
+        retain_operations=8,
+        max_operations=32,
+        batch_wait_ms=0,
+    ) as service:
+        entered, release = threading.Event(), threading.Event()
+        original = service._owner._persist
+
+        def paused(rows):
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test sync release timed out")
+            original(rows)
+
+        monkeypatch.setattr(service._owner, "_persist", paused)
+        first = service.submit(edits(1, 1)[0])
+        try:
+            assert entered.wait(5)
+            pending = [service.submit(request) for request in edits(2, 2)]
+            for request in (edits(4, 1)[0], edits(1, 1)[0]):
+                with pytest.raises(BusyError, match="query slots reserved"):
+                    service.submit(request)
+            for _ in range(100):
+                assert service.partner(0).result(0) == (0, None)
+            assert service.metrics()["outstanding"] == 3
+            assert service.metrics()["query_reserve"] == 1
+            assert service.metrics()["next_admission_sequence"] == 4
+            status = service.status()  # Other reads still share the global bound.
+            with pytest.raises(BusyError, match="outstanding"):
+                service.partner(0)
+        finally:
+            release.set()
+        assert first.result(5) == Outcome(1, True, 1)
+        assert completed(pending) == [Outcome(2, True, 2), Outcome(3, True, 3)]
+        assert status.result(5)["sequence"] in (1, 2, 3)
+        assert service.submit(edits(4, 1)[0]).result(5) == Outcome(4, True, 4)
+        assert service.metrics()["peak_outstanding"] == 4
+
+
+def test_single_slot_service_defaults_to_no_reservation(tmp_path):
+    with Service(
+        tmp_path / "single.db",
+        n=16,
+        width=0,
+        queue_capacity=1,
+        max_batch=1,
+        checkpoint_interval=8,
+        retain_operations=8,
+        max_operations=32,
+        batch_wait_ms=0,
+    ) as service:
+        assert service.metrics()["query_reserve"] == 0
+        assert service.submit(edits(1, 1)[0]).result(5) == Outcome(1, True, 1)
+        assert service.partner(0).result(0) == (1, 1)
 
 
 def test_close_timeout_stops_admission_but_drains_without_cancelling_accepted_work(
@@ -588,6 +654,9 @@ def test_concurrent_clients_and_queries_agree_with_exact_versioned_reference(
         {"maintenance_capacity": True},
         {"maintenance_capacity": 65},
         {"queue_capacity": 4, "maintenance_capacity": 5},
+        {"query_reserve": -1},
+        {"query_reserve": True},
+        {"query_reserve": 16},
     ],
 )
 def test_invalid_service_policy_releases_any_acquired_owner(

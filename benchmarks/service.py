@@ -172,7 +172,7 @@ def measure(
     tick = time.perf_counter()
     bootstrap = 0
     try:
-        chunk = min(256, queue_capacity)
+        chunk = min(256, int(service.metrics()["update_admission_limit"]))
         for start in range(3, hub_degree - 1, chunk):
             requests = [
                 Request(bootstrap + offset + 1, "insert", 0, v)

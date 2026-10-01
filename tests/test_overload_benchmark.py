@@ -74,7 +74,8 @@ def test_blocked_durability_forces_busy_without_dropping_or_resequencing_accepte
     finally:
         release.set()
     assert result["busy_update_offers"] >= 24
-    assert result["service_metrics"]["peak_outstanding"] == 8
+    assert 7 <= result["service_metrics"]["peak_outstanding"] <= 8
+    assert result["busy_query_offers"] == 0
     assert result["independent_exact_audit_and_recovery_passed"]
 
 
