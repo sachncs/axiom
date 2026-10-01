@@ -1,0 +1,308 @@
+{
+  "scope": "profiled checkpoint diagnostic; NOT unprofiled latency/throughput qualification",
+  "python": "3.14.8",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "vertices": 1000000,
+  "real_updates_before_checkpoint": 32768,
+  "history_rows_validated": 32768,
+  "profiled_checkpoint_ns": 181155250,
+  "checkpoint": {
+    "checkpoint_sequence": 32768,
+    "retired_floor": 16384,
+    "retained_operations": 16384,
+    "generation": 1
+  },
+  "status": {
+    "version": 32769,
+    "sequence": 32768,
+    "vertices": 1000000,
+    "edges": 2000000,
+    "matching": 500000,
+    "native_bytes": 49142880,
+    "sqlite": "3.53.4",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 65536,
+    "max_batch": 256,
+    "checkpoint_interval": 48896,
+    "retain_operations": 16384,
+    "retired_floor": 16384,
+    "checkpoint_sequence": 32768,
+    "checkpoint_generation": 1,
+    "retained_operations": 16384
+  },
+  "matching_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+  "independent_exact_audit_and_recovery_passed": true,
+  "functions": [
+    {
+      "file": "durable.py",
+      "line": 790,
+      "function": "checkpoint",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000010458,
+      "cumulative_seconds": 0.181090667
+    },
+    {
+      "file": "durable.py",
+      "line": 759,
+      "function": "_checkpoint",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000013584,
+      "cumulative_seconds": 0.18104504200000002
+    },
+    {
+      "file": "durable.py",
+      "line": 643,
+      "function": "_checkpoint_record",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.049366431,
+      "cumulative_seconds": 0.112852583
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'execute' of 'sqlite3.Connection' objects>",
+      "primitive_calls": 7,
+      "calls": 7,
+      "self_seconds": 0.06830295900000001,
+      "cumulative_seconds": 0.06830295900000001
+    },
+    {
+      "file": "durable.py",
+      "line": 720,
+      "function": "_persist_checkpoint",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000008625000000000001,
+      "cumulative_seconds": 0.06817725000000001
+    },
+    {
+      "file": "durable.py",
+      "line": 113,
+      "function": "_digest",
+      "primitive_calls": 32768,
+      "calls": 32768,
+      "self_seconds": 0.01389898,
+      "cumulative_seconds": 0.03348557
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'snapshot' of 'axiom.engine.Engine' objects>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.02205475,
+      "cumulative_seconds": 0.02205475
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _hashlib.openssl_sha256>",
+      "primitive_calls": 32770,
+      "calls": 32770,
+      "self_seconds": 0.013572949,
+      "cumulative_seconds": 0.013572949
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'digest' of '_hashlib.HASH' objects>",
+      "primitive_calls": 32770,
+      "calls": 32770,
+      "self_seconds": 0.009517439,
+      "cumulative_seconds": 0.009517439
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'pack' of '_struct.Struct' objects>",
+      "primitive_calls": 32768,
+      "calls": 32768,
+      "self_seconds": 0.004269743,
+      "cumulative_seconds": 0.004269743
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.next>",
+      "primitive_calls": 2,
+      "calls": 2,
+      "self_seconds": 0.0000031260000000000002,
+      "cumulative_seconds": 0.000018417
+    },
+    {
+      "file": "durable.py",
+      "line": 87,
+      "function": "_checkpoint_digest",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000011958000000000001,
+      "cumulative_seconds": 0.000017166
+    },
+    {
+      "file": "durable.py",
+      "line": 570,
+      "function": "_exclusive",
+      "primitive_calls": 2,
+      "calls": 2,
+      "self_seconds": 0.000013375000000000002,
+      "cumulative_seconds": 0.000015291
+    },
+    {
+      "file": "contextlib.py",
+      "line": 136,
+      "function": "__enter__",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.0000013750000000000002,
+      "cumulative_seconds": 0.000013875
+    },
+    {
+      "file": "contextlib.py",
+      "line": 303,
+      "function": "helper",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.0000022920000000000002,
+      "cumulative_seconds": 0.00001375
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000013458,
+      "cumulative_seconds": 0.000013458
+    },
+    {
+      "file": "contextlib.py",
+      "line": 108,
+      "function": "__init__",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000010624,
+      "cumulative_seconds": 0.000011458000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'fetchone' of 'sqlite3.Cursor' objects>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000010459000000000001,
+      "cumulative_seconds": 0.000010459000000000001
+    },
+    {
+      "file": "<string>",
+      "line": 2,
+      "function": "__init__",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000010083,
+      "cumulative_seconds": 0.000010083
+    },
+    {
+      "file": "contextlib.py",
+      "line": 145,
+      "function": "__exit__",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.0000016250000000000001,
+      "cumulative_seconds": 0.000007542000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _struct.pack>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.0000032920000000000004,
+      "cumulative_seconds": 0.0000032920000000000004
+    },
+    {
+      "file": "durable.py",
+      "line": 754,
+      "function": "_install_checkpoint",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.0000016250000000000001,
+      "cumulative_seconds": 0.0000016250000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'acquire' of '_thread.lock' objects>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.000001416,
+      "cumulative_seconds": 0.000001416
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'encode' of 'str' objects>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 0.0000011660000000000001,
+      "cumulative_seconds": 0.0000011660000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.getattr>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 8.340000000000001e-7,
+      "cumulative_seconds": 8.340000000000001e-7
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.max>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 7.08e-7,
+      "cumulative_seconds": 7.08e-7
+    },
+    {
+      "file": "durable.py",
+      "line": 222,
+      "function": "_db",
+      "primitive_calls": 2,
+      "calls": 2,
+      "self_seconds": 2.91e-7,
+      "cumulative_seconds": 2.91e-7
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'release' of '_thread.lock' objects>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 2.5000000000000004e-7,
+      "cumulative_seconds": 2.5000000000000004e-7
+    },
+    {
+      "file": "durable.py",
+      "line": 986,
+      "function": "_failed",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 1.2500000000000002e-7,
+      "cumulative_seconds": 1.2500000000000002e-7
+    },
+    {
+      "file": "durable.py",
+      "line": 995,
+      "function": "_closed",
+      "primitive_calls": 1,
+      "calls": 1,
+      "self_seconds": 1.2500000000000002e-7,
+      "cumulative_seconds": 1.2500000000000002e-7
+    }
+  ]
+}

@@ -118,6 +118,15 @@ to the standalone C++ engine, free-threaded CPython support or a cross-call grap
 snapshot. SQLite stores complete recoverable checkpoint-plus-tail state; native
 adjacency/matching remains the live compute layer, not a second durable authority.
 
+Checkpoint diagnostics separate retained-history validation, audited native
+encoding and SQLite persistence. Strict history predicates are now inline rather
+than six Python helper calls per row; checksum/type/range/version checks remain.
+Malformed-history injection requires fail-stop before publication. The 732-test
+suite and installed-wheel smoke pass. A candidate 10k-offer run still delivers
+only 9565/s, so this small dispatch reduction does not complete the target.
+[ADR 0018](adrs/0018-checkpoint-history-validation-cost.md) records the evidence
+and the consistent-snapshot design needed before attempting background maintenance.
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

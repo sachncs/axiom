@@ -68,3 +68,17 @@ The 10k-offer test **still fails to deliver 10k/s**; acknowledgment tails remain
 checkpoint-sensitive and the shared-GIL producer is not an independent network
 generator. Do not label either gross overload throughput or zero query Busy as
 full qualification. [ADR 0017](../../../docs/adrs/0017-read-admission-reservation.md).
+
+## Inline checkpoint field-validation stage
+
+`inline-million-10000.json`: installed production `e24ae58`, frozen runner
+`a9f916d`, wheel SHA-256
+`e09b81f4bdcffcdab1b3c1c9ae0baeefbc167d0f1e50903461d81234df1d525d`.
+Same machine/software and isolated fresh-process protocol; unchanged ten-second
+10k update/1k query offers, capacity 512, reserve one and FULL/fullfsync.
+95717 real changes acknowledge at **9565/s** including drain; 2664 update slots
+are producer-missed and 1619 offers receive Busy. Ack p99 <=87.2 ms, max 193.4 ms.
+9957 queries complete with zero Busy, 43 missed query slots and p99 <=0.6 ms.
+Independent exact audit/recovery passes. This single sample still fails the
+10k delivered target; do not infer a causal throughput improvement from differences
+in producer scheduling. [ADR 0018](../../../docs/adrs/0018-checkpoint-history-validation-cost.md).
