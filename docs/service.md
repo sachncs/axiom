@@ -4,6 +4,8 @@
 threads through one native/FULL-WAL owner. This is explicitly selected production
 engineering, not the paper engine or a qualified network service.
 [ADR 0011](adrs/0011-bounded-service-admission.md) documents the tradeoffs.
+The [operations runbook](operations.md) covers deployment capacity, bounded
+monitoring, restart/retry handling and the outstanding hardware power-loss gate.
 
 ```python
 from axiom.service import Service
