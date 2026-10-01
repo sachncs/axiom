@@ -2115,7 +2115,7 @@ class TestPerformance:
 
         algo.delete(0, 1)
         assert algo.inserted_incident_edges[0] == {(0, 2)}
-        assert algo.inserted_incident_edges[1] == set()
+        assert 1 not in algo.inserted_incident_edges
         assert algo.inserted_incident_edges[2] == {(0, 2)}
         assert algo._Matcher__check_auxiliary_indexes()
 

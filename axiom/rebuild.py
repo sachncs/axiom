@@ -365,12 +365,9 @@ class Multilevel:
             matcher.multi.deferred_deletions.clear()
             matcher.multi.sync_graph(matcher.graph)
             matcher.inserted_edges.clear()
-            for edges in matcher.inserted_incident_edges.values():
-                edges.clear()
+            matcher.inserted_incident_edges.clear()
             matcher.deleted_edges.clear()
-            matcher.inserted_incident_counts = {
-                vertex: 0 for vertex in range(matcher.n)
-            }
+            matcher.inserted_incident_counts.clear()
             matcher.bad_vertices.clear()
         else:
             # A child phase rebuild keeps the inherited parent snapshot and

@@ -1,0 +1,62 @@
+{
+  "commit": "08eb153162b6aa73671034a517687dc1cbaa1ec1",
+  "dirty": false,
+  "python": "3.14.7",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "processor": "arm",
+  "hardware": [
+    "Apple M3 Pro",
+    "19327352832",
+    "12"
+  ],
+  "clock": {
+    "implementation": "mach_absolute_time()",
+    "monotonic": true,
+    "adjustable": false,
+    "resolution": 4.166666666666666e-08
+  },
+  "arguments": {
+    "output": "benchmarks/results/sparse-index-before",
+    "sizes": [
+      512
+    ],
+    "profiles": [
+      "sparse4"
+    ],
+    "workloads": [
+      "churn"
+    ],
+    "modes": [
+      "basic"
+    ],
+    "seeds": [
+      7,
+      29,
+      101
+    ],
+    "updates": 32,
+    "repeats": 5,
+    "timeout": 30.0,
+    "case": null
+  },
+  "started": "2026-10-01T10:14:34Z",
+  "sources": {
+    "benchmarks/performance.py": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767",
+    "axiom/__init__.py": "2dd170194c884985fa5c096c0389ba53f1e129798c1e7653d233a5ee564a3e9f",
+    "axiom/augment.py": "fed5eaf74ca70405198134a9c366a1d200d40e0a99768033d2d6924534b0fb86",
+    "axiom/cli.py": "e91bf7fb8fa54244e0731a37cd7186b4a043f4ec37f93f97c5d0bf51cf7a5088",
+    "axiom/color.py": "6e0c08f6dafc8fd6c499e73738ec8d1a32fe97c2fadfeedc6291903b656acf2f",
+    "axiom/core.py": "5b094031298fcf118a81817338fc4f5a3730df97787dbf88c67db0a1dd5b3c7d",
+    "axiom/graph.py": "ae1df782a7725a16dfd0fc544c05f3bf8d3a561fdadbfdf03f6cbf8262d85e82",
+    "axiom/hierarchy.py": "c4c99c84e6197089d40684ba4db3685c0e5844915d690cf8d9626f35f71c8af8",
+    "axiom/ledger.py": "fcbf8e7ea0eac16b409ec8c1a4d42425345740c755bc773c3402dfecce966b83",
+    "axiom/matching.py": "6caecab4cdd38c1b40ea70b43a9f989547d359285cd1cf2c64392d14447f1623",
+    "axiom/paper_coloring.py": "1ab2d28d9837653af4b822c8303b054ee575670b7379d508771903ba14847921",
+    "axiom/parallel.py": "b0e9c194545fa0e797a45d48e44cc4585c5693157f6e9323ffa50f1e321a8a1f",
+    "axiom/rebuild.py": "cc49e540c89b81ccf27894d924964b447465e19562f6d05e4359f5db86e91d79",
+    "axiom/simulation.py": "671506716060594cdf01d96996856fb885be895c9c69a58dd42a9ca39f7e3664",
+    "axiom/system.py": "0b5496b7ecdafa8d5d55e151597026f62d6c1d25f2bddb165469b21b23c06675",
+    "axiom/types.py": "ed97e9314944efa5c9a4bf7bdc9ef288127481d03e9b4e20fc5f60ab953641d9",
+    "axiom/visualize.py": "b4f7ed0d56ea6f05e3abccf1df591117be5606353dfa731f50811917f9e5c6ca"
+  }
+}

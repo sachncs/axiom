@@ -15,6 +15,48 @@ from axiom.storage import Packed, publish
 from axiom.types import Graph
 
 
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+@pytest.mark.parametrize("backend", [Adjacency, Packed])
+def test_phase_overlay_allocates_only_live_incident_buckets(
+    mode: str, backend: type
+) -> None:
+    matcher = Matcher(64, graph=backend(64), mode=mode)
+    assert matcher.inserted_incident_edges == {}
+    assert matcher.inserted_incident_counts == {}
+    rng = random.Random(599)
+    for _ in range(160):
+        u, v = rng.sample(range(64), 2)
+        if matcher.graph.has_edge(u, v):
+            matcher.delete(u, v)
+        else:
+            matcher.insert(u, v)
+        endpoints = {vertex for edge in matcher.inserted_edges for vertex in edge}
+        assert set(matcher.inserted_incident_edges) == endpoints
+        assert all(matcher.inserted_incident_edges.values())
+        assert all(count > 0 for count in matcher.inserted_incident_counts.values())
+        assert len(matcher.inserted_incident_edges) <= 2 * len(matcher.inserted_edges)
+        assert matcher._Matcher__check_auxiliary_indexes()
+        assert matcher.maximal()
+        if mode == "basic":
+            assert (
+                matcher.inserted_incident_edges
+                == matcher.inserted_incident_counts
+                == {}
+            )
+
+
+def test_sparse_overlay_validator_rejects_empty_and_extraneous_buckets() -> None:
+    matcher = Matcher(64, mode="multilevel")
+    matcher.insert(0, 1)
+    matcher.inserted_incident_edges[63] = set()
+    assert not matcher._Matcher__check_auxiliary_indexes()
+    del matcher.inserted_incident_edges[63]
+    matcher.inserted_incident_edges[63] = {(0, 1)}
+    assert not matcher._Matcher__check_auxiliary_indexes()
+    del matcher.inserted_incident_edges[63]
+    assert matcher._Matcher__check_auxiliary_indexes()
+
+
 def test_group_publication_validates_all_tokens_before_committing_any() -> None:
     left, right = Packed(4), Packed(4)
     first, second = left.begin(), right.begin()

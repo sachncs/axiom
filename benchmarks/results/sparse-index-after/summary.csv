@@ -1,0 +1,4 @@
+vertices,family,degree,workload,mode,seed,updates,repeats,status,operations,initialedges,finaledges,maximumdegree,throughput,realrate,wallseconds,error
+512,sparse,4,churn,basic,7,32,5,ok,32,1024,1024,11,520.4140544320575,520.4140544320575,0.790503666999939,
+512,sparse,4,churn,basic,29,32,5,ok,32,1024,1024,12,496.0750003391138,496.0750003391138,0.8379487080001127,
+512,sparse,4,churn,basic,101,32,5,ok,32,1024,1024,12,508.98410224739865,508.98410224739865,0.8835824170000706,

@@ -182,13 +182,11 @@ class Matcher:
         self.eta: int = 0
         self.k: int = 0
         self.inserted_edges: set[tuple[int, int]] = set()
-        self.inserted_incident_edges: dict[Vertex, set[tuple[int, int]]] = {
-            vertex: set() for vertex in range(n)
-        }
+        # E_I is typically a small parent-phase overlay. Allocate buckets only
+        # for its live endpoints, never an empty Python set for every vertex.
+        self.inserted_incident_edges: dict[Vertex, set[tuple[int, int]]] = {}
         self.deleted_edges: set[tuple[int, int]] = set()
-        self.inserted_incident_counts: dict[Vertex, int] = {
-            vertex: 0 for vertex in range(n)
-        }
+        self.inserted_incident_counts: dict[Vertex, int] = {}
         self.bad_vertices: set[Vertex] = set()
         self.H: dict[Vertex, set[Vertex]] = {}
         self.H_reverse: dict[Vertex, set[Vertex]] = {}
@@ -306,20 +304,20 @@ class Matcher:
             )
 
         self.matchings = [set() for _ in range(self.z + 1)]
-        incident_colors: dict[Vertex, set[int]] = {
-            vertex: set() for vertex in range(self.n)
-        }
+        incident_colors: dict[Vertex, set[int]] = {}
         dropped = 0
         for e, c in coloring.items():
             if 0 <= c <= self.z:
                 u, v = e
-                if c in incident_colors[u] or c in incident_colors[v]:
+                left_colors = incident_colors.setdefault(u, set())
+                right_colors = incident_colors.setdefault(v, set())
+                if c in left_colors or c in right_colors:
                     raise RuntimeError(
                         "edge colorer returned a non-proper coloring: "
                         f"color {c} conflicts on edge {e}"
                     )
-                incident_colors[u].add(c)
-                incident_colors[v].add(c)
+                left_colors.add(c)
+                right_colors.add(c)
                 self.matchings[c].add(e)
             else:
                 dropped += 1
@@ -433,29 +431,30 @@ class Matcher:
         """Add an ``E_I`` edge to the incident index used by rematching."""
         self.inserted_edges.add(edge)
         left, right = edge
-        self.inserted_incident_edges[left].add(edge)
-        self.inserted_incident_edges[right].add(edge)
+        self.inserted_incident_edges.setdefault(left, set()).add(edge)
+        self.inserted_incident_edges.setdefault(right, set()).add(edge)
 
     def __remove_inserted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
         """Remove an ``E_I`` edge from its two incident index buckets."""
         self.inserted_edges.discard(edge)
         left, right = edge
-        self.inserted_incident_edges[left].discard(edge)
-        self.inserted_incident_edges[right].discard(edge)
+        for vertex in (left, right):
+            values = self.inserted_incident_edges[vertex]
+            values.discard(edge)
+            if not values:
+                del self.inserted_incident_edges[vertex]
 
     def __inserted_edges_at(self, vertex: Vertex) -> list[tuple[Vertex, Vertex]]:
         """Return incident inserted edges in deterministic order."""
-        return sorted(self.inserted_incident_edges.get(vertex, set()))
+        return sorted(self.inserted_incident_edges.get(vertex, ()))
 
     def __check_auxiliary_indexes(self) -> bool:
         """Validate H, reverse-H, H-tilde, and S-hat against live state."""
-        expected_inserted_incident: dict[Vertex, set[Edge]] = {
-            vertex: set() for vertex in range(self.n)
-        }
+        expected_inserted_incident: dict[Vertex, set[Edge]] = {}
         for edge in self.inserted_edges:
             left, right = edge
-            expected_inserted_incident[left].add(edge)
-            expected_inserted_incident[right].add(edge)
+            expected_inserted_incident.setdefault(left, set()).add(edge)
+            expected_inserted_incident.setdefault(right, set()).add(edge)
         if self.inserted_incident_edges != expected_inserted_incident:
             return False
 
@@ -749,7 +748,9 @@ class Matcher:
                 newly_bad: list[Vertex] = []
                 if not was_deferred:
                     for vertex in edge:
-                        self.inserted_incident_counts[vertex] += 1
+                        self.inserted_incident_counts[vertex] = (
+                            self.inserted_incident_counts.get(vertex, 0) + 1
+                        )
                         # The paper's insertion protocol marks a vertex bad
                         # when its incident E_I count reaches z.  ``self.z``
                         # is the active (finest) multilevel parameter; using
