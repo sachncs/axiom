@@ -1,7 +1,7 @@
 # ADR 0006: Introduce an explicitly selected native production matcher
 
 Date: 2026-10-01. Status: explicitly approved; native in-memory core implemented;
-durability and full-service qualification pending.
+first bounded durable layer added; full-service qualification pending.
 
 ## Context
 
@@ -64,5 +64,7 @@ A 100,000-edit differential C++ run passed ASan/UBSan.
 Three short million-vertex average-degree-4 runs with real churn and matching
 queries produced approximately 686k–720k in-memory updates/s. Exact public-query
 graph/matching audits passed. This is compute headroom, **not** durable 10k/s
-qualification. See [contracts/results](../engine.md); WAL/recovery, admission,
-maintenance, and full-service qualification remain pending.
+qualification. See [contracts/results](../engine.md). The separate bounded
+[durable layer](../durable.md) adds FULL-WAL commit/replay and retry outcomes;
+native checkpoints, aggregate admission, maintenance/soak and full-service
+qualification remain pending.

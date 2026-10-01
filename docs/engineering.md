@@ -29,6 +29,17 @@ independent graph/proper-maximal matching audits and about 134.5–134.6 MB peak
 These runs have **no durable acknowledgments** and do not qualify sustained
 maintenance/recovery/service behavior. See [native core contracts/results](engine.md).
 
+The separate `axiom.durable.Durable` layer now publishes only after SQLite FULL-WAL
+commit, preserves original retry outcomes, verifies bounded deterministic replay,
+and fails closed on persistence/publication uncertainty. Three short million-vertex
+runs with committed matching queries and SQLite WAL checkpoints measured
+approximately 30.4k–30.9k real acknowledged changes/s, with independent exact
+audits/recovery, acknowledgment p99 14.4–15.5 ms, and 132.7–133.1 MB peak RSS.
+This uses 256-operation groups and only 1.29–1.32-second traces. Native graph
+checkpoint compaction, aggregate admission, broad/skewed workloads, full resource
+limits and sustained/soak qualification remain open; this is **not** goal completion.
+See [durable contracts/results](durable.md) and [ADR 0009](adrs/0009-sqlite-wal-durable-owner.md).
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

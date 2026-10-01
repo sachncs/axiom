@@ -98,7 +98,8 @@ exercise both the existing paper matcher and the new native core/rollback.
 CI additionally builds/tests supported CPython versions; local Python 3.14
 results do not establish support for that version.
 
-WAL/checkpoints, durability barriers, operation-ID deduplication, bounded service
-admission, persistence failures/recovery, maintenance-inclusive soak, and the
-accepted 10k durable-update qualification remain pending. `commit` must not be
-presented as a durable acknowledgment. See [ADR 0007](adrs/0007-durability-and-publication.md).
+The separate [bounded durable layer](durable.md) now supplies FULL-WAL commits,
+retry outcomes, coherent queries, and verified replay. Native graph checkpoints,
+safe history retirement, aggregate admission, maintenance-inclusive soak and the
+accepted 10k full-service qualification remain pending. This core's `commit`
+alone is not durable. See [ADR 0007](adrs/0007-durability-and-publication.md).

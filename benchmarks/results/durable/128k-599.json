@@ -1,0 +1,51 @@
+{
+  "scope": "FULL-WAL durable group commits + committed partner queries + SQLite WAL checkpoints; NOT native checkpoint/soak qualification",
+  "python": "3.14.7",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "sqlite": "3.53.4",
+  "vertices": 128000,
+  "edges": 256000,
+  "average_degree": 4,
+  "churn_pool_pairs": 8192,
+  "seed": 599,
+  "pairs": 20000,
+  "batch_limit": 256,
+  "synchronous": "FULL",
+  "fullfsync": true,
+  "checkpoint_fullfsync": true,
+  "wal_autocheckpoint_pages": 256,
+  "real_acknowledged_updates": 40000,
+  "partner_queries": 20000,
+  "retry_outcomes_verified": 1280,
+  "trace_digest": "03499ebbf9c76788c3478a11f44bdb4178353bda5acbd48dbfb81a1d6f2d178c",
+  "matching_digest": "0086a9a6353ce87ac94d94ebc784b4125ce33cbed9091d696b92041e46a7d33a",
+  "construction_seconds": 0.0338093749996915,
+  "trace_seconds": 1.288088332999905,
+  "real_acknowledged_updates_per_second": 31053.77090625581,
+  "audit_seconds": 0.45675933299935423,
+  "recovery_seconds": 0.10514920800051186,
+  "recovery_audit_seconds": 0.43275308400188806,
+  "independent_audit_passed": true,
+  "exact_recovery_passed": true,
+  "initial_native_bytes": 5760336,
+  "final_native_bytes": 9350480,
+  "sampled_database_wal_shm_peak_bytes": 3033192,
+  "process_peak_rss_bytes": 51625984,
+  "acknowledged_latency": {
+    "count": 40000,
+    "p99_ns": 14205542,
+    "max_ns": 14531417
+  },
+  "batch_commit_publication_latency": {
+    "count": 157,
+    "p99_ns": 13943167,
+    "max_ns": 14014000
+  },
+  "partner_query_latency": {
+    "count": 20000,
+    "p99_ns": 5292,
+    "max_ns": 29791
+  },
+  "source_revision": "dfaf93a7ab68c8c18c535574b94dc8a51d9b5342",
+  "filesystem": "APFS (internal SSD)"
+}

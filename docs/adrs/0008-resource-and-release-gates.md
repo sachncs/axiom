@@ -55,5 +55,8 @@ Native container budgets, sanitizer tests, reference comparisons, benchmark
 subprocess time caps, artifact/CI checks, and million-vertex storage measurements
 exist. Corrected CI `08eb153` passed all jobs, including Python 3.10–3.13 clean
 installs/tests, documentation examples, package checks, and bounded stress.
-Service-level admission, durable recovery, full native matcher qualification,
-and production latency/memory gates remain pending.
+The first durable layer now provides fail-fast ownership/admission, bounded
+history/groups, database page limits, replay checks, and process-death/storage-full
+tests. Native checkpoint compaction, hard service RSS/WAL/disk accounting,
+aggregate client admission, full matcher qualification, and production
+latency/memory gates remain pending.

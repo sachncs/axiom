@@ -12,9 +12,10 @@ Dates use the project's user-facing calendar (1 October 2026).
 | [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Native graph/partner journals implemented; paper migration and durability pending |
 | [0004](0004-sparse-phase-indexes.md) | Sparse phase overlays instead of eager empty maps | Implemented and regression-tested; short-trace evidence only |
 | [0005](0005-incremental-certificates.md) | Immediate incremental certificates, not disabled checks | Native production certificates implemented; paper hierarchy work pending |
-| [0006](0006-native-production-matcher.md) | Separate native production matcher, retaining the paper engine | Native core implemented/tested; durability and service qualification pending |
-| [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Accepted direction; implementation pending |
+| [0006](0006-native-production-matcher.md) | Separate native production matcher, retaining the paper engine | Native core plus first durable layer implemented; full service qualification pending |
+| [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Bounded replay/service implemented; native checkpoints and qualification pending |
 | [0008](0008-resource-and-release-gates.md) | Single ownership, resource limits, independent qualification gates | Partially implemented; full-service gates pending |
+| [0009](0009-sqlite-wal-durable-owner.md) | SQLite FULL-WAL commits with private native publication and bounded replay | First durable layer; native checkpoints and sustained qualification pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent
@@ -30,7 +31,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Eager empty phase dictionaries/sets | Sparse live-endpoint overlays avoid allocating empty vertex buckets (0004) | Phase counters/lifecycle unchanged; regression-tested |
 | Global scans on every ordinary production edit | Local dependency certificates plus separate independent full audits (0005) | Immediate proper/maximal matching checks are retained, not disabled; paper hierarchy scans still present |
 | Paper coloring/fans/hierarchy on the production path | Explicit `axiom.engine.Engine`, with deterministic incremental maximal matching (0006) | Research engine retained; different matching choices and no transferred paper theorem; hub deletion remains degree-dependent |
-| Treating an in-memory commit as success after a crash | WAL, durability barrier, then coherent publication/acknowledgment (0007) | **Pending**: native `commit` is not durable; crash recovery/dedup/checkpoints are not delivered yet |
+| Treating an in-memory commit as success after a crash | FULL-WAL barrier, then coherent publication/acknowledgment (0007/0009) | Bounded replay/dedup/process recovery implemented; native `commit` alone remains nondurable; graph checkpoints and sustained qualification pending |
 | Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
 
 ## What is not being abandoned
