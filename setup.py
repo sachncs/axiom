@@ -18,7 +18,7 @@ setup(
         Extension(
             "axiom.engine",
             ["native/engine.cpp"],
-            depends=["native/engine.hpp", "native/store.hpp"],
+            depends=["native/engine.hpp", "native/store.hpp", "native/free_index.hpp"],
             language="c++",
             extra_compile_args=["/std:c++17"]
             if sys.platform == "win32"

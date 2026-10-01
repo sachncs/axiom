@@ -1,5 +1,6 @@
 #pragma once
 
+#include "free_index.hpp"
 #include "store.hpp"
 #include <cstring>
 
@@ -27,13 +28,15 @@ class Engine {
   // First undo record per vertex: O(1) access to the last published partner
   // while a batch is private. This is not a whole-graph copy per update.
   std::vector<uint32_t> firstWrite;
+  FreeIndex freeVertices;
   std::vector<PartnerUndo> writes;
   uint64_t matched = 0, savedMatched = 0;
 
   static uint64_t overhead() { return sizeof(Engine) - sizeof(Store); }
 
   static uint64_t graphBudget(uint32_t vertices, uint64_t budget) {
-    uint64_t extra = overhead() + uint64_t(vertices) * 2 * sizeof(uint32_t);
+    uint64_t extra = overhead() + uint64_t(vertices) * 2 * sizeof(uint32_t) +
+                     FreeIndex::base(vertices);
     if (budget < extra || Store::base(vertices) > budget - extra)
       throw std::length_error("engine metadata exceeds native budget");
     return budget - extra;
@@ -43,6 +46,7 @@ class Engine {
     uint64_t extra = overhead() +
                      uint64_t(partners.capacity()) * sizeof(uint32_t) +
                      uint64_t(firstWrite.capacity()) * sizeof(uint32_t) +
+                     freeVertices.allocated() +
                      uint64_t(writes.capacity()) * sizeof(PartnerUndo);
     if (extra > limit || storage.allocated() > limit - extra)
       throw std::length_error("engine native allocation exceeds budget");
@@ -76,6 +80,7 @@ class Engine {
       firstWrite[vertex] = static_cast<uint32_t>(writes.size());
     writes.push_back(PartnerUndo{vertex, partners[vertex], value});
     partners[vertex] = value;
+    freeVertices.set(vertex, value == none);
   }
 
   void pair(uint32_t u, uint32_t v) noexcept {
@@ -84,7 +89,20 @@ class Engine {
     ++matched;
   }
 
-  uint32_t available(uint32_t u) const noexcept {
+  uint32_t available(uint32_t u) const {
+    // Sparse free vertices are cheaper than a nearly fully matched hub row.
+    // Low-degree rows retain their cheap contiguous scan. Both select the same
+    // minimum free neighbor; the independent full audit still scans graph rows.
+    if (freeVertices.count() < storage.degrees[u] / 8) {
+      for (uint32_t v = freeVertices.next(); v != none;
+           v = freeVertices.next(v + 1)) {
+        if (v >= storage.n || partners[v] != none)
+          throw FreeIndexError("free bitmap candidate disagrees with partners");
+        if (v != u && storage.has(u, v))
+          return v;
+      }
+      return none;
+    }
     uint32_t best = none;
     for (uint32_t b = storage.heads[u]; b != none; b = storage.blocks[b].next)
       for (uint32_t i = 0; i < storage.blocks[b].used; ++i) {
@@ -95,7 +113,7 @@ class Engine {
     return best;
   }
 
-  void rematch(uint32_t u) noexcept {
+  void rematch(uint32_t u) {
     if (partners[u] != none)
       return;
     uint32_t v = available(u);
@@ -103,7 +121,9 @@ class Engine {
       pair(u, v);
   }
 
-  bool certified(uint32_t u) const noexcept {
+  bool certified(uint32_t u) const {
+    if (!freeVertices.valid(u, partners[u] == none))
+      return false;
     uint32_t v = partners[u];
     if (v == none)
       return available(u) == none;
@@ -162,14 +182,16 @@ class Engine {
           storage.degrees[u] != uint64_t(left) + delta ||
           storage.degrees[v] != uint64_t(right) + delta ||
           storage.has(u, v) != adding || storage.has(v, u) != adding ||
-          !certified(u) || !certified(v) || matched > storage.n / 2)
+          !certified(u) || !certified(v) || matched > storage.n / 2 ||
+          freeVertices.count() != storage.n - 2 * matched)
         throw CertificateError("native engine local certificate failed");
       int64_t endpointDelta = 0;
       for (size_t i = first; i < writes.size(); ++i) {
         endpointDelta +=
             int(writes[i].expected != none) - int(writes[i].previous != none);
         uint32_t slot = firstWrite[writes[i].vertex];
-        if (slot == none || slot > i || writes[slot].vertex != writes[i].vertex ||
+        if (slot == none || slot > i ||
+            writes[slot].vertex != writes[i].vertex ||
             !certified(writes[i].vertex))
           throw CertificateError(
               "native partner dependency certificate failed");
@@ -181,6 +203,10 @@ class Engine {
       if (own)
         commit(transaction);
       return true;
+    } catch (const FreeIndexError &) {
+      rollback(transaction);
+      storage.poisoned = true;
+      throw;
     } catch (const CertificateError &) {
       rollback(transaction);
       storage.poisoned = true;
@@ -194,8 +220,10 @@ class Engine {
 public:
   explicit Engine(uint32_t vertices, uint64_t budget = defaultBudget)
       : limit(budget), storage(vertices, graphBudget(vertices, budget)),
-        partners(vertices, none), firstWrite(vertices, none) {
+        partners(vertices, none), firstWrite(vertices, none),
+        freeVertices(vertices) {
     rebudget();
+    freeVertices.build(partners);
   }
 
   const Store &graph() const { return storage; }
@@ -214,8 +242,8 @@ public:
     if (vertex >= storage.n)
       throw std::invalid_argument("vertex out of range");
     uint32_t slot = firstWrite[vertex];
-    if (slot != none &&
-        (!storage.active || slot >= writes.size() || writes[slot].vertex != vertex)) {
+    if (slot != none && (!storage.active || slot >= writes.size() ||
+                         writes[slot].vertex != vertex)) {
       storage.poisoned = true;
       throw CertificateError("committed partner index certificate failed");
     }
@@ -227,6 +255,7 @@ public:
     return overhead() + storage.allocated() +
            uint64_t(partners.capacity()) * sizeof(uint32_t) +
            uint64_t(firstWrite.capacity()) * sizeof(uint32_t) +
+           freeVertices.allocated() +
            uint64_t(writes.capacity()) * sizeof(PartnerUndo);
   }
   uint64_t journal() const {
@@ -341,6 +370,7 @@ public:
     result->storage.count = edges;
     result->storage.version = version;
     result->matched = matching;
+    result->freeVertices.build(result->partners);
     result->storage.indexRows();
     // Reject duplicates/asymmetry, non-live or asymmetric partners, incorrect
     // counters, and uncovered edges before the candidate can be published.
@@ -372,6 +402,7 @@ public:
         throw std::logic_error("partner rollback found unexpected state");
       }
       partners[it->vertex] = it->previous;
+      freeVertices.set(it->vertex, it->previous == none);
     }
     storage.rollback(value);
     for (const auto &entry : writes)
@@ -383,14 +414,15 @@ public:
   bool remove(uint32_t u, uint32_t v) { return edit(u, v, false); }
 
   bool check() const {
-    if (!storage.check() || allocated() > limit)
+    if (!storage.check() || allocated() > limit ||
+        !freeVertices.check(partners))
       return false;
     uint64_t endpoints = 0;
     for (uint32_t u = 0; u < storage.n; ++u) {
       // Independent full audit, not a replay of the local certificate helper.
       uint32_t slot = firstWrite[u];
-      if (slot != none &&
-          (!storage.active || slot >= writes.size() || writes[slot].vertex != u))
+      if (slot != none && (!storage.active || slot >= writes.size() ||
+                           writes[slot].vertex != u))
         return false;
       uint32_t v = partners[u];
       if (v != none) {
@@ -406,7 +438,8 @@ public:
       }
     }
     for (size_t i = 0; i < writes.size(); ++i)
-      if (writes[i].vertex >= storage.n || firstWrite[writes[i].vertex] == none ||
+      if (writes[i].vertex >= storage.n ||
+          firstWrite[writes[i].vertex] == none ||
           firstWrite[writes[i].vertex] > i)
         return false;
     return endpoints == 2 * matched;
@@ -466,6 +499,7 @@ public:
     storage = std::move(*candidate);
     partners.swap(next);
     matched = count;
+    freeVertices.build(partners);
     rebudget();
   }
 };

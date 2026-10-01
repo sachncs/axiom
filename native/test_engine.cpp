@@ -12,6 +12,12 @@ using Edge = std::pair<uint32_t, uint32_t>;
 
 namespace axiom {
 struct Inspector {
+  static void corruptFreeSummary(Engine &engine) {
+    engine.freeVertices.words[1][0] |= uint64_t(1) << 63;
+  }
+  static uint32_t freeSearch(Engine &engine, uint32_t vertex) {
+    return engine.available(vertex);
+  }
   static void corruptPublishedIndex(Engine &engine, uint32_t vertex) {
     engine.firstWrite[vertex] = 12345;
   }
@@ -100,6 +106,57 @@ void audit(const axiom::Engine &engine, const Reference &reference) {
 
 int main() {
   try {
+    for (uint32_t n : {0u, 1u, 63u, 64u, 65u, 4095u, 4096u, 4097u, 262145u}) {
+      axiom::FreeIndex index(n);
+      std::vector<uint32_t> partners(n, axiom::none);
+      index.build(partners);
+      require(index.allocated() == axiom::FreeIndex::base(n),
+              "free index bytes differ");
+      for (uint32_t u = 0; u < n; u += 3) {
+        partners[u] = 0;
+        index.set(u, false);
+      }
+      require(index.check(partners), "free index independent audit failed");
+      uint32_t previous = axiom::none;
+      uint64_t found = 0;
+      for (uint32_t u = index.next(); u != axiom::none; u = index.next(u + 1)) {
+        require(u < n && u % 3 && (previous == axiom::none || u > previous),
+                "free index iteration differs");
+        previous = u;
+        ++found;
+      }
+      require(found == index.count(), "free index enumeration count differs");
+      for (uint32_t u = 0; u < n; ++u)
+        require(index.valid(u, partners[u] == axiom::none),
+                "free index path differs");
+    }
+    axiom::FreeIndex wide(16777217);
+    wide.set(16777216, true);
+    require(wide.next() == 16777216 && wide.next(16777217) == axiom::none,
+            "deep free summary addressing failed");
+    wide.set(16777216, false);
+    require(wide.next() == axiom::none && wide.count() == 0,
+            "deep free summary clearing failed");
+    axiom::Engine badFree(96);
+    badFree.ring();
+    for (uint32_t v = 3; v <= 78; ++v)
+      badFree.insert(0, v);
+    axiom::Inspector::corruptFreeSummary(badFree);
+    require(!badFree.check(), "corrupt free summary passed independent audit");
+    try {
+      axiom::Inspector::freeSearch(badFree, 0);
+      throw std::runtime_error("corrupt summary did not reject search");
+    } catch (const axiom::FreeIndexError &) {
+    }
+    const auto edgesBefore = badFree.graph().count;
+    try {
+      badFree.remove(0, 1);
+      throw std::runtime_error("corrupt free index did not abort mutation");
+    } catch (const axiom::FreeIndexError &) {
+    }
+    require(badFree.graph().poisoned && !badFree.graph().active &&
+                badFree.graph().count == edgesBefore,
+            "corrupt free index did not roll back and poison");
     axiom::Engine engine(96, 16 * 1024 * 1024);
     Reference reference(96);
     std::mt19937 random(599);
@@ -159,7 +216,8 @@ int main() {
       throw std::runtime_error("corrupt published view served data");
     } catch (const axiom::CertificateError &) {
     }
-    require(corruptIndex.graph().poisoned, "corrupt published view did not poison");
+    require(corruptIndex.graph().poisoned,
+            "corrupt published view did not poison");
     axiom::Engine probe(4);
     axiom::Engine tight(4, probe.allocated());
     try {

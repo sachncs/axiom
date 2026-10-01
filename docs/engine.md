@@ -68,6 +68,12 @@ decisions, topology, properness, and maximality.
 
 ## Measurements, not completion
 
+Hub repair now uses a compact hierarchical free-vertex bitmap when the free set
+is sparse relative to degree. Minimum-neighbor choices and independent maximality
+audits are unchanged. The index adds approximately 127 KB per million vertices,
+budgeted with graph/partner state, and rolls back/rebuilds from partners without
+per-edit allocation or checkpoint format changes. [ADR 0016](adrs/0016-sparse-free-vertex-search.md).
+
 Audited portable snapshot/restore primitives are available; see
 [checkpoint contracts](checkpoint.md). They preserve exact partners/version and
 return isolated restored candidates, not a new matching computed from topology.
