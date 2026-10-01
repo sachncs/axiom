@@ -508,6 +508,37 @@ public:
     result->budget = budget;
     return result;
   }
+
+  std::unique_ptr<Store> ring(uint64_t width) const {
+    healthy();
+    if (active)
+      throw std::logic_error(
+          "ring publication is not allowed during a native transaction");
+    if (count)
+      throw std::invalid_argument("ring construction requires an empty graph");
+    if (width && (n < 3 || width > (uint64_t(n) - 1) / 2))
+      throw std::invalid_argument(
+          "ring width must be less than half the vertex universe");
+    uint64_t blockCount = uint64_t(n) * ((2 * width + 3) / 4);
+    if (allocated() + base(n) + blockCount * sizeof(Block) > budget)
+      throw std::length_error("ring construction peak exceeds native budget");
+    auto candidate = std::make_unique<Store>(n, budget - allocated());
+    candidate->reserve(blockCount, true);
+    for (uint32_t u = 0; u < n; ++u)
+      for (uint64_t distance = 1; distance <= width; ++distance) {
+        candidate->append(u,
+                          static_cast<uint32_t>((uint64_t(u) + distance) % n));
+        candidate->append(
+            u, static_cast<uint32_t>((uint64_t(u) + n - distance) % n));
+      }
+    candidate->count = uint64_t(n) * width;
+    candidate->version = version + (candidate->count ? 1 : 0);
+    candidate->epoch = epoch + (candidate->count ? 1 : 0);
+    candidate->serial = serial;
+    candidate->indexRows();
+    candidate->budget = budget;
+    return candidate;
+  }
 };
 
 } // namespace axiom

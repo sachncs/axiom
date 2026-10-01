@@ -421,28 +421,7 @@ PyObject *ring(Packed *self, PyObject *args) {
     return nullptr;
   }
   try {
-    uint64_t blockCount = uint64_t(self->graph->n) * ((2 * width + 3) / 4);
-    if (self->graph->allocated() + Store::base(self->graph->n) +
-            blockCount * sizeof(Block) >
-        self->graph->budget)
-      throw std::length_error("ring construction peak exceeds native budget");
-    auto candidate = std::make_unique<Store>(
-        self->graph->n, self->graph->budget - self->graph->allocated());
-    candidate->reserve(blockCount, true);
-    for (uint32_t u = 0; u < candidate->n; ++u)
-      for (uint64_t distance = 1; distance <= width; ++distance) {
-        candidate->append(
-            u, static_cast<uint32_t>((uint64_t(u) + distance) % candidate->n));
-        candidate->append(
-            u, static_cast<uint32_t>((uint64_t(u) + candidate->n - distance) %
-                                     candidate->n));
-      }
-    candidate->count = uint64_t(candidate->n) * width;
-    candidate->version = self->graph->version + (candidate->count ? 1 : 0);
-    candidate->epoch = self->graph->epoch + (candidate->count ? 1 : 0);
-    candidate->serial = self->graph->serial;
-    candidate->indexRows();
-    candidate->budget = self->graph->budget;
+    auto candidate = self->graph->ring(width);
     delete self->graph;
     self->graph = candidate.release();
   } catch (...) {
