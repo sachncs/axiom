@@ -5,15 +5,16 @@ import threading
 
 import pytest
 
-from axiom.durable import Durable
+from axiom.durable import Durable, Request
 from axiom.service import Service
 from benchmarks import independent_load
 from benchmarks.independent_load import measure
 
 
 @pytest.mark.parametrize("ipc_batch", [1, 16])
+@pytest.mark.parametrize("workload", ["hot", "sweep"])
 def test_separate_producer_saturation_and_exact_recovery(
-    tmp_path, monkeypatch, ipc_batch
+    tmp_path, monkeypatch, ipc_batch, workload
 ):
     entered, release = threading.Event(), threading.Event()
     persist, submit = Durable._persist, Service.submit
@@ -47,6 +48,7 @@ def test_separate_producer_saturation_and_exact_recovery(
             1,
             queue_capacity=8,
             ipc_batch=ipc_batch,
+            workload=workload,
         )
     finally:
         release.set()
@@ -74,6 +76,7 @@ def test_separate_producer_saturation_and_exact_recovery(
     assert result["service_metrics"]["peak_outstanding"] <= 8
     assert result["peak_client_receipts"] <= 264
     assert result["independent_exact_audit_and_recovery_passed"]
+    assert result["workload"] == workload
 
 
 @pytest.mark.parametrize("code", [errno.EAGAIN, errno.ENOBUFS])
@@ -131,6 +134,7 @@ def test_producer_counts_ipc_drops_separately_without_blocking(
         {"ipc_bytes": 65537},
         {"ipc_batch": 0},
         {"ipc_batch": 65},
+        {"workload": "unknown"},
     ],
 )
 def test_invalid_envelope_never_starts_process_or_creates_store(tmp_path, options):
@@ -148,3 +152,48 @@ def test_soak_duration_is_accepted_without_overwriting_existing_store(tmp_path):
     with pytest.raises(ValueError, match="fresh database"):
         measure(path, 32, 11000, 1800)
     assert path.read_bytes() == b"preserve"
+
+
+@pytest.mark.parametrize("vertices", [True, 7, 9, 1000002])
+def test_traffic_rejects_invalid_universe(vertices):
+    with pytest.raises(ValueError, match="vertices"):
+        independent_load.Sweep(vertices)
+
+
+def test_sweep_pairing_wraparound_and_query_reference():
+    traffic = independent_load.Sweep(8)
+    expected = [(0, 1), (2, 3), (4, 5), (6, 7), (0, 1)]
+    assert [traffic.edge(2 * index + 1) for index in range(5)] == expected
+    assert [traffic.edge(2 * index + 2) for index in range(5)] == expected
+    assert [traffic.partner(version) for version in range(1, 12)] == [
+        1,
+        None,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        None,
+        1,
+    ]
+    assert isinstance(traffic, independent_load.Traffic)
+
+
+@pytest.mark.parametrize("count", [31, 32, 35])
+def test_sweep_reference_tracks_every_live_edit_and_exact_restart(tmp_path, count):
+    path = tmp_path / "sweep.db"
+    traffic = independent_load.Sweep(32)
+    with Durable(path, n=32) as owner:
+        for sequence in range(1, count + 1):
+            edge = traffic.edge(sequence)
+            request = Request(sequence, "delete" if sequence % 2 else "insert", *edge)
+            outcome = owner.apply([request])[0]
+            assert outcome.changed and outcome.version == sequence + 1
+            assert owner.partner(0) == (sequence + 1, traffic.partner(sequence + 1))
+            assert owner.has_edge(*edge) == (sequence + 1, not sequence % 2)
+        removed = {traffic.edge(count)} if count % 2 else set()
+        digest = independent_load.certificate(owner, set(), removed, 32)
+    with Durable(path) as recovered:
+        assert independent_load.certificate(recovered, set(), removed, 32) == digest

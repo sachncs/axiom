@@ -17,7 +17,9 @@ import struct
 import sys
 import threading
 import time
+from abc import ABC, abstractmethod
 from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -29,6 +31,51 @@ from benchmarks.overload import Schedule
 from benchmarks.service import Histogram, live_digest
 
 _PACKET = struct.Struct("<BQ")
+
+
+@dataclass
+class Traffic(ABC):
+    """Constant-space deterministic real edits and an exact query reference."""
+
+    vertices: int
+
+    def __post_init__(self):
+        """Reject invalid universes before evaluating a trace."""
+        if (
+            type(self.vertices) is not int
+            or not 8 <= self.vertices <= 1000000
+            or self.vertices % 2
+        ):
+            raise ValueError("require bounded even vertices")
+
+    @abstractmethod
+    def edge(self, sequence: int) -> tuple[int, int]:
+        """Choose the same existing matched edge for each delete/insert pair."""
+        raise NotImplementedError
+
+    def partner(self, version: int) -> int | None:
+        """Predict vertex-zero's exact committed partner, including genesis."""
+        sequence = version - 1
+        if sequence % 2 and self.edge(sequence)[0] == 0:
+            return None
+        return 1
+
+
+class Hot(Traffic):
+    """Exercise one repeatedly deleted and reinserted matched edge."""
+
+    def edge(self, sequence: int) -> tuple[int, int]:
+        """Use a fixed working set, preserving the previous benchmark trace."""
+        return 0, 1
+
+
+class Sweep(Traffic):
+    """Traverse every matched ring edge before reusing an endpoint pair."""
+
+    def edge(self, sequence: int) -> tuple[int, int]:
+        """Derive endpoints from admission sequence, not dropped offer slots."""
+        vertex = 2 * (((sequence - 1) // 2) % (self.vertices // 2))
+        return vertex, vertex + 1
 
 
 def _produce(channel, result, started, rate, query_rate, seconds, ipc_batch=1):
@@ -102,6 +149,7 @@ def measure(
     queue_capacity: int = 512,
     ipc_bytes: int = 16384,
     ipc_batch: int = 1,
+    workload: str = "hot",
 ) -> dict:
     """Reconcile every external offer, bounded admission, publication and recovery."""
     if (
@@ -127,6 +175,9 @@ def measure(
         or not 1 <= ipc_batch <= 64
     ):
         raise ValueError("invalid bounded independent-load envelope")
+    if workload not in ("hot", "sweep"):
+        raise ValueError("require hot or sweep workload")
+    traffic = Hot(vertices) if workload == "hot" else Sweep(vertices)
     if path.exists():
         raise ValueError("benchmark requires a fresh database")
     context = multiprocessing.get_context("spawn")
@@ -166,7 +217,7 @@ def measure(
                 or not outcome.changed
                 or outcome.version != sequence + 1
             ):
-                raise RuntimeError("expected a real durable hot-edge change")
+                raise RuntimeError("expected a real durable edge change")
             now = time.perf_counter_ns()
             timing = receipt.timing()
             if timing is None:
@@ -201,7 +252,7 @@ def measure(
                     except BusyError:
                         query_busy += 1
                         continue
-                    if version < previous or partner != (1 if version % 2 else None):
+                    if version < previous or partner != traffic.partner(version):
                         raise RuntimeError(
                             "query disagrees with exact committed prefix"
                         )
@@ -210,7 +261,9 @@ def measure(
                     queries.record(time.perf_counter_ns() - due)
                 else:
                     request = Request(
-                        accepted + 1, "delete" if accepted % 2 == 0 else "insert", 0, 1
+                        accepted + 1,
+                        "delete" if accepted % 2 == 0 else "insert",
+                        *traffic.edge(accepted + 1),
                     )
                     try:
                         receipt = service.submit(request)
@@ -266,7 +319,7 @@ def measure(
         if service is not None:
             service.close(30)
     with Durable(path) as recovered:
-        removed = {(0, 1)} if accepted % 2 else set()
+        removed = {traffic.edge(accepted)} if accepted % 2 else set()
         if certificate(recovered, set(), removed, vertices) != expected:
             raise RuntimeError("independent-load exact recovery failed")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -275,6 +328,7 @@ def measure(
         "python": platform.python_version(),
         "platform": platform.platform(),
         "vertices": vertices,
+        "workload": workload,
         "rate": rate,
         "query_rate": query_rate,
         "seconds": seconds,
@@ -317,6 +371,7 @@ def main():
     parser.add_argument("--queue-capacity", type=int, default=512)
     parser.add_argument("--ipc-bytes", type=int, default=16384)
     parser.add_argument("--ipc-batch", type=int, default=1)
+    parser.add_argument("--workload", choices=("hot", "sweep"), default="hot")
     args = parser.parse_args()
     options = vars(args)
     options["path"] = options.pop("database")

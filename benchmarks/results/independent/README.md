@@ -59,3 +59,13 @@ and wheel provenance, count all losses, and require exact recovery before
 reporting a sustained result. Run on fresh paths without overlapping local tests
 or performance jobs. Actual Linux allocation/disk exhaustion is qualified
 separately in [ADR 0020](../../../docs/adrs/0020-resource-exhaustion-and-recovery.md).
+
+`--workload sweep` selects constant-space churn through all initial matched ring
+edges rather than repeatedly touching `(0,1)`. Each admitted delete/insert pair
+uses the same endpoints; rejected/dropped offers never advance that logical trace.
+The `Traffic` reference and its `Hot`/`Sweep` strategies independently predict
+vertex-zero queries from the committed version. Exact final topology accounts for
+an odd accepted prefix and recovery compares the full live matching digest.
+This widens the working set; it is not a random high-degree/hub workload or evidence
+of a completed sweep performance run. The current hot soak uses an archived runner
+and is unaffected by these additions.
