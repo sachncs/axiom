@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from axiom.durable import Durable, ExpiredError, Outcome, Request
+from axiom.service import Service
 
 
 def verify() -> None:
@@ -48,6 +49,20 @@ def verify() -> None:
                 pass
             else:
                 raise RuntimeError("installed expired retry was admitted")
+        with Service(path, queue_capacity=4, batch_wait_ms=100) as service:
+            receipts = [
+                service.submit(Request(seq, "insert" if seq % 2 else "delete", 0, 1))
+                for seq in range(41, 45)
+            ]
+            if [receipt.result(5) for receipt in receipts] != [
+                Outcome(seq, True, seq) for seq in range(41, 45)
+            ]:
+                raise RuntimeError("installed service aggregation failed")
+            if service.partner(0).result(5) != (44, None):
+                raise RuntimeError("installed service coherent query failed")
+        with Durable(path) as recovered:
+            if recovered.status()["sequence"] != 44 or not recovered.check():
+                raise RuntimeError("installed service drain/recovery failed")
 
 
 if __name__ == "__main__":
