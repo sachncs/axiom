@@ -115,6 +115,10 @@ def test_empty_engine_and_bounded_pages(n: int) -> None:
     engine = Engine(n)
     assert engine.n == n and engine.size() == engine.num_edges() == engine.version == 0
     assert engine.check() and engine.page(n) == (0, [], None)
+    assert engine.active is False and engine.poisoned is False
+    for attribute in ("active", "poisoned"):
+        with pytest.raises(AttributeError):
+            setattr(engine, attribute, True)
     with pytest.raises(ValueError):
         engine.page(limit=4097)
 
@@ -124,6 +128,7 @@ def test_batch_has_no_public_topology_or_partner_visibility_until_publication() 
     engine.ring()
     before = snapshot(engine)
     token = engine.begin()
+    assert engine.active is True and engine.poisoned is False
     assert engine.delete(0, 1)
     assert engine.insert(0, 4)
     for query in (
@@ -142,6 +147,7 @@ def test_batch_has_no_public_topology_or_partner_visibility_until_publication() 
         with pytest.raises(RuntimeError, match="another thread"):
             future.result()
     engine.rollback(token)
+    assert engine.active is False
     assert snapshot(engine) == before
     token = engine.begin()
     engine.delete(0, 1)

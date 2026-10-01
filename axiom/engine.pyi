@@ -13,6 +13,14 @@ class Engine:
     def version(self) -> int:
         """Read the committed real-mutation sequence; reject unpublished batches."""
         ...
+    @property
+    def active(self) -> bool:
+        """Read allocation-free transaction status, not unpublished topology."""
+        ...
+    @property
+    def poisoned(self) -> bool:
+        """Read allocation-free failure status, including after poisoning."""
+        ...
     def insert(self, u: int, v: int) -> bool:
         """Insert an edge, repair and certify matching, and report a real change."""
         ...

@@ -109,6 +109,12 @@ PyObject *version(Native *self, void *) {
              ? PyLong_FromUnsignedLongLong(self->engine->graph().version)
              : nullptr;
 }
+PyObject *active(Native *self, void *) {
+  return PyBool_FromLong(self->engine->graph().active);
+}
+PyObject *poisoned(Native *self, void *) {
+  return PyBool_FromLong(self->engine->graph().poisoned);
+}
 
 bool endpoints(Native *self, PyObject *args, uint32_t &u, uint32_t &v) {
   PyObject *left, *right;
@@ -354,6 +360,10 @@ PyGetSetDef getters[] = {{"n", reinterpret_cast<getter>(size), nullptr,
                           "Fixed vertex universe.", nullptr},
                          {"version", reinterpret_cast<getter>(version), nullptr,
                           "Committed real-mutation version.", nullptr},
+                         {"active", reinterpret_cast<getter>(active), nullptr,
+                          "Allocation-free transaction status.", nullptr},
+                         {"poisoned", reinterpret_cast<getter>(poisoned),
+                          nullptr, "Allocation-free failure status.", nullptr},
                          {nullptr, nullptr, nullptr, nullptr, nullptr}};
 PyType_Slot slots[] = {
     {Py_tp_new, reinterpret_cast<void *>(create)},
