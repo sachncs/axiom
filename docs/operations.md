@@ -101,4 +101,6 @@ versions, history and backup absent-or-complete publication.
 Record source/wheel hashes, OS/filesystem, SQLite settings, drive/controller/cache
 configuration, interruption timing and every failure. Repeat with the deployment's
 actual quotas and device policy. Qualification for one combination is not proof
-for other devices or filesystems. This hardware gate remains unexecuted.
+for other devices or filesystems. This hardware gate remains unexecuted. On
+2026-10-02 the user deferred it for this version; retain this protocol as future
+engineering, not a current-version release prerequisite or delivered guarantee.

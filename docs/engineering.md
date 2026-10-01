@@ -22,7 +22,7 @@ that later-delivered production components are absent.
 | Workstream | Delivered | Remaining evidence or engineering |
 | --- | --- | --- |
 | Compact storage and local transactions | Native blocked adjacency, bounded graph/partner undo, local certificates | Wider degree/churn envelopes and deployment sizing |
-| Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Hardware power-loss validation and deployment recovery objectives |
+| Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Deployment recovery objectives; hardware power-loss deferred by user for this version |
 | Concurrent clients and overload | Single-owner Service, locked admission/publication, bounded receipts, read reservation | Production transport/retry integration if required; broader sustained burst/skew qualification |
 | Million-vertex 10k durable updates/s | Latest independent-arrival 30-second stage at 10.93k/s with queries; older-code 30-minute soak | Latest-code sustained run and repeatability; all misses/drops/rejections remain explicit |
 | Resource failure and backups | Installed Linux allocation/disk exhaustion and exact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
@@ -33,7 +33,9 @@ that later-delivered production components are absent.
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new
 work are recorded in ADR 0020; established APIs need compatibility planning
-before renaming. Hardware testing is distinct from process crash and ENOSPC.
+before renaming. Hardware testing is distinct from process crash and ENOSPC;
+the user explicitly deferred hardware power-loss qualification on 2026-10-02.
+It is future engineering, with no current hardware power-loss guarantee.
 
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
 zero counters, and coloring-validation buckets. Exact consistency checks remain.

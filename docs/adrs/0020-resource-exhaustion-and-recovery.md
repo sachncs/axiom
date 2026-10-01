@@ -1,7 +1,7 @@
 # 0020: Isolated resource exhaustion and exact recovery
 
 Date: 2026-10-02. Status: million-vertex Linux exhaustion/recovery stage passed;
-production deployment quotas and hardware power-loss validation pending.
+production deployment quotas pending; hardware power-loss deferred by user.
 
 ## Decision
 
@@ -63,5 +63,6 @@ its successful execution; the subsequent pipeline fix makes failures dependable.
 RLIMIT_AS limits virtual address space, not page cache or aggregate deployment
 memory. The filesystem fixture is not a production disk quota installation.
 This is not a throughput gate, a power-cut test, replication, or billion-vertex
-qualification. Hardware power-loss validation remains outstanding; process death
-and SQLite FULL cannot establish storage-device flush correctness.
+qualification. On 2026-10-02 the user deferred hardware power-loss validation for
+this version. It remains future engineering with no power-cut guarantee; process
+death and SQLite FULL cannot establish storage-device flush correctness.

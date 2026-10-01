@@ -38,6 +38,12 @@ agreement on numeric latency/RSS SLAs or physical power-loss qualification.
 ADR 0019 records separate-process throughput evidence and remaining resource/
 recovery work.
 
+Further update 2026-10-02: the user explicitly deferred physical hardware
+power-loss qualification for this version. Keep it as future engineering, not a
+current-version release gate and not a delivered guarantee. Process-crash,
+allocation/disk exhaustion, exact recovery and backup verification remain in scope.
+This deferral does not waive sustained throughput or resource failure behavior.
+
 ## Consequences and alternatives
 
 At 509 updates/s the small basic-mode result needs approximately 20× improvement;
