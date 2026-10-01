@@ -226,7 +226,7 @@ class Report:
                 ylabel="empirical cumulative probability",
                 title=operation,
             )
-            axis.legend()
+            axis.legend(loc="lower right")
             axis.grid(alpha=0.2)
         figure.suptitle(
             "Long sparse churn at 32 vertices · diagnostic pass, not batch throughput"
