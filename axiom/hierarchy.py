@@ -32,7 +32,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import pairwise
 
-from axiom.graph import Adjacency
+from axiom.graph import empty
 from axiom.paper_coloring import Paper
 from axiom.system import System
 from axiom.system import build as build_z_system
@@ -157,7 +157,7 @@ class Hierarchy:
                             )
             return
 
-        phase_graph = Adjacency(graph.n)
+        phase_graph = empty(graph)
         phase_edges = set(graph.edges()) | set(self.deferred_deletions)
         for left, right in phase_edges:
             if canonical(left, right) not in excluded:
@@ -823,7 +823,7 @@ def refine_hierarchy(
 
 def project(graph: Graph, edges: set[Edge]) -> Graph:
     """Build an isolated graph with the same vertices and only the supplied edges."""
-    result = Adjacency(graph.n)
+    result = empty(graph)
     for u, v in sorted(edges):
         result.add_edge(u, v)
     return result

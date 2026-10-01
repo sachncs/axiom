@@ -1,7 +1,7 @@
 <p align="center">
   <img src="site/public/logo.svg" alt="axiom logo" width="160" />
   <h1 align="center">axiom</h1>
-  <p align="center">Deterministic fully dynamic maximal matching in pure Python.</p>
+  <p align="center">Deterministic fully dynamic maximal matching with compact native graph storage.</p>
   <p align="center">
     <a href="#installation"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue" alt="Python"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
@@ -17,7 +17,7 @@ getting-started guide, interactive playground, API reference, and honest
 implementation status. This repository is the source for contributors and
 release engineering.
 
-**axiom** is a pure-Python implementation of deterministic fully dynamic maximal matching based on *A Faster Deterministic Algorithm for Fully Dynamic Maximal Matching* by Chuzhoy, Khanna, and Song (STOC 2026, [arXiv:2605.00797v1](https://arxiv.org/abs/2605.00797v1)). It maintains a **maximal matching** in an undirected graph under online edge insertions and deletions.
+**axiom** implements deterministic fully dynamic maximal matching based on *A Faster Deterministic Algorithm for Fully Dynamic Maximal Matching* by Chuzhoy, Khanna, and Song (STOC 2026, [arXiv:2605.00797v1](https://arxiv.org/abs/2605.00797v1)). Python algorithms can use reference adjacency sets or compact native storage. It maintains a **maximal matching** in an undirected graph under online edge insertions and deletions.
 
 ---
 
@@ -33,7 +33,7 @@ release engineering.
 - **Comprehensive invariant checks** &mdash; `Matcher.maximal()`, `System.check()`, and `Hierarchy.check()` expose the canonical state validators.
 - **Empirical ledger** &mdash; explicit counters for phase/subphase rebuilds, rematch scan sizes, and stale cleanups. Useful for diagnosing where time is spent; **not** a proof of the amortised bound.
 - **Reproducible simulation** &mdash; seeded random update sequences with replay utilities for stress tests and benchmarks.
-- **Zero runtime dependencies** &mdash; pure Python with the standard library; only the optional `.[dev]` extras (`pytest`, `mypy`, `ruff`, `hypothesis`) are pulled in for development.
+- **No third-party runtime libraries** &mdash; Python and a bundled C++ storage extension; the optional `.[dev]` extras (`pytest`, `mypy`, `ruff`, `hypothesis`) are used for development. Source installation requires a C++17 compiler and CPython development headers.
 - **Strict type checking** &mdash; every public signature is annotated; the repository enables `mypy --strict`.
 
 ---

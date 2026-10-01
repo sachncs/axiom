@@ -19,9 +19,10 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Protocol
 
-from axiom.graph import Adjacency
+from axiom.graph import empty
 from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
 from axiom.paper_coloring import Paper
+from axiom.storage import Packed
 from axiom.system import System, build
 from axiom.types import Graph
 
@@ -30,8 +31,10 @@ if TYPE_CHECKING:
 
 
 def snapshot(graph: Graph) -> Graph:
-    """Create an isolated adjacency snapshot for the current phase."""
-    result = Adjacency(graph.n)
+    """Create an isolated phase snapshot without changing its storage backend."""
+    if isinstance(graph, Packed):
+        return graph.copy()
+    result = empty(graph)
     for left, right in graph.edges():
         result.add_edge(left, right)
     return result

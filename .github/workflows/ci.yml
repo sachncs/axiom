@@ -68,6 +68,12 @@ jobs:
           PYTHONOPTIMIZE: "1"
         run: pytest -q tests/
 
+      - name: Native storage sanitizers
+        if: matrix.python-version == '3.12'
+        run: |
+          clang++ -std=c++17 -fsanitize=address,undefined -fno-omit-frame-pointer -O1 -g native/test_storage.cpp -o "$RUNNER_TEMP/axiom-storage-test"
+          "$RUNNER_TEMP/axiom-storage-test"
+
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
@@ -119,14 +125,14 @@ jobs:
         run: |
           python -m venv /tmp/axiom-wheel-env
           /tmp/axiom-wheel-env/bin/pip install dist/*.whl
-          /tmp/axiom-wheel-env/bin/python -c "from axiom import Matcher; assert Matcher(8, mode='multilevel').maximal()"
+          /tmp/axiom-wheel-env/bin/python -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
           /tmp/axiom-wheel-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
 
       - name: Install source distribution in a clean environment
         run: |
           python -m venv /tmp/axiom-source-env
           /tmp/axiom-source-env/bin/pip install dist/*.tar.gz
-          /tmp/axiom-source-env/bin/python -c "from axiom import Matcher; assert Matcher(8, mode='multilevel').maximal()"
+          /tmp/axiom-source-env/bin/python -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
           /tmp/axiom-source-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
 
       - name: Audit dependencies
@@ -237,7 +243,10 @@ jobs:
         working-directory: site
 
       - name: Execute verified documentation examples
-        run: python scripts/verify_site_examples.py
+        run: |
+          python -m venv .docs-env
+          .docs-env/bin/python -m pip install .
+          .docs-env/bin/python scripts/verify_site_examples.py
 
       - name: Check generated routes and accessibility
         run: npm run check:links

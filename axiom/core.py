@@ -40,12 +40,13 @@ from contextlib import contextmanager
 
 from axiom.augment import augment as augment
 from axiom.color import Vizing
-from axiom.graph import Adjacency
+from axiom.graph import Adjacency, empty
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import is_maximal_matching, partners
 from axiom.paper_coloring import Paper
 from axiom.rebuild import Basic, Multilevel
+from axiom.storage import Packed, publish
 from axiom.system import System
 from axiom.types import (
     Colorer,
@@ -290,7 +291,7 @@ class Matcher:
             self.matchings = []
             return
 
-        sub = Adjacency(self.n)
+        sub = empty(self.graph)
         for e in self.system.M:
             sub.add_edge(e[0], e[1])
 
@@ -733,16 +734,7 @@ class Matcher:
             # has_edge above, then leave all dynamic state untouched.
             return
         with self.__atomic_update():
-            before_edges = set(self.graph.edges())
-            self.graph.add_edge(u, v)
-            after_edges = set(self.graph.edges())
-            expected_edges = before_edges | {canonical(u, v)}
-            if after_edges != expected_edges:
-                raise RuntimeError(
-                    "graph.add_edge changed an unexpected edge set: "
-                    f"missing={sorted(expected_edges - after_edges)}, "
-                    f"unexpected={sorted(after_edges - expected_edges)}"
-                )
+            self.__edit(u, v, added=True)
             if self.mode == "multilevel":
                 edge = canonical(u, v)
                 was_deferred = (
@@ -807,7 +799,6 @@ class Matcher:
             self.accountant.record_deletion()
             return
         with self.__atomic_update():
-            before_edges = set(self.graph.edges())
             if self.mode == "multilevel":
                 edge = canonical(u, v)
                 if edge in self.inserted_edges:
@@ -830,15 +821,7 @@ class Matcher:
             self.seed_matching.discard(edge)
             for matching in self.matchings:
                 matching.discard(edge)
-            self.graph.remove_edge(u, v)
-            after_edges = set(self.graph.edges())
-            expected_edges = before_edges - {edge}
-            if after_edges != expected_edges:
-                raise RuntimeError(
-                    "graph.remove_edge changed an unexpected edge set: "
-                    f"missing={sorted(expected_edges - after_edges)}, "
-                    f"unexpected={sorted(after_edges - expected_edges)}"
-                )
+            self.__edit(u, v, added=False)
             if self.multi is not None:
                 self.multi.sync_graph(
                     self.graph,
@@ -852,6 +835,44 @@ class Matcher:
             self.__handle_deletion(u, v)
             self.__advance_update_counter()
 
+    def __edit(self, u: Vertex, v: Vertex, *, added: bool) -> None:
+        """Certify an edge mutation without scanning sealed native storage.
+
+        Packed mutators reserve before editing precisely the two endpoint rows;
+        differential/sanitizer tests establish that storage contract. Check its
+        local membership, degrees, edge count, and logical version immediately.
+        Opaque graph implementations retain the full edge-set certificate.
+        """
+        graph = self.graph
+        mutate = graph.add_edge if added else graph.remove_edge
+        if isinstance(graph, Packed):
+            version, count = graph.version, graph.num_edges()
+            left, right = graph.degree(u), graph.degree(v)
+            mutate(u, v)
+            change = 1 if added else -1
+            if (
+                graph.version != version + 1
+                or graph.num_edges() != count + change
+                or graph.degree(u) != left + change
+                or graph.degree(v) != right + change
+                or graph.has_edge(u, v) != added
+                or graph.has_edge(v, u) != added
+            ):
+                raise RuntimeError("native edge mutation failed its local certificate")
+            return
+        before = set(graph.edges())
+        mutate(u, v)
+        after = set(graph.edges())
+        edge = canonical(u, v)
+        expected = before | {edge} if added else before - {edge}
+        if after != expected:
+            method = "add_edge" if added else "remove_edge"
+            raise RuntimeError(
+                f"graph.{method} changed an unexpected edge set: "
+                f"missing={sorted(expected - after)}, "
+                f"unexpected={sorted(after - expected)}"
+            )
+
     @contextmanager
     def __atomic_update(self) -> Iterator[None]:
         """Make one accepted graph update all-or-nothing.
@@ -862,30 +883,44 @@ class Matcher:
         across two states.  Graph objects are preserved by identity so a
         caller-supplied implementation remains the authoritative storage.
         """
-        original_edges = set(self.graph.edges())
-        graph_objects = [self.graph, self.phase_graph]
+        graph_objects = [self.graph, self.phase_graph, self.phase_base_graph]
+        if self.phase_base_system is not None:
+            graph_objects.append(self.phase_base_system.graph)
         if self.system is not None:
             graph_objects.append(self.system.graph)
         if self.multi is not None:
             graph_objects.append(self.multi.graph)
             graph_objects.extend(level.graph for level in self.multi.levels)
         memo = {id(graph): graph for graph in graph_objects if graph is not None}
-        graph_snapshots = {
-            id(graph): (graph, set(graph.edges())) for graph in memo.values()
-        }
-        snapshot = {
-            name: copy.deepcopy(value, memo)
-            for name, value in self.__dict__.items()
-            if name not in {"graph", "colorer", "policy"}
-        }
+        graph_snapshots: list[tuple[Graph, set[Edge]]] = []
+        journals: list[tuple[Packed, int]] = []
+        snapshot = None
         try:
+            for graph in memo.values():
+                if isinstance(graph, Packed):
+                    token = graph.begin()
+                    try:
+                        journals.append((graph, token))
+                    except BaseException:
+                        graph.rollback(token)
+                        raise
+                else:
+                    graph_snapshots.append((graph, set(graph.edges())))
+            snapshot = {
+                name: copy.deepcopy(value, memo)
+                for name, value in self.__dict__.items()
+                if name not in {"graph", "colorer", "policy"}
+            }
             yield
+            publish(journals)
         except BaseException:
+            for native, token in reversed(journals):
+                native.rollback(token)
             # Restore every graph object in place.  Multilevel rebuilds can
             # mutate a phase graph or an inherited level graph before a later
             # invariant check fails; restoring only ``self.graph`` would leave
             # those same-identity objects observably split from the snapshot.
-            for graph, expected_edges in graph_snapshots.values():
+            for graph, expected_edges in graph_snapshots:
                 current_edges = set(graph.edges())
                 for left, right in current_edges - expected_edges:
                     graph.remove_edge(left, right)
@@ -895,9 +930,8 @@ class Matcher:
                     raise RuntimeError(
                         "atomic rollback could not restore a managed graph"
                     )
-            if set(self.graph.edges()) != original_edges:
-                raise RuntimeError("atomic rollback could not restore the live graph")
-            self.__dict__.update(snapshot)
+            if snapshot is not None:
+                self.__dict__.update(snapshot)
             raise
 
     def __handle_insertion(self, u: Vertex, v: Vertex) -> None:

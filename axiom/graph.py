@@ -30,7 +30,18 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from axiom.types import Edge, Vertex
+from axiom.storage import Packed
+from axiom.types import Edge, Graph, Vertex
+
+
+def empty(graph: Graph) -> Graph:
+    """Allocate an isolated subgraph while retaining the native storage backend.
+
+    Opaque caller implementations use the reference backend: their custom
+    mutators need not be suitable for internal phase/coloring construction.
+    Native graphs retain their universe and per-container allocation budget.
+    """
+    return graph.empty() if isinstance(graph, Packed) else Adjacency(graph.n)
 
 
 class Adjacency:

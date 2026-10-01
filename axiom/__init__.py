@@ -1,6 +1,6 @@
 r"""axiom: deterministic fully dynamic maximal matching.
 
-This package is a pure-Python implementation based on the deterministic
+This package combines Python algorithms and native storage based on the deterministic
 fully dynamic maximal matching algorithm of Chuzhoy, Khanna, and Song
 (arXiv:2605.00797v1, STOC 2026).
 
@@ -48,6 +48,7 @@ from axiom.matching import greedy, partner_in, partners
 from axiom.paper_coloring import Paper
 from axiom.parallel import compare, run_parallel
 from axiom.simulation import random_updates, replay
+from axiom.storage import Packed
 from axiom.system import (
     System,
     build,
@@ -66,6 +67,7 @@ __version__ = "0.6.0.dev0"
 __all__ = [
     "Matcher",
     "Adjacency",
+    "Packed",
     "Greedy",
     "Vizing",
     "Paper",

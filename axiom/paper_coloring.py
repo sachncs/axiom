@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from itertools import pairwise
 from types import MappingProxyType
 
-from axiom.graph import Adjacency
+from axiom.graph import empty
 from axiom.types import Color, Edge, Graph, Vertex, canonical
 
 
@@ -2014,7 +2014,7 @@ class Extension:
         # E_k is an actual edge-disjoint subproblem in ABB's Extend.  Give the
         # child its own graph snapshot so later path operations cannot
         # accidentally observe or mutate edges outside this color group.
-        childgraph = Adjacency(coloring.graph.n)
+        childgraph = empty(coloring.graph)
         for edge in sorted(edgescope):
             childgraph.add_edge(*edge)
         child = Partial(childgraph, len(ordered))
@@ -2225,7 +2225,7 @@ class Paper:
         return eta
 
     @classmethod
-    def partition(cls, graph: Graph) -> tuple[Adjacency, Adjacency]:
+    def partition(cls, graph: Graph) -> tuple[Graph, Graph]:
         """Split edges into two balanced Euler-tour parity subgraphs.
 
         Odd-degree vertices are paired with deterministic auxiliary edges.  An
@@ -2309,7 +2309,7 @@ class Paper:
 
         if len(partition) != len(originaledges):
             raise RuntimeError("Euler partition did not assign every graph edge")
-        parts = (Adjacency(graph.n), Adjacency(graph.n))
+        parts = (empty(graph), empty(graph))
         for index, edge in enumerate(originaledges):
             parts[partition[index]].add_edge(*edge)
         maximum = max((graph.degree(vertex) for vertex in range(graph.n)), default=0)

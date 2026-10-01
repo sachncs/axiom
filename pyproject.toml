@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "axiom-matching"
 version = "0.6.0.dev0"
-description = "Pure-Python deterministic fully dynamic maximal matching with basic and recursive multilevel z-subgraph modes."
+description = "Deterministic fully dynamic maximal matching with Python algorithms and compact native graph storage."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
