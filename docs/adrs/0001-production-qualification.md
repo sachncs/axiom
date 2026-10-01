@@ -32,6 +32,12 @@ The exact p99 SLA, query mix, hardware/RAM cap, maximum edge/degree envelope, so
 duration, and recovery-time objective remain to be specified and recorded before
 final qualification; do not invent agreement on those values.
 
+Update 2026-10-02: the user accepted currently measured acknowledgment/query
+latency for this version and deferred tighter latency engineering. This is not
+agreement on numeric latency/RSS SLAs or physical power-loss qualification.
+ADR 0019 records separate-process throughput evidence and remaining resource/
+recovery work.
+
 ## Consequences and alternatives
 
 At 509 updates/s the small basic-mode result needs approximately 20× improvement;

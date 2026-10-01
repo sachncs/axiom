@@ -127,6 +127,18 @@ only 9565/s, so this small dispatch reduction does not complete the target.
 [ADR 0018](adrs/0018-checkpoint-history-validation-cost.md) records the evidence
 and the consistent-snapshot design needed before attempting background maintenance.
 
+Separate-process paced arrivals now distinguish producer misses, bounded IPC
+drops and server admission rejections. With explicitly configured queue capacity
+4096 and transport batches of 16, one 30-second million-vertex stage delivers
+10930 real durable updates/s and 299261 matching queries, including ten checkpoints
+and exact independent recovery. Query p99 <=2.2 ms; ack p99 <=184.8 ms.
+These are local transport stages with losses, not a loss-free network or hard
+resource claim. [ADR 0019](adrs/0019-independent-arrivals-and-bounded-ipc.md).
+The user accepted present latency for this version and requested stricter latency
+engineering be marked future work. Continue with hard resource failure behavior
+and backup/recovery validation; do not invent a numeric RSS/latency SLA or treat
+process-crash tests as physical power-loss proof.
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,
