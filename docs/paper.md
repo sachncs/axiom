@@ -37,6 +37,7 @@ classes. A subclass may replace any of these with a compatible subclass.
 ```python
 from axiom.paper_coloring import Construction, Paper
 
+
 class Recording(Construction):
     selections = 0
 
@@ -44,6 +45,7 @@ class Recording(Construction):
     def collect(cls, coloring, edges):
         cls.selections += 1
         return super().collect(coloring, edges)
+
 
 class Instrumented(Paper):
     construction = Recording
