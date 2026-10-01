@@ -135,7 +135,24 @@ completed prefix. `requested_duration_completed` must be true; reaching the pair
 ceiling early is not a passing 30-minute soak. A pending/started soak is not evidence
 of successful completion. Closed-loop/fixed-pool and all other limits above remain.
 
-Local verification: 616 tests, 141 focused optimized-mode tests, strict typing/lint,
+## Committed-partner query stage
+
+Source `b8c36e7`, benchmark `ec9926e`, same machine and isolated installed wheel.
+Three million-vertex seeds each acknowledge 200000 real updates and complete
+exactly 200000 published partner reads. Rates are 15.24k–15.39k changes/s; query
+p99 upper bound 0.5 ms, maxima 0.614–0.715 ms. Ack p99 is 25.9–27.0 ms, maxima
+200.3–207.9 ms. Native retained capacity is 77.01 MB, peak RSS 214.3–214.9 MB.
+Exact topology, proper maximal matching and live/recovered partner audits pass;
+update/final matching digests agree with the earlier same-seed traces.
+[Raw provenance and limits](../benchmarks/results/service/README.md).
+
+This fixed-credit 1:1 mix differs in query scheduling from the earlier queued
+workload. Reads may observe the preceding publication; they are not independently
+offered across every maintenance interval. These ~13-second traces do not prove
+an overload/skew SLA or hard memory/disk bounds. The new code still needs a soak;
+the completed old-code 30-minute result is recorded separately in the raw README.
+
+Earlier baseline verification: 616 tests, 141 focused optimized-mode tests, strict typing/lint,
 isolated wheel/sdist service/compaction/recovery smoke, documentation examples and
 site build/link checks pass. The earlier coverage run measured 96% service and
 85% rounded total Python source coverage (not C++ coverage). The added duration/

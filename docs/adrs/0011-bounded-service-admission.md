@@ -58,6 +58,11 @@ SLA is claimed. Versioned pages remain bounded and stale continuation rejects.
 Receipt count does not bound the cost of repeated whole-graph audits/checkpoints;
 exposing them to untrusted clients would also require class-specific work admission.
 
+ADR 0012 supersedes the owner-queued scheduling for `partner` only: coupled
+published-prefix reads can run during durability waits. Other reads and expensive
+maintenance retain this owner protocol. The original queued-read measurements
+below remain historical evidence, not measurements of the newer path.
+
 Return `Receipt`, not a cancellable executor future. Receipt creation means
 **accepted in memory**, not persisted. Only successful `result()` is a durable
 update acknowledgment. Wait timeout leaves work accepted and possibly committed;

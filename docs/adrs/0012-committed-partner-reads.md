@@ -1,7 +1,7 @@
 # ADR 0012: Read committed partners without waiting for durable writes
 
-Date: 2026-10-02. Status: implemented and regression-tested; latency qualification
-and full production qualification pending.
+Date: 2026-10-02. Status: implemented and regression-tested; short fixed-mix
+latency measured; full production qualification pending.
 
 ## Context
 
@@ -66,3 +66,9 @@ exact 1:1 partner-query/update mix rather than allowing faster reads to silently
 multiply offered query work. Retain old raw measurements unchanged and distinguish
 their queued-read workload from new results. Overload/skew, hard process/disk
 limits, backup and real power-cut qualification remain separate open gates.
+
+Three short installed-wheel million-vertex runs measure 15.24k–15.39k durable
+real updates/s with exactly one partner read/update, query p99 upper bound 0.5 ms
+and peak RSS 214.3–214.9 MB. Exact independent audits/recovery pass. This is not an
+independent open-loop query workload or maintenance latency bound. [Raw records,
+source, artifact and limitations](../../benchmarks/results/service/README.md).

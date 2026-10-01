@@ -70,3 +70,40 @@ resource ceilings, or qualify overload/skew/backup/device power loss. It predate
 the additional 4-byte/vertex committed-read index and must not be reported as a
 measurement of that new implementation. Current source `ec9926e` instead declares
 exactly one committed partner read per admitted update; old raw data is unchanged.
+
+## Committed-partner read stage
+
+`committed-million-{599,600,601}.json`: native/service source `b8c36e7`, frozen
+benchmark source `ec9926e`, isolated installed wheel SHA-256
+`6611538f6598e9a661fdc3d7e0d484aa6a89f8a2d8ccbfe52cf70e84ecff9060`.
+Same declared machine/software/storage stack. Sequential fresh processes with no
+overlapping build/test jobs; archived benchmark runner, not checkout imports:
+
+```bash
+python -I runner/benchmarks/service.py --database /private/local/path/fresh.db \
+  --vertices 1000000 --pairs 100000 --seed 599
+```
+
+Repeat seeds 600/601. Four writers/window 64, query window 128, exactly 200000
+committed partner reads for 200000 real acknowledged updates; FULL/fullfsync,
+native checkpoint interval 32768, capacity 512, default remaining policies.
+
+| Seed | Real acknowledged changes/s | Ack p99 upper | Query p99 upper | Query max | Peak RSS |
+| --- | --- | --- | --- | --- | --- |
+| 599 | 15236 | 27.0 ms | 0.5 ms | 0.626 ms | 214.9 MB |
+| 600 | 15389 | 25.9 ms | 0.5 ms | 0.614 ms | 214.8 MB |
+| 601 | 15306 | 26.0 ms | 0.5 ms | 0.715 ms | 214.3 MB |
+
+All independent exact topology/proper-maximal matching audits, exact recovery and
+live/recovered partner digests pass. Update trace and final matching hashes agree
+with the corresponding earlier queued-read records. Native retained allocation is
+approximately 77.01 MB: the extra first-write index costs 4,000,024 bytes. Ack
+maxima remain 200.3–207.9 ms; checkpoints still delay writes.
+
+These 13-second runs improve the measured query-latency stage, not worst-case
+latency qualification. Query credit timing/scheduling differs from the earlier
+benchmark even though update traces agree. Credits are issued on update admission;
+reads may observe a preceding committed prefix. They do not model independently
+offered query arrivals during every maintenance interval, overload or hubs.
+The new implementation has not yet repeated the 30-minute soak. Hard total
+RSS/WAL/disk, backup and device power-loss gates remain open.
