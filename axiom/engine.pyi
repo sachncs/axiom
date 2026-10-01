@@ -60,6 +60,19 @@ class Engine:
     def ring(self, width: int = 2) -> None:
         """Build and audit an isolated regular-ring initialization candidate."""
         ...
+    def snapshot(self, *, max_bytes: int = 67108864) -> bytes:
+        """Audit/encode committed state; output/audit scratch are extra memory."""
+        ...
+    @classmethod
+    def restore(
+        cls,
+        data: bytes,
+        *,
+        budget: int = 1073741824,
+        max_bytes: int = 67108864,
+    ) -> Engine:
+        """Validate all input and audit a new candidate before returning it."""
+        ...
     def page(
         self, start: int = 0, limit: int = 1024, version: int | None = None
     ) -> tuple[int, list[tuple[int, int]], int | None]:

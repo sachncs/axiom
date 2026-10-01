@@ -122,6 +122,19 @@ int main() {
       } else
         engine.commit(token);
       audit(engine, reference);
+      if (batch % 100 == 0) {
+        std::vector<char> checkpoint(engine.snapshotSize());
+        engine.snapshot(checkpoint.data(), checkpoint.size());
+        auto restored = axiom::Engine::restore(
+            checkpoint.data(), checkpoint.size(), engine.budget());
+        audit(*restored, reference);
+        require(restored->graph().version == engine.graph().version,
+                "checkpoint changed logical version");
+        std::vector<char> repeated(restored->snapshotSize());
+        restored->snapshot(repeated.data(), repeated.size());
+        require(checkpoint == repeated,
+                "checkpoint changed adjacency order/state");
+      }
     }
     // A budget that admits metadata but no partner undo cannot partly mutate.
     axiom::Engine probe(4);
@@ -153,6 +166,35 @@ int main() {
     ring.ring(16);
     require(ring.check() && ring.graph().count == 129 * 16 && ring.size() == 64,
             "high-degree ring initialization failed");
+    std::vector<char> checkpoint(ring.snapshotSize());
+    ring.snapshot(checkpoint.data(), checkpoint.size());
+    for (unsigned trial = 0; trial < 2000; ++trial) {
+      auto altered = checkpoint;
+      for (unsigned flip = 0; flip < 1 + trial % 4; ++flip) {
+        size_t position = random() % altered.size();
+        altered[position] ^= static_cast<char>(1U << (random() % 8));
+      }
+      try {
+        auto candidate =
+            axiom::Engine::restore(altered.data(), altered.size(), 4 << 20);
+        require(candidate->check(),
+                "accepted corrupt checkpoint failed full audit");
+      } catch (const std::invalid_argument &) {
+      } catch (const std::length_error &) {
+      }
+    }
+    axiom::Engine badCheckpoint(4);
+    badCheckpoint.insert(0, 1);
+    axiom::Inspector::corruptPartner(badCheckpoint, 0, 2);
+    std::vector<char> invalid(badCheckpoint.snapshotSize());
+    try {
+      badCheckpoint.snapshot(invalid.data(), invalid.size());
+      throw std::runtime_error("checkpoint exported invalid partner state");
+    } catch (const axiom::CertificateError &) {
+    }
+    require(badCheckpoint.graph().poisoned &&
+                badCheckpoint.graph().version == 1,
+            "invalid checkpoint export did not fail-stop without mutation");
     axiom::Engine damaged(4);
     damaged.insert(0, 1);
     axiom::Inspector::corruptPartner(damaged, 0, 2);

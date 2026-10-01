@@ -266,6 +266,69 @@ PyObject *ring(Native *self, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+PyObject *snapshot(Native *self, PyObject *args, PyObject *kwargs) {
+  static const char *names[] = {"max_bytes", nullptr};
+  PyObject *maximum = nullptr;
+  uint64_t limit = 64ULL << 20;
+  if (!guard(self, true) ||
+      !PyArg_ParseTupleAndKeywords(args, kwargs, "|$O:snapshot",
+                                   const_cast<char **>(names), &maximum) ||
+      (maximum && !number(maximum, limit)))
+    return nullptr;
+  try {
+    uint64_t bytes = self->engine->snapshotSize();
+    if (bytes > limit || bytes > uint64_t(PY_SSIZE_T_MAX))
+      throw std::length_error("checkpoint exceeds output byte limit");
+    PyObject *result =
+        PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(bytes));
+    if (!result)
+      return nullptr;
+    try {
+      self->engine->snapshot(PyBytes_AS_STRING(result), bytes);
+    } catch (...) {
+      Py_DECREF(result);
+      throw;
+    }
+    return result;
+  } catch (...) {
+    return error();
+  }
+}
+
+PyObject *restore(PyObject *cls, PyObject *args, PyObject *kwargs) {
+  static const char *names[] = {"data", "budget", "max_bytes", nullptr};
+  PyObject *data, *budget = nullptr, *maximum = nullptr;
+  uint64_t nativeLimit = axiom::defaultBudget, byteLimit = 64ULL << 20;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OO:restore",
+                                   const_cast<char **>(names), &data, &budget,
+                                   &maximum) ||
+      (budget && !number(budget, nativeLimit)) ||
+      (maximum && !number(maximum, byteLimit)))
+    return nullptr;
+  if (!PyBytes_CheckExact(data)) {
+    PyErr_SetString(PyExc_ValueError,
+                    "checkpoint input must be immutable bytes");
+    return nullptr;
+  }
+  uint64_t bytes = static_cast<uint64_t>(PyBytes_GET_SIZE(data));
+  if (bytes > byteLimit) {
+    PyErr_SetString(PyExc_MemoryError, "checkpoint exceeds input byte limit");
+    return nullptr;
+  }
+  try {
+    auto candidate =
+        axiom::Engine::restore(PyBytes_AS_STRING(data), bytes, nativeLimit);
+    auto *type = reinterpret_cast<PyTypeObject *>(cls);
+    auto *self = reinterpret_cast<Native *>(type->tp_alloc(type, 0));
+    if (!self)
+      return nullptr;
+    self->engine = candidate.release();
+    return reinterpret_cast<PyObject *>(self);
+  } catch (...) {
+    return error();
+  }
+}
+
 PyObject *page(Native *self, PyObject *args, PyObject *kwargs) {
   if (!guard(self, true))
     return nullptr;
@@ -353,6 +416,13 @@ PyMethodDef methods[] = {
      "Restore graph, partners, counts and logical version without allocation."},
     {"ring", reinterpret_cast<PyCFunction>(ring), METH_VARARGS,
      "Build and validate an isolated initial regular ring candidate."},
+    {"snapshot", reinterpret_cast<PyCFunction>(snapshot),
+     METH_VARARGS | METH_KEYWORDS,
+     "Audit and encode committed graph/matching state under a byte limit."},
+    {"restore", reinterpret_cast<PyCFunction>(restore),
+     METH_CLASS | METH_VARARGS | METH_KEYWORDS,
+     "Restore and audit an immutable checkpoint as a separate native "
+     "candidate."},
     {"page", reinterpret_cast<PyCFunction>(page), METH_VARARGS | METH_KEYWORDS,
      "Read a versioned matching page with bounded vertex scanning."},
     {nullptr, nullptr, 0, nullptr}};
