@@ -107,6 +107,7 @@ def measure(
     queue_capacity: int = 512,
     checkpoint_interval: int = 32768,
     timeout_seconds: int = 120,
+    duration_seconds: int | None = None,
 ) -> dict:
     """Stream bounded client windows; preserve exact topology and recovered partners."""
     if (
@@ -118,6 +119,13 @@ def measure(
         or not 1 <= query_window <= 256
         or queue_capacity < clients * window + query_window
         or not 1 <= timeout_seconds <= 3600
+        or (
+            duration_seconds is not None
+            and (
+                not 1 <= duration_seconds <= 3590
+                or timeout_seconds < duration_seconds + 10
+            )
+        )
     ):
         raise ValueError("invalid bounded client/query/workload envelope")
     if path.exists():
@@ -155,6 +163,7 @@ def measure(
     construction = time.perf_counter() - tick
     initial = service.status().result(10)
     deadline = time.monotonic() + timeout_seconds
+    run_until: float | None = None
 
     def wait_seconds() -> float:
         remaining = deadline - time.monotonic()
@@ -181,6 +190,8 @@ def measure(
                 with admission:
                     first = completed_pairs
                     count = min(window // 2, pairs - completed_pairs)
+                    if run_until is not None and time.monotonic() >= run_until:
+                        count = 0  # Stop new admission, not accepted work.
                     for offset in range(count):
                         cell = rng.randrange(width)
                         old, new = (
@@ -240,7 +251,7 @@ def measure(
         try:
             barrier.wait(timeout=10)
             while not failed.is_set() and (
-                not writers_done.is_set() or read_histograms[0].count < pairs
+                not writers_done.is_set() or read_histograms[0].count < completed_pairs
             ):
                 pending = []
                 for _ in range(query_window):
@@ -269,6 +280,9 @@ def measure(
         for worker in workers + [query_worker]:
             worker.start()
         started = time.perf_counter()
+        deadline = time.monotonic() + timeout_seconds
+        if duration_seconds is not None:
+            run_until = time.monotonic() + duration_seconds
         barrier.wait(timeout=10)
         for worker in workers:
             worker.join(max(0, deadline - time.monotonic()))
@@ -280,7 +294,7 @@ def measure(
             raise failures[0]
         elapsed = time.perf_counter() - started
         final, metrics = service.status().result(10), service.metrics()
-        if final["sequence"] != 2 * pairs or metrics["outstanding"]:
+        if final["sequence"] != 2 * completed_pairs or metrics["outstanding"]:
             raise RuntimeError("not all admitted updates completed")
         tick = time.perf_counter()
         matching_digest = live_digest(service, vertices, final)
@@ -296,7 +310,7 @@ def measure(
         recovery = time.perf_counter() - tick
         tick = time.perf_counter()
         if (
-            recovered.status()["sequence"] != 2 * pairs
+            recovered.status()["sequence"] != 2 * completed_pairs
             or certificate(recovered, extra, removed, vertices) != matching_digest
         ):
             raise RuntimeError(
@@ -309,7 +323,7 @@ def measure(
             (acknowledgments, queues, executions), group, strict=True
         ):
             combined.merge(item)
-    if acknowledgments.count != 2 * pairs:
+    if acknowledgments.count != 2 * completed_pairs:
         raise RuntimeError("acknowledged update count differs from trace")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
@@ -331,6 +345,10 @@ def measure(
         "queries_completed_while_writers_active": query_while_writers_active,
         "retry_outcomes_verified": retry_checks,
         "construction_seconds": construction,
+        "requested_pair_ceiling": pairs,
+        "requested_duration_seconds": duration_seconds,
+        "requested_duration_completed": duration_seconds is not None
+        and elapsed >= duration_seconds,
         "trace_seconds": elapsed,
         "real_acknowledged_updates_per_second": acknowledgments.count / elapsed,
         "live_audit_seconds": live_audit,
@@ -368,6 +386,7 @@ def main() -> None:
     parser.add_argument("--queue-capacity", type=int, default=512)
     parser.add_argument("--checkpoint-interval", type=int, default=32768)
     parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument("--duration", type=int)
     args = parser.parse_args()
     print(
         json.dumps(
@@ -382,6 +401,7 @@ def main() -> None:
                 queue_capacity=args.queue_capacity,
                 checkpoint_interval=args.checkpoint_interval,
                 timeout_seconds=args.timeout,
+                duration_seconds=args.duration,
             ),
             indent=2,
         )

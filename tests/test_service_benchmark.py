@@ -48,6 +48,58 @@ def test_streaming_concurrent_trace_counts_real_acks_queries_and_checkpoints(
     assert "NOT open-loop overload/power-cut" in result["scope"]
 
 
+def test_duration_stops_admission_then_drains_and_audits_actual_completed_prefix(
+    tmp_path: Path,
+) -> None:
+    result = measure(
+        tmp_path / "duration.db",
+        64,
+        100000,
+        599,
+        clients=1,
+        window=16,
+        query_window=16,
+        queue_capacity=32,
+        checkpoint_interval=64,
+        duration_seconds=1,
+        timeout_seconds=11,
+    )
+    assert 0 < result["real_acknowledged_updates"] < 200000
+    assert result["requested_duration_completed"]
+    assert result["partner_queries"] >= result["real_acknowledged_updates"] // 2
+    assert result["final_status"]["sequence"] == result["real_acknowledged_updates"]
+    assert result["independent_audit_passed"] and result["exact_recovery_passed"]
+
+
+def test_update_trace_and_matching_do_not_depend_on_query_or_batch_schedule(
+    tmp_path: Path,
+) -> None:
+    first = measure(
+        tmp_path / "one.db",
+        64,
+        120,
+        599,
+        clients=1,
+        window=16,
+        query_window=8,
+        queue_capacity=32,
+        checkpoint_interval=64,
+    )
+    second = measure(
+        tmp_path / "two.db",
+        64,
+        120,
+        599,
+        clients=2,
+        window=8,
+        query_window=16,
+        queue_capacity=32,
+        checkpoint_interval=64,
+    )
+    assert first["trace_digest"] == second["trace_digest"]
+    assert first["matching_digest"] == second["matching_digest"]
+
+
 @pytest.mark.parametrize(
     "options",
     [
@@ -56,6 +108,9 @@ def test_streaming_concurrent_trace_counts_real_acks_queries_and_checkpoints(
         {"query_window": 0},
         {"queue_capacity": 32},
         {"timeout_seconds": 0},
+        {"duration_seconds": 0},
+        {"duration_seconds": 3600},
+        {"duration_seconds": 1, "timeout_seconds": 5},
     ],
 )
 def test_invalid_benchmark_envelope_does_not_create_store(
