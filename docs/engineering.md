@@ -78,6 +78,17 @@ clients on GIL-enabled CPython. [ADR 0012](adrs/0012-committed-partner-reads.md)
 records the tradeoff and pending latency measurements; the old soak is not evidence
 for changed code.
 
+Bounded owner backups now capture committed WAL state, exact matching and retry
+retirement without a native graph clone. Failure/process-crash tests require an
+absent or complete published target and an unchanged source. Installed-package
+32k/128k/million restore drills pass independent exact topology/partner audits;
+the million backup is 25.62 MB, takes 122.6 ms, and opens/restores in 102.3 ms plus
+a separate 3.336-second independent audit. These are single staged samples, not
+device power-loss or recovery-SLA qualification. [Evidence](../benchmarks/results/backup/README.md)
+and [ADR 0013](adrs/0013-bounded-owner-backups.md). Expensive explicit maintenance
+also has a separate active/queued work cap ([ADR 0014](adrs/0014-maintenance-admission.md));
+total RSS/WAL/disk, overload/skew and actual power-loss gates remain open.
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,
