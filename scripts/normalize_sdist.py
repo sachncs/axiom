@@ -53,6 +53,7 @@ def normalize(path: Path) -> None:
 
 
 def main(argv: list[str]) -> int:
+    """Normalize the supplied source archive and return a process exit code."""
     if len(argv) < 2:
         raise SystemExit("usage: normalize_sdist.py ARCHIVE [ARCHIVE ...]")
     for argument in argv[1:]:

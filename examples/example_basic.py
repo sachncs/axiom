@@ -11,6 +11,7 @@ from axiom import Matcher
 
 
 def main() -> None:
+    """Demonstrate basic matching updates and print the resulting state."""
     n = 10
     algo = Matcher(n, mode="basic")
 

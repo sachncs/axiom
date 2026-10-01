@@ -74,7 +74,7 @@ data flow through the algorithm.
 
 1. Validate `n >= 0` and `mode in {"basic", "multilevel"}`.
 2. Construct `self.graph = Adjacency(n)`. The default colourer is `Vizing()`
-   for `basic` and `PaperFanColorer()` for `multilevel`. A custom colourer is
+   for `basic` and `Paper()` for `multilevel`. A custom colourer is
    accepted only for `basic`; multilevel rejects any non-paper colourer.
 3. Allocate `matched_edges`, `matched_vertices`, `partners` (empty).
    The matcher also maintains the paper's directed `H`, reverse-`H`,

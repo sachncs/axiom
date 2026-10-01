@@ -186,7 +186,7 @@ algo = Matcher(
     n=100,
     mode="basic",  # or "multilevel"
     graph=None,  # default Adjacency(100)
-    colorer=None,  # optional basic-mode colorer; fixed PaperFanColorer for multilevel
+    colorer=None,  # optional basic-mode colorer; fixed Paper for multilevel
 )
 
 algo.insert(u, v)  # insert edge (u, v)
@@ -205,7 +205,7 @@ from axiom import (
     Hierarchy,  # z-system / multi-level
     Greedy,
     Vizing,
-    PaperFanColorer,  # edge colorers
+    Paper,  # edge colorers
     Ledger,  # accounting
     random_updates,
     replay,

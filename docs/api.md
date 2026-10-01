@@ -64,8 +64,11 @@ class Matcher:
 
 The optional `colorer` is a basic-mode extension point and must return a
 complete proper coloring using colors in `0..delta`. `mode="multilevel"`
-always uses the deterministic `PaperFanColorer`; passing another colorer is
+always uses the deterministic `Paper`; passing another colorer is
 rejected rather than silently changing the algorithm.
+
+See [Paper coloring](paper.md) for its strategy classes, API migration, and
+benchmarks.
 
 ## Graph
 

@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 def main() -> int:
+    """Render the repository's social preview asset and return an exit code."""
     out = Path("docs/assets/social-preview.png")
     out.parent.mkdir(parents=True, exist_ok=True)
     width, height = 1280, 640

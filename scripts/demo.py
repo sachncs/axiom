@@ -65,6 +65,7 @@ def run_demo(n: int, mode: str, num_updates: int, seed: int = 42) -> int:
 
 
 def main() -> int:
+    """Parse demo arguments and run a seeded matcher update sequence."""
     parser = argparse.ArgumentParser(description="Axiom Demo")
     parser.add_argument("--n", type=int, default=20, help="Number of vertices")
     parser.add_argument(

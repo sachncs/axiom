@@ -41,6 +41,7 @@ class _ExampleParser(HTMLParser):
 
 
 def main() -> None:
+    """Execute the site's documented examples and verify their results."""
     root = Path(__file__).resolve().parents[1]
     dist = root / "site" / "dist"
     pages = sorted(dist.rglob("*.html"))

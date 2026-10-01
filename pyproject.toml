@@ -71,7 +71,7 @@ target-version = "py310"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "D"]
 ignore = [
     "N802",  # Function names use mathematical notation from the paper (P1, P2, M, S, etc.)
     "N803",  # Argument names use mathematical notation from the paper (M, deg_M, etc.)
@@ -85,6 +85,10 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["axiom"]
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D"]
 "scripts/*.py" = ["E501"]
 "benchmarks/*.py" = ["E501"]
