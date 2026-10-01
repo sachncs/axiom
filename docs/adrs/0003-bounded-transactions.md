@@ -1,6 +1,7 @@
 # ADR 0003: Replace global snapshots with bounded local undo
 
-Date: 2026-10-01. Status: native graph journals implemented; algorithm journals pending.
+Date: 2026-10-01. Status: graph/production partner journals implemented;
+paper algorithm-state migration and durability pending.
 
 ## Context
 
@@ -33,9 +34,9 @@ preserves token sequencing, preventing stale-token reuse.
 Matcher opens journals on distinct existing managed native graphs, including base
 phase graphs. Group publication validates every participant before an
 allocation-free commit pass; it cannot close an earlier journal then discover a
-stale later participant. Python algorithm state still uses the snapshot reference
-path. The approved native production matcher must journal its compact partner
-state/counters as well as its graph.
+stale later participant. Python paper state retains the snapshot reference path.
+The native production core now journals compact partners and matching count
+alongside its graph, without whole-state copying.
 
 ## Consequences and alternatives
 
@@ -51,4 +52,7 @@ Native tests cover budget rejection, promotion/demotion rollback, stale/nested
 tokens, thread ownership, iterator invalidation, group precondition failure,
 snapshot allocation failure, and failed basic/multilevel phase updates followed
 by successful reuse. A standalone 200,000-edit C++ differential stress test passed
-ASan/UBSan. Full Python algorithm snapshot elimination is **not implemented**.
+ASan/UBSan. The production graph/partner path additionally passed a 100,000-edit
+reference differential run under ASan/UBSan, memory-budget rejection after earlier
+batch mutations, and injected certificate corruption with rollback and fail-stop.
+Full Python algorithm snapshot elimination is **not implemented**.

@@ -9,10 +9,10 @@ Dates use the project's user-facing calendar (1 October 2026).
 | --- | --- | --- |
 | [0001](0001-production-qualification.md) | Qualify 10k durable real updates/s at one million vertices | Target accepted; qualification pending |
 | [0002](0002-native-storage.md) | Compact native storage instead of per-vertex Python sets | Implemented; storage-only evidence |
-| [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Native graph journals implemented; algorithm-state migration pending |
+| [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Native graph/partner journals implemented; paper migration and durability pending |
 | [0004](0004-sparse-phase-indexes.md) | Sparse phase overlays instead of eager empty maps | Implemented and regression-tested; short-trace evidence only |
-| [0005](0005-incremental-certificates.md) | Immediate incremental certificates, not disabled checks | Native edge certificates implemented; matching certificates pending |
-| [0006](0006-native-production-matcher.md) | Separate native production matcher, retaining the paper engine | Explicitly approved by user; implementation pending |
+| [0005](0005-incremental-certificates.md) | Immediate incremental certificates, not disabled checks | Native production certificates implemented; paper hierarchy work pending |
+| [0006](0006-native-production-matcher.md) | Separate native production matcher, retaining the paper engine | Native core implemented/tested; durability and service qualification pending |
 | [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Accepted direction; implementation pending |
 | [0008](0008-resource-and-release-gates.md) | Single ownership, resource limits, independent qualification gates | Partially implemented; full-service gates pending |
 
@@ -20,6 +20,18 @@ The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent
 changes must update the relevant record's implementation/evidence section rather
 than silently changing an accepted contract or declaring an unfinished goal done.
+
+## Migration inventory
+
+| Previous cost/risk | Replacement and reason | Guarantee/limit and current status |
+| --- | --- | --- |
+| Per-vertex Python adjacency sets/objects | Native blocked adjacency and degree-sensitive indexes reduce object and allocation overhead (0002) | Shared native budget; Python reference storage remains available |
+| Whole-state `deepcopy` before each edit | Reserve-before-mutation graph/partner undo journals make ordinary production edits local (0003) | Exact logical rollback, allocation-free native undo, fail-stop on certificate/undo corruption; Python paper snapshots remain |
+| Eager empty phase dictionaries/sets | Sparse live-endpoint overlays avoid allocating empty vertex buckets (0004) | Phase counters/lifecycle unchanged; regression-tested |
+| Global scans on every ordinary production edit | Local dependency certificates plus separate independent full audits (0005) | Immediate proper/maximal matching checks are retained, not disabled; paper hierarchy scans still present |
+| Paper coloring/fans/hierarchy on the production path | Explicit `axiom.engine.Engine`, with deterministic incremental maximal matching (0006) | Research engine retained; different matching choices and no transferred paper theorem; hub deletion remains degree-dependent |
+| Treating an in-memory commit as success after a crash | WAL, durability barrier, then coherent publication/acknowledgment (0007) | **Pending**: native `commit` is not durable; crash recovery/dedup/checkpoints are not delivered yet |
+| Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
 
 ## What is not being abandoned
 

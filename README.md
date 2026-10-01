@@ -23,6 +23,7 @@ release engineering.
 
 ## Features
 
+- **Explicit native matching core** &mdash; `axiom.engine.Engine` provides compact, deterministic incremental maximal matching with local certificates and joint rollback. It is separate from the paper modes and **not yet durable**; see [contracts and measured limits](docs/engine.md) and [architecture decisions](docs/adrs/README.md).
 - **Two operating modes**
   - `basic` &mdash; the single-level z-subgraph implementation
   - `multilevel` &mdash; the recursive *k*-level z-subgraph implementation

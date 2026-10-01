@@ -1,6 +1,7 @@
 # ADR 0006: Introduce an explicitly selected native production matcher
 
-Date: 2026-10-01. Status: explicitly approved by the user; implementation pending.
+Date: 2026-10-01. Status: explicitly approved; native in-memory core implemented;
+durability and full-service qualification pending.
 
 ## Context
 
@@ -54,5 +55,14 @@ failure, and eventual matching consistency are not part of this decision.
 
 ## Evidence
 
-User approval is recorded in this conversation. No production native matching
-implementation or 10k durable-update qualification exists yet.
+`axiom.engine.Engine` now implements compact partners, shared graph/partner budget,
+joint journals, immediate certificates, independent full audits, private batch
+visibility, and bounded/versioned pages. Reference tests exercise deterministic
+decisions, proper maximality, budget rejection, and exact batch rollback.
+A 100,000-edit differential C++ run passed ASan/UBSan.
+
+Three short million-vertex average-degree-4 runs with real churn and matching
+queries produced approximately 686k–720k in-memory updates/s. Exact public-query
+graph/matching audits passed. This is compute headroom, **not** durable 10k/s
+qualification. See [contracts/results](../engine.md); WAL/recovery, admission,
+maintenance, and full-service qualification remain pending.

@@ -21,6 +21,14 @@ whole-matcher snapshots or qualify the production target; see [ADR 0004](adrs/00
 
 ## Implemented foundation, not product qualification
 
+The explicit native production core `axiom.engine.Engine` now implements compact
+partner state and certified deterministic local matching repair without global
+snapshots. Three short million-vertex average-degree-4 churn runs with partner
+queries measured approximately 686k–720k in-memory real updates/s, with exact
+independent graph/proper-maximal matching audits and about 134.5–134.6 MB peak RSS.
+These runs have **no durable acknowledgments** and do not qualify sustained
+maintenance/recovery/service behavior. See [native core contracts/results](engine.md).
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

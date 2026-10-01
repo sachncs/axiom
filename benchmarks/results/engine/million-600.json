@@ -1,0 +1,51 @@
+{
+  "scope": "native graph + maximal matching + queries; NO durable acknowledgments",
+  "python": "3.14.7",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "vertices": 1000000,
+  "edges": 2000000,
+  "average_degree": 4,
+  "pairs": 20000,
+  "seed": 600,
+  "digest": "4ca0d17d2909e175888396d16120ee2ff52b2fe628228f99dfecd836d7a02efb",
+  "real_updates": 40000,
+  "partner_queries": 20000,
+  "matched_deletes": 4977,
+  "construction_seconds": 0.17865879199962365,
+  "trace_seconds": 0.05590324999866425,
+  "real_updates_per_second": 715521.9061674547,
+  "audit_seconds": 0.7407590000002529,
+  "independent_audit_passed": true,
+  "initial_native_memory": {
+    "allocated": 45000336,
+    "budget": 1073741824,
+    "journal": 0,
+    "active": 0,
+    "poisoned": 0
+  },
+  "final_native_memory": {
+    "allocated": 73000528,
+    "budget": 1073741824,
+    "journal": 192,
+    "active": 0,
+    "poisoned": 0
+  },
+  "process_peak_rss_bytes": 134496256,
+  "latency": {
+    "delete": {
+      "calls": 20000,
+      "p99_ns": 459,
+      "max_ns": 5625
+    },
+    "insert": {
+      "calls": 20000,
+      "p99_ns": 583,
+      "max_ns": 1503625
+    },
+    "partner": {
+      "calls": 20000,
+      "p99_ns": 209,
+      "max_ns": 6292
+    }
+  }
+}

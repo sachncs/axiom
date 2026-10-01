@@ -1,6 +1,7 @@
 # ADR 0005: Maintain immediate local correctness certificates, not an unchecked mode
 
-Date: 2026-10-01. Status: native storage edge certificates implemented; broader work pending.
+Date: 2026-10-01. Status: native production edge/matching certificates implemented;
+paper hierarchy work and full-service qualification pending.
 
 ## Context
 
@@ -40,6 +41,9 @@ account scratch/latency rather than hiding their cost from qualification.
 
 ## Evidence
 
-Existing native mutation certificates and hostile-custom-graph tests pass.
-The current matcher still performs global matching/hierarchy checks. No complete
-incremental matching/hierarchy certificate implementation is claimed.
+Native storage and production matching certificates, reference/corruption/budget
+tests, and independent full audits are implemented. Three short million-vertex
+churn runs passed separate exact graph/proper-maximal matching certificates via
+public queries. These do not qualify durable service behavior or arbitrary-degree
+latency. The paper matcher retains global matching/hierarchy checks; no paper
+hierarchy incremental certificate implementation is claimed.
