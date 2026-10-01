@@ -9,9 +9,31 @@ The accepted production target is now **10,000 real edge updates/s at 1,000,000
 vertices and average degree 4**, including durable acknowledgments and coherent
 matching queries. The user approved a separate native incremental maximal-matching
 production backend; the paper/coloring/hierarchy engine remains available and is
-not silently replaced. The target is **not achieved**. See the explicit rationale,
+not silently replaced. The rate is demonstrated in scoped stages; **full production
+qualification is not complete**. See the explicit rationale,
 contracts, alternatives, and implementation status in [architecture decision
 records](adrs/README.md).
+
+## Current roadmap status
+
+Historical measurements below retain their original scope; they are not claims
+that later-delivered production components are absent.
+
+| Workstream | Delivered | Remaining evidence or engineering |
+| --- | --- | --- |
+| Compact storage and local transactions | Native blocked adjacency, bounded graph/partner undo, local certificates | Wider degree/churn envelopes and deployment sizing |
+| Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Hardware power-loss validation and deployment recovery objectives |
+| Concurrent clients and overload | Single-owner Service, locked admission/publication, bounded receipts, read reservation | Production transport/retry integration if required; broader sustained burst/skew qualification |
+| Million-vertex 10k durable updates/s | Latest independent-arrival 30-second stage at 10.93k/s with queries; older-code 30-minute soak | Latest-code sustained run and repeatability; all misses/drops/rejections remain explicit |
+| Resource failure and backups | Installed Linux allocation/disk exhaustion and exact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
+| Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
+| Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Paper-state deepcopy/journal migration and incremental hierarchy validation, separately certified |
+| Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
+
+Do not count an accepted design, a passing small test, or an older binary's soak
+as completion of a wider release gate. Naming/modularity conventions for new
+work are recorded in ADR 0020; established APIs need compatibility planning
+before renaming. Hardware testing is distinct from process crash and ENOSPC.
 
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
 zero counters, and coloring-validation buckets. Exact consistency checks remain.
@@ -241,12 +263,13 @@ count alone is insufficient: average degree 64 means 32,000,000 edges, and a
 complete million-vertex graph would have roughly 500 billion edges. The service
 needs an explicit edge-count and degree/workload envelope.
 
-**Can we reliably maintain it?** A bounded sparse graph is a plausible engineering
-target with compact storage and a carefully qualified incremental engine. This
-repository has not demonstrated reliable million-vertex operation. The current
-Python full-state snapshot/scan path is not a production scaling solution, and
-exception rollback is not durability or recovery after process death. Do not
-extrapolate the small-graph rates into a million-vertex throughput promise.
+**Can we reliably maintain it?** Million-vertex native Service stages now have
+durable acknowledgments, coherent queries, exact recovery, and actual Linux
+resource-exhaustion evidence, as described above. Complete deployment qualification
+remains open. The retained Python paper full-state snapshot/scan path is not the
+production scaling solution, and exception rollback alone is not durability.
+Do not extrapolate either small-graph rates or short stages into an unconditional
+million-vertex throughput/reliability promise.
 
 ### Start on one appropriately sized machine, not arbitrary graph shards
 
@@ -366,9 +389,11 @@ not merely successful construction or a short throughput run.
 ## Assessment: one billion vertices
 
 **No reliable billion-vertex claim is supported by the current implementation
-or measurements.** We have measured up to 2,048 vertices, not one million or one
-billion. The current representation and successful-update full-state copying
-are not compute- or memory-efficient engineering choices for that target.
+or measurements.** Original paper diagnostics reached 2,048 vertices; newer
+native production measurements reach one million, not one billion. The retained
+Python paper representation and full-state copying are not efficient choices
+for that target. Native local journals remove those particular production costs,
+but do not establish billion-vertex resource, durability or throughput support.
 
 Using the same sparse assumptions and uncompressed packed-array arithmetic:
 
@@ -407,7 +432,8 @@ The billion-vertex path needs a separate qualification program:
    of live edges; do not treat vertex count as the workload specification.
 3. Qualify million-, ten-million-, and hundred-million-vertex candidates with
    explicit memory/time caps and long-run checkpoint/compaction/failure tests
-   before a dedicated billion-vertex run. No such candidate is implemented here.
+   before a dedicated billion-vertex run. The million-vertex candidate is delivered;
+   larger stages are not qualified here.
 4. Choose a large-memory single owner or a distributed design based on measured
    total memory and required throughput. Billion vertices alone does not prove
    that distribution is necessary: an ideal sparse backbone is tens of GB,
@@ -424,9 +450,9 @@ view. The latter may be easier to scale but is a **different API contract**, not
 a silent optimization of the present engine. Neither design has been built or
 qualified by this benchmark.
 
-The immediate justified work remains transaction journaling and incremental
-certificates, followed by a native backend and staged qualification. The present
-benchmarks diagnose avoidable costs; they do not demonstrate that the current
+Production transaction journaling, incremental certificates and the native backend
+are delivered. The next scale work is staged qualification; the paper engine
+retains separate snapshot/hierarchy optimization work. Measurements do not demonstrate that the current
 algorithm, implementation, or proposed architecture will meet a billion-vertex
 service's compute, memory, or reliability requirements.
 
@@ -520,8 +546,9 @@ publication point. Reconcile updates received during construction before publish
 Bound backlog memory and reject or backpressure inputs when limits are exceeded.
 
 This is a design investigation, not a proposal to execute the current mutable
-matcher concurrently. The present single-owner engine is not established as
-thread-safe. Incremental/background rebuilding requires explicit consistency,
+matcher concurrently. The standalone mutation engine remains owner-bound;
+concurrent clients use the thread-safe Service boundary, not simultaneous engine
+mutation. Incremental/background rebuilding requires explicit consistency,
 query visibility, cancellation, and recovery contracts, with adversarial tests
 around the publication boundary.
 
