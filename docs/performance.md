@@ -109,13 +109,23 @@ Each run directory contains:
 - `latency.csv`: individual calls, real/no-op status, matched status, boundary,
   and rematching scan deltas.
 
+Published baseline directories are versioned. Choose fresh output directories
+for new experiments: the harness replaces files in the selected output directory.
+Local calibration and interrupted scratch runs are not part of the published data.
+
 The report writes `aggregate.csv`, `report.md`, and three PNG charts. Rates are
 median seed-specific batch rates; seed min–max is observed variation, not a
 confidence interval. Latency uses nearest-rank empirical quantiles. Report p99
 with its sample count: short traces cannot establish a reliable tail bound.
+Raw JSON timing summaries and individual samples use nanoseconds; the aggregate
+CSV's insertion/deletion latency quantiles use milliseconds, and counts are
+unitless. Throughput columns use calls per second.
 No-op rates are separate from real-update rates. Growth and drain change density,
 so their finite-batch rates should not be described as steady-state throughput.
 
 Reproduce on the same Python version and hardware before drawing comparisons.
 On a developer workstation, thermal state, background processes, and CPU
 frequency are not controlled. These results do not establish asymptotic bounds.
+
+For separate function profiling and a prioritized optimization plan that
+preserves rollback guarantees, see the [engineering assessment](engineering.md).

@@ -141,6 +141,8 @@ python benchmarks/bench_axiom.py --n 200 --updates 5000 --mode multilevel
 For controlled real insertion/deletion rates, latency distributions, rebuild
 boundaries, memory, and a recompute baseline, see the
 [performance measurement guide](docs/performance.md).
+See the [scalability and reliability assessment](docs/engineering.md) for measured
+bottlenecks, proposed solutions, and correctness gates.
 
 ### Compare modes in parallel
 
