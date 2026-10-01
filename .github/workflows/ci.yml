@@ -241,6 +241,7 @@ jobs:
           "$RUNNER_TEMP/axiom-envelope-env/bin/pip" install dist/*.whl
 
       - name: Enforce 512 MiB address space and a dedicated 192 MiB filesystem
+        shell: bash
         run: |
           stage=$(mktemp -d "$RUNNER_TEMP/axiom-envelope.XXXXXX")
           image="$stage/disk.ext4"

@@ -181,3 +181,65 @@ def test_memory_refuses_unbounded_execution_and_pressure_is_polymorphic(
     with pytest.raises(ValueError, match="enforced"):
         pressure.apply()
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("count", [0, None])
+def test_volume_rejects_stalled_writes_and_releases_only_owned_file(
+    tmp_path, monkeypatch, count
+):
+    volume = mounted(tmp_path, monkeypatch)
+    graph = tmp_path / "graph.db"
+    graph.write_bytes(b"acknowledged")
+
+    class Writer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def write(self, block):
+            return count
+
+    monkeypatch.setattr(Path, "open", lambda *args, **options: Writer())
+    with pytest.raises(RuntimeError, match="no progress"):
+        volume.fill()
+    volume.release()
+    volume.release()
+    monkeypatch.undo()
+    assert graph.read_bytes() == b"acknowledged"
+
+
+@pytest.mark.parametrize("code", [errno.ENOSPC, errno.EIO])
+def test_volume_flush_only_accepts_expected_capacity_failure(
+    tmp_path, monkeypatch, code
+):
+    volume = mounted(tmp_path, monkeypatch)
+
+    class Writer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def write(self, block):
+            raise OSError(errno.ENOSPC, "full")
+
+        def fileno(self):
+            return 123
+
+    def flush(descriptor):
+        assert descriptor == 123
+        raise OSError(code, "flush failed")
+
+    monkeypatch.setattr(Path, "open", lambda *args, **options: Writer())
+    monkeypatch.setattr(module.os, "fsync", flush)
+    if code == errno.ENOSPC:
+        assert volume.fill() == 0
+    else:
+        with pytest.raises(OSError) as error:
+            volume.fill()
+        assert error.value.errno == errno.EIO
+    volume.release()
+    assert volume.ballast is None
