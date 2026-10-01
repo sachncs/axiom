@@ -21,6 +21,15 @@ whole-matcher snapshots or qualify the production target; see [ADR 0004](adrs/00
 
 ## Implemented foundation, not product qualification
 
+The installed Linux resource drill now passes at one million vertices under a
+hard 512 MiB address-space cap on a dedicated 192 MiB ext4 image. It performs
+40,000 real updates, automatic maintenance, actual allocation and disk exhaustion,
+fail-stop/reopen recovery and immutable-backup restore, with independently exact
+edges, partners, versions and retries. [ADR 0020](adrs/0020-resource-exhaustion-and-recovery.md)
+records evidence, class responsibilities and public single-word naming conventions
+for new work. This is not a production RSS/page-cache quota, throughput test or
+hardware power-loss validation; those deployment/release gates remain separate.
+
 The explicit native production core `axiom.engine.Engine` now implements compact
 partner state and certified deterministic local matching repair without global
 snapshots. Three short million-vertex average-degree-4 churn runs with partner

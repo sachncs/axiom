@@ -1,0 +1,74 @@
+{
+  "scope": "installed Linux resource exhaustion and exact recovery; NOT performance/power-loss qualification",
+  "python": "3.12.14",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "vertices": 1000000,
+  "sequence": 40000,
+  "limits": {
+    "address": [
+      536870912,
+      536870912
+    ],
+    "filesystem": 171745280
+  },
+  "peak": 509104128,
+  "state": {
+    "version": 40001,
+    "sequence": 40000,
+    "vertices": 1000000,
+    "edges": 2000000,
+    "matching": 500000,
+    "native_bytes": 49142880,
+    "sqlite": "3.45.1",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 65536,
+    "max_batch": 256,
+    "checkpoint_interval": 32768,
+    "retain_operations": 16384,
+    "retired_floor": 16384,
+    "checkpoint_sequence": 32768,
+    "checkpoint_generation": 1,
+    "retained_operations": 23616
+  },
+  "metrics": {
+    "state": "open",
+    "capacity": 4096,
+    "query_reserve": 1,
+    "update_admission_limit": 4095,
+    "maintenance_capacity": 1,
+    "maintenance_outstanding": 0,
+    "outstanding": 0,
+    "peak_outstanding": 256,
+    "accepted": 40003,
+    "completed": 40003,
+    "groups": 157,
+    "largest_group": 256,
+    "batch_limit": 256,
+    "batch_wait_ns": 1000000,
+    "next_admission_sequence": 40001
+  },
+  "backup": 25612288,
+  "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+  "pressure": {
+    "Memory": {
+      "allocated": 424673280,
+      "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "verified": true
+    },
+    "Disk": {
+      "written": 92798976,
+      "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "verified": true
+    }
+  },
+  "verified": true,
+  "evidence": {
+    "source": "3a4eee38b4ca64c3855e8174a09b10580be87b20",
+    "run": 36934396108,
+    "job": 110611262441,
+    "url": "https://github.com/sachncs/axiom/actions/runs/36934396108/job/110611262441",
+    "image": "ubuntu-24.04 20260927.320.1",
+    "filesystem": "192 MiB ext4 image; reported usable capacity excludes filesystem overhead"
+  }
+}

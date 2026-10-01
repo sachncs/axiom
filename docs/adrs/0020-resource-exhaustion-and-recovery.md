@@ -1,6 +1,7 @@
 # 0020: Isolated resource exhaustion and exact recovery
 
-Date: 2026-10-02. Status: implemented gate; Linux execution pending.
+Date: 2026-10-02. Status: million-vertex Linux exhaustion/recovery stage passed;
+production deployment quotas and hardware power-loss validation pending.
 
 ## Decision
 
@@ -40,10 +41,24 @@ state and lifecycle; polymorphism is used where behavior actually varies.
 
 ## Evidence and limits
 
-Local component coverage exercises unsafe mounts, file ownership, partial writes,
-unexpected I/O errors, invalid references, changed topology, changed exact matching
+Local component coverage exercises unsafe mounts, file ownership, partial/stalled
+writes, flush errors, invalid references, changed topology, changed exact matching
 and retry data flow. It does not simulate evidence of real Linux exhaustion.
-The `resources` CI job must pass before this gate is called qualified.
+
+[CI job 110611262441](https://github.com/sachncs/axiom/actions/runs/36934396108/job/110611262441)
+passed on source `3a4eee38b4ca64c3855e8174a09b10580be87b20`, Ubuntu 24.04,
+CPython 3.12.14, SQLite 3.45.1. The installed wheel completed all 40,000 real
+updates, automatic maintenance, actual allocation failure and SQLite FULL,
+same-owner OOM recovery, fail-stop/reopen disk recovery and immutable backup
+restore. Exact audits and all partner digests agreed. The usable filesystem was
+171,745,280 bytes; backup size was 25,612,288 bytes. Peak RSS was 509,104,128
+bytes **including deliberate memory ballast**, not ordinary service memory.
+The [archived report](../../benchmarks/results/resource-envelope.json) retains
+the stage metadata. No production-engine bug was found in these drills.
+
+CI explicitly uses Bash with pipefail: logging through `tee` must not mask a
+failed child or timeout. The first run's complete verified report establishes
+its successful execution; the subsequent pipeline fix makes failures dependable.
 
 RLIMIT_AS limits virtual address space, not page cache or aggregate deployment
 memory. The filesystem fixture is not a production disk quota installation.
