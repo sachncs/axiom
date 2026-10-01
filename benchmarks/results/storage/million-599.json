@@ -1,0 +1,51 @@
+{
+  "scope": "native-storage-only; no matching, WAL, recovery, or service queue",
+  "python": "3.14.7",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "vertices": 1000000,
+  "edges": 2000000,
+  "average_degree": 4,
+  "seed": 599,
+  "construction_seconds": 0.011554415999853518,
+  "audit_seconds": 0.7319439579987375,
+  "audit_passed": true,
+  "trace_seconds": 0.01123395799913851,
+  "trace_updates_per_second": 3560632.86003628,
+  "initial_native_memory": {
+    "allocated": 41000264,
+    "budget": 1073741824,
+    "metadata": 13000264,
+    "arena": 28000000,
+    "index": 0,
+    "liveblocks": 1000000,
+    "freeblocks": 0,
+    "journal": 0,
+    "active": 0
+  },
+  "final_native_memory": {
+    "allocated": 41000360,
+    "budget": 1073741824,
+    "metadata": 13000264,
+    "arena": 28000000,
+    "index": 0,
+    "liveblocks": 1000000,
+    "freeblocks": 0,
+    "journal": 96,
+    "active": 0
+  },
+  "process_peak_rss_bytes": 83640320,
+  "operations": {
+    "insert": {
+      "real_updates": 20000,
+      "updates_per_second": 7763993.239114688,
+      "p99_ns": 167,
+      "max_ns": 1083
+    },
+    "delete": {
+      "real_updates": 20000,
+      "updates_per_second": 3854561.2372216475,
+      "p99_ns": 709,
+      "max_ns": 3958
+    }
+  }
+}

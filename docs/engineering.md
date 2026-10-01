@@ -1,8 +1,46 @@
 # Scalability and reliability: engineering assessment
 
-This is a measured improvement plan, not a claim that performance optimizations
-have already been implemented. The benchmark/profiling tools and their correctness
-checks are implemented; production matching semantics remain unchanged.
+This is a measured improvement plan with an initial native-storage implementation,
+not a claim that the full scalability or durability roadmap has been delivered.
+Production matching semantics remain unchanged. The default backend is still the
+Python reference; native graphs are explicitly selected by callers.
+
+## Implemented foundation, not product qualification
+
+`Packed` now provides compact native segmented adjacency, bounded native growth,
+reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
+Matcher transactions use those journals for native managed graphs; phase snapshots,
+hierarchy projections, and coloring subgraphs retain the backend. Native edits
+receive immediate local storage certificates; opaque custom graphs retain the full
+edge-set mutation check. Base-phase graphs are included in rollback protection.
+
+Regression tests cover differential graph operations, high-degree index transitions,
+budget rejection, compaction, stale transaction tokens, foreign-thread access,
+iterator invalidation after aborted mutations, and failed matcher updates across
+phase rebuilds. A standalone C++ stress test exercises 200,000 mixed edits with
+differential audits and rollback under address/undefined-behavior sanitizers.
+
+Three fresh-process **storage-only** measurements on the same M3 Pro constructed
+1,000,000 vertices and 2,000,000 ring edges (average degree 4), performed 20,000
+delete/reinsert pairs with one committed journal per edit, and independently checked
+every final neighbor row against the original ring:
+
+- Native retained allocation after edits: 41,000,360 bytes (~41 MB).
+- Process peak RSS, including Python, trace samples, and audit: 83.4–83.8 MB.
+- Whole timed-trace rate: 3.31–3.56 million real storage edits/s.
+
+These short, cache-friendly, fixed-degree traces are **not matcher throughput,
+durable acknowledged throughput, long-running churn, or a billion-scale result**.
+The native byte budget excludes Python objects, allocator overhead, audit scratch,
+and other containers. Each derived graph currently has its own budget, not a shared
+service-level quota. Full matcher state is still deep-copied; hierarchy checks and
+rebuilds still perform global work. WAL/recovery, admission control, incremental
+algorithm-state journals/certificates, and full-engine qualification remain open.
+
+See [native storage contracts and reproduction](storage.md) and the raw
+[seed 599](../benchmarks/results/storage/million-599.json),
+[seed 600](../benchmarks/results/storage/million-600.json), and
+[seed 601](../benchmarks/results/storage/million-601.json) measurements.
 
 ## What the evidence says
 
