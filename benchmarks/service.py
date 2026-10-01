@@ -108,10 +108,13 @@ def measure(
     checkpoint_interval: int = 32768,
     timeout_seconds: int = 120,
     duration_seconds: int | None = None,
+    hub_degree: int = 0,
 ) -> dict:
     """Stream bounded client windows; preserve exact topology and recovered partners."""
     if (
         vertices < 8
+        or type(hub_degree) is not int
+        or (hub_degree != 0 and not 6 <= hub_degree <= min(vertices - 3, 262144))
         or not 1 <= pairs <= 100000000
         or not 1 <= clients <= 16
         or not 2 <= window <= 256
@@ -141,6 +144,10 @@ def measure(
         if 2 < v - u < vertices - 2 and (u, v) not in unique:
             unique.add((u, v))
             extras.append((u, v))
+    if hub_degree:
+        # Ring neighbors are 1,2,n-2,n-1. Add exactly degree-4 non-ring
+        # neighbors; the churn chord sits just outside that hub neighborhood.
+        width, originals, extras = 1, [(0, 1)], [(0, hub_degree - 1)]
     toggled, trace = [False] * width, hashlib.sha256()
     admission, writers_done, failed = (
         threading.Condition(),
@@ -161,7 +168,27 @@ def measure(
         checkpoint_interval=checkpoint_interval,
     )
     construction = time.perf_counter() - tick
-    initial = service.status().result(10)
+    hub_edges = {(0, v) for v in range(3, hub_degree - 1)} if hub_degree else set()
+    tick = time.perf_counter()
+    bootstrap = 0
+    try:
+        chunk = min(256, queue_capacity)
+        for start in range(3, hub_degree - 1, chunk):
+            requests = [
+                Request(bootstrap + offset + 1, "insert", 0, v)
+                for offset, v in enumerate(
+                    range(start, min(start + chunk, hub_degree - 1))
+                )
+            ]
+            receipts = [service.submit(request) for request in requests]
+            if any(not receipt.result(30).changed for receipt in receipts):
+                raise RuntimeError("hub bootstrap contains non-real transitions")
+            bootstrap += len(requests)
+        hub_setup = time.perf_counter() - tick
+        initial = service.status().result(10)
+    except BaseException:
+        service.close(10)
+        raise
     deadline = time.monotonic() + timeout_seconds
     run_until: float | None = None
 
@@ -202,7 +229,7 @@ def measure(
                         for index, (operation, (u, v)) in enumerate(
                             (("delete", old), ("insert", new))
                         ):
-                            seq = 2 * (completed_pairs + offset) + index + 1
+                            seq = bootstrap + 2 * (completed_pairs + offset) + index + 1
                             request = Request(seq, operation, u, v)
                             admitted = time.perf_counter_ns()
                             receipt = service.submit(request)
@@ -248,7 +275,7 @@ def measure(
 
     def reader() -> None:
         nonlocal query_while_writers_active
-        previous = 1
+        previous = bootstrap + 1
         try:
             barrier.wait(timeout=10)
             while not failed.is_set():
@@ -274,7 +301,7 @@ def measure(
                     pending.append((vertex, service.partner(vertex), admitted))
                 for vertex, receipt, admitted in pending:
                     version, partner = record(receipt, admitted, read_histograms)
-                    if not previous <= version <= 2 * pairs + 1 or (
+                    if not previous <= version <= bootstrap + 2 * pairs + 1 or (
                         partner is not None
                         and (not 0 <= partner < vertices or partner == vertex)
                     ):
@@ -310,7 +337,10 @@ def measure(
             raise failures[0]
         elapsed = time.perf_counter() - started
         final, metrics = service.status().result(10), service.metrics()
-        if final["sequence"] != 2 * completed_pairs or metrics["outstanding"]:
+        if (
+            final["sequence"] != bootstrap + 2 * completed_pairs
+            or metrics["outstanding"]
+        ):
             raise RuntimeError("not all admitted updates completed")
         tick = time.perf_counter()
         matching_digest = live_digest(service, vertices, final)
@@ -322,13 +352,13 @@ def measure(
             admission.notify_all()
         service.close(10)
     removed = {originals[i] for i in range(width) if toggled[i]}
-    extra = {extras[i] for i in range(width) if toggled[i]}
+    extra = hub_edges | {extras[i] for i in range(width) if toggled[i]}
     tick = time.perf_counter()
     with Durable(path) as recovered:
         recovery = time.perf_counter() - tick
         tick = time.perf_counter()
         if (
-            recovered.status()["sequence"] != 2 * completed_pairs
+            recovered.status()["sequence"] != bootstrap + 2 * completed_pairs
             or certificate(recovered, extra, removed, vertices) != matching_digest
         ):
             raise RuntimeError(
@@ -351,8 +381,11 @@ def measure(
         "platform": platform.platform(),
         "sqlite": final["sqlite"],
         "vertices": vertices,
-        "edges": 2 * vertices,
-        "average_degree": 4,
+        "edges": initial["edges"],
+        "average_degree": 2 * initial["edges"] / vertices,
+        "hub_initial_degree": hub_degree,
+        "hub_bootstrap_real_updates": bootstrap,
+        "hub_setup_seconds": hub_setup,
         "seed": seed,
         "churn_pool_pairs": width,
         "clients": clients,
@@ -406,6 +439,7 @@ def main() -> None:
     parser.add_argument("--checkpoint-interval", type=int, default=32768)
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--duration", type=int)
+    parser.add_argument("--hub-degree", type=int, default=0)
     args = parser.parse_args()
     print(
         json.dumps(
@@ -421,6 +455,7 @@ def main() -> None:
                 checkpoint_interval=args.checkpoint_interval,
                 timeout_seconds=args.timeout,
                 duration_seconds=args.duration,
+                hub_degree=args.hub_degree,
             ),
             indent=2,
         )

@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from axiom.durable import Durable
+from axiom.service import Service
 from benchmarks.service import Histogram, measure
 
 
@@ -100,6 +102,45 @@ def test_update_trace_and_matching_do_not_depend_on_query_or_batch_schedule(
     assert first["matching_digest"] == second["matching_digest"]
 
 
+def test_hub_trace_forces_matched_deletion_and_preserves_exact_skewed_topology(
+    tmp_path,
+):
+    path = tmp_path / "hub.db"
+    result = measure(
+        path,
+        64,
+        201,
+        599,
+        clients=1,
+        window=8,
+        query_window=8,
+        queue_capacity=32,
+        checkpoint_interval=64,
+        hub_degree=48,
+    )
+    assert result["hub_bootstrap_real_updates"] == 44
+    assert result["real_acknowledged_updates"] == result["partner_queries"] == 402
+    assert result["edges"] == 128 + 44
+    assert result["final_status"]["sequence"] == 446
+    assert result["independent_audit_passed"] and result["exact_recovery_passed"]
+    with Durable(path) as restored:
+        assert restored.partner(0)[1] is None and restored.partner(1)[1] is None
+        assert not restored.has_edge(0, 1)[1] and restored.has_edge(0, 47)[1]
+        assert all(restored.has_edge(0, v)[1] for v in range(3, 47))
+
+
+def test_hub_bootstrap_failure_releases_owner_for_recovery(tmp_path, monkeypatch):
+    def failed(*args):
+        raise OSError("injected hub setup failure")
+
+    monkeypatch.setattr(Service, "submit", failed)
+    path = tmp_path / "hub.db"
+    with pytest.raises(OSError, match="setup failure"):
+        measure(path, 64, 20, 599, hub_degree=16)
+    with Durable(path) as recovered:
+        assert recovered.status()["sequence"] == 0 and recovered.check()
+
+
 @pytest.mark.parametrize(
     "options",
     [
@@ -111,6 +152,9 @@ def test_update_trace_and_matching_do_not_depend_on_query_or_batch_schedule(
         {"duration_seconds": 0},
         {"duration_seconds": 3600},
         {"duration_seconds": 1, "timeout_seconds": 5},
+        {"hub_degree": True},
+        {"hub_degree": 5},
+        {"hub_degree": 62},
     ],
 )
 def test_invalid_benchmark_envelope_does_not_create_store(

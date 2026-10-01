@@ -30,7 +30,9 @@ def canonical(u: int, v: int) -> tuple[int, int]:
 
 def certificate(store: Durable, extra: set, removed: set, vertices: int) -> str:
     """Independently verify exact topology, proper maximal matching, and its digest."""
-    if not store.check() or store.status()["edges"] != 2 * vertices:
+    if not store.check() or store.status()["edges"] != 2 * vertices + len(extra) - len(
+        removed
+    ):
         raise RuntimeError("native audit/edge count failed")
     version = store.status()["version"]
     partners = array("I")
