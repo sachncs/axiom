@@ -125,14 +125,14 @@ jobs:
         run: |
           python -m venv /tmp/axiom-wheel-env
           /tmp/axiom-wheel-env/bin/pip install dist/*.whl
-          /tmp/axiom-wheel-env/bin/python -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
+          /tmp/axiom-wheel-env/bin/python -I -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
           /tmp/axiom-wheel-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
 
       - name: Install source distribution in a clean environment
         run: |
           python -m venv /tmp/axiom-source-env
           /tmp/axiom-source-env/bin/pip install dist/*.tar.gz
-          /tmp/axiom-source-env/bin/python -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
+          /tmp/axiom-source-env/bin/python -I -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
           /tmp/axiom-source-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
 
       - name: Audit dependencies
@@ -177,14 +177,14 @@ jobs:
         run: |
           python -m venv "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}"
           "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/pip" install dist/*.whl
-          "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/python" -c "from axiom import Matcher; assert Matcher(10, mode='multilevel').maximal()"
+          "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/python" -I -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
           "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/axiom" --n 10 --mode multilevel --updates 8 --seed 1
 
       - name: Install source distribution in a clean environment
         run: |
           python -m venv "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}"
           "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/pip" install dist/*.tar.gz
-          "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/python" -c "from axiom import Matcher; assert Matcher(10, mode='multilevel').maximal()"
+          "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/python" -I -c "from axiom import Matcher, Packed; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check()"
           "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/axiom" --n 10 --mode multilevel --updates 8 --seed 1
 
   stress:

@@ -54,7 +54,7 @@ def main() -> None:
 
     for index, example in enumerate(parser.examples, start=1):
         subprocess.run(
-            [sys.executable, "-c", example],
+            [sys.executable, "-I", "-c", example],
             cwd=root,
             check=True,
             timeout=20,
