@@ -54,14 +54,44 @@ recovery always uses persisted genesis.
 
 ## Bounds and pending work
 
-Default replay history is 65,536 operations including no-ops/retry retention.
-New requests reject when it fills; retries still work. Native checkpoints and
-safe history/dedup retirement are not implemented. SQLite WAL checkpoints are
-physical database maintenance, not Axiom graph checkpoints.
+Default legacy v1 history is 65,536 operations including no-ops. New requests
+reject when it fills; retries still work. Existing stores are not silently upgraded.
+SQLite WAL checkpoints are physical maintenance, not Axiom graph checkpoints.
 
-The separate [native checkpoint primitive](checkpoint.md) is now implemented and
-tested. It does not by itself change this durable format or remove its history
-limit; atomic image/control/history publication and retirement are still pending.
+New stores may explicitly select checkpoint v2:
+
+```python
+with Durable("checkpointed.db", n=1_000_000,
+             checkpoint_interval=32768, retain_operations=16384) as graph:
+    # Apply contiguous requests as above. Automatic maintenance runs before the
+    # next fresh group after 32768 operations since the latest graph checkpoint.
+    graph.checkpoint()  # Optional manual maintenance; graph version is unchanged.
+    floor = graph.status()["retired_floor"]
+```
+
+V2 atomically commits the exact native image, control generation, checksum anchors
+and history retirement. At checkpoint sequence C, records through
+`max(0, C-retain_operations)` retire. Those IDs raise `ExpiredError`, never mutate
+again or return an invented outcome. Retained identical retries still return
+their original outcomes. Size retention for the client's in-flight/retry window;
+expiration is not evidence whether an old uncertain request committed.
+
+Policies persist: reopening without overrides inherits interval/retention/batch/
+history bounds; conflicting overrides refuse recovery. Require retention >= batch
+and interval + retention + batch <= history bound. The bound now limits retained
+rows, not lifetime sequence. Recovery restores/audits exact partners and graph,
+verifies the retained cache, and replays only the post-checkpoint suffix.
+[ADR 0010](adrs/0010-native-checkpoint-and-history-compaction.md) gives the protocol
+and failure boundaries. Automatic maintenance is a separate transaction preceding
+the fresh update: it can retire retries even if that new update later fails.
+
+The owner gate also covers checkpoints; concurrent calls get `BusyError`. Any
+uncertain checkpoint persistence/publication disables the owner; close/recover.
+Image capacity (`max_snapshot_bytes`, default 64 MiB) is admitted before growth.
+Retirement bounds logical history, not physical file/RSS: old/new images, binding
+buffers, WAL and reusable SQLite pages still consume space. A million-vertex,
+degree-four image alone is 24,000,040 bytes. Maintenance-inclusive latency and
+sustained throughput are not yet qualified.
 
 Defaults: native budget 1 GiB, group bound 256, database page budget 64 MiB. Page
 budgets exclude WAL/SHM, allocator/RSS, Python results, and filesystem overhead.
@@ -69,8 +99,8 @@ Cache/journal-size settings do not hard-bound those resources. There is no
 asynchronous request aggregator, network API, maximum group-wait SLA, arbitrary
 graph import, or Windows owner locking yet.
 
-Remaining gates: native checkpoints/compaction, bounded dedup retirement, client
-aggregation/admission, recovery/backup limits, sustained balanced/skewed churn,
+Remaining gates: checkpoint maintenance performance, client aggregation/admission,
+recovery/backup limits, sustained balanced/skewed churn,
 concurrency/overload, power-loss assumptions/tests, and the accepted million-vertex
 **10k real durable updates/s including queries** qualification.
 
@@ -121,3 +151,31 @@ tests pass under optimized Python; isolated wheel/sdist installs pass durable
 commit/recovery/original-retry/close smoke tests. C++ coverage is not measured by
 that Python coverage number. CPython 3.14 measurements do not establish a new
 supported-version policy.
+
+## Opt-in checkpoint v2 evidence
+
+Source `525cbca` (`f9b5d9b` durable implementation), same declared M3 Pro/APFS
+machine. Three fresh million-vertex traces each acknowledge 200,000 real changes,
+execute 100,000 partner queries and verify 6,400 retry outcomes, with six native
+checkpoint/retirement transactions inside headline timing. Interval 32768,
+retention 16384, supplied group bound 256; FULL/fullfsync remain enabled.
+
+| Million-vertex seeds | Real acknowledged changes/s | Ack p99 | Ack max | Peak RSS |
+| --- | --- | --- | --- | --- |
+| 599–601 | 27,585–28,451 | 14.16–15.02 ms | 192.64–203.97 ms | 219.3–221.4 MB |
+
+All independent exact graph/proper-maximal audits, exact matching recovery,
+retained retries and expiration checks pass. Final sequence 200000, checkpoint
+196608, retired floor 180224, retained rows 19776. Recovery/open takes
+0.097–0.099 seconds, with a separate approximately 3.2-second independent audit.
+Sampled database/WAL/SHM peak is 55.06 MB, not a hard disk bound.
+[Raw evidence, commands and limitations](../benchmarks/results/compaction/README.md).
+
+Traces last only 7.03–7.25 seconds. Six of 782 groups include native checkpoints,
+so p99 can miss their roughly 200 ms tail; the maximum is important. Queries run
+after acknowledgments, not concurrently during maintenance, and do not include
+client queue wait. Thus these are **not** concurrent-query latency or long-soak
+qualification. Fixed-pool, skewed/overload and full-service resource gates remain
+open. Current local verification: 571 tests, 85% rounded Python source coverage
+(not C++ coverage), 101 focused optimized-mode tests, strict typing/lint and
+isolated wheel/sdist checkpoint/compaction/recovery/retry smoke tests pass.

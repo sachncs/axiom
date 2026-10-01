@@ -1,8 +1,10 @@
 # Exact native checkpoint primitives
 
 The codec preserves graph, partners, counts and logical version without rerunning
-matching selection. It is implemented; **durable checkpoint publication/history
-compaction is not yet integrated**. See [ADR 0010](adrs/0010-native-checkpoint-and-history-compaction.md).
+matching selection. The codec and opt-in durable v2 checkpoint/history publication
+are implemented; **maintenance-inclusive production qualification is pending**.
+See [durable contracts](durable.md) and
+[ADR 0010](adrs/0010-native-checkpoint-and-history-compaction.md).
 
 ```python
 from axiom.engine import Engine

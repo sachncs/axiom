@@ -57,6 +57,7 @@ exist. Corrected CI `08eb153` passed all jobs, including Python 3.10–3.13 clea
 installs/tests, documentation examples, package checks, and bounded stress.
 The first durable layer now provides fail-fast ownership/admission, bounded
 history/groups, database page limits, replay checks, and process-death/storage-full
-tests. Native checkpoint compaction, hard service RSS/WAL/disk accounting,
+tests. Opt-in native checkpoint compaction now bounds retained history/replay;
+hard service RSS/WAL/disk accounting,
 aggregate client admission, full matcher qualification, and production
 latency/memory gates remain pending.

@@ -1,7 +1,7 @@
 # ADR 0007: Separate undo, durable commit, publication, and acknowledgment
 
 Date: 2026-10-01. Status: bounded durable batches/replay implemented;
-native checkpoints, aggregation and full qualification pending.
+native checkpoints implemented in opt-in v2; aggregation and full qualification pending.
 
 ## Context
 
@@ -58,6 +58,7 @@ coherent queries, bounded contiguous-sequence retry retention, verified replay,
 and fail-stop persistence/publication behavior. Tests exercise partial failures,
 process death, actual SQLite page-limit exhaustion, recovery and original retries.
 See [ADR 0009](0009-sqlite-wal-durable-owner.md) for choices and limits.
-Native graph checkpoints/history compaction, admission aggregation, power-loss
+Native graph checkpoints/history compaction are implemented in explicit v2
+(ADR 0010). Admission aggregation, power-loss
 qualification, and sustained gates remain pending. Native undo alone still
 provides only in-memory atomicity.

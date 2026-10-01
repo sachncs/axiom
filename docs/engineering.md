@@ -36,7 +36,7 @@ runs with committed matching queries and SQLite WAL checkpoints measured
 approximately 30.4k–30.9k real acknowledged changes/s, with independent exact
 audits/recovery, acknowledgment p99 14.4–15.5 ms, and 132.7–133.1 MB peak RSS.
 This uses 256-operation groups and only 1.29–1.32-second traces. Native graph
-checkpoint compaction, aggregate admission, broad/skewed workloads, full resource
+checkpoint maintenance performance, aggregate admission, broad/skewed workloads, full resource
 limits and sustained/soak qualification remain open; this is **not** goal completion.
 See [durable contracts/results](durable.md) and [ADR 0009](adrs/0009-sqlite-wal-durable-owner.md).
 
@@ -45,8 +45,16 @@ million-vertex image is 24,000,040 bytes; reusable row-audit scratch reduced
 encoding from 163 ms to 20–21 ms and restore from 177 ms to about 28 ms on the
 declared development machine, with identical image/matching hashes and independent
 audits. [Checkpoint contracts/results](checkpoint.md) describe the limits.
-Atomic durable image/history publication, dedup retirement and sustained
-maintenance qualification are still pending; the durable history cap is unchanged.
+Opt-in durable v2 now atomically publishes exact images and retires history while
+retaining a declared retry window; expired IDs explicitly reject. Crash, corruption
+and disk-full tests exercise old/new generation recovery. Legacy v1 keeps its
+lifetime history cap and is not silently migrated. Maintenance performance,
+bounded client aggregation and sustained service qualification remain open.
+Three maintenance-inclusive million-vertex v2 traces now reach 27.6k–28.5k
+acknowledged changes/s with six native checkpoints each, but checkpoint-bearing
+groups reach 193–204 ms max latency. These approximately seven-second traces
+query only after acknowledgment; concurrent query/queue tails and soak remain
+unqualified. [V2 evidence and limits](durable.md#opt-in-checkpoint-v2-evidence).
 
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.

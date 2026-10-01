@@ -1,7 +1,8 @@
 # ADR 0003: Replace global snapshots with bounded local undo
 
 Date: 2026-10-01. Status: graph/production partner journals implemented;
-paper algorithm-state migration and durability pending.
+paper algorithm-state migration pending. Separate durable publication is delivered
+in ADRs 0009/0010; undo itself remains an in-memory guarantee.
 
 ## Context
 

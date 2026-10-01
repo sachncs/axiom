@@ -1,7 +1,7 @@
 # ADR 0009: Use SQLite WAL for the first durable single-owner layer
 
-Date: 2026-10-01. Status: bounded replay-based implementation; native checkpoints,
-admission aggregation, and sustained service qualification pending.
+Date: 2026-10-01. Status: bounded replay implementation plus opt-in v2 native
+checkpoints (ADR 0010); admission aggregation and sustained qualification pending.
 
 ## Context
 
@@ -60,13 +60,16 @@ No client/session namespace is silently inferred.
   group-wait/latency SLA is claimed.
 - Default history/dedup bound: 65,536 operations including no-ops. Reject new
   operations at the bound; retain retries. Configured history caps at one million.
-  This is **not** sustained unlimited operation.
+  This legacy v1 mode is **not** sustained unlimited operation. Opt-in v2 bounds
+  retained rows through atomic checkpoint/retirement rather than lifetime sequence;
+  see ADR 0010 for policy and expiration semantics.
 - Native allocation, database pages, batch/history, and page scans are bounded.
   Cache/journal-size settings do not hard-bound total RSS/WAL/disk usage; full
   service resource gates remain pending.
 - Automatic SQLite WAL checkpoints occur at 256 pages and are included in commit
   timing. They are **not** native graph checkpoints or replay compaction. Native
-  snapshots, bounded dedup retirement, and recovery-time controls must follow.
+  snapshots and bounded dedup retirement are now separate opt-in v2 maintenance;
+  their end-to-end recovery/latency/resource gates remain unqualified.
 - Current genesis supports ring/empty initialization, not arbitrary graph import.
   Format/backend mismatches refuse recovery instead of guessing.
 - Backups need a SQLite-aware procedure; copying only a live WAL database's main

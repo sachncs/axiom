@@ -9,14 +9,14 @@ Dates use the project's user-facing calendar (1 October 2026).
 | --- | --- | --- |
 | [0001](0001-production-qualification.md) | Qualify 10k durable real updates/s at one million vertices | Target accepted; qualification pending |
 | [0002](0002-native-storage.md) | Compact native storage instead of per-vertex Python sets | Implemented; storage-only evidence |
-| [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Native graph/partner journals implemented; paper migration and durability pending |
+| [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Native graph/partner journals and separate durability implemented; paper snapshot migration pending |
 | [0004](0004-sparse-phase-indexes.md) | Sparse phase overlays instead of eager empty maps | Implemented and regression-tested; short-trace evidence only |
 | [0005](0005-incremental-certificates.md) | Immediate incremental certificates, not disabled checks | Native production certificates implemented; paper hierarchy work pending |
 | [0006](0006-native-production-matcher.md) | Separate native production matcher, retaining the paper engine | Native core plus first durable layer implemented; full service qualification pending |
-| [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Bounded replay/service implemented; native checkpoints and qualification pending |
+| [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Durable owner and opt-in checkpoints implemented; full-service qualification pending |
 | [0008](0008-resource-and-release-gates.md) | Single ownership, resource limits, independent qualification gates | Partially implemented; full-service gates pending |
-| [0009](0009-sqlite-wal-durable-owner.md) | SQLite FULL-WAL commits with private native publication and bounded replay | First durable layer; native checkpoints and sustained qualification pending |
-| [0010](0010-native-checkpoint-and-history-compaction.md) | Exact portable native images before atomic replay/dedup retirement | Native codec implemented; durable integration/compaction pending |
+| [0009](0009-sqlite-wal-durable-owner.md) | SQLite FULL-WAL commits with private native publication and bounded replay | Legacy v1 plus opt-in checkpoint v2; sustained qualification pending |
+| [0010](0010-native-checkpoint-and-history-compaction.md) | Exact portable native images before atomic replay/dedup retirement | Codec/publication/retirement tested; short maintenance-inclusive evidence; sustained qualification pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent
@@ -32,7 +32,10 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Eager empty phase dictionaries/sets | Sparse live-endpoint overlays avoid allocating empty vertex buckets (0004) | Phase counters/lifecycle unchanged; regression-tested |
 | Global scans on every ordinary production edit | Local dependency certificates plus separate independent full audits (0005) | Immediate proper/maximal matching checks are retained, not disabled; paper hierarchy scans still present |
 | Paper coloring/fans/hierarchy on the production path | Explicit `axiom.engine.Engine`, with deterministic incremental maximal matching (0006) | Research engine retained; different matching choices and no transferred paper theorem; hub deletion remains degree-dependent |
-| Treating an in-memory commit as success after a crash | FULL-WAL barrier, then coherent publication/acknowledgment (0007/0009) | Bounded replay/dedup/process recovery implemented; native `commit` alone remains nondurable; graph checkpoints and sustained qualification pending |
+| Treating an in-memory commit as success after a crash | FULL-WAL barrier, then coherent publication/acknowledgment (0007/0009) | Replay/dedup/process recovery implemented; native `commit` alone remains nondurable; sustained qualification pending |
+| Lifetime operation-log growth and replay from genesis | Exact checkpoints plus atomic history/retry retirement (0010) bound replay and table rows | Opt-in v2 implemented; expired IDs reject, v1 remains capped; physical disk/RSS and maintenance latency still need qualification |
+| Rebuilding a different valid matching after restart | Persist exact compact partner state and audit a separate candidate (0010) | Exact partners/version preserved; invalid images refuse recovery, never silently repaired |
+| Per-row temporary hash-node allocation in full native audits | Reuse one compact row vector and sort for duplicate detection (0010) | Full certificates retained; scratch and worst-case degree-dependent work still count |
 | Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
 
 ## What is not being abandoned
