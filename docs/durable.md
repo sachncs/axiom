@@ -48,9 +48,43 @@ with Durable("graph.db") as graph:
   or the underlying storage/allocator error.
 
 Advisory locking cannot stop processes that ignore the protocol. Direct SQL,
-private Python attributes, and independent live database users/backups are not
+private Python attributes, and independent live database users/raw file copies are not
 supported public update/query APIs. `width` is initialization-only on a new store;
 recovery always uses persisted genesis.
+
+## Backup and independent restore
+
+```python
+import hashlib
+import shutil
+
+with Durable("graph.db") as graph:
+    manifest = graph.backup("backup.db", max_bytes=64 << 20, timeout=30)
+# Preserve this manifest in a protected catalog; stream the hash for large files.
+digest = hashlib.sha256()
+with open("backup.db", "rb") as artifact:
+    while block := artifact.read(1 << 20):
+        digest.update(block)
+assert digest.hexdigest() == manifest["sha256"]
+# recovered.db must be fresh; preserve the immutable archival master.
+shutil.copyfile("backup.db", "recovered.db")
+with Durable("recovered.db") as recovered:
+    assert recovered.status()["sequence"] == manifest["sequence"]
+    assert recovered.check()
+```
+
+The snapshot includes committed WAL changes, checkpoint/tail, exact matching and
+retry retirement. `Service.backup(...).result()` provides the same owner snapshot;
+it is not a FIFO barrier for pending updates. Wait for required acknowledgments
+before submitting it. `BackupError` may leave a complete target after publication
+begins: inspect it or choose a fresh path, never overwrite. Healthy source state
+remains usable on target failure. See [ADR 0013](adrs/0013-bounded-owner-backups.md).
+
+The image cap is not a total disk/RSS limit. Deadlines are checked between steps,
+not forced I/O cancellation. Source audit/copy occupy the worker; partner reads
+remain available during SQLite I/O. Recovery point is the captured sequence,
+not all later acknowledgments. No replication or actual power-cut qualification
+is provided by this API.
 
 ## Bounds and pending work
 

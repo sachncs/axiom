@@ -74,6 +74,12 @@ def verify() -> None:
         with Durable(path) as recovered:
             if recovered.status()["sequence"] != 44 or not recovered.check():
                 raise RuntimeError("installed service drain/recovery failed")
+            manifest = recovered.backup(Path(directory) / "backup.db")
+            if manifest["sequence"] != 44:
+                raise RuntimeError("installed backup sequence differs")
+        with Durable(Path(directory) / "backup.db") as restored:
+            if restored.partner(0) != (44, None) or not restored.check():
+                raise RuntimeError("installed backup restore failed")
 
 
 if __name__ == "__main__":

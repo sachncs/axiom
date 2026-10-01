@@ -13,6 +13,7 @@ import os
 import sqlite3
 import struct
 import threading
+import time
 import warnings
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -790,6 +791,56 @@ class Durable:
         """
         with self._exclusive():
             return self._checkpoint()
+
+    def backup(
+        self, path: str | Path, *, max_bytes: int = 64 << 20, timeout: float = 30.0
+    ) -> dict[str, int | str]:
+        """Publish a bounded, self-contained snapshot at a fresh local path.
+
+        Backup failure does not mutate the source. Publication failure may leave
+        a complete destination; never overwrite it to retry. Restore independently
+        with Durable to audit graph/matching/history. The timeout is checked between
+        bounded SQLite steps, not an interrupt of filesystem I/O or a native audit.
+        """
+        from axiom.backup import copy
+
+        _integer(max_bytes, 1 << 20, 1 << 30, "max_bytes")
+        if type(timeout) not in (int, float) or not 0 < timeout <= 3600:
+            raise ValueError("backup timeout must be finite and in (0, 3600]")
+        destination = Path(path).absolute()
+        deadline = time.monotonic() + timeout
+        with self._exclusive():
+            with self._publication_lock:
+                try:
+                    verified = self._engine.check()
+                except BaseException:
+                    self._failed = True
+                    raise
+                if not verified:
+                    self._failed = True
+                    raise UnavailableError("source graph/matching certificate failed")
+                expected = (
+                    1,
+                    self._metadata,
+                    self._count,
+                    self._engine.version,
+                    self._tail,
+                ) + ((self._generation,) if self._interval else ())
+                try:
+                    control = (
+                        self._db()
+                        .execute("SELECT * FROM control WHERE id=1")
+                        .fetchone()
+                    )
+                except sqlite3.Error:
+                    self._failed = True
+                    raise
+                if control != expected:
+                    self._failed = True
+                    raise UnavailableError(
+                        "source durable control/publication disagrees"
+                    )
+            return copy(self._db(), self._path, destination, max_bytes, deadline)
 
     def _retry(self, request: Request) -> Outcome:
         if request.sequence <= self._floor:

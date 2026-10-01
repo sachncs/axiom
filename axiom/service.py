@@ -322,6 +322,20 @@ class Service:
 
         return self._read(audit)
 
+    def backup(
+        self, path: str | Path, *, max_bytes: int = 64 << 20, timeout: float = 30.0
+    ) -> Receipt[dict[str, int | str]]:
+        """Admit a bounded owner snapshot; partner reads remain available during I/O."""
+        destination = Path(path).absolute()
+        _integer(max_bytes, 1 << 20, 1 << 30, "max_bytes")
+        if type(timeout) not in (int, float) or not 0 < timeout <= 3600:
+            raise ValueError("backup timeout must be finite and in (0, 3600]")
+        return self._read(
+            lambda owner: owner.backup(
+                destination, max_bytes=max_bytes, timeout=timeout
+            )
+        )
+
     def metrics(self) -> dict[str, int | str]:
         """Read admission diagnostics, not an unversioned graph-state escape hatch."""
         with self._condition:

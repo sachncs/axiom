@@ -19,6 +19,7 @@ Dates use the project's user-facing calendar (1 October 2026).
 | [0010](0010-native-checkpoint-and-history-compaction.md) | Exact portable native images before atomic replay/dedup retirement | Codec/publication/retirement tested; short maintenance-inclusive evidence; sustained qualification pending |
 | [0011](0011-bounded-service-admission.md) | Bounded client receipts and single-owner group aggregation/query scheduling | Local service tested; short concurrent evidence; sustained/latency/resource qualification pending |
 | [0012](0012-committed-partner-reads.md) | Coupled published partner reads using bounded undo indexes, not whole-state copies | Threaded regression coverage; latency/resource qualification pending |
+| [0013](0013-bounded-owner-backups.md) | Bounded self-contained SQLite snapshots with no-overwrite publication | Failure/crash/exact-restore tests; device-loss qualification pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent
@@ -40,6 +41,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Per-row temporary hash-node allocation in full native audits | Reuse one compact row vector and sort for duplicate detection (0010) | Full certificates retained; scratch and worst-case degree-dependent work still count |
 | Preassembled batches or unbounded executor queues | Bounded individual admission, pending-ID fan-out and short assembly deadlines (0011) | Active/queued/query/duplicate work shares one cap; timeout is not cancellation, no owner callbacks; maintenance still blocks queries |
 | Partner queries queued behind durability barriers | First-write undo indexes expose only the last publication (0012), adding 4 bytes/vertex | Coupled version/partner reads support concurrent clients on GIL-enabled CPython; other reads remain owner-queued; audits/native CPU work can still delay calls |
+| Copying a live SQLite main file or exporting only edges | Owner snapshot captures committed WAL state, partners and retry retirement (0013) | Bounded image, no-overwrite publication, independent restore required; not replication or power-loss proof |
 | Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
 
 ## What is not being abandoned
