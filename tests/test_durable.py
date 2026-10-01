@@ -373,12 +373,13 @@ def test_checksum_valid_wrong_outcome_still_fails_deterministic_replay(
         rows = db.execute("SELECT * FROM operations ORDER BY sequence").fetchall()
         for seq, adding, u, v, changed, version, _ in rows:
             changed = 0 if seq == 1 else changed
+            version -= 1  # keep forged outcome/version progression internally coherent
             tail = _digest(tail, seq, adding, u, v, bool(changed), version)
             db.execute(
-                "UPDATE operations SET changed=?,digest=? WHERE sequence=?",
-                (changed, tail, seq),
+                "UPDATE operations SET changed=?,version=?,digest=? WHERE sequence=?",
+                (changed, version, tail, seq),
             )
-        db.execute("UPDATE control SET digest=?", (tail,))
+        db.execute("UPDATE control SET version=version-1,digest=?", (tail,))
     with pytest.raises(RecoveryError, match="operation history") as error:
         Durable(path)
     assert "outcome disagrees" in str(error.value.__cause__)

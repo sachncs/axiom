@@ -1,8 +1,8 @@
 """Bounded single-owner durable batches for the explicitly selected native engine.
 
-This first format replays a bounded operation history. Native checkpoints and
-history compaction are deliberately not claimed yet. Use a private local POSIX
-directory, not a network filesystem or an independently writable database.
+Legacy v1 replays a bounded history; explicitly enabled v2 checkpoints retire
+history atomically while retaining a declared retry window. Use a private local
+POSIX directory, not a network filesystem or independently writable database.
 """
 
 from __future__ import annotations
@@ -39,6 +39,10 @@ class UnavailableError(RuntimeError):
     """Require close/recovery after uncertain persistence or publication."""
 
 
+class ExpiredError(ValueError):
+    """Reject a retired sequence without guessing its outcome or mutating again."""
+
+
 @dataclass(frozen=True)
 class Request:
     """Identify one operation in a contiguous, single sequenced request stream."""
@@ -60,13 +64,49 @@ class Outcome:
 
 _MAX = (1 << 63) - 1
 _FORMAT = "axiom-native-sqlite-replay-v1"
+_CHECKPOINT_FORMAT = "axiom-native-sqlite-checkpoint-v2"
 _BACKEND = "incremental-minimum-free-neighbor-v1"
 _RECORD = struct.Struct("<QBII?Q")
 
 
-def _integer(value: int, minimum: int, maximum: int, name: str) -> None:
+@dataclass(frozen=True)
+class _Checkpoint:
+    sequence: int
+    version: int
+    floor: int
+    floor_version: int
+    generation: int
+    anchor: bytes
+    tail: bytes
+    image: bytes
+    image_digest: bytes
+    digest: bytes
+
+
+def _checkpoint_digest(
+    metadata: str,
+    sequence: int,
+    version: int,
+    floor: int,
+    floor_version: int,
+    generation: int,
+    anchor: bytes,
+    tail: bytes,
+    image_digest: bytes,
+) -> bytes:
+    return hashlib.sha256(
+        metadata.encode()
+        + struct.pack("<QQQQQ", sequence, version, floor, floor_version, generation)
+        + anchor
+        + tail
+        + image_digest
+    ).digest()
+
+
+def _integer(value: object, minimum: int, maximum: int, name: str) -> int:
     if type(value) is not int or not minimum <= value <= maximum:
         raise ValueError(f"{name} must be an integer in [{minimum}, {maximum}]")
+    return value
 
 
 def _digest(
@@ -89,7 +129,8 @@ class Durable:
     No internal admission queue: concurrent calls fail fast with BusyError. New
     sequences start at 1 and must be contiguous; retries must carry the identical
     canonical payload. Every retained result, including no-ops, is durable.
-    At max_operations, new requests reject until checkpoint support is delivered.
+    Legacy v1 rejects at max_operations. Explicit v2 checkpoint mode bounds the
+    retained table instead and rejects expired retries, never replaying them anew.
     """
 
     def __init__(
@@ -99,16 +140,26 @@ class Durable:
         n: int | None = None,
         width: int = 2,
         budget: int = 1 << 30,
-        max_batch: int = 256,
-        max_operations: int = 65536,
+        max_batch: int | None = None,
+        max_operations: int | None = None,
         max_database_bytes: int = 64 << 20,
+        checkpoint_interval: int | None = None,
+        retain_operations: int | None = None,
+        max_snapshot_bytes: int = 64 << 20,
     ) -> None:
         """Create/recover a private local database with explicit bounded limits."""
         if os.name != "posix":
             raise ValueError("the durable owner lock currently requires POSIX")
         _integer(budget, 1, _MAX, "budget")
-        _integer(max_batch, 1, 4096, "max_batch")
-        _integer(max_operations, 1, 1_000_000, "max_operations")
+        if max_batch is not None:
+            _integer(max_batch, 1, 4096, "max_batch")
+        if max_operations is not None:
+            _integer(max_operations, 1, 1_000_000, "max_operations")
+        if checkpoint_interval is not None:
+            _integer(checkpoint_interval, 1, 1_000_000, "checkpoint_interval")
+        if retain_operations is not None:
+            _integer(retain_operations, 1, 1_000_000, "retain_operations")
+        _integer(max_snapshot_bytes, 40, 1 << 30, "max_snapshot_bytes")
         _integer(max_database_bytes, 1 << 20, 1 << 30, "max_database_bytes")
         _integer(width, 0, 0xFFFFFFFF, "width")
         if n is not None:
@@ -121,8 +172,17 @@ class Durable:
         self._lock = threading.Lock()
         self._closed = False
         self._failed = False
-        self._max_batch = max_batch
-        self._max_operations = max_operations
+        self._requested_batch = max_batch
+        self._requested_operations = max_operations
+        self._requested_interval = checkpoint_interval
+        self._requested_retention = retain_operations
+        self._max_batch = 256 if max_batch is None else max_batch
+        self._max_operations = 65536 if max_operations is None else max_operations
+        self._interval = 0 if checkpoint_interval is None else checkpoint_interval
+        self._retention = 16384 if retain_operations is None else retain_operations
+        self._max_snapshot_bytes = max_snapshot_bytes
+        self._floor = self._checkpoint_sequence = self._generation = 0
+        self._floor_version = 0
         self._budget = budget
         self._connection: sqlite3.Connection | None = None
         self._lock_fd = -1
@@ -200,27 +260,50 @@ class Durable:
         if not tables:
             if requested is None:
                 raise ValueError("n is required to initialize an empty database")
+            if not self._interval and self._requested_retention is not None:
+                raise ValueError("retry retention requires checkpoint_interval")
+            config = {
+                "format": _FORMAT,
+                "backend": _BACKEND,
+                "n": requested,
+                "width": width,
+            }
+            if self._interval:
+                config.update(
+                    format=_CHECKPOINT_FORMAT,
+                    checkpoint_interval=self._interval,
+                    retain_operations=self._retention,
+                    batch_limit=self._max_batch,
+                    history_limit=self._max_operations,
+                )
+                self._history_policy(config)
             self._engine = Engine(requested, budget=self._budget)
             if width:
                 self._engine.ring(width)
+            if self._interval:
+                self._image_admission(())
             metadata = json.dumps(
-                {
-                    "format": _FORMAT,
-                    "backend": _BACKEND,
-                    "n": requested,
-                    "width": width,
-                },
+                config,
                 sort_keys=True,
                 separators=(",", ":"),
             )
             self._tail = hashlib.sha256(metadata.encode()).digest()
             self._base_digest = self._tail
+            self._metadata = metadata
+            self._anchor = self._tail
+            self._floor_version = self._engine.version
             db.execute("BEGIN IMMEDIATE")
             try:
                 db.execute(
                     "CREATE TABLE control (id INTEGER PRIMARY KEY CHECK(id=1), "
                     "metadata TEXT NOT NULL, sequence INTEGER NOT NULL, "
-                    "version INTEGER NOT NULL, digest BLOB NOT NULL)"
+                    "version INTEGER NOT NULL, digest BLOB NOT NULL"
+                    + (
+                        ", generation INTEGER NOT NULL DEFAULT 0"
+                        if self._interval
+                        else ""
+                    )
+                    + ")"
                 )
                 db.execute(
                     "CREATE TABLE operations (sequence INTEGER PRIMARY KEY, "
@@ -229,16 +312,29 @@ class Durable:
                     "digest BLOB NOT NULL)"
                 )
                 db.execute(
-                    "INSERT INTO control VALUES(1, ?, 0, ?, ?)",
+                    "INSERT INTO control(id,metadata,sequence,version,digest) "
+                    "VALUES(1, ?, 0, ?, ?)",
                     (metadata, self._engine.version, self._tail),
                 )
+                if self._interval:
+                    db.execute(
+                        "CREATE TABLE checkpoints (id INTEGER PRIMARY KEY CHECK(id=1), "
+                        "sequence INTEGER NOT NULL, version INTEGER NOT NULL, "
+                        "floor INTEGER NOT NULL, floor_version INTEGER NOT NULL, "
+                        "generation INTEGER NOT NULL, anchor BLOB NOT NULL, "
+                        "tail BLOB NOT NULL, image BLOB NOT NULL, "
+                        "image_digest BLOB NOT NULL, digest BLOB NOT NULL)"
+                    )
                 db.execute("COMMIT")
             except BaseException:
                 if db.in_transaction:
                     db.execute("ROLLBACK")
                 raise
             return
-        if tables != [("control",), ("operations",)]:
+        if tables not in (
+            [("control",), ("operations",)],
+            [("checkpoints",), ("control",), ("operations",)],
+        ):
             raise RecoveryError("unrecognized durable schema")
         control = db.execute(
             "SELECT metadata, sequence, version, digest FROM control WHERE id=1 "
@@ -254,26 +350,52 @@ class Durable:
             config = json.loads(metadata)
             if (
                 not isinstance(config, dict)
-                or set(config) != {"format", "backend", "n", "width"}
-                or config["format"] != _FORMAT
+                or config.get("format") not in (_FORMAT, _CHECKPOINT_FORMAT)
                 or config["backend"] != _BACKEND
             ):
                 raise ValueError("unsupported format/backend")
+            base_keys = {"format", "backend", "n", "width"}
+            if config["format"] == _CHECKPOINT_FORMAT:
+                if set(config) != base_keys | {
+                    "checkpoint_interval",
+                    "retain_operations",
+                    "batch_limit",
+                    "history_limit",
+                }:
+                    raise ValueError("invalid checkpoint format configuration")
+                if tables != [("checkpoints",), ("control",), ("operations",)]:
+                    raise ValueError("checkpoint table missing")
+                self._history_policy(config)
+            elif (
+                set(config) != base_keys
+                or len(tables) != 2
+                or self._requested_interval is not None
+                or self._requested_retention is not None
+            ):
+                raise ValueError("legacy format cannot silently enable checkpoints")
             _integer(config["n"], 0, 0xFFFFFFFF, "stored n")
             _integer(config["width"], 0, 0xFFFFFFFF, "stored width")
-            _integer(sequence, 0, self._max_operations, "stored sequence")
+            _integer(
+                sequence,
+                0,
+                _MAX if self._interval else self._max_operations,
+                "stored sequence",
+            )
             _integer(version, 0, _MAX, "stored version")
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError, KeyError) as error:
             raise RecoveryError("invalid durable metadata") from error
         if requested is not None and requested != config["n"]:
             raise ValueError("requested vertex universe differs from durable state")
-        if db.execute("SELECT count(*) FROM operations").fetchone()[0] != sequence:
+        self._metadata = metadata
+        self._base_digest = hashlib.sha256(metadata.encode()).digest()
+        self._anchor = self._base_digest
+        checkpoint_tail = self._restore_checkpoint(config, sequence, version)
+        self._tail = self._anchor
+        self._count = self._floor
+        retained = db.execute("SELECT count(*) FROM operations").fetchone()[0]
+        if retained != sequence - self._floor or retained > self._max_operations:
             raise RecoveryError("durable history count disagrees with control record")
-        self._engine = Engine(config["n"], budget=self._budget)
-        if config["width"]:
-            self._engine.ring(config["width"])
-        self._tail = hashlib.sha256(metadata.encode()).digest()
-        self._base_digest = self._tail
+        previous_version = self._floor_version
         for row in db.execute(
             "SELECT sequence, adding, u, v, changed, version, digest "
             "FROM operations ORDER BY sequence"
@@ -286,20 +408,30 @@ class Durable:
                 _integer(v, u, self._engine.n - 1, "stored v")
                 _integer(changed, 0, 1, "stored transition")
                 _integer(recorded, 0, _MAX, "stored version")
+                if recorded != previous_version + changed:
+                    raise ValueError("operation version progression failed")
                 expected = _digest(
                     self._tail, seq, adding, u, v, bool(changed), recorded
                 )
                 if digest != expected:
                     raise ValueError("operation checksum mismatch")
-                actual = (
-                    self._engine.insert(u, v) if adding else self._engine.delete(u, v)
-                )
-                if actual != bool(changed) or self._engine.version != recorded:
-                    raise ValueError(
-                        "operation outcome disagrees with deterministic replay"
+                if seq > self._checkpoint_sequence:
+                    actual = (
+                        self._engine.insert(u, v)
+                        if adding
+                        else self._engine.delete(u, v)
                     )
+                    if actual != bool(changed) or self._engine.version != recorded:
+                        raise ValueError(
+                            "operation outcome disagrees with deterministic replay"
+                        )
+                elif seq == self._checkpoint_sequence and (
+                    expected != checkpoint_tail or recorded != self._engine.version
+                ):
+                    raise ValueError("checkpoint/cache boundary disagrees")
                 self._tail = expected
                 self._count += 1
+                previous_version = recorded
             except (ValueError, TypeError, RuntimeError, struct.error) as error:
                 raise RecoveryError("invalid committed operation history") from error
         if (
@@ -309,6 +441,129 @@ class Durable:
             or not self._engine.check()
         ):
             raise RecoveryError("recovered graph/matching/control certificate failed")
+
+    def _history_policy(self, config: dict[str, object]) -> None:
+        interval = _integer(
+            config["checkpoint_interval"], 1, 1_000_000, "checkpoint_interval"
+        )
+        retention = _integer(
+            config["retain_operations"], 1, 1_000_000, "retain_operations"
+        )
+        batch = _integer(config["batch_limit"], 1, 4096, "batch_limit")
+        capacity = _integer(config["history_limit"], 1, 1_000_000, "history_limit")
+        if retention < batch or interval + retention + batch > capacity:
+            raise ValueError(
+                "require batch <= retention and "
+                "interval+retention+batch <= history limit"
+            )
+        for supplied, stored in (
+            (self._requested_interval, interval),
+            (self._requested_retention, retention),
+            (self._requested_batch, batch),
+            (self._requested_operations, capacity),
+        ):
+            if supplied is not None and supplied != stored:
+                raise ValueError(
+                    "requested checkpoint policy differs from persisted policy"
+                )
+        self._interval, self._retention = interval, retention
+        self._max_batch, self._max_operations = batch, capacity
+
+    def _restore_checkpoint(
+        self, config: dict[str, object], sequence: int, version: int
+    ) -> bytes:
+        db = self._db()
+        row = None
+        if self._interval:
+            self._generation = db.execute(
+                "SELECT generation FROM control WHERE id=1"
+            ).fetchone()[0]
+            _integer(self._generation, 0, _MAX, "checkpoint generation")
+            count = db.execute("SELECT count(*) FROM checkpoints").fetchone()[0]
+            if count != int(self._generation > 0):
+                raise RecoveryError("checkpoint generation/record count disagrees")
+            if self._generation:
+                row = db.execute(
+                    "SELECT sequence,version,floor,floor_version,generation,anchor,"
+                    "tail,image_digest,digest,length(image),typeof(image) "
+                    "FROM checkpoints WHERE id=1"
+                ).fetchone()
+                if row is None:
+                    raise RecoveryError("committed checkpoint disappeared")
+        if row is None:
+            n = _integer(config["n"], 0, 0xFFFFFFFF, "stored n")
+            width = _integer(config["width"], 0, 0xFFFFFFFF, "stored width")
+            self._engine = Engine(n, budget=self._budget)
+            if width:
+                self._engine.ring(width)
+            self._floor_version = self._engine.version
+            return self._base_digest
+        (
+            seq,
+            saved_version,
+            floor,
+            floor_version,
+            generation,
+            anchor,
+            tail,
+            image_digest,
+            digest,
+            size,
+            kind,
+        ) = row
+        try:
+            _integer(seq, 0, sequence, "checkpoint sequence")
+            _integer(saved_version, 0, version, "checkpoint version")
+            _integer(floor, 0, seq, "retired floor")
+            _integer(floor_version, 0, saved_version, "retired floor version")
+            _integer(
+                generation, self._generation, self._generation, "checkpoint generation"
+            )
+            _integer(size, 40, 1 << 30, "image size")
+            if kind != "blob" or any(
+                type(value) is not bytes or len(value) != 32
+                for value in (anchor, tail, image_digest, digest)
+            ):
+                raise ValueError("invalid checkpoint digest/image type")
+            if (
+                floor != max(0, seq - self._retention)
+                or sequence - seq >= self._interval + self._max_batch
+                or digest
+                != _checkpoint_digest(
+                    self._metadata,
+                    seq,
+                    saved_version,
+                    floor,
+                    floor_version,
+                    generation,
+                    anchor,
+                    tail,
+                    image_digest,
+                )
+            ):
+                raise ValueError("checkpoint policy/certificate disagrees")
+            if size > self._max_snapshot_bytes:
+                raise MemoryError("checkpoint exceeds configured input byte limit")
+            retained = db.execute("SELECT count(*) FROM operations").fetchone()[0]
+            if retained != sequence - floor or retained > self._max_operations:
+                raise ValueError("checkpoint retained history count disagrees")
+            image = db.execute("SELECT image FROM checkpoints WHERE id=1").fetchone()[0]
+            if (
+                type(image) is not bytes
+                or len(image) != size
+                or hashlib.sha256(image).digest() != image_digest
+            ):
+                raise ValueError("checkpoint image checksum failed")
+            self._engine = Engine.restore(
+                image, budget=self._budget, max_bytes=self._max_snapshot_bytes
+            )
+            if self._engine.n != config["n"] or self._engine.version != saved_version:
+                raise ValueError("native checkpoint universe/version disagrees")
+        except (ValueError, TypeError, RuntimeError, struct.error) as error:
+            raise RecoveryError("invalid committed checkpoint") from error
+        self._floor, self._floor_version = floor, floor_version
+        self._checkpoint_sequence, self._anchor = seq, anchor
+        return bytes(tail)
 
     @contextmanager
     def _exclusive(self) -> Iterator[None]:
@@ -361,7 +616,183 @@ class Durable:
     def _publish(self, token: int) -> None:
         self._engine.commit(token)
 
+    def _image_admission(self, fresh: Sequence[Request]) -> None:
+        maximum = (self._max_snapshot_bytes - 40 - 8 * self._engine.n) // 8
+        edges = self._engine.num_edges()
+        if edges > maximum:
+            raise CapacityError("graph exceeds configured checkpoint image capacity")
+        if edges + sum(r.operation == "insert" for r in fresh) <= maximum:
+            return
+        # Only near the cap, simulate the bounded group's exact topology changes;
+        # duplicates/no-ops must not be rejected by an inaccurate upper bound.
+        states: dict[tuple[int, int], bool] = {}
+        for request in fresh:
+            key = (request.u, request.v)
+            if request.u == request.v:
+                continue
+            prior = states[key] if key in states else self._engine.has_edge(*key)
+            adding = request.operation == "insert"
+            if prior != adding:
+                edges += 1 if adding else -1
+                states[key] = adding
+            if edges > maximum:
+                raise CapacityError("group would exceed checkpoint image capacity")
+
+    def _checkpoint_record(self) -> _Checkpoint:
+        db = self._db()
+        control = db.execute(
+            "SELECT metadata,sequence,version,digest,generation FROM control WHERE id=1"
+        ).fetchone()
+        version = self._engine.version
+        if control != (
+            self._metadata,
+            self._count,
+            version,
+            self._tail,
+            self._generation,
+        ):
+            raise RecoveryError("checkpoint control disagrees with published owner")
+        floor = max(0, self._count - self._retention)
+        anchor, floor_version = self._anchor, self._floor_version
+        previous, recorded = self._anchor, self._floor_version
+        sequence = self._floor
+        for seq, adding, u, v, changed, current, digest in db.execute(
+            "SELECT sequence,adding,u,v,changed,version,digest "
+            "FROM operations ORDER BY sequence"
+        ):
+            try:
+                _integer(
+                    seq, sequence + 1, sequence + 1, "checkpoint operation sequence"
+                )
+                _integer(adding, 0, 1, "checkpoint operation")
+                _integer(u, 0, self._engine.n - 1, "checkpoint u")
+                _integer(v, u, self._engine.n - 1, "checkpoint v")
+                _integer(changed, 0, 1, "checkpoint transition")
+                _integer(
+                    current,
+                    recorded + changed,
+                    recorded + changed,
+                    "checkpoint version",
+                )
+                expected = _digest(previous, seq, adding, u, v, bool(changed), current)
+                if digest != expected:
+                    raise ValueError("checkpoint operation checksum failed")
+            except (ValueError, TypeError, struct.error) as error:
+                raise RecoveryError("uncertified checkpoint history") from error
+            previous, recorded, sequence = expected, current, seq
+            if seq == floor:
+                anchor, floor_version = expected, current
+        if sequence != self._count or previous != self._tail or recorded != version:
+            raise RecoveryError("checkpoint history tail disagrees")
+        image = self._engine.snapshot(max_bytes=self._max_snapshot_bytes)
+        image_digest = hashlib.sha256(image).digest()
+        generation = self._generation + 1
+        digest = _checkpoint_digest(
+            self._metadata,
+            self._count,
+            version,
+            floor,
+            floor_version,
+            generation,
+            anchor,
+            self._tail,
+            image_digest,
+        )
+        return _Checkpoint(
+            self._count,
+            version,
+            floor,
+            floor_version,
+            generation,
+            anchor,
+            self._tail,
+            image,
+            image_digest,
+            digest,
+        )
+
+    def _persist_checkpoint(self, record: _Checkpoint) -> None:
+        db = self._db()
+        db.execute("BEGIN IMMEDIATE")
+        db.execute(
+            "INSERT OR REPLACE INTO checkpoints VALUES(1,?,?,?,?,?,?,?,?,?,?)",
+            (
+                record.sequence,
+                record.version,
+                record.floor,
+                record.floor_version,
+                record.generation,
+                record.anchor,
+                record.tail,
+                record.image,
+                record.image_digest,
+                record.digest,
+            ),
+        )
+        updated = db.execute(
+            "UPDATE control SET generation=? WHERE id=1 AND sequence=? AND version=? "
+            "AND digest=? AND generation=?",
+            (
+                record.generation,
+                record.sequence,
+                record.version,
+                record.tail,
+                self._generation,
+            ),
+        )
+        if updated.rowcount != 1:
+            raise RecoveryError("checkpoint control publication precondition failed")
+        db.execute("DELETE FROM operations WHERE sequence<=?", (record.floor,))
+        db.execute("COMMIT")
+
+    def _install_checkpoint(self, record: _Checkpoint) -> None:
+        self._checkpoint_sequence = record.sequence
+        self._floor, self._floor_version = record.floor, record.floor_version
+        self._anchor, self._generation = record.anchor, record.generation
+
+    def _checkpoint(self) -> dict[str, int]:
+        if not self._interval:
+            raise ValueError("checkpoint requires an explicitly enabled v2 store")
+        if self._generation == _MAX:
+            raise CapacityError("checkpoint generation exhausted")
+        persisting = False
+        try:
+            record = self._checkpoint_record()
+            result = {
+                "checkpoint_sequence": record.sequence,
+                "retired_floor": record.floor,
+                "retained_operations": record.sequence - record.floor,
+                "generation": record.generation,
+            }
+            persisting = True
+            self._persist_checkpoint(record)
+            self._install_checkpoint(record)
+            return result
+        except BaseException as error:
+            self._failed = (
+                persisting
+                or self._engine.poisoned
+                or not isinstance(error, MemoryError)
+            )
+            try:
+                if self._db().in_transaction:
+                    self._db().execute("ROLLBACK")
+            except BaseException:
+                self._failed = True
+            raise
+
+    def checkpoint(self) -> dict[str, int]:
+        """Atomically publish an audited image/retired floor and bound retry history.
+
+        This v2 maintenance transaction changes neither graph nor mutation version.
+        A persistence/publication exception disables the owner; recovery resolves it.
+        """
+        with self._exclusive():
+            return self._checkpoint()
+
     def _retry(self, request: Request) -> Outcome:
+        if request.sequence <= self._floor:
+            raise ExpiredError("sequence is retired; it cannot be applied again")
         try:
             row = (
                 self._db()
@@ -381,7 +812,7 @@ class Durable:
             _integer(v, u, self._engine.n - 1, "retry v")
             _integer(changed, 0, 1, "retry transition")
             _integer(version, 0, self._engine.version, "retry version")
-            previous = self._base_digest if request.sequence == 1 else previous
+            previous = self._anchor if request.sequence == self._floor + 1 else previous
             if (
                 type(previous) is not bytes
                 or len(previous) != 32
@@ -429,10 +860,12 @@ class Durable:
                 else:
                     raise ValueError("new request sequences must be contiguous")
             fresh = tuple(r for seq, r in plans.items() if seq > self._count)
-            if self._count + len(fresh) > self._max_operations:
-                raise CapacityError(
-                    "bounded replay history is full; checkpoint support pending"
-                )
+            if self._interval and fresh:
+                self._image_admission(fresh)
+                if self._count - self._checkpoint_sequence >= self._interval:
+                    self._checkpoint()
+            if self._count - self._floor + len(fresh) > self._max_operations:
+                raise CapacityError("bounded operation history is full")
             if not fresh:
                 return tuple(outcomes[r.sequence] for r in requests)
             version = self._engine.version
@@ -514,6 +947,14 @@ class Durable:
                 "fullfsync": 1,
                 "max_operations": self._max_operations,
                 "max_batch": self._max_batch,
+                "checkpoint_interval": self._interval,
+                "retain_operations": self._retention
+                if self._interval
+                else self._max_operations,
+                "retired_floor": self._floor,
+                "checkpoint_sequence": self._checkpoint_sequence,
+                "checkpoint_generation": self._generation,
+                "retained_operations": self._count - self._floor,
             }
 
     def page(

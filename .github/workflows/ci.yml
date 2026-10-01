@@ -129,6 +129,7 @@ jobs:
           /tmp/axiom-wheel-env/bin/pip install dist/*.whl
           /tmp/axiom-wheel-env/bin/python -I -c "from axiom import Matcher, Packed; from axiom.engine import Engine; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check(); e = Engine(16); e.ring(); t = e.begin(); e.delete(0, 1); e.rollback(t); assert e.check() and e.has_edge(0, 1); s = e.snapshot(); r = Engine.restore(s); assert r.snapshot() == s and r.check()"
           /tmp/axiom-wheel-env/bin/python -I -c "from tempfile import TemporaryDirectory; from pathlib import Path; from axiom.durable import Durable, Request; t = TemporaryDirectory(); p = Path(t.name) / 'graph.db'; d = Durable(p, n=16); r = d.apply([Request(1, 'delete', 0, 1)]); d.close(); d = Durable(p); assert d.apply([Request(1, 'delete', 0, 1)]) == r and d.check(); d.close(); t.cleanup()"
+          /tmp/axiom-wheel-env/bin/python -I scripts/verify_durable_install.py
           /tmp/axiom-wheel-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
 
       - name: Install source distribution in a clean environment
@@ -137,6 +138,7 @@ jobs:
           /tmp/axiom-source-env/bin/pip install dist/*.tar.gz
           /tmp/axiom-source-env/bin/python -I -c "from axiom import Matcher, Packed; from axiom.engine import Engine; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check(); e = Engine(16); e.ring(); t = e.begin(); e.delete(0, 1); e.rollback(t); assert e.check() and e.has_edge(0, 1); s = e.snapshot(); r = Engine.restore(s); assert r.snapshot() == s and r.check()"
           /tmp/axiom-source-env/bin/python -I -c "from tempfile import TemporaryDirectory; from pathlib import Path; from axiom.durable import Durable, Request; t = TemporaryDirectory(); p = Path(t.name) / 'graph.db'; d = Durable(p, n=16); r = d.apply([Request(1, 'delete', 0, 1)]); d.close(); d = Durable(p); assert d.apply([Request(1, 'delete', 0, 1)]) == r and d.check(); d.close(); t.cleanup()"
+          /tmp/axiom-source-env/bin/python -I scripts/verify_durable_install.py
           /tmp/axiom-source-env/bin/axiom --n 8 --mode multilevel --updates 4 --seed 1
 
       - name: Audit dependencies
@@ -183,6 +185,7 @@ jobs:
           "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/pip" install dist/*.whl
           "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/python" -I -c "from axiom import Matcher, Packed; from axiom.engine import Engine; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check(); e = Engine(16); e.ring(); t = e.begin(); e.delete(0, 1); e.rollback(t); assert e.check() and e.has_edge(0, 1); s = e.snapshot(); r = Engine.restore(s); assert r.snapshot() == s and r.check()"
           "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/python" -I -c "from tempfile import TemporaryDirectory; from pathlib import Path; from axiom.durable import Durable, Request; t = TemporaryDirectory(); p = Path(t.name) / 'graph.db'; d = Durable(p, n=16); r = d.apply([Request(1, 'delete', 0, 1)]); d.close(); d = Durable(p); assert d.apply([Request(1, 'delete', 0, 1)]) == r and d.check(); d.close(); t.cleanup()"
+          "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/python" -I scripts/verify_durable_install.py
           "$RUNNER_TEMP/axiom-wheel-${{ matrix.python-version }}/bin/axiom" --n 10 --mode multilevel --updates 8 --seed 1
 
       - name: Install source distribution in a clean environment
@@ -191,6 +194,7 @@ jobs:
           "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/pip" install dist/*.tar.gz
           "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/python" -I -c "from axiom import Matcher, Packed; from axiom.engine import Engine; g = Packed(16); g.ring(); m = Matcher(16, graph=g, mode='multilevel'); m.insert(0, 4); assert m.maximal() and g.check(); e = Engine(16); e.ring(); t = e.begin(); e.delete(0, 1); e.rollback(t); assert e.check() and e.has_edge(0, 1); s = e.snapshot(); r = Engine.restore(s); assert r.snapshot() == s and r.check()"
           "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/python" -I -c "from tempfile import TemporaryDirectory; from pathlib import Path; from axiom.durable import Durable, Request; t = TemporaryDirectory(); p = Path(t.name) / 'graph.db'; d = Durable(p, n=16); r = d.apply([Request(1, 'delete', 0, 1)]); d.close(); d = Durable(p); assert d.apply([Request(1, 'delete', 0, 1)]) == r and d.check(); d.close(); t.cleanup()"
+          "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/python" -I scripts/verify_durable_install.py
           "$RUNNER_TEMP/axiom-source-${{ matrix.python-version }}/bin/axiom" --n 10 --mode multilevel --updates 8 --seed 1
 
   stress:
