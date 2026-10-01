@@ -5,7 +5,6 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
-#include <unordered_set>
 #include <vector>
 
 namespace axiom {
@@ -435,9 +434,10 @@ public:
     std::vector<uint8_t> ownership(blocks.size(), 0);
     uint64_t entries = 0;
     uint64_t indexedEntries = 0;
+    std::vector<uint32_t> neighbors;
     for (uint32_t u = 0; u < n; ++u) {
       uint32_t degree = 0, last = none;
-      std::unordered_set<uint32_t> neighbors;
+      neighbors.clear();
       for (uint32_t b = heads[u]; b != none; b = blocks[b].next) {
         if (b >= blocks.size() || ownership[b] || !blocks[b].used ||
             blocks[b].used > 4)
@@ -449,8 +449,9 @@ public:
           return false;
         for (uint32_t i = 0; i < blocks[b].used; ++i) {
           uint32_t v = blocks[b].items[i];
-          if (v >= n || v == u || !neighbors.insert(v).second || !has(v, u))
+          if (v >= n || v == u || !has(v, u))
             return false;
+          neighbors.push_back(v);
           if (indexed[u]) {
             const Slot *slot = index.find(key(u, v));
             if (!slot || slot->location != location(b, i))
@@ -461,6 +462,10 @@ public:
         last = b;
       }
       if (degree != degrees[u] || last != tails[u])
+        return false;
+      std::sort(neighbors.begin(), neighbors.end());
+      if (std::adjacent_find(neighbors.begin(), neighbors.end()) !=
+          neighbors.end())
         return false;
       if (!indexed[u] && degree >= threshold)
         return false;
