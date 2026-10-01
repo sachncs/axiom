@@ -66,5 +66,5 @@ queries produced approximately 686k–720k in-memory updates/s. Exact public-que
 graph/matching audits passed. This is compute headroom, **not** durable 10k/s
 qualification. See [contracts/results](../engine.md). The separate bounded
 [durable layer](../durable.md) adds FULL-WAL commit/replay and retry outcomes;
-opt-in native checkpoint/retirement is now implemented. Aggregate admission,
-maintenance/soak and full-service qualification remain pending.
+opt-in native checkpoint/retirement and bounded local aggregation (ADR 0011) are
+now implemented. Maintenance/soak and full-service qualification remain pending.

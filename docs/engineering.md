@@ -36,7 +36,7 @@ runs with committed matching queries and SQLite WAL checkpoints measured
 approximately 30.4k–30.9k real acknowledged changes/s, with independent exact
 audits/recovery, acknowledgment p99 14.4–15.5 ms, and 132.7–133.1 MB peak RSS.
 This uses 256-operation groups and only 1.29–1.32-second traces. Native graph
-checkpoint maintenance performance, aggregate admission, broad/skewed workloads, full resource
+checkpoint/concurrent performance, full resource admission, broad/skewed workloads,
 limits and sustained/soak qualification remain open; this is **not** goal completion.
 See [durable contracts/results](durable.md) and [ADR 0009](adrs/0009-sqlite-wal-durable-owner.md).
 
@@ -49,12 +49,23 @@ Opt-in durable v2 now atomically publishes exact images and retires history whil
 retaining a declared retry window; expired IDs explicitly reject. Crash, corruption
 and disk-full tests exercise old/new generation recovery. Legacy v1 keeps its
 lifetime history cap and is not silently migrated. Maintenance performance,
-bounded client aggregation and sustained service qualification remain open.
+maintenance scheduling and sustained service qualification remain open; bounded
+local client aggregation is now delivered separately below.
 Three maintenance-inclusive million-vertex v2 traces now reach 27.6k–28.5k
 acknowledged changes/s with six native checkpoints each, but checkpoint-bearing
 groups reach 193–204 ms max latency. These approximately seven-second traces
 query only after acknowledgment; concurrent query/queue tails and soak remain
 unqualified. [V2 evidence and limits](durable.md#opt-in-checkpoint-v2-evidence).
+
+The separate local `axiom.service.Service` now bounds active/queued/query/duplicate
+work, aggregates individual requests, preserves pending-ID outcomes and schedules
+coherent reads on the same owner. Three short million-vertex concurrent-client
+runs reach 13.8k–14.0k durable changes/s with ~200k queued queries and six native
+checkpoints each. Ack p99 upper bounds are 27.7–27.9 ms; query p99 13.8–14.2 ms,
+with ~200 ms maxima. Exact audits/recovery pass. These ~14-second closed-loop
+traces meet the throughput target only as a stage; proposed query latency,
+sustained/overload/skew/resource/backup gates remain open. See
+[service contracts/evidence](service.md) and [ADR 0011](adrs/0011-bounded-service-admission.md).
 
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
@@ -82,9 +93,10 @@ These short, cache-friendly, fixed-degree traces are **not matcher throughput,
 durable acknowledged throughput, long-running churn, or a billion-scale result**.
 The native byte budget excludes Python objects, allocator overhead, audit scratch,
 and other containers. Each derived graph currently has its own budget, not a shared
-service-level quota. Full matcher state is still deep-copied; hierarchy checks and
-rebuilds still perform global work. WAL/recovery, admission control, incremental
-algorithm-state journals/certificates, and full-engine qualification remain open.
+service-level quota. Python paper matcher state is still deep-copied; its hierarchy
+checks/rebuilds perform global work. Native production journals/certificates,
+FULL-WAL recovery and local bounded admission are now separate delivered paths;
+paper-state migration and full-service qualification remain open.
 
 See [native storage contracts and reproduction](storage.md) and the raw
 [seed 599](../benchmarks/results/storage/million-599.json),
@@ -435,9 +447,13 @@ around the publication boundary.
 ### 5. Scale at the appropriate boundary
 
 For a service, serialize mutations per graph behind a bounded queue; define
-admission control, cancellation-before-start, and explicit completion/error
+admission control, cancellation rules, and explicit completion/error
 responses. Do not acknowledge an update before its transaction commits. Keep
 queries coherent with committed versions.
+The delivered local service rejects cancellation after sequenced acceptance:
+cancelling an assigned ID would create a stream gap. Pre-admission rejection has
+no mutation/ID consumption; wait timeout is explicit uncertainty, not cancellation.
+[ADR 0011](adrs/0011-bounded-service-admission.md) records this tradeoff.
 
 Independent graphs can be distributed across workers without changing matching
 semantics. Arbitrarily sharding one connected graph is not equivalent: matching

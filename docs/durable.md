@@ -95,11 +95,12 @@ sustained throughput are not yet qualified.
 
 Defaults: native budget 1 GiB, group bound 256, database page budget 64 MiB. Page
 budgets exclude WAL/SHM, allocator/RSS, Python results, and filesystem overhead.
-Cache/journal-size settings do not hard-bound those resources. There is no
-asynchronous request aggregator, network API, maximum group-wait SLA, arbitrary
-graph import, or Windows owner locking yet.
+Cache/journal-size settings do not hard-bound those resources. The separate
+[local service](service.md) now provides bounded asynchronous aggregation; this
+primitive itself remains fail-fast. There is no network API, end-to-end latency
+SLA, arbitrary graph import or Windows owner locking yet.
 
-Remaining gates: checkpoint maintenance performance, client aggregation/admission,
+Remaining gates: maintenance/concurrent scheduling performance, full resource admission,
 recovery/backup limits, sustained balanced/skewed churn,
 concurrency/overload, power-loss assumptions/tests, and the accepted million-vertex
 **10k real durable updates/s including queries** qualification.

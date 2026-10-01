@@ -1,7 +1,8 @@
 # ADR 0009: Use SQLite WAL for the first durable single-owner layer
 
 Date: 2026-10-01. Status: bounded replay implementation plus opt-in v2 native
-checkpoints (ADR 0010); admission aggregation and sustained qualification pending.
+checkpoints (ADR 0010) and separate local aggregation (ADR 0011);
+sustained qualification pending.
 
 ## Context
 
@@ -56,8 +57,8 @@ No client/session namespace is silently inferred.
 ## Limits and consequences
 
 - Default group bound: 256 supplied requests, configuration capped at 4096.
-  Separate client arrivals are not yet automatically aggregated, and no maximum
-  group-wait/latency SLA is claimed.
+  The separate local service aggregates individual arrivals with bounded assembly
+  wait; this primitive does not. No end-to-end latency SLA is claimed.
 - Default history/dedup bound: 65,536 operations including no-ops. Reject new
   operations at the bound; retain retries. Configured history caps at one million.
   This legacy v1 mode is **not** sustained unlimited operation. Opt-in v2 bounds

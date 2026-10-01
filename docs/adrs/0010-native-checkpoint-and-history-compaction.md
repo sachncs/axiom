@@ -145,7 +145,8 @@ Maintenance-inclusive million-vertex traces (`525cbca`, three seeds) acknowledge
 27.6k–28.5k changes/s, 14.2–15.0 ms ack p99, but 193–204 ms maximum. A checkpoint
 group is less than 1% of groups, so p99 alone obscures this tail. Queries occur
 after acknowledgment; no concurrent queue wait is measured. Results motivate
-bounded client aggregation and maintenance/query scheduling work, not a claim of
+bounded client aggregation (now ADR 0011) and further maintenance/query scheduling,
+not a claim of
 full qualification. Exact audits/recovery/retained retry/expiration pass; command,
 hardware, raw records and limits are in [durable contracts](../durable.md).
 

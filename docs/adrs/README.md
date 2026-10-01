@@ -17,6 +17,7 @@ Dates use the project's user-facing calendar (1 October 2026).
 | [0008](0008-resource-and-release-gates.md) | Single ownership, resource limits, independent qualification gates | Partially implemented; full-service gates pending |
 | [0009](0009-sqlite-wal-durable-owner.md) | SQLite FULL-WAL commits with private native publication and bounded replay | Legacy v1 plus opt-in checkpoint v2; sustained qualification pending |
 | [0010](0010-native-checkpoint-and-history-compaction.md) | Exact portable native images before atomic replay/dedup retirement | Codec/publication/retirement tested; short maintenance-inclusive evidence; sustained qualification pending |
+| [0011](0011-bounded-service-admission.md) | Bounded client receipts and single-owner group aggregation/query scheduling | Local service tested; short concurrent evidence; sustained/latency/resource qualification pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent
@@ -36,6 +37,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Lifetime operation-log growth and replay from genesis | Exact checkpoints plus atomic history/retry retirement (0010) bound replay and table rows | Opt-in v2 implemented; expired IDs reject, v1 remains capped; physical disk/RSS and maintenance latency still need qualification |
 | Rebuilding a different valid matching after restart | Persist exact compact partner state and audit a separate candidate (0010) | Exact partners/version preserved; invalid images refuse recovery, never silently repaired |
 | Per-row temporary hash-node allocation in full native audits | Reuse one compact row vector and sort for duplicate detection (0010) | Full certificates retained; scratch and worst-case degree-dependent work still count |
+| Preassembled batches or unbounded executor queues | Bounded individual admission, pending-ID fan-out and short assembly deadlines (0011) | Active/queued/query/duplicate work shares one cap; timeout is not cancellation, no owner callbacks; maintenance still blocks queries |
 | Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
 
 ## What is not being abandoned

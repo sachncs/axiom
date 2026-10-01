@@ -58,6 +58,6 @@ installs/tests, documentation examples, package checks, and bounded stress.
 The first durable layer now provides fail-fast ownership/admission, bounded
 history/groups, database page limits, replay checks, and process-death/storage-full
 tests. Opt-in native checkpoint compaction now bounds retained history/replay;
-hard service RSS/WAL/disk accounting,
-aggregate client admission, full matcher qualification, and production
+bounded local aggregation is implemented in ADR 0011. Hard service RSS/WAL/disk
+accounting, overload/work-class admission, full matcher qualification and production
 latency/memory gates remain pending.
