@@ -220,6 +220,49 @@ jobs:
       - name: Run bounded adversarial multilevel stress test
         run: timeout --signal=TERM 60s python -m pytest -q tests/test_property.py
 
+  resources:
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build and install isolated resource-test wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+          python -m venv "$RUNNER_TEMP/axiom-envelope-env"
+          "$RUNNER_TEMP/axiom-envelope-env/bin/pip" install dist/*.whl
+
+      - name: Enforce 512 MiB address space and a dedicated 192 MiB filesystem
+        run: |
+          stage=$(mktemp -d "$RUNNER_TEMP/axiom-envelope.XXXXXX")
+          image="$stage/disk.ext4"
+          mount="$stage/volume"
+          mkdir "$mount"
+          truncate -s 192M "$image"
+          mkfs.ext4 -F -m 0 "$image"
+          sudo mount -o loop,nosuid,nodev "$image" "$mount"
+          trap 'sudo umount "$mount"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$mount"
+          timeout --signal=TERM 240s \
+            "$RUNNER_TEMP/axiom-envelope-env/bin/python" -I \
+            scripts/verify_resource_envelope.py --directory "$mount" \
+            | tee "$RUNNER_TEMP/resource-envelope.json"
+
+      - name: Retain resource qualification report in job logs
+        if: always()
+        run: |
+          if test -s "$RUNNER_TEMP/resource-envelope.json"; then
+            cat "$RUNNER_TEMP/resource-envelope.json"
+          fi
+
   docs:
     runs-on: ubuntu-latest
     steps:
