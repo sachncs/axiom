@@ -59,6 +59,10 @@ New requests reject when it fills; retries still work. Native checkpoints and
 safe history/dedup retirement are not implemented. SQLite WAL checkpoints are
 physical database maintenance, not Axiom graph checkpoints.
 
+The separate [native checkpoint primitive](checkpoint.md) is now implemented and
+tested. It does not by itself change this durable format or remove its history
+limit; atomic image/control/history publication and retirement are still pending.
+
 Defaults: native budget 1 GiB, group bound 256, database page budget 64 MiB. Page
 budgets exclude WAL/SHM, allocator/RSS, Python results, and filesystem overhead.
 Cache/journal-size settings do not hard-bound those resources. There is no

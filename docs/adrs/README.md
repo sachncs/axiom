@@ -16,6 +16,7 @@ Dates use the project's user-facing calendar (1 October 2026).
 | [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Bounded replay/service implemented; native checkpoints and qualification pending |
 | [0008](0008-resource-and-release-gates.md) | Single ownership, resource limits, independent qualification gates | Partially implemented; full-service gates pending |
 | [0009](0009-sqlite-wal-durable-owner.md) | SQLite FULL-WAL commits with private native publication and bounded replay | First durable layer; native checkpoints and sustained qualification pending |
+| [0010](0010-native-checkpoint-and-history-compaction.md) | Exact portable native images before atomic replay/dedup retirement | Native codec implemented; durable integration/compaction pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent

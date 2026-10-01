@@ -40,6 +40,14 @@ checkpoint compaction, aggregate admission, broad/skewed workloads, full resourc
 limits and sustained/soak qualification remain open; this is **not** goal completion.
 See [durable contracts/results](durable.md) and [ADR 0009](adrs/0009-sqlite-wal-durable-owner.md).
 
+Exact native checkpoint encoding/restoration is implemented separately. A
+million-vertex image is 24,000,040 bytes; reusable row-audit scratch reduced
+encoding from 163 ms to 20–21 ms and restore from 177 ms to about 28 ms on the
+declared development machine, with identical image/matching hashes and independent
+audits. [Checkpoint contracts/results](checkpoint.md) describe the limits.
+Atomic durable image/history publication, dedup retirement and sustained
+maintenance qualification are still pending; the durable history cap is unchanged.
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

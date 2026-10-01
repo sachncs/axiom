@@ -1,0 +1,21 @@
+{
+  "scope": "native audited checkpoint encode/restore; NO durable checkpoint publication or history compaction",
+  "python": "3.14.7",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "vertices": 128000,
+  "edges": 256000,
+  "pairs": 2048,
+  "seed": 599,
+  "image_bytes": 3072040,
+  "image_sha256": "8e95cdd59cc2b8cad522e19d4c0c26c0e61b07bea7ad55d3a24f375861507e64",
+  "matching_sha256": "2e0c708b784f1244dfdad498231be9e05100abb8d3bdefb8b5d4091d24252d30",
+  "version": 4097,
+  "encoding_seconds": 0.0027009160003217403,
+  "restoration_seconds": 0.003677542001241818,
+  "independent_audit_seconds": 0.08016912500170292,
+  "exact_restoration_passed": true,
+  "source_native_bytes": 9344528,
+  "restored_native_bytes": 5870404,
+  "process_peak_rss_bytes": 48578560,
+  "source_revision": "f629943"
+}

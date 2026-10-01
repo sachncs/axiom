@@ -62,6 +62,11 @@ decisions, topology, properness, and maximality.
 
 ## Measurements, not completion
 
+Audited portable snapshot/restore primitives are available; see
+[checkpoint contracts](checkpoint.md). They preserve exact partners/version and
+return isolated restored candidates, not a new matching computed from topology.
+They do not constitute durable publication or remove the durable history limit.
+
 ```bash
 python benchmarks/engine.py --vertices 32000
 python benchmarks/engine.py --vertices 128000
