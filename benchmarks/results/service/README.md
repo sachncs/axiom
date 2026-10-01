@@ -107,3 +107,33 @@ reads may observe a preceding committed prefix. They do not model independently
 offered query arrivals during every maintenance interval, overload or hubs.
 The new implementation has not yet repeated the 30-minute soak. Hard total
 RSS/WAL/disk, backup and device power-loss gates remain open.
+
+## Forced hub-repair stage
+
+Benchmark source `84c9fe3`, installed native `b8c36e7` / service `c5dd095`, wheel
+SHA-256 `1d6085644c20cd36b1eddb1fea1583276aa2e1309b853b4f9f7cf7869b8b47a1`.
+Same declared Mac/software/filesystem; fresh sequential isolated installed-package
+runs, archived runner, no competing test/build jobs:
+
+```bash
+python -I runner/benchmarks/service.py --database /private/local/path/hub.db \
+  --vertices 1000000 --pairs 10000 --hub-degree 65536
+```
+
+Repeat 32000/degree4096 and 128000/degree8192. Bootstrap adds D-4 known hub edges
+separately; timed churn alternates the hub's matched ring edge and an alternate
+chord. Each run completes 20000 real durable updates and 20000 partner reads;
+exact full ring-plus-hub/proper-maximal/live-to-recovered partner audits pass.
+
+| Vertices | Hub degree | Real changes/s | Ack p99 upper | Query p99 upper | Peak RSS |
+| --- | --- | --- | --- | --- | --- |
+| 32000 | 4096 | 18966 | 22.8 ms | 0.3 ms | 42.0 MB |
+| 128000 | 8192 | 17236 | 24.9 ms | 0.3 ms | 51.5 MB |
+| 1000000 | 65536 | **9048** | 197.0 ms | 0.3 ms | 283.1 MB |
+
+The million graph has 2065532 edges, average degree 4.131064. Its 2.21-second trace
+includes a timed native checkpoint; smaller stages last 1.05–1.16 seconds with
+different checkpoint positions. These are single short samples, not an isolated
+causal comparison or a hub SLA. The million result is below 10k; earlier uniform
+success cannot qualify this workload. Degree-sensitive free-neighbor search and
+maintenance remain engineering work. [ADR 0015](../../../docs/adrs/0015-skew-and-offered-load-qualification.md).

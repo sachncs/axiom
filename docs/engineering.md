@@ -89,6 +89,15 @@ and [ADR 0013](adrs/0013-bounded-owner-backups.md). Expensive explicit maintenan
 also has a separate active/queued work cap ([ADR 0014](adrs/0014-maintenance-admission.md));
 total RSS/WAL/disk, overload/skew and actual power-loss gates remain open.
 
+Forced matched-edge hub repair now has explicit qualification traces. The
+million-vertex degree-65536 hub stage measures only 9048 real durable changes/s
+(average degree 4.131064), despite passing exact topology/matching/recovery audits.
+This **does not meet** the throughput target for that skewed workload. Short
+uniform results cannot establish broad scalability. A paced offered-load harness
+also counts producer-missed slots and admission rejections separately from actual
+durable delivery. [ADR 0015](adrs/0015-skew-and-offered-load-qualification.md) and
+[raw skew evidence](../benchmarks/results/service/README.md) record the limits.
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

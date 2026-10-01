@@ -160,6 +160,21 @@ offered across every maintenance interval. These ~13-second traces do not prove
 an overload/skew SLA or hard memory/disk bounds. The new code still needs a soak;
 the completed old-code 30-minute result is recorded separately in the raw README.
 
+## Skew and offered-load limitations
+
+`--hub-degree 65536` now forces matched hub-edge repair; the million-vertex
+staged run delivers only 9048/s, below target, with exact audits/recovery passing.
+The separately paced `benchmarks/overload.py --rate 10000 --seconds 10` profile
+delivers 9561/s at a million vertices: producer scheduling losses and server Busy
+are explicitly counted. At saturation, partner calls may also get Busy because
+the current global capacity has no read reservation. Successful query latency
+does not establish availability for rejected queries.
+[Skew records](../benchmarks/results/service/README.md),
+[offered-load counts](../benchmarks/results/overload/README.md) and
+[ADR 0015](adrs/0015-skew-and-offered-load-qualification.md) retain these failing
+qualification observations. They need engineering work, not a changed denominator
+or a claim of completed broad scalability from uniform closed-loop rates.
+
 Earlier baseline verification: 616 tests, 141 focused optimized-mode tests, strict typing/lint,
 isolated wheel/sdist service/compaction/recovery smoke, documentation examples and
 site build/link checks pass. The earlier coverage run measured 96% service and
