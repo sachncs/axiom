@@ -180,8 +180,7 @@ class System:
         return True
 
     def check_no_u_u_edges(self) -> bool:
-        r"""Check that :math:`M` contains no edge with both endpoints in
-        :math:`U`.
+        r"""Check that no edge in :math:`M` has both endpoints in :math:`U`.
 
         The paper's initial construction removes these edges after the
         degree-capped greedy pass.  Keeping the condition explicit prevents
@@ -238,8 +237,7 @@ class System:
         return True
 
     def check_p2(self) -> bool:
-        r"""Check property (P2): every :math:`M`-edge incident to
-        :math:`a \in A` meets a vertex of :math:`S`.
+        r"""Check property (P2) for every matching edge incident to A.
 
         Without (P2) the A-rematching scan can miss some valid partners
         and the matching maintained in :math:`M^*` may lose edges.
@@ -544,8 +542,7 @@ def promote(
     z: int,
     u: Vertex,
 ) -> bool:
-    r"""Try to promote a U-vertex ``u`` to :math:`B` by giving it
-    :math:`z` matching edges to B-neighbours.
+    r"""Try to promote a U-vertex to B with z matching edges to B-neighbors.
 
     The procedure follows the paper's ``ProcProcessU`` construction.  It
     selects B-neighbours and, for each saturated neighbour, swaps out its

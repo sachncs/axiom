@@ -21,6 +21,7 @@ from axiom.simulation import random_updates
 
 
 def bench(n: int, mode: str, updates: int, seed: int) -> dict[str, float]:
+    """Measure seeded update throughput and return the resulting matcher statistics."""
     algo = Matcher(n, mode=mode)
     rng = random.Random(seed)
     seq = list(random_updates(n, updates, rng))
@@ -50,6 +51,7 @@ def bench(n: int, mode: str, updates: int, seed: int) -> dict[str, float]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse benchmark arguments and print timing and matching statistics."""
     parser = argparse.ArgumentParser(description="Axiom throughput benchmark")
     parser.add_argument("--n", type=int, default=100)
     parser.add_argument("--mode", choices=["basic", "multilevel"], default="basic")

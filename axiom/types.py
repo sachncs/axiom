@@ -149,9 +149,9 @@ class Colorer(Protocol):
     """Protocol defining the interface for edge coloring algorithms.
 
     Any edge coloring implementation must produce a proper coloring using
-    at most delta + 1 colors.  Two implementations are provided:
+    at most delta + 1 colors. Three implementations are provided:
     :class:`axiom.color.Greedy`, :class:`axiom.color.Vizing`, and
-    :class:`axiom.paper_coloring.PaperFanColorer`.
+    :class:`axiom.paper_coloring.Paper`.
     """
 
     def color(self, graph: Graph, delta: int) -> Coloring:

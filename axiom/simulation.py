@@ -23,12 +23,9 @@ from __future__ import annotations
 
 import random
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
 
+from axiom.core import Matcher
 from axiom.types import Vertex
-
-if TYPE_CHECKING:
-    from axiom.core import Matcher
 
 Update = tuple[str, Vertex, Vertex]
 """Type of one operation in a simulated trace.

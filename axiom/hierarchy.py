@@ -32,7 +32,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import pairwise
 
-from axiom.paper_coloring import PaperFanColorer
+from axiom.graph import Adjacency
+from axiom.paper_coloring import Paper
 from axiom.system import System
 from axiom.system import build as build_z_system
 from axiom.types import Edge, Graph, Vertex, canonical
@@ -75,7 +76,7 @@ class Hierarchy:
         excluded_edges: set[Edge] | None = None,
         changed_edge: Edge | None = None,
     ) -> None:
-        """Synchronize the phase graph and its adjacency indexes.
+        r"""Synchronize the phase graph and its adjacency indexes.
 
         ``graph`` is the live graph, while ``excluded_edges`` contains
         inserted edges held in the paper's ``E_I``/``\tilde H`` structures.
@@ -132,10 +133,29 @@ class Hierarchy:
                     self.graph.add_edge(left, right)
                 else:
                     self.graph.remove_edge(left, right)
-                self._update_edge_indexes(changed_edge, added=should_exist)
+                edge = changed_edge
+                added = should_exist
+                left, right = edge
+                for system in self.levels:
+                    for source, target in ((left, right), (right, left)):
+                        if source in system.U and target in system.B | system.U:
+                            update(
+                                system.lambda_lists.setdefault(source, []),
+                                target,
+                                added,
+                            )
+                        if source in system.A and target in system.U:
+                            update(system.L_lists.setdefault(source, []), target, added)
+                for index, vertices in enumerate(self.A_levels):
+                    region = self.R_levels[index]
+                    for source, target in ((left, right), (right, left)):
+                        if source in vertices and target in region:
+                            update(
+                                self.L_levels[index].setdefault(source, []),
+                                target,
+                                added,
+                            )
             return
-
-        from axiom.graph import Adjacency
 
         phase_graph = Adjacency(graph.n)
         phase_edges = set(graph.edges()) | set(self.deferred_deletions)
@@ -149,30 +169,9 @@ class Hierarchy:
             system.M.intersection_update(phase_edge_set)
             system.index()
         self.L_levels = [
-            _level_lists(phase_graph, vertices, self.R_levels[index])
+            lists(phase_graph, vertices, self.R_levels[index])
             for index, vertices in enumerate(self.A_levels)
         ]
-
-    def _update_edge_indexes(self, edge: Edge, *, added: bool) -> None:
-        """Apply one phase-edge delta to all inherited adjacency indexes."""
-        left, right = edge
-        for system in self.levels:
-            for source, target in ((left, right), (right, left)):
-                if source in system.U and target in system.B | system.U:
-                    _update_sorted_list(
-                        system.lambda_lists.setdefault(source, []), target, added
-                    )
-                if source in system.A and target in system.U:
-                    _update_sorted_list(
-                        system.L_lists.setdefault(source, []), target, added
-                    )
-        for index, vertices in enumerate(self.A_levels):
-            region = self.R_levels[index]
-            for source, target in ((left, right), (right, left)):
-                if source in vertices and target in region:
-                    _update_sorted_list(
-                        self.L_levels[index].setdefault(source, []), target, added
-                    )
 
     def check(self) -> bool:
         """Validate the multi-level subgraph-system invariants."""
@@ -321,9 +320,9 @@ class Hierarchy:
         return True
 
     def check_i3(self, matching: set[tuple[int, int]], r: int, z: int) -> bool:
-        """Check multi-level invariant (I3).
+        r"""Check multi-level invariant (I3).
 
-        At most :math:`2\\tau` vertices of :math:`A_1` are matched by
+        At most :math:`2\tau` vertices of :math:`A_1` are matched by
         :math:`M^*` into :math:`R_1`, where :math:`\\tau = 32 r / z`
         (Section 6.2 of the paper).  In other words, the count of
         edges of the matching that connect a vertex of :math:`A_1`
@@ -409,20 +408,20 @@ class Hierarchy:
         return len(offenders)
 
 
-def _require_paper_colorer(colorer: PaperFanColorer | None) -> PaperFanColorer:
+def require(colorer: Paper | None) -> Paper:
     """Return the only colorer permitted for recursive hierarchy construction."""
     if colorer is None:
-        return PaperFanColorer()
-    if not isinstance(colorer, PaperFanColorer):
+        return Paper()
+    if not isinstance(colorer, Paper):
         raise ValueError(
-            "recursive hierarchy construction requires PaperFanColorer; "
+            "recursive hierarchy construction requires Paper; "
             "alternate coloring implementations are not supported"
         )
     return colorer
 
 
 def build_hierarchy(
-    graph: Graph, level_zs: list[int], colorer: PaperFanColorer | None = None
+    graph: Graph, level_zs: list[int], colorer: Paper | None = None
 ) -> Hierarchy:
     r"""Build a multi-level system by recursive refinement.
 
@@ -438,7 +437,9 @@ def build_hierarchy(
     Args:
         graph: The host graph.
         level_zs: Strictly decreasing positive integers giving the
-            :math:`z` value of each level (finest first).
+            :math:`z` value of each level (coarsest first).
+        colorer: Paper colorer used for recursive refinement, or ``None``
+            to construct the default strategy.
 
     Returns:
         A :class:`Hierarchy` whose ``levels`` list contains one
@@ -457,16 +458,9 @@ def build_hierarchy(
     if any(left <= right for left, right in pairwise(level_zs)):
         raise ValueError("level_zs must be strictly decreasing")
 
-    active_colorer = _require_paper_colorer(colorer)
+    active_colorer = require(colorer)
     first = build_z_system(graph, level_zs[0])
-    hierarchy = _from_basic(first)
-    for z in level_zs[1:]:
-        hierarchy = refine_hierarchy(hierarchy, z, colorer=active_colorer)
-    return hierarchy
-
-
-def _from_basic(system: System) -> Hierarchy:
-    """Represent a basic system as the first level of a hierarchy."""
+    system = first
     hierarchy = Hierarchy(graph=system.graph, k=1, levels=[system])
     hierarchy.A_levels = [set(system.A)]
     hierarchy.N_levels = [set(system.B)]
@@ -476,6 +470,8 @@ def _from_basic(system: System) -> Hierarchy:
     hierarchy.A2 = set()
     hierarchy.N1 = set(system.B)
     hierarchy.R1 = set(system.U)
+    for z in level_zs[1:]:
+        hierarchy = refine_hierarchy(hierarchy, z, colorer=active_colorer)
     return hierarchy
 
 
@@ -485,7 +481,7 @@ def refine_hierarchy(
     *,
     deleted: set[Edge] | None = None,
     inserted: set[Edge] | None = None,
-    colorer: PaperFanColorer | None = None,
+    colorer: Paper | None = None,
 ) -> Hierarchy:
     """Recursively refine a hierarchy using the paper's level construction.
 
@@ -531,8 +527,8 @@ def refine_hierarchy(
     # bounded deferred subset ED'.
     live_edges = (phase_edges - deleted) | inserted
     retained_deleted = deleted & previous.M
-    subgraph = _edge_graph(hierarchy.graph, previous.M)
-    active_colorer = _require_paper_colorer(colorer)
+    subgraph = project(hierarchy.graph, previous.M)
+    active_colorer = require(colorer)
     coloring = active_colorer.color(subgraph, z)
     if set(coloring) != set(previous.M):
         raise RuntimeError(
@@ -589,7 +585,7 @@ def refine_hierarchy(
         if edge in live_edges or edge in deferred_deleted
     }
     working_edges = (live_edges | deferred_deleted) - (deleted - deferred_deleted)
-    working_graph = _edge_graph(hierarchy.graph, working_edges)
+    working_graph = project(hierarchy.graph, working_edges)
     degree = {vertex: 0 for vertex in range(hierarchy.graph.n)}
     for u, v in chosen:
         degree[u] += 1
@@ -617,12 +613,13 @@ def refine_hierarchy(
         # partitions the previous B according to the selected matching:
         # vertices whose selected M-neighbours all remain in S become the
         # new A_{h+1}; the rest remain in B.
-        if all(neighbor in settled for neighbor in _partners(vertex, chosen)):
+        if all(neighbor in settled for neighbor in neighbors(vertex, chosen)):
             new_a.add(vertex)
         else:
             new_b.add(vertex)
 
     def normalize_b(vertex: Vertex) -> None:
+        """Move a B vertex without an unsettled chosen partner into A."""
         if vertex in new_b and not any(
             vertex in edge and (edge[0] in new_u or edge[1] in new_u) for edge in chosen
         ):
@@ -630,6 +627,7 @@ def refine_hierarchy(
             new_a.add(vertex)
 
     def normalize_b_neighbors(vertex: Vertex) -> None:
+        """Normalize B vertices whose witness relation can change at this vertex."""
         for edge in tuple(chosen):
             if vertex not in edge:
                 continue
@@ -637,12 +635,13 @@ def refine_hierarchy(
             normalize_b(other)
 
     def promote(vertex: Vertex) -> None:
+        """Move a U vertex into A or B and repair its neighbors' partitions."""
         if vertex not in new_u:
             return
         new_u.remove(vertex)
         settled.add(vertex)
         if degree[vertex] >= z_prime - h and all(
-            neighbor in settled for neighbor in _partners(vertex, chosen)
+            neighbor in settled for neighbor in neighbors(vertex, chosen)
         ):
             new_a.add(vertex)
         else:
@@ -798,7 +797,7 @@ def refine_hierarchy(
         for index in range(len(all_a_levels))
     ]
     inherited_lists = [
-        _level_lists(working_graph, vertices, all_r_levels[index])
+        lists(working_graph, vertices, all_r_levels[index])
         for index, vertices in enumerate(all_a_levels)
     ]
     next_hierarchy = Hierarchy(
@@ -822,22 +821,23 @@ def refine_hierarchy(
     return next_hierarchy
 
 
-def _edge_graph(graph: Graph, edges: set[Edge]) -> Graph:
-    from axiom.graph import Adjacency
-
+def project(graph: Graph, edges: set[Edge]) -> Graph:
+    """Build an isolated graph with the same vertices and only the supplied edges."""
     result = Adjacency(graph.n)
     for u, v in sorted(edges):
         result.add_edge(u, v)
     return result
 
 
-def _partners(vertex: Vertex, edges: set[Edge]) -> list[Vertex]:
+def neighbors(vertex: Vertex, edges: set[Edge]) -> list[Vertex]:
+    """Return the opposite endpoints of the supplied edges incident to a vertex."""
     return [v if u == vertex else u for u, v in edges if vertex in (u, v)]
 
 
-def _level_lists(
+def lists(
     graph: Graph, vertices: set[Vertex], region: set[Vertex]
 ) -> dict[Vertex, list[Vertex]]:
+    """Index each supplied vertex's sorted neighbors in the requested region."""
     return {
         vertex: sorted(
             neighbor for neighbor in graph.neighbors(vertex) if neighbor in region
@@ -846,7 +846,7 @@ def _level_lists(
     }
 
 
-def _update_sorted_list(values: list[Vertex], value: Vertex, added: bool) -> None:
+def update(values: list[Vertex], value: Vertex, added: bool) -> None:
     """Apply one deterministic adjacency-list delta without rebuilding it."""
     if added:
         if value not in values:

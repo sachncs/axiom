@@ -2,7 +2,7 @@
 
 This module provides utilities for running multiple
 :class:`Matcher` instances in parallel, useful for
- benchmarking and comparing the basic and multilevel modes.
+benchmarking and comparing the basic and multilevel modes.
 
 **Engineering utility** -- not part of the paper's baseline algorithm.
 
@@ -10,22 +10,21 @@ Process / thread safety:
     * Each worker process builds and tears down its own
       :class:`Matcher` instance; nothing is shared
       across processes.
-    * The ``multiprocessing.Pool`` used by :func:`run_parallel`
-      forks its workers, so the algorithm must be safe to import
-      without side effects.  This is ensured by the lack of mutable
-      module-level state.
+    * The ``multiprocessing.Pool`` used by :func:`run_parallel` follows
+      the platform's configured start method (spawn, fork, or forkserver).
+      Importing this module does not start workers. Scripts that call the
+      pool must guard their entry point with ``if __name__ == "__main__"``.
 """
 
 from __future__ import annotations
 
 import multiprocessing
+import random
+import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
+from axiom.core import Matcher
 from axiom.simulation import random_updates
-
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass
@@ -40,7 +39,7 @@ class Benchmark:
         updates_per_sec: ``updates / elapsed_sec`` (``inf`` when no
             time elapsed, e.g. on empty input).
         matching_size: :math:`|M^*|` after the run.
-        is_maximal: ``True`` iff ``is_maximal()`` returned ``True``.
+        is_maximal: Result of ``Matcher.maximal()`` after replay.
         phase_rebuilds: Count of full phase rebuilds triggered.
         subphase_rebuilds: Count of subphase augmentations triggered.
     """
@@ -56,8 +55,13 @@ class Benchmark:
     subphase_rebuilds: int
 
 
-def _validate_benchmark_inputs(n: int, mode: str, updates: int, seed: int) -> None:
-    """Validate benchmark inputs before creating a worker process."""
+def validate(n: int, mode: str, updates: int, seed: int) -> None:
+    """Validate the graph size, mode, update count, and seed.
+
+    Raises:
+        ValueError: If a count is negative, an integer is a boolean, the
+            seed is not an integer, or the mode is unsupported.
+    """
     if not isinstance(n, int) or isinstance(n, bool) or n < 0:
         raise ValueError(f"n must be a non-negative integer, got {n!r}")
     if mode not in {"basic", "multilevel"}:
@@ -76,17 +80,15 @@ def worker(
     updates: int,
     seed: int,
 ) -> Benchmark:
-    """Worker function for parallel benchmark execution.
+    """Replay one seeded benchmark and return its timing and matching statistics.
 
-    Built and discarded inside one worker process; no shared state.
+    Each invocation creates an independent matcher. Graph setup and trace
+    generation are excluded from the measured update time.
     """
-    import time
-
-    _validate_benchmark_inputs(n, mode, updates, seed)
-    from axiom.core import Matcher
+    validate(n, mode, updates, seed)
 
     algo = Matcher(n, mode=mode)
-    rng = __import__("random").Random(seed)
+    rng = random.Random(seed)
     seq = list(random_updates(n, updates, rng))
 
     start = time.perf_counter()
@@ -136,14 +138,12 @@ def run_parallel(
         ``configs``.
 
     Example:
-        >>> configs = [
-        ...     (100, "basic", 1000, 42),
-        ...     (100, "multilevel", 1000, 42),
-        ...     (200, "basic", 1000, 42),
-        ... ]
-        >>> results = run_parallel(configs)
-    >>> for r in results:
-    ...     print(f"{r.mode}: {r.updates_per_sec:.0f} ops/sec")
+        Run from a script with a guarded entry point::
+
+            if __name__ == "__main__":
+                configs = [(100, "basic", 1000, 42)]
+                for result in run_parallel(configs):
+                    print(result.updates_per_sec)
     """
     if max_workers is not None and (
         not isinstance(max_workers, int)
@@ -159,7 +159,7 @@ def run_parallel(
                 f"(n, mode, updates, seed); index={index}"
             )
         n, mode, updates, seed = config
-        _validate_benchmark_inputs(n, mode, updates, seed)
+        validate(n, mode, updates, seed)
         normalized.append((n, mode, updates, seed))
     with multiprocessing.Pool(processes=max_workers) as pool:
         results = pool.starmap(

@@ -17,11 +17,8 @@ Limitations:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from axiom.core import Matcher
-    from axiom.system import System
+from axiom.core import Matcher
+from axiom.system import System
 
 
 def visualize_system(system: System, width: int = 60) -> str:

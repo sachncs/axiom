@@ -9,7 +9,7 @@ from axiom import Matcher, partners
 from axiom.matching import is_maximal_matching
 
 
-def _reference_is_maximal(graph: object, matching: set[tuple[int, int]]) -> bool:
+def reference(graph: object, matching: set[tuple[int, int]]) -> bool:
     """Independently check maximality from the graph's edge list.
 
     This deliberately avoids ``axiom.matching`` so the property test does not
@@ -48,7 +48,7 @@ def test_generated_updates_preserve_matching_contract(
 
             matching = matcher.matching()
             assert is_maximal_matching(matcher.graph, matching)
-            assert _reference_is_maximal(matcher.graph, matching)
+            assert reference(matcher.graph, matching)
             assert partners(matching) == matcher.partner_map
             assert matcher.maximal()
             if mode == "multilevel":
@@ -92,7 +92,7 @@ def test_long_adversarial_multilevel_sequence_stays_consistent() -> None:
 
         assert matcher.maximal()
         assert is_maximal_matching(matcher.graph, matcher.matching())
-        assert _reference_is_maximal(matcher.graph, matcher.matching())
+        assert reference(matcher.graph, matcher.matching())
         assert partners(matcher.matching()) == matcher.partner_map
         assert matcher.multi is not None
         assert matcher.multi.check()

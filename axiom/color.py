@@ -149,25 +149,84 @@ class Vizing:
         # These cases occur frequently at the finest recursive levels.
         if maximum <= 1:
             return {edge: 0 for edge in graph.edges()}
-        return _misra_gries(graph, delta + 1)
+        palette = delta + 1
+        coloring: Coloring = {}
+        for center, first in sorted(graph.edges()):
+            # Extend the fan until every colored spoke is blocked at its last leaf.
+            fan = [first]
+            while True:
+                last_colors = incident(graph, coloring, fan[-1])
+                extension = next(
+                    (
+                        neighbor
+                        for neighbor in sorted(graph.neighbors(center))
+                        if neighbor not in fan
+                        and canonical(center, neighbor) in coloring
+                        and coloring[canonical(center, neighbor)] not in last_colors
+                    ),
+                    None,
+                )
+                if extension is None:
+                    break
+                fan.append(extension)
+            alpha = vacancies(graph, coloring, center, palette)[0]
+            beta = vacancies(graph, coloring, fan[-1], palette)[0]
+
+            # Invert the entire two-color component containing the fan center.
+            component: set[Edge] = set()
+            visited = {center}
+            stack = [center]
+            while stack:
+                vertex = stack.pop()
+                for neighbor in graph.neighbors(vertex):
+                    edge = canonical(vertex, neighbor)
+                    if edge not in coloring or coloring[edge] not in {alpha, beta}:
+                        continue
+                    component.add(edge)
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        stack.append(neighbor)
+            for edge in component:
+                coloring[edge] = beta if coloring[edge] == alpha else alpha
+
+            # Find the first prefix that remains rotatable after inversion.
+            for width, endpoint in enumerate(fan):
+                if beta in incident(graph, coloring, endpoint):
+                    continue
+                if all(
+                    canonical(center, fan[index + 1]) in coloring
+                    and coloring[canonical(center, fan[index + 1])]
+                    not in incident(graph, coloring, fan[index])
+                    for index in range(width)
+                ):
+                    break
+            else:
+                raise RuntimeError("fan inversion failed to produce a rotatable prefix")
+            if width:
+                old = [
+                    coloring[canonical(center, vertex)] for vertex in fan[1 : width + 1]
+                ]
+                for index, color in enumerate(old):
+                    coloring[canonical(center, fan[index])] = color
+                coloring.pop(canonical(center, fan[width]), None)
+            coloring[canonical(center, fan[width])] = beta
+
+        if set(coloring) != set(graph.edges()):
+            raise RuntimeError("edge-coloring did not assign every graph edge")
+        for vertex in range(graph.n):
+            colors = [
+                coloring[canonical(vertex, neighbor)]
+                for neighbor in graph.neighbors(vertex)
+            ]
+            if len(colors) != len(set(colors)) or any(
+                color < 0 or color >= palette for color in colors
+            ):
+                raise RuntimeError(f"invalid edge coloring at vertex {vertex}")
+        return coloring
 
 
-def _misra_gries(graph: Graph, color_count: int) -> Coloring:
-    """Construct a proper coloring with the fan proof of Vizing's theorem."""
-    coloring: Coloring = {}
-    for center, first in sorted(graph.edges()):
-        fan = _maximal_fan(graph, coloring, center, first)
-        first_color = _missing_at(graph, coloring, center, color_count)[0]
-        second_color = _missing_at(graph, coloring, fan[-1], color_count)[0]
-        _invert_cd_component(graph, coloring, center, first_color, second_color)
-        width = _rotatable_prefix(graph, coloring, center, fan, second_color)
-        _rotate_fan(coloring, center, fan[: width + 1])
-        coloring[canonical(center, fan[width])] = second_color
-    _assert_coloring(graph, coloring, color_count)
-    return coloring
-
-
-def _incident_colors(graph: Graph, coloring: Coloring, vertex: Vertex) -> set[Color]:
+def incident(graph: Graph, coloring: Coloring, vertex: Vertex) -> set[Color]:
+    """Return the assigned colors incident to a vertex."""
     return {
         coloring[canonical(vertex, neighbor)]
         for neighbor in graph.neighbors(vertex)
@@ -175,99 +234,12 @@ def _incident_colors(graph: Graph, coloring: Coloring, vertex: Vertex) -> set[Co
     }
 
 
-def _missing_at(
+def vacancies(
     graph: Graph, coloring: Coloring, vertex: Vertex, color_count: int
 ) -> list[Color]:
-    used = _incident_colors(graph, coloring, vertex)
+    """Return the vertex's missing palette colors in ascending order."""
+    used = incident(graph, coloring, vertex)
     return [color for color in range(color_count) if color not in used]
-
-
-def _maximal_fan(
-    graph: Graph, coloring: Coloring, center: Vertex, first: Vertex
-) -> list[Vertex]:
-    fan = [first]
-    while True:
-        last_colors = _incident_colors(graph, coloring, fan[-1])
-        extension = next(
-            (
-                neighbor
-                for neighbor in sorted(graph.neighbors(center))
-                if neighbor not in fan
-                and canonical(center, neighbor) in coloring
-                and coloring[canonical(center, neighbor)] not in last_colors
-            ),
-            None,
-        )
-        if extension is None:
-            return fan
-        fan.append(extension)
-
-
-def _invert_cd_component(
-    graph: Graph,
-    coloring: Coloring,
-    start: Vertex,
-    color1: Color,
-    color2: Color,
-) -> None:
-    component_edges: set[Edge] = set()
-    visited = {start}
-    stack = [start]
-    while stack:
-        vertex = stack.pop()
-        for neighbor in graph.neighbors(vertex):
-            edge = canonical(vertex, neighbor)
-            if edge not in coloring or coloring[edge] not in {color1, color2}:
-                continue
-            component_edges.add(edge)
-            if neighbor not in visited:
-                visited.add(neighbor)
-                stack.append(neighbor)
-    for edge in component_edges:
-        coloring[edge] = color2 if coloring[edge] == color1 else color1
-
-
-def _rotatable_prefix(
-    graph: Graph,
-    coloring: Coloring,
-    center: Vertex,
-    fan: list[Vertex],
-    color: Color,
-) -> int:
-    for width, endpoint in enumerate(fan):
-        if color in _incident_colors(graph, coloring, endpoint):
-            continue
-        if all(
-            canonical(center, fan[index + 1]) in coloring
-            and coloring[canonical(center, fan[index + 1])]
-            not in _incident_colors(graph, coloring, fan[index])
-            for index in range(width)
-        ):
-            return width
-    raise RuntimeError("fan inversion failed to produce a rotatable prefix")
-
-
-def _rotate_fan(coloring: Coloring, center: Vertex, fan: list[Vertex]) -> None:
-    if len(fan) <= 1:
-        return
-    old = [coloring[canonical(center, vertex)] for vertex in fan[1:]]
-    for index, color in enumerate(old):
-        coloring[canonical(center, fan[index])] = color
-    coloring.pop(canonical(center, fan[-1]), None)
-
-
-def _assert_coloring(graph: Graph, coloring: Coloring, color_count: int) -> None:
-    if set(coloring) != set(graph.edges()):
-        raise RuntimeError("edge-coloring did not assign every graph edge")
-    for vertex in range(graph.n):
-        colors = [
-            coloring[canonical(vertex, neighbor)]
-            for neighbor in graph.neighbors(vertex)
-        ]
-        if len(colors) != len(set(colors)) or any(
-            color < 0 or color >= color_count for color in colors
-        ):
-            raise RuntimeError(f"invalid edge coloring at vertex {vertex}")
 
 
 def recolor(

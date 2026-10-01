@@ -38,13 +38,13 @@ import math
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from axiom.augment import augment as _augment
+from axiom.augment import augment as augment
 from axiom.color import Vizing
 from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import is_maximal_matching, partners
-from axiom.paper_coloring import PaperFanColorer
+from axiom.paper_coloring import Paper
 from axiom.rebuild import Basic, Multilevel
 from axiom.system import System
 from axiom.types import (
@@ -122,6 +122,7 @@ class Matcher:
         graph: Graph | None = None,
         colorer: Colorer | None = None,
     ) -> None:
+        """Initialize the selected matching mode and its graph and rebuild state."""
         if not isinstance(n, int) or isinstance(n, bool):
             raise ValueError(f"n must be an integer, got {n!r}")
         if n < 0:
@@ -135,10 +136,10 @@ class Matcher:
         if (
             mode == "multilevel"
             and colorer is not None
-            and not isinstance(colorer, PaperFanColorer)
+            and not isinstance(colorer, Paper)
         ):
             raise ValueError(
-                "multilevel requires the deterministic PaperFanColorer; "
+                "multilevel requires the deterministic Paper; "
                 "custom colorers are supported only in basic mode"
             )
         self.n = n
@@ -148,7 +149,7 @@ class Matcher:
         self.colorer = (
             colorer
             if colorer is not None
-            else PaperFanColorer()
+            else Paper()
             if mode == "multilevel"
             else Vizing()
         )
@@ -283,6 +284,7 @@ class Matcher:
             raise ValueError("graph.edges() disagrees with graph.neighbors()")
 
     def partition(self) -> None:
+        """Color the active system matching and select its first color class."""
         if self.system is None:
             self.seed_matching = set()
             self.matchings = []
@@ -327,21 +329,6 @@ class Matcher:
             )
 
         self.seed_matching = self.matchings[0] if self.matchings else set()
-
-    def _partners_from_matching(self) -> None:
-        """Rebuild ``self.partner_map`` from ``self.matched_edges``.
-
-        Iterates the matching once and populates the bidirectional partner
-        map.  Each edge contributes both directions; if ``matched_edges``
-        is well-formed (every vertex in at most one edge), the result is
-        exactly the partner map.  Used by :meth:`refresh` after a
-        full rebuild.
-        """
-        result: dict[Vertex, Vertex] = {}
-        for u, v in self.matched_edges:
-            result[u] = v
-            result[v] = u
-        self.partner_map = result
 
     def __rebuild_auxiliary(self) -> None:
         """Rebuild the directed H and H-tilde indexes from live state."""
@@ -585,6 +572,7 @@ class Matcher:
         self.__proc_update(v)
 
     def refresh(self) -> None:
+        """Extend the seed to a maximal matching and rebuild its partner indexes."""
         if self.system is None:
             raise RuntimeError(
                 "cannot refresh matching without an active z-system; "
@@ -623,7 +611,11 @@ class Matcher:
 
         self.matched_edges = matching
         self.matched_vertices = matched
-        self._partners_from_matching()
+        result: dict[Vertex, Vertex] = {}
+        for u, v in self.matched_edges:
+            result[u] = v
+            result[v] = u
+        self.partner_map = result
         self.__rebuild_auxiliary()
         if not self.__check_matching_state():
             raise RuntimeError("refresh produced inconsistent matching views")
@@ -693,9 +685,9 @@ class Matcher:
             raise RuntimeError("subphase seed synchronization violated maximality")
 
     def __augment_seed(self) -> int:
-        """Run the subphase-boundary augmenting-path search over M_1.
+        r"""Run the subphase-boundary augmenting-path search over M_1.
 
-        Walk every vertex of :math:`S = A \\cup B` and, for each vertex
+        Walk every vertex of :math:`S = A \cup B` and, for each vertex
         currently unmatched in the seed matching, run an alternating-path
         search.  Returns the
         number of augmenting paths successfully applied.
@@ -715,7 +707,7 @@ class Matcher:
         augmented = 0
         for s in sorted(self.system.S):
             if s not in matched_in_seed:
-                if _augment(
+                if augment(
                     self.seed_matching,
                     lambda vertex: sorted(self.graph.neighbors(vertex)),
                     s,

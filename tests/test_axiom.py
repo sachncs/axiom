@@ -7,17 +7,23 @@ utilities, and stress tests.
 
 from __future__ import annotations
 
+import importlib
 import math
 import random
 
 import pytest
 
+import axiom.rebuild as rebuild_module
 from axiom.augment import augment
-from axiom.color import Vizing
+from axiom.color import Greedy, Vizing
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
+from axiom.ledger import Ledger
 from axiom.matching import greedy, is_maximal_matching, partner_in, partners
+from axiom.paper_coloring import Paper
+from axiom.parallel import compare, run_parallel, worker
+from axiom.rebuild import Basic, Multilevel
 from axiom.simulation import random_updates
 from axiom.simulation import replay as replay
 from axiom.system import System, build
@@ -193,7 +199,7 @@ class TestAdjacency:
 class TestColor:
     """Tests for :mod:`axiom.color`."""
 
-    def _is_proper(self, graph: Adjacency, coloring: dict) -> bool:
+    def proper(self, graph: Adjacency, coloring: dict) -> bool:
         for u in range(graph.n):
             seen: set[int] = set()
             for v in graph.neighbors(u):
@@ -211,7 +217,7 @@ class TestColor:
         g.add_edge(2, 0)
         coloring = Vizing().color(g, 2)
         assert len(set(coloring.values())) <= 3
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_star(self) -> None:
         g = Adjacency(5)
@@ -219,7 +225,7 @@ class TestColor:
             g.add_edge(0, i)
         coloring = Vizing().color(g, 4)
         assert len(set(coloring.values())) <= 5
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_path(self) -> None:
         g = Adjacency(4)
@@ -228,7 +234,7 @@ class TestColor:
         g.add_edge(2, 3)
         coloring = Vizing().color(g, 2)
         assert len(set(coloring.values())) <= 3
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_empty_graph(self) -> None:
         g = Adjacency(3)
@@ -252,7 +258,7 @@ class TestColor:
             g.add_edge(i, (i + 1) % 5)
         coloring = Vizing().color(g, 2)
         assert len(set(coloring.values())) <= 3
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_complete_graph_odd(self) -> None:
         n = 5
@@ -262,7 +268,7 @@ class TestColor:
                 g.add_edge(i, j)
         coloring = Vizing().color(g, n - 1)
         assert len(set(coloring.values())) <= n
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_complete_graph_even(self) -> None:
         n = 6
@@ -272,7 +278,7 @@ class TestColor:
                 g.add_edge(i, j)
         coloring = Vizing().color(g, n - 1)
         assert len(set(coloring.values())) <= n
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_disconnected_components(self) -> None:
         g = Adjacency(6)
@@ -284,14 +290,14 @@ class TestColor:
         g.add_edge(5, 3)
         coloring = Vizing().color(g, 2)
         assert len(set(coloring.values())) <= 3
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_single_edge(self) -> None:
         g = Adjacency(2)
         g.add_edge(0, 1)
         coloring = Vizing().color(g, 1)
         assert len(set(coloring.values())) == 1
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_two_parallel_paths(self) -> None:
         g = Adjacency(6)
@@ -301,7 +307,7 @@ class TestColor:
         g.add_edge(4, 5)
         coloring = Vizing().color(g, 2)
         assert len(set(coloring.values())) <= 3
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
     def test_coloring_all_edges_present(self) -> None:
         g = Adjacency(4)
@@ -320,7 +326,7 @@ class TestColor:
             g.add_edge(*edge)
         coloring = Vizing().color(g, 2)
         assert len(coloring) == g.num_edges()
-        assert self._is_proper(g, coloring)
+        assert self.proper(g, coloring)
 
 
 # ------------------------------------------------------------------
@@ -697,7 +703,6 @@ class TestMatcher:
         assert matcher.level_phase_indices == [0]
 
     def test_multilevel_child_schedule_uses_phase_start_density(self) -> None:
-        from axiom.rebuild import Multilevel
 
         edges = [(left, right) for left in range(32) for right in range(left + 1, 32)]
         base = Adjacency(32)
@@ -712,7 +717,7 @@ class TestMatcher:
             matcher.graph.add_edge(*edge)
         matcher.level_phase_updates = [1] * len(matcher.level_phase_lengths)
 
-        child_schedule, _, _ = Multilevel._schedule(matcher)
+        child_schedule, _, _ = Multilevel.schedule(matcher)
 
         assert child_schedule == initial_schedule
 
@@ -724,8 +729,6 @@ class TestMatcher:
         algo = Matcher(16, mode="multilevel", graph=dense)
         assert len(algo.level_zs) > 1
         edge = next(iter(algo.graph.edges()))
-
-        import axiom.rebuild as rebuild_module
 
         def unexpected_base_rebuild(*args, **kwargs):
             raise AssertionError("recursive rebuild rebuilt level one")
@@ -751,7 +754,7 @@ class TestMatcher:
             Matcher(4, colorer=object())  # type: ignore[arg-type]
 
     def test_multilevel_rejects_non_paper_colorer(self) -> None:
-        with pytest.raises(ValueError, match="PaperFanColorer"):
+        with pytest.raises(ValueError, match="Paper"):
             Matcher(4, mode="multilevel", colorer=Vizing())
 
     def test_matcher_has_no_forwarding_wrapper_methods(self) -> None:
@@ -761,7 +764,6 @@ class TestMatcher:
         assert not hasattr(Matcher, "maintain_i3")
 
     def test_legacy_invariant_wrapper_module_is_removed(self) -> None:
-        import importlib
 
         with pytest.raises(ModuleNotFoundError):
             importlib.import_module("axiom.invariant")
@@ -1381,7 +1383,6 @@ class TestMatcher:
         graph.has_edge) before adding a candidate edge to the matching,
         not blindly trust a stale lambda list that mentions a non-edge.
         """
-        from axiom.types import canonical
 
         algo = Matcher(4, mode="basic")
         algo.insert(0, 1)
@@ -1420,7 +1421,6 @@ class TestMatcher:
 
     def test_partition_color_range_error(self) -> None:
         """Regression: out-of-range colors from a colorer must raise."""
-        from axiom.color import Greedy
 
         algo = Matcher(4, mode="basic", colorer=Greedy())
 
@@ -1571,9 +1571,8 @@ class TestHierarchy:
 
     def test_recursive_builder_colors_each_preceding_matching(self) -> None:
         """Each refinement input is the preceding level's matching subgraph."""
-        from axiom.paper_coloring import PaperFanColorer
 
-        class RecordingColorer(PaperFanColorer):
+        class RecordingColorer(Paper):
             def __init__(self) -> None:
                 self.calls: list[set[tuple[int, int]]] = []
                 self.colorings: list[dict[tuple[int, int], int]] = []
@@ -1807,7 +1806,7 @@ class TestHierarchy:
             def color(self, graph: Adjacency, delta: int) -> dict[tuple[int, int], int]:
                 return super().color(graph, delta)
 
-        with pytest.raises(ValueError, match="PaperFanColorer"):
+        with pytest.raises(ValueError, match="Paper"):
             build_hierarchy(graph, [8, 4, 2], RecordingColorer())
 
     def test_refinement_applies_edge_subsets_and_insertions(self) -> None:
@@ -2191,9 +2190,8 @@ class TestRefactor:
         Run a deterministic random walk and assert that the partner
         dict and the matched_edges set describe the same relation.
         """
-        import random as random_mod
 
-        rng = random_mod.Random(0)
+        rng = random.Random(0)
         n = 30
         algo = Matcher(n, mode="basic")
         for op in random_updates(n, 300, rng):
@@ -2214,14 +2212,12 @@ class TestRefactor:
 
     def test_policy_default_is_basic(self) -> None:
         """Matcher with mode='basic' has a Basic policy."""
-        from axiom.rebuild import Basic
 
         algo = Matcher(4, mode="basic")
         assert isinstance(algo.policy, Basic)
 
     def test_policy_default_is_multilevel(self) -> None:
         """Matcher with mode='multilevel' has a Multilevel policy."""
-        from axiom.rebuild import Multilevel
 
         algo = Matcher(4, mode="multilevel")
         assert isinstance(algo.policy, Multilevel)
@@ -2279,9 +2275,8 @@ class TestCoverage:
 
     def test_dense_graph_stress(self) -> None:
         """A dense graph after a long random walk."""
-        import random as random_mod
 
-        rng = random_mod.Random(123)
+        rng = random.Random(123)
         n = 30
         algo = Matcher(n, mode="basic")
         # Build a dense graph by inserting many edges.
@@ -2304,9 +2299,8 @@ class TestCoverage:
 
     def test_replay_then_maximal(self) -> None:
         """After replay, the matching must be maximal for any seed."""
-        import random as random_mod
 
-        rng = random_mod.Random(7)
+        rng = random.Random(7)
         n = 40
         updates = list(random_updates(n, 100, rng))
         algo = Matcher(n, mode="basic")
@@ -2315,7 +2309,6 @@ class TestCoverage:
 
     def test_greedy_colorer_proper(self) -> None:
         """Greedy().color returns a proper coloring."""
-        from axiom.color import Greedy
 
         g = Adjacency(6)
         for u, v in [(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4), (4, 5)]:
@@ -2329,7 +2322,6 @@ class TestCoverage:
 
     def test_ledger_independent(self) -> None:
         """Ledger can be used standalone (no matcher required)."""
-        from axiom.ledger import Ledger
 
         ledger = Ledger()
         ledger.record_insertion()
@@ -2351,7 +2343,6 @@ class TestCoverage:
 
     def test_compare_modes_returns_both(self) -> None:
         """compare returns results for both basic and multilevel modes."""
-        from axiom.parallel import compare
 
         results = compare(n=20, updates=20, seed=1, max_workers=1)
         assert "basic" in results
@@ -2368,14 +2359,12 @@ class TestCoverage:
     )
     def test_worker_rejects_invalid_benchmark_inputs(self, arguments) -> None:
         """worker rejects invalid configs before doing any benchmark work."""
-        from axiom.parallel import worker
 
         with pytest.raises(ValueError):
             worker(*arguments)
 
     def test_compare_with_one_update_handles_zero_elapsed(self) -> None:
         """compare with very small updates exercises the float('inf') branch."""
-        from axiom.parallel import compare
 
         results = compare(n=10, updates=1, seed=1, max_workers=1)
         assert results["basic"].is_maximal
@@ -2385,7 +2374,6 @@ class TestCoverage:
 
     def test_compare_alternating_seeds(self) -> None:
         """compare runs deterministically across multiple seeds."""
-        from axiom.parallel import compare
 
         for seed in (1, 7, 42):
             results = compare(n=15, updates=10, seed=seed, max_workers=1)
@@ -2394,7 +2382,6 @@ class TestCoverage:
 
     def test_run_parallel_empty_configs(self) -> None:
         """run_parallel with no configs returns an empty list."""
-        from axiom.parallel import run_parallel
 
         assert run_parallel([], max_workers=1) == []
 
@@ -2411,14 +2398,12 @@ class TestCoverage:
         self, configs, max_workers
     ) -> None:
         """Malformed configs fail before multiprocessing starts."""
-        from axiom.parallel import run_parallel
 
         with pytest.raises(ValueError):
             run_parallel(configs, max_workers=max_workers)
 
     def test_run_parallel_respects_max_workers(self) -> None:
         """run_parallel completes a small batch with explicit max_workers."""
-        from axiom.parallel import run_parallel
 
         configs = [
             (10, "basic", 5, 1),
@@ -2430,7 +2415,6 @@ class TestCoverage:
 
     def test_worker_zero_updates_returns_inf_rate(self) -> None:
         """worker with zero updates produces inf updates_per_sec."""
-        from axiom.parallel import worker
 
         result = worker(n=8, mode="basic", updates=0, seed=1)
         assert result.updates == 0

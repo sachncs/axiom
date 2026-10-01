@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
-from axiom.paper_coloring import PaperFanColorer
+from axiom.paper_coloring import Paper
 from axiom.system import System, build
 from axiom.types import Graph
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from axiom.core import Matcher
 
 
-def _snapshot(graph: Graph) -> Graph:
+def snapshot(graph: Graph) -> Graph:
     """Create an isolated adjacency snapshot for the current phase."""
     result = Adjacency(graph.n)
     for left, right in graph.edges():
@@ -37,7 +37,7 @@ def _snapshot(graph: Graph) -> Graph:
     return result
 
 
-def _copy_system(system: System, graph: Graph) -> System:
+def copy(system: System, graph: Graph) -> System:
     """Copy a system state onto an isolated graph snapshot."""
     copied = System(
         graph=graph,
@@ -49,51 +49,6 @@ def _copy_system(system: System, graph: Graph) -> System:
     )
     copied.index()
     return copied
-
-
-def _with_edges(graph: Graph, edges: set[tuple[int, int]]) -> Graph:
-    """Return a graph snapshot containing ``graph`` plus ``edges``."""
-    result = _snapshot(graph)
-    for left, right in edges:
-        if not result.has_edge(left, right):
-            result.add_edge(left, right)
-    return result
-
-
-def _base_snapshot(matcher: Matcher) -> tuple[Graph, System]:
-    """Snapshot the inherited level-1 system for recursive refinement.
-
-    The theorem-4.4 refinement requires a valid h-level input system.  The
-    level-1 partition and matching are part of that input and must be
-    inherited rather than rebuilt independently.  The graph is copied so the
-    refinement can apply its deleted/inserted edge sets without mutating the
-    live hierarchy.
-    """
-    if (
-        matcher.multi is None
-        or matcher.phase_base_graph is None
-        or matcher.phase_base_system is None
-    ):
-        raise RuntimeError(
-            "multilevel rebuild is missing its inherited phase-base state"
-        )
-    # Keep the phase-start graph and its M edges intact: theorem 4.4 treats
-    # ED as deletions from that input system and chooses the bounded subset
-    # that may be deferred into the refined hierarchy.  Insertions remain in
-    # EI and are supplied separately to ``refine_hierarchy``.
-    # The authoritative input is the immutable phase-start snapshot.  It may
-    # retain the bounded deferred-deletion set E_D' from the preceding
-    # refinement; the live matcher graph intentionally does not contain
-    # current-phase deletions.
-    graph = _snapshot(matcher.phase_base_graph)
-    previous = matcher.phase_base_system
-    system = _copy_system(previous, graph)
-    if not system.check():
-        raise RuntimeError(
-            "phase snapshot cannot inherit the previous level-1 system: "
-            "its partition or matching is no longer valid"
-        )
-    return graph, system
 
 
 class Rebuild(Protocol):
@@ -123,6 +78,7 @@ class Basic:
     name = "basic"
 
     def configure(self, matcher: Matcher) -> None:
+        """Configure the basic mode's degree cap and phase lengths."""
         matcher.z = math.ceil(matcher.n ** (2.0 / 3.0)) if matcher.n > 0 else 1
         matcher.phase_length = (
             math.ceil(matcher.n ** (4.0 / 3.0)) if matcher.n > 0 else 1
@@ -134,6 +90,7 @@ class Basic:
         matcher.eta = 0
 
     def rebuild(self, matcher: Matcher) -> None:
+        """Rebuild the basic z-system, refresh the matching, and reset counters."""
         matcher.system = build(matcher.graph, matcher.z)
         if not matcher.system.check():
             raise RuntimeError(
@@ -163,9 +120,7 @@ class Multilevel:
     name = "multilevel"
 
     @staticmethod
-    def _validate_nested_schedule(
-        level_zs: list[int], phase_lengths: list[int]
-    ) -> None:
+    def validate(level_zs: list[int], phase_lengths: list[int]) -> None:
         """Reject schedules that do not encode the paper's binary nesting."""
         if len(level_zs) != len(phase_lengths) or not level_zs:
             raise RuntimeError("multilevel schedule has mismatched level state")
@@ -187,7 +142,7 @@ class Multilevel:
                 )
 
     @staticmethod
-    def _reset_phase_clocks(matcher: Matcher) -> None:
+    def reset(matcher: Matcher) -> None:
         """Reset the nested clocks after a schedule change or first build."""
         matcher.level_phase_updates = [0 for _ in matcher.level_phase_lengths]
         matcher.level_phase_indices = [0 for _ in matcher.level_phase_lengths]
@@ -202,7 +157,7 @@ class Multilevel:
         boundaries explicit for the rebuild and invariant-maintenance code.
         """
         if len(matcher.level_phase_updates) != len(matcher.level_phase_lengths):
-            Multilevel._reset_phase_clocks(matcher)
+            Multilevel.reset(matcher)
         for index, length in enumerate(matcher.level_phase_lengths):
             matcher.level_phase_updates[index] += 1
             if matcher.level_phase_updates[index] > length:
@@ -214,23 +169,24 @@ class Multilevel:
                 matcher.level_phase_updates[index] = 0
 
     def configure(self, matcher: Matcher) -> None:
-        level_zs, phase_lengths, eta = self._schedule(matcher)
-        self._validate_nested_schedule(level_zs, phase_lengths)
+        """Configure the density-sensitive recursive schedule and its clocks."""
+        level_zs, phase_lengths, eta = self.schedule(matcher)
+        self.validate(level_zs, phase_lengths)
         matcher.level_zs = level_zs
         matcher.level_phase_lengths = phase_lengths
         matcher.eta = eta
         matcher.k = len(level_zs)
-        matcher.phase_length = self._phase_budget(matcher)
+        matcher.phase_length = self.budget(matcher)
         # The active system is the finest (smallest-z) level.
         if matcher.z == 0 and matcher.level_zs:
             matcher.z = matcher.level_zs[-1]
         matcher.subphase_length = (
             max(1, matcher.phase_length // matcher.z) if matcher.z > 0 else 1
         )
-        self._reset_phase_clocks(matcher)
+        self.reset(matcher)
 
     @staticmethod
-    def _schedule(matcher: Matcher) -> tuple[list[int], list[int], int]:
+    def schedule(matcher: Matcher) -> tuple[list[int], list[int], int]:
         """Return the paper's density-sensitive recursive level schedule.
 
         The starting degree is the least power of two at least the current
@@ -279,7 +235,7 @@ class Multilevel:
         return level_zs, phase_lengths, eta
 
     @staticmethod
-    def _phase_budget(matcher: Matcher) -> int:
+    def budget(matcher: Matcher) -> int:
         """Return the active finest-level phase length.
 
         The recursive type-2 schedule gives a level-``i`` phase length of
@@ -294,15 +250,16 @@ class Multilevel:
         return matcher.level_phase_lengths[-1]
 
     def rebuild(self, matcher: Matcher) -> None:
+        """Refine inherited hierarchy state and synchronize the live matching."""
         previous_lengths = list(matcher.level_phase_lengths)
         previous_schedule = list(matcher.level_zs)
-        level_zs, phase_lengths, eta = self._schedule(matcher)
-        self._validate_nested_schedule(level_zs, phase_lengths)
+        level_zs, phase_lengths, eta = self.schedule(matcher)
+        self.validate(level_zs, phase_lengths)
         matcher.level_zs = level_zs
         matcher.level_phase_lengths = phase_lengths
         matcher.eta = eta
         matcher.k = len(level_zs)
-        matcher.phase_length = self._phase_budget(matcher)
+        matcher.phase_length = self.budget(matcher)
         # A density transition can change both the number of recursive levels
         # and the active finest-level z value.  Keep the matcher-wide counters
         # synchronized with the schedule used to build the new hierarchy.
@@ -314,7 +271,7 @@ class Multilevel:
             or len(matcher.level_phase_updates) != len(phase_lengths)
         )
         if schedule_changed:
-            self._reset_phase_clocks(matcher)
+            self.reset(matcher)
         parent_boundary = matcher.update_count > 0 and (
             len(level_zs) == 1
             or schedule_changed
@@ -326,10 +283,8 @@ class Multilevel:
         )
         phase_base_graph: Graph
         phase_base_system: System
-        if not isinstance(matcher.colorer, PaperFanColorer):
-            raise RuntimeError(
-                "multilevel rebuild requires the deterministic PaperFanColorer"
-            )
+        if not isinstance(matcher.colorer, Paper):
+            raise RuntimeError("multilevel rebuild requires the deterministic Paper")
         recursive_colorer = matcher.colorer
         if (
             previous is not None
@@ -338,12 +293,29 @@ class Multilevel:
             and len(matcher.level_zs) > 1
             and (matcher.inserted_edges or matcher.deleted_edges)
         ):
-            old_graph, base_system = _base_snapshot(matcher)
+            if (
+                matcher.multi is None
+                or matcher.phase_base_graph is None
+                or matcher.phase_base_system is None
+            ):
+                raise RuntimeError(
+                    "multilevel rebuild is missing its inherited phase-base state"
+                )
+            old_graph = snapshot(matcher.phase_base_graph)
+            base_system = copy(matcher.phase_base_system, old_graph)
+            if not base_system.check():
+                raise RuntimeError(
+                    "phase snapshot cannot inherit the previous level-1 system: "
+                    "its partition or matching is no longer valid"
+                )
             deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
             phase_base_graph = old_graph
-            phase_base_system = _copy_system(base_system, old_graph)
-            refine_graph = _with_edges(old_graph, deleted)
-            working_base_system = _copy_system(base_system, refine_graph)
+            phase_base_system = copy(base_system, old_graph)
+            refine_graph = snapshot(old_graph)
+            for left, right in deleted:
+                if not refine_graph.has_edge(left, right):
+                    refine_graph.add_edge(left, right)
+            working_base_system = copy(base_system, refine_graph)
             matcher.multi = Hierarchy(
                 graph=refine_graph,
                 k=1,
@@ -373,7 +345,7 @@ class Multilevel:
             # is the inherited h-level system required by Theorem 4.4 for
             # the next recursive rebuild; rebuilding it would discard the
             # prior partition and matching state.
-            phase_base_graph = _snapshot(matcher.graph)
+            phase_base_graph = snapshot(matcher.graph)
             phase_base_system = build(phase_base_graph, matcher.level_zs[0])
             matcher.multi = build_hierarchy(
                 phase_base_graph, matcher.level_zs, colorer=recursive_colorer
@@ -433,9 +405,9 @@ class Multilevel:
                 "multilevel rebuild violated invariant I3; refusing to "
                 "continue with stale recursive state"
             )
-        matcher.phase_graph = _snapshot(matcher.multi.graph)
+        matcher.phase_graph = snapshot(matcher.multi.graph)
         if parent_boundary:
-            next_base_graph = _snapshot(matcher.graph)
+            next_base_graph = snapshot(matcher.graph)
             next_base_system = build(next_base_graph, matcher.level_zs[0])
         else:
             next_base_graph = phase_base_graph

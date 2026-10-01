@@ -1,4 +1,4 @@
-"""axiom: deterministic fully dynamic maximal matching.
+r"""axiom: deterministic fully dynamic maximal matching.
 
 This package is a pure-Python implementation based on the deterministic
 fully dynamic maximal matching algorithm of Chuzhoy, Khanna, and Song
@@ -8,7 +8,7 @@ Two operating modes are exposed through :class:`Matcher`:
 
 * ``"basic"`` -- a single-level :math:`z`-subgraph system.
 * ``"multilevel"`` -- a density-sensitive recursive :math:`k`-level system
-  with up to :math:`\\Theta(\\log n)` levels.
+  with up to :math:`\Theta(\log n)` levels.
 
 The supporting modules provide:
 
@@ -20,7 +20,7 @@ The supporting modules provide:
   :func:`build`, :func:`build_hierarchy`,
   :func:`switch`, and :func:`promote`.
 * The edge colouring utilities :class:`Greedy`, :class:`Vizing`, and
-  :class:`PaperFanColorer`, plus the matching augment/flip helpers.
+  :class:`Paper`, plus the matching augment/flip helpers.
 * :class:`Ledger` and the :mod:`axiom.simulation` /
   :mod:`axiom.parallel` modules -- engineering utilities for empirical
   benchmarking and reproducibility.
@@ -45,7 +45,7 @@ from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy, build_hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import greedy, partner_in, partners
-from axiom.paper_coloring import PaperFanColorer
+from axiom.paper_coloring import Paper
 from axiom.parallel import compare, run_parallel
 from axiom.simulation import random_updates, replay
 from axiom.system import (
@@ -68,7 +68,7 @@ __all__ = [
     "Adjacency",
     "Greedy",
     "Vizing",
-    "PaperFanColorer",
+    "Paper",
     "System",
     "Hierarchy",
     "Edge",
