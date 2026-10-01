@@ -19,6 +19,22 @@ def test_bounded_durable_trace_has_exact_recovery_and_query_certificates(
     assert "NOT native checkpoint/soak" in result["scope"]
 
 
+def test_checkpoint_trace_includes_maintenance_and_preserves_exact_recovery(
+    tmp_path: Path,
+) -> None:
+    result = measure(
+        tmp_path / "checkpoint.db", 64, 120, 16, 599, checkpoint_interval=64
+    )
+    assert result["real_acknowledged_updates"] == 240
+    assert result["checkpoint_generation"] == 3
+    assert result["checkpoint_sequence"] == 192
+    assert result["checkpoint_interval"] == 64
+    assert result["retained_retry_recovery_passed"]
+    assert result["independent_audit_passed"] and result["exact_recovery_passed"]
+    assert "native checkpoint/retirement" in result["scope"]
+    assert "NOT soak/concurrent-client" in result["scope"]
+
+
 @pytest.mark.parametrize("n,pairs,batch", [(7, 8, 16), (64, 0, 16), (64, 8, 17)])
 def test_benchmark_rejects_invalid_envelope_before_creating_database(
     tmp_path: Path,

@@ -1,8 +1,8 @@
 """Measure acknowledged FULL-WAL native updates with committed partner queries.
 
-This short bounded-history stage includes SQLite WAL checkpoints, but not native
-graph checkpoints/history compaction or a production soak. It is not the final
-10k qualification. Run in a fresh process and a dedicated local directory.
+The default short v1 trace includes SQLite WAL checkpoints. Explicit v2 traces
+also include native checkpoint/history retirement. Neither is a production soak
+or concurrent-client qualification. Use a fresh process and dedicated local path.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from axiom.durable import Durable, Request
+from axiom.durable import Durable, ExpiredError, Request
 
 
 def canonical(u: int, v: int) -> tuple[int, int]:
@@ -78,10 +78,21 @@ def certificate(store: Durable, extra: set, removed: set, vertices: int) -> str:
     return digest.hexdigest()
 
 
-def measure(path: Path, vertices: int, pairs: int, batch: int, seed: int) -> dict:
+def measure(
+    path: Path,
+    vertices: int,
+    pairs: int,
+    batch: int,
+    seed: int,
+    *,
+    checkpoint_interval: int | None = None,
+) -> dict:
     """Churn a stable edge pool, acknowledge every real edit, and verify recovery."""
-    if vertices < 8 or not 1 <= pairs <= 32768 or not 2 <= batch <= 256 or batch % 2:
-        raise ValueError("require n>=8, 1<=pairs<=32768 and an even batch in [2,256]")
+    limit = 250000 if checkpoint_interval is not None else 32768
+    if vertices < 8 or not 1 <= pairs <= limit or not 2 <= batch <= 256 or batch % 2:
+        raise ValueError(
+            f"require n>=8, 1<=pairs<={limit} and an even batch in [2,256]"
+        )
     if path.exists():
         raise ValueError("benchmark requires a fresh database path")
     rng = random.Random(seed)
@@ -104,7 +115,7 @@ def measure(path: Path, vertices: int, pairs: int, batch: int, seed: int) -> dic
     sampled_disk_peak = 0
     retry_checks = 0
     tick = time.perf_counter()
-    store = Durable(path, n=vertices)
+    store = Durable(path, n=vertices, checkpoint_interval=checkpoint_interval)
     construction = time.perf_counter() - tick
     initial = store.status()
     try:
@@ -184,6 +195,15 @@ def measure(path: Path, vertices: int, pairs: int, batch: int, seed: int) -> dic
             )
         if certificate(recovered, extra, removed, vertices) != matching_digest:
             raise RuntimeError("recovery changed exact deterministic matching")
+        if recovered.apply(requests) != outcomes:
+            raise RuntimeError("recovery changed retained retry outcomes")
+        if final["retired_floor"]:
+            try:
+                recovered.apply([Request(1, "delete", *originals[0])])
+            except ExpiredError:
+                pass
+            else:
+                raise RuntimeError("recovered retired ID did not expire")
         recovery_audit = time.perf_counter() - tick
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
@@ -196,7 +216,14 @@ def measure(path: Path, vertices: int, pairs: int, batch: int, seed: int) -> dic
         }
 
     return {
-        "scope": "FULL-WAL durable group commits + committed partner queries + SQLite WAL checkpoints; NOT native checkpoint/soak qualification",
+        "scope": (
+            "FULL-WAL durable group commits + committed partner queries + "
+            "SQLite WAL checkpoints + native checkpoint/retirement; "
+            "NOT soak/concurrent-client qualification"
+            if checkpoint_interval is not None
+            else "FULL-WAL durable group commits + committed partner queries + "
+            "SQLite WAL checkpoints; NOT native checkpoint/soak qualification"
+        ),
         "python": platform.python_version(),
         "platform": platform.platform(),
         "sqlite": final["sqlite"],
@@ -207,6 +234,13 @@ def measure(path: Path, vertices: int, pairs: int, batch: int, seed: int) -> dic
         "seed": seed,
         "pairs": pairs,
         "batch_limit": batch,
+        "checkpoint_interval": final["checkpoint_interval"],
+        "checkpoint_generation": final["checkpoint_generation"],
+        "checkpoint_sequence": final["checkpoint_sequence"],
+        "retired_floor": final["retired_floor"],
+        "retained_operations": final["retained_operations"],
+        "retained_retry_recovery_passed": True,
+        "expired_retry_recovery_verified": bool(final["retired_floor"]),
         "synchronous": "FULL",
         "fullfsync": True,
         "checkpoint_fullfsync": True,
@@ -242,10 +276,18 @@ def main() -> None:
     parser.add_argument("--pairs", type=int, default=20000)
     parser.add_argument("--batch", type=int, default=256)
     parser.add_argument("--seed", type=int, default=599)
+    parser.add_argument("--checkpoint-interval", type=int)
     args = parser.parse_args()
     print(
         json.dumps(
-            measure(args.database, args.vertices, args.pairs, args.batch, args.seed),
+            measure(
+                args.database,
+                args.vertices,
+                args.pairs,
+                args.batch,
+                args.seed,
+                checkpoint_interval=args.checkpoint_interval,
+            ),
             indent=2,
         )
     )
