@@ -4,6 +4,8 @@ import threading
 
 import pytest
 
+from axiom.durable import Durable
+from axiom.service import Service
 from benchmarks import overload
 from benchmarks.overload import Schedule, measure
 
@@ -35,6 +37,44 @@ def test_offered_load_counts_all_outcomes_and_audits_exact_recovery(tmp_path):
     assert result["service_metrics"]["peak_outstanding"] <= 8
     assert result["peak_client_receipts"] <= 264
     assert result["final_status"]["sequence"] == result["real_acknowledged_updates"]
+    assert result["independent_exact_audit_and_recovery_passed"]
+
+
+def test_blocked_durability_forces_busy_without_dropping_or_resequencing_accepted_work(
+    tmp_path, monkeypatch
+):
+    entered, release = threading.Event(), threading.Event()
+    persist, submit = Durable._persist, Service.submit
+    calls = 0
+
+    def paused(owner, rows):
+        if not entered.is_set():
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test durability release timed out")
+        persist(owner, rows)
+
+    def offered(service, request):
+        nonlocal calls
+        try:
+            return submit(service, request)
+        finally:
+            calls += 1
+            if calls == 2:
+                assert entered.wait(5)
+            if calls >= 32:
+                release.set()
+
+    monkeypatch.setattr(Durable, "_persist", paused)
+    monkeypatch.setattr(Service, "submit", offered)
+    try:
+        result = measure(
+            tmp_path / "blocked.db", 32, 10000, 1, query_rate=1000, queue_capacity=8
+        )
+    finally:
+        release.set()
+    assert result["busy_update_offers"] >= 24
+    assert result["service_metrics"]["peak_outstanding"] == 8
     assert result["independent_exact_audit_and_recovery_passed"]
 
 
