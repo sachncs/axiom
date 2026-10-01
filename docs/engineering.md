@@ -5,6 +5,20 @@ not a claim that the full scalability or durability roadmap has been delivered.
 Production matching semantics remain unchanged. The default backend is still the
 Python reference; native graphs are explicitly selected by callers.
 
+The accepted production target is now **10,000 real edge updates/s at 1,000,000
+vertices and average degree 4**, including durable acknowledgments and coherent
+matching queries. The user approved a separate native incremental maximal-matching
+production backend; the paper/coloring/hierarchy engine remains available and is
+not silently replaced. The target is **not achieved**. See the explicit rationale,
+contracts, alternatives, and implementation status in [architecture decision
+records](adrs/README.md).
+
+Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
+zero counters, and coloring-validation buckets. Exact consistency checks remain.
+Identical short 512-vertex basic traces improved median rate from 327.7 to 509.0
+updates/s, with lower traced peaks and p99 samples. This does not eliminate
+whole-matcher snapshots or qualify the production target; see [ADR 0004](adrs/0004-sparse-phase-indexes.md).
+
 ## Implemented foundation, not product qualification
 
 `Packed` now provides compact native segmented adjacency, bounded native growth,
@@ -317,8 +331,9 @@ a candidate edge set is a proper matching.
 
 Record the deployment's typical and maximum `n`, `m`, degree distribution,
 insertion/deletion ratio, burst length, query/update ratio, and required p99 and
-memory limits. These product requirements are not available yet; this benchmark
-does not invent a production SLO.
+memory limits. Vertex/average-degree/acknowledged-rate targets are now accepted
+(ADR 0001); deployment-specific p99, resource, query-mix, and recovery limits
+remain to be recorded. This benchmark does not invent agreement on those SLOs.
 
 Use the checked-in traces as repeatable engineering gates. A provisional first
 optimization target is at least 2× basic sparse throughput at 512 vertices,
