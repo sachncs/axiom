@@ -38,7 +38,7 @@ def test_streaming_concurrent_trace_counts_real_acks_queries_and_checkpoints(
         checkpoint_interval=64,
     )
     assert result["real_acknowledged_updates"] == 400
-    assert result["partner_queries"] >= 200
+    assert result["partner_queries"] == 400
     assert result["acknowledged_latency"]["count"] == 400
     assert result["query_queue_wait"]["count"] == result["partner_queries"]
     assert result["service_metrics"]["peak_outstanding"] <= 64
@@ -66,7 +66,7 @@ def test_duration_stops_admission_then_drains_and_audits_actual_completed_prefix
     )
     assert 0 < result["real_acknowledged_updates"] < 200000
     assert result["requested_duration_completed"]
-    assert result["partner_queries"] >= result["real_acknowledged_updates"] // 2
+    assert result["partner_queries"] == result["real_acknowledged_updates"]
     assert result["final_status"]["sequence"] == result["real_acknowledged_updates"]
     assert result["independent_audit_passed"] and result["exact_recovery_passed"]
 

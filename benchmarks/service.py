@@ -1,4 +1,4 @@
-"""Measure bounded concurrent clients, FULL-WAL acknowledgments and queued reads.
+"""Measure bounded concurrent clients, FULL-WAL acknowledgments and partner reads.
 
 Streaming histograms include queue wait and native checkpoint maintenance. The
 fixed-pool closed-loop workload is not an open-loop overload or power-cut test.
@@ -143,7 +143,7 @@ def measure(
             extras.append((u, v))
     toggled, trace = [False] * width, hashlib.sha256()
     admission, writers_done, failed = (
-        threading.Lock(),
+        threading.Condition(),
         threading.Event(),
         threading.Event(),
     )
@@ -210,6 +210,7 @@ def measure(
                             trace.update(f"{seq}:{operation}:{u}:{v};".encode())
                         toggled[cell] = not toggled[cell]
                     completed_pairs += count
+                    admission.notify_all()
                 if not count:
                     break
                 outcomes = []
@@ -250,11 +251,24 @@ def measure(
         previous = 1
         try:
             barrier.wait(timeout=10)
-            while not failed.is_set() and (
-                not writers_done.is_set() or read_histograms[0].count < completed_pairs
-            ):
+            while not failed.is_set():
+                # Fixed 1:1 query/update mix, independent of query execution speed.
+                # Unrestricted fast reads would silently change offered work and
+                # CPU contention compared with the earlier queued-read benchmark.
+                with admission:
+                    while (
+                        read_histograms[0].count == 2 * completed_pairs
+                        and not writers_done.is_set()
+                        and not failed.is_set()
+                    ):
+                        admission.wait(0.1)
+                    count = min(
+                        query_window, 2 * completed_pairs - read_histograms[0].count
+                    )
+                if not count:
+                    break
                 pending = []
-                for _ in range(query_window):
+                for _ in range(count):
                     vertex = query_rng.randrange(vertices)
                     admitted = time.perf_counter_ns()
                     pending.append((vertex, service.partner(vertex), admitted))
@@ -286,7 +300,9 @@ def measure(
         barrier.wait(timeout=10)
         for worker in workers:
             worker.join(max(0, deadline - time.monotonic()))
-        writers_done.set()
+        with admission:
+            writers_done.set()
+            admission.notify_all()
         query_worker.join(max(0, deadline - time.monotonic()))
         if any(worker.is_alive() for worker in workers + [query_worker]):
             raise TimeoutError("bounded concurrent clients did not finish")
@@ -301,7 +317,9 @@ def measure(
         live_audit = time.perf_counter() - tick
     finally:
         failed.set()
-        writers_done.set()
+        with admission:
+            writers_done.set()
+            admission.notify_all()
         service.close(10)
     removed = {originals[i] for i in range(width) if toggled[i]}
     extra = {extras[i] for i in range(width) if toggled[i]}
@@ -327,7 +345,8 @@ def measure(
         raise RuntimeError("acknowledged update count differs from trace")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
-        "scope": "bounded closed-loop clients + queued coherent queries + FULL-WAL + native checkpoint retirement; NOT open-loop overload/power-cut qualification",
+        "scope": "bounded closed-loop clients + committed partner reads (1:1 query/update mix) + FULL-WAL + native checkpoint retirement; NOT open-loop overload/power-cut qualification",
+        "query_policy": "one partner query per admitted real update; drain all credits",
         "python": platform.python_version(),
         "platform": platform.platform(),
         "sqlite": final["sqlite"],
