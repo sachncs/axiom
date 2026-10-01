@@ -124,6 +124,7 @@ def test_producer_counts_ipc_drops_separately_without_blocking(
         {"rate": 0},
         {"seconds": 0},
         {"seconds": True},
+        {"seconds": 1801},
         {"query_rate": 0},
         {"queue_capacity": 1},
         {"ipc_bytes": 0},
@@ -139,3 +140,11 @@ def test_invalid_envelope_never_starts_process_or_creates_store(tmp_path, option
     with pytest.raises(ValueError):
         measure(path, **settings)
     assert not path.exists()
+
+
+def test_soak_duration_is_accepted_without_overwriting_existing_store(tmp_path):
+    path = tmp_path / "existing.db"
+    path.write_bytes(b"preserve")
+    with pytest.raises(ValueError, match="fresh database"):
+        measure(path, 32, 11000, 1800)
+    assert path.read_bytes() == b"preserve"

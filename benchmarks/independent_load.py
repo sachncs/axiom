@@ -120,7 +120,7 @@ def measure(
         or not 8 <= vertices <= 1000000
         or vertices % 2
         or not 10 <= rate <= 100000
-        or not 1 <= seconds <= 60
+        or not 1 <= seconds <= 1800
         or not 10 <= query_rate <= 10000
         or not 2 <= queue_capacity <= 4096
         or not 1024 <= ipc_bytes <= 65536

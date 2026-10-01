@@ -49,3 +49,13 @@ all retained measurements.
 User acceptance defers stricter latency engineering for this version. Current
 throughput evidence is not hard memory/disk, new-code long-soak or physical
 power-loss qualification. [ADR 0019](../../../docs/adrs/0019-independent-arrivals-and-bounded-ipc.md).
+
+The runner now accepts durations up to 1800 seconds for a latest-code 30-minute
+soak using the same command with `--seconds 1800`. Histograms, producer packet
+buffers and client receipts remain bounded independently of run duration; the
+store continues retiring checkpoint/history rows. The extended bound is not
+evidence of completed qualification: retain the finished JSON, installed source
+and wheel provenance, count all losses, and require exact recovery before
+reporting a sustained result. Run on fresh paths without overlapping local tests
+or performance jobs. Actual Linux allocation/disk exhaustion is qualified
+separately in [ADR 0020](../../../docs/adrs/0020-resource-exhaustion-and-recovery.md).
