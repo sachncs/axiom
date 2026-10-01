@@ -15,7 +15,7 @@ def test_profile_keeps_full_history_validation_and_exact_recovery(tmp_path):
     assert result["independent_exact_audit_and_recovery_passed"]
     functions = {item["function"]: item for item in result["functions"]}
     assert functions["_digest"]["calls"] == 256
-    assert functions["_integer"]["calls"] == 6 * 256
+    assert "_integer" not in functions
     assert functions["_checkpoint_record"]["calls"] == 1
     assert functions["_persist_checkpoint"]["calls"] == 1
 

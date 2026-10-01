@@ -663,19 +663,23 @@ class Durable:
             "FROM operations ORDER BY sequence"
         ):
             try:
-                _integer(
-                    seq, sequence + 1, sequence + 1, "checkpoint operation sequence"
-                )
-                _integer(adding, 0, 1, "checkpoint operation")
-                _integer(u, 0, self._engine.n - 1, "checkpoint u")
-                _integer(v, u, self._engine.n - 1, "checkpoint v")
-                _integer(changed, 0, 1, "checkpoint transition")
-                _integer(
-                    current,
-                    recorded + changed,
-                    recorded + changed,
-                    "checkpoint version",
-                )
+                # Keep every strict type/range/version check, but avoid six
+                # Python helper calls per retained row at each checkpoint.
+                if (
+                    type(seq) is not int
+                    or seq != sequence + 1
+                    or type(adding) is not int
+                    or not 0 <= adding <= 1
+                    or type(u) is not int
+                    or not 0 <= u < self._engine.n
+                    or type(v) is not int
+                    or not u <= v < self._engine.n
+                    or type(changed) is not int
+                    or not 0 <= changed <= 1
+                    or type(current) is not int
+                    or current != recorded + changed
+                ):
+                    raise ValueError("invalid checkpoint operation fields")
                 expected = _digest(previous, seq, adding, u, v, bool(changed), current)
                 if digest != expected:
                     raise ValueError("checkpoint operation checksum failed")

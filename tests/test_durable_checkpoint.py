@@ -430,6 +430,52 @@ def test_random_reference_decisions_and_retries_survive_repeated_checkpoints(
             assert recovered.apply([requests[seq]]) == (outcomes[seq],)
 
 
+@pytest.mark.parametrize(
+    "column,value",
+    [
+        ("sequence", 99),
+        ("adding", -1),
+        ("adding", 2),
+        ("adding", 0.5),
+        ("adding", "bad"),
+        ("u", -1),
+        ("u", 33),
+        ("u", 0.5),
+        ("u", "bad"),
+        ("v", -1),
+        ("v", 33),
+        ("v", 0.5),
+        ("v", "bad"),
+        ("changed", -1),
+        ("changed", 2),
+        ("changed", 0.5),
+        ("changed", "bad"),
+        ("version", -1),
+        ("version", 99),
+        ("version", 0.5),
+        ("version", "bad"),
+        ("digest", b"invalid"),
+    ],
+)
+def test_checkpoint_rejects_malformed_history_before_any_publication(
+    tmp_path: Path, column: str, value: object
+) -> None:
+    with create(tmp_path / "graph.db") as store:
+        store.apply(edits(1, 4))
+        version = store._engine.version
+        db = store._db()
+        # Deliberate fault injection through the owner's connection, not a
+        # supported competing SQLite writer. Columns are a fixed test allowlist.
+        db.execute(f"UPDATE operations SET {column}=? WHERE sequence=1", (value,))
+        with pytest.raises(RecoveryError, match="checkpoint history"):
+            store.checkpoint()
+        assert store._engine.version == version
+        assert db.execute("SELECT generation FROM control").fetchone() == (0,)
+        assert db.execute("SELECT count(*) FROM checkpoints").fetchone() == (0,)
+        with pytest.raises(UnavailableError):
+            store.status()
+
+
 def test_checkpoint_allocation_failure_before_persistence_keeps_owner_usable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
