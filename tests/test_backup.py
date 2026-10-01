@@ -246,6 +246,18 @@ def test_service_backup_blocks_mutations_but_not_partner_reads_and_failure_is_lo
             update = service.submit(edit(2))
             assert service.partner(0).result(0) == (1, 1)
             assert not receipt.done() and not update.done()
+            assert service.metrics()["maintenance_outstanding"] == 1
+            accepted = service.metrics()["accepted"]
+            for _ in range(10):
+                for operation in (
+                    service.check,
+                    service.checkpoint,
+                    lambda: service.backup(tmp_path / "rejected.db"),
+                ):
+                    with pytest.raises(BusyError, match="maintenance"):
+                        operation()
+            assert service.metrics()["accepted"] == accepted
+            assert not (tmp_path / "rejected.db").exists()
             with pytest.raises(BusyError):
                 service._owner.partner(0)
             with pytest.raises(BusyError):
@@ -254,9 +266,11 @@ def test_service_backup_blocks_mutations_but_not_partner_reads_and_failure_is_lo
             release.set()
         assert receipt.result(5)["sequence"] == 1
         assert update.result(5) == Outcome(2, True, 2)
+        assert service.metrics()["maintenance_outstanding"] == 0
         with pytest.raises(BackupError):
             service.backup(destination).result(5)
         assert service.metrics()["state"] == "open"
+        assert service.metrics()["maintenance_outstanding"] == 0
         assert service.submit(edit(3)).result(5) == Outcome(3, True, 3)
         with Durable(destination) as restored:
             assert restored.partner(0) == (1, 1) and restored.check()

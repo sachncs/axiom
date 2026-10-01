@@ -430,6 +430,25 @@ def test_failed_full_audit_disables_service_and_all_queued_queries(
         with pytest.raises(UnavailableError):
             query.result(5)
     assert service.metrics()["state"] == "failed"
+    assert service.metrics()["maintenance_outstanding"] == 0
+
+
+def test_maintenance_class_counts_queued_jobs_and_releases_all_slots_on_fail_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with create(tmp_path / "graph.db", maintenance_capacity=2) as service:
+        monkeypatch.setattr(service._owner, "check", lambda: False)
+        with service._condition:
+            audit = service.check()
+            queued = service.checkpoint()
+            assert service.metrics()["maintenance_outstanding"] == 2
+            with pytest.raises(BusyError, match="maintenance"):
+                service.checkpoint()
+        for receipt in (audit, queued):
+            with pytest.raises(UnavailableError):
+                receipt.result(5)
+    assert service.metrics()["maintenance_outstanding"] == 0
+    assert service.metrics()["outstanding"] == 0
 
 
 @pytest.mark.parametrize("stage", ["before_commit", "after_commit", "after_publish"])
@@ -565,6 +584,10 @@ def test_concurrent_clients_and_queries_agree_with_exact_versioned_reference(
         {"batch_wait_ms": True},
         {"batch_wait_ms": 10**1000},
         {"queue_capacity": 33},
+        {"maintenance_capacity": 0},
+        {"maintenance_capacity": True},
+        {"maintenance_capacity": 65},
+        {"queue_capacity": 4, "maintenance_capacity": 5},
     ],
 )
 def test_invalid_service_policy_releases_any_acquired_owner(

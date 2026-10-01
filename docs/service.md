@@ -36,6 +36,10 @@ and cannot exceed retention. `batch_wait_ms` defaults to 1 and caps at 100.
 - A receipt is only in-memory acceptance. Successful update `result()` follows
   FULL-WAL commit and coherent publication. Timeout **does not cancel** accepted
   work or prove noncommit. Keep the receipt or retry the original ID/payload.
+- Explicit audits/checkpoints/backups also share `maintenance_capacity` (default
+  1, maximum `min(64, queue_capacity)`). Active and queued jobs count until
+  completion; excess gets synchronous `BusyError`. Ordinary work retains the
+  global cap. [ADR 0014](adrs/0014-maintenance-admission.md).
 - Fresh-group failure stops the service and resolves remaining receipts as errors.
   Even a healthy preparation rejection stops it to avoid admitted sequence gaps.
   Recovery decides the committed prefix. Previously delivered success stays success.
@@ -56,6 +60,10 @@ updates but never private intermediate graph/matching state. Stale page versions
 reject without disabling a healthy owner; audits/certificate failure fail closed.
 
 `metrics()` is an immediate bounded admission diagnostic, not a graph query.
+`maintenance_outstanding` includes active/queued expensive work, not automatic
+checkpointing within update groups. `backup(path).result()` publishes a bounded,
+self-contained snapshot without overwriting existing files; see
+[backup/restore contracts](durable.md#backup-and-independent-restore).
 `next_admission_sequence` is **not** the durable sequence; `status().result()`
 reports the committed one. Assembly wait is not a maximum acknowledgment SLA.
 Concurrent client calls and receipt waiters are supported on GIL-enabled CPython;

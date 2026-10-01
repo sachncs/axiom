@@ -112,6 +112,7 @@ class _Work:
     action: Callable[[Durable], object] | None = None
     started_ns: int = 0
     finished: bool = False
+    maintenance: bool = False
 
 
 class Service:
@@ -133,6 +134,7 @@ class Service:
         width: int = 2,
         budget: int = 1 << 30,
         queue_capacity: int = 1024,
+        maintenance_capacity: int = 1,
         max_batch: int | None = None,
         batch_wait_ms: float = 1.0,
         checkpoint_interval: int | None = None,
@@ -143,6 +145,9 @@ class Service:
     ) -> None:
         """Open native checkpoint v2 and start its single local mutation worker."""
         _integer(queue_capacity, 1, 16384, "queue_capacity")
+        _integer(
+            maintenance_capacity, 1, min(64, queue_capacity), "maintenance_capacity"
+        )
         if type(batch_wait_ms) not in (int, float) or not 0 <= batch_wait_ms <= 100:
             raise ValueError("batch_wait_ms must be finite in [0,100]")
         if not Path(path).exists() and checkpoint_interval is None:
@@ -153,6 +158,8 @@ class Service:
         self._reads: deque[_Work] = deque()
         self._pending: dict[int, _Work] = {}
         self._capacity = queue_capacity
+        self._maintenance_capacity = maintenance_capacity
+        self._maintenance = 0
         self._wait_ns = int(batch_wait_ms * 1_000_000)
         self._outstanding = self._accepted = self._completed = 0
         self._peak_outstanding = self._groups = self._largest_group = 0
@@ -208,11 +215,22 @@ class Service:
         self._peak_outstanding = max(self._peak_outstanding, self._outstanding)
         self._condition.notify()
 
-    def _read(self, action: Callable[[Durable], _T]) -> Receipt[_T]:
+    def _read(
+        self, action: Callable[[Durable], _T], *, maintenance: bool = False
+    ) -> Receipt[_T]:
         with self._condition:
             self._admission()
+            if maintenance and self._maintenance >= self._maintenance_capacity:
+                raise BusyError("maintenance capacity reached; nothing was admitted")
             receipt: Receipt[_T] = Receipt()
-            self._reads.append(_Work([cast(Receipt[object], receipt)], action=action))
+            self._reads.append(
+                _Work(
+                    [cast(Receipt[object], receipt)],
+                    action=action,
+                    maintenance=maintenance,
+                )
+            )
+            self._maintenance += maintenance
             self._accepted_one()
             return receipt
 
@@ -310,7 +328,7 @@ class Service:
 
     def checkpoint(self) -> Receipt[dict[str, int]]:
         """Admit explicit durable maintenance under the same single-owner protocol."""
-        return self._read(lambda owner: owner.checkpoint())
+        return self._read(lambda owner: owner.checkpoint(), maintenance=True)
 
     def check(self) -> Receipt[bool]:
         """Admit an independent full audit; audit failure disables the service."""
@@ -320,7 +338,7 @@ class Service:
                 raise UnavailableError("full graph/matching certificate failed")
             return True
 
-        return self._read(audit)
+        return self._read(audit, maintenance=True)
 
     def backup(
         self, path: str | Path, *, max_bytes: int = 64 << 20, timeout: float = 30.0
@@ -333,7 +351,8 @@ class Service:
         return self._read(
             lambda owner: owner.backup(
                 destination, max_bytes=max_bytes, timeout=timeout
-            )
+            ),
+            maintenance=True,
         )
 
     def metrics(self) -> dict[str, int | str]:
@@ -351,6 +370,8 @@ class Service:
             return {
                 "state": state,
                 "capacity": self._capacity,
+                "maintenance_capacity": self._maintenance_capacity,
+                "maintenance_outstanding": self._maintenance,
                 "outstanding": self._outstanding,
                 "peak_outstanding": self._peak_outstanding,
                 "accepted": self._accepted,
@@ -403,6 +424,7 @@ class Service:
             for receipt in work.receipts:
                 receipt._finish(value, error, work.started_ns or time.perf_counter_ns())
             self._outstanding, self._completed = outstanding, completed
+            self._maintenance -= work.maintenance
             work.finished = True
             if work.request is not None:
                 self._pending.pop(work.request.sequence, None)
