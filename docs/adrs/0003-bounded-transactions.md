@@ -60,3 +60,6 @@ Paper accounting now uses bounded first-write undo and retains Ledger identity
 on failure ([0024](0024-accounting-journal.md)). Absent-edge accounting failures
 also roll back; uncertain cleanup/rollback explicitly fail-stops the Matcher.
 Full Python algorithm snapshot elimination is **not implemented**.
+The matching edge/vertex/partner containers also retain identity through bounded
+cell undo rather than deepcopy ([0025](0025-matching-view-journal.md)). Other state
+and global alias preflight remain on the migration path, not a completed local engine.

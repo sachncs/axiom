@@ -34,6 +34,26 @@ def verify() -> None:
         counter.rollback(journal)
         if matcher.accountant is not counter or witness.capture(matcher) != before:
             raise RuntimeError("installed paper scalar undo changed exact state")
+        held = matcher.matched_edges, matcher.matched_vertices, matcher.partner_map
+        matcher.delete(0, 1)
+        matcher.insert(0, 1)
+        if (
+            not all(
+                current is original
+                for current, original in zip(
+                    (
+                        matcher.matched_edges,
+                        matcher.matched_vertices,
+                        matcher.partner_map,
+                    ),
+                    held,
+                    strict=True,
+                )
+            )
+            or matcher.views is not None
+            or not matcher.maximal()
+        ):
+            raise RuntimeError("installed local matching edits replaced their views")
     engine = Engine(16)
     token = engine.begin()
     engine.insert(0, 1)

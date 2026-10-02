@@ -68,6 +68,12 @@ preserve Ledger identity and exact counters, including absent-edge deletion
 failures. [ADR 0024](adrs/0024-accounting-journal.md) records publication/fail-stop
 behavior and the remaining migration boundary.
 
+Matching edge/vertex sets and the partner map now use first-write cell undo, with
+their original containers retained in the snapshot memo. Failed repair/rebuild
+restores their identities, including old edits before candidate replacement.
+[ADR 0025](adrs/0025-matching-view-journal.md) records the ownership precondition,
+remaining global alias preflight and uncopied-view mutation inventory.
+
 Existing paper rollback restores logical state but replaces many other Python objects
 from snapshots. The tests do **not** claim preservation of every pre-failure
 Python object identity. Journal migration must additionally preserve identities

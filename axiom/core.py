@@ -56,6 +56,7 @@ from axiom.types import (
     Vertex,
     canonical,
 )
+from axiom.views import Views
 
 
 class Matcher:
@@ -158,6 +159,7 @@ class Matcher:
         self.matched_edges: Matching = set()
         self.matched_vertices: set[Vertex] = set()
         self.partner_map: dict[Vertex, Vertex] = {}
+        self.views: Views | None = None
 
         self.z: int = 0
         self.phase_length: int = 0
@@ -546,6 +548,8 @@ class Matcher:
             prior = self.partner_map.get(endpoint)
             if prior is not None and prior not in (u, v):
                 self.drop_match(endpoint, prior)
+        if self.views is not None:
+            self.views.record(u, v)
         self.matched_edges.add(e)
         self.matched_vertices.add(u)
         self.matched_vertices.add(v)
@@ -567,6 +571,8 @@ class Matcher:
         """
         self.ready()
         e = canonical(u, v)
+        if self.views is not None:
+            self.views.record(u, v)
         self.matched_edges.discard(e)
         self.matched_vertices.discard(u)
         self.matched_vertices.discard(v)
@@ -916,9 +922,13 @@ class Matcher:
         journals: list[tuple[Packed, int]] = []
         accountant = self.accountant
         accounting = None
+        views = None
         snapshot = None
         published = False
         try:
+            views = Views(self)
+            for value in (views.edges, views.vertices, views.partners):
+                memo[id(value)] = value
             for graph in managed.values():
                 if isinstance(graph, Packed):
                     token = graph.begin()
@@ -936,15 +946,17 @@ class Matcher:
             snapshot = {
                 name: copy.deepcopy(value, memo)
                 for name, value in self.__dict__.items()
-                if name not in {"graph", "colorer", "policy"}
+                if name not in {"graph", "colorer", "policy", "views"}
             }
             yield
             if self.accountant is not accountant:
                 raise RuntimeError("update replaced its accounting owner")
             accountant.validate(accounting)
+            views.validate()
             publish(journals)
             published = True
             accountant.commit(accounting)
+            views.commit()
         except BaseException as error:
             if published:
                 self.failed = True
@@ -956,6 +968,8 @@ class Matcher:
                     native.rollback(token)
                 if accounting is not None:
                     accountant.rollback(accounting)
+                if views is not None:
+                    views.rollback()
                 # Restore every graph object in place.  Multilevel rebuilds can
                 # mutate a phase graph or an inherited level graph before a later
                 # invariant check fails; restoring only ``self.graph`` would leave
@@ -1440,3 +1454,15 @@ class Matcher:
         """Refuse updates and queries after uncertain publication or rollback."""
         if self.failed:
             raise RuntimeError("matcher has failed; discard matcher")
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Reject replacement of active matching undo, using protocol spelling."""
+        if name == "views" and getattr(self, "views", None) is not None:
+            raise RuntimeError("active matching journal cannot be replaced")
+        object.__setattr__(self, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        """Prevent deletion of the active matching transaction handle."""
+        if name == "views" and self.views is not None:
+            raise RuntimeError("active matching journal cannot be deleted")
+        object.__delattr__(self, name)

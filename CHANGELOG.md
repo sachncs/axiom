@@ -21,11 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed version/partner queries, bounded maintenance and local ownership.
 - Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
   explicit offer-loss accounting, long-run recovery evidence and Linux hard
-  allocation/disk-exhaustion drills. 961 local tests pass at this milestone.
+  allocation/disk-exhaustion drills. 1,009 local tests pass at this milestone.
 - Architecture decision records and operations guidance explaining production
   alternatives to whole-state copying and the limits of current guarantees.
 
 ### Fixed
+
+- Paper matching views now use first-write edge/endpoint undo, not full set/map
+  copies. Failed local repair or rebuilt candidates retain original container
+  identity. Global alias admission and remaining snapshots/certificates still
+  run; this does not establish million-vertex paper throughput or durability.
 
 - Paper accounting now journals first writes instead of copying/replacing the
   Ledger. Failed absent-edge deletions restore exact counters. Uncertain graph

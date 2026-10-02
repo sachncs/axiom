@@ -75,6 +75,7 @@ class Witness:
                 "subphase_length",
                 "system",
                 "update_count",
+                "views",
                 "z",
             ]
         ),

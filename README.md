@@ -34,7 +34,7 @@ The production engine does not claim the paper's coloring/hierarchy theorem.
   universal rate or loss-free admission guarantee.
 - **Reliability:** bounded admission/undo/history, FULL-WAL acknowledgments,
   versioned reads, exact checkpoints/retries, immutable compact backups, and
-  Linux allocation/disk-exhaustion recovery are implemented. 961 local tests pass.
+  Linux allocation/disk-exhaustion recovery are implemented. 1,009 local tests pass.
 - **Active:** broader repeatability/skew qualification, paper-state snapshot
   migration, and durable basic/multilevel integration through the production
   service. Paper modes are not a permanent nondurable endpoint; persistence

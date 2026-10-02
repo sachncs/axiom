@@ -31,6 +31,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | Explicit macOS launch policy measured through growth/drain; burst and Linux hard-resource stages pass separately; aggregate quotas deferred |
 | [0023](0023-durable-paper-integration.md) | Bring basic/multilevel through the durable production service | Required active integration; not implemented or performance-qualified |
 | [0024](0024-accounting-journal.md) | Bounded first-write paper accounting undo and explicit publication/rollback fail-stop | Accounting migrated in place; wider journal migration/durable paper integration remain active |
+| [0025](0025-matching-view-journal.md) | Bounded matching-cell undo and retained edge/vertex/partner containers | Matching views migrated; global alias preflight, other snapshots and durable integration remain active |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
