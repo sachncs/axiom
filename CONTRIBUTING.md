@@ -34,7 +34,11 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 ### Prerequisites
 
 - Python ≥ 3.10
+- C++17 compiler and CPython development headers for native extensions
+- Node.js 22 and npm for the Astro site
 - Git
+
+See [CI/build responsibilities](docs/ci.md) and [current engineering scope](docs/status.md).
 
 ### Installation
 

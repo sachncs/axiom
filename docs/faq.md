@@ -2,8 +2,25 @@
 
 ## What is Axiom?
 
-Axiom is a pure-Python implementation of deterministic fully dynamic
-maximal matching algorithms based on the Chuzhoy–Khanna–Song paper.
+Axiom maintains deterministic maximal matching through online edge changes.
+Its native SQLite-backed local `Service` is distinct from the nondurable Python
+paper/research `Matcher`. See [current status](status.md) for measured evidence
+and active/deferred work; neither path promises maximum-cardinality matching.
+
+## Why C++ and SQLite, rather than replacing one with the other?
+
+C++ provides compact adjacency, partner arrays and bounded local repair/undo.
+SQLite FULL-WAL checkpoints plus committed tail are complete durable authority.
+They solve different problems. Engine alone is nondurable; `Durable` and
+thread-safe `Service` add persistence/publication and bounded concurrency.
+
+## Can I scale to a million or billion vertices?
+
+Scoped million-vertex degree-four full-ring, growth/drain and first indexed-hub
+stages exceed 10k real durable changes/s with coherent queries and exact recovery.
+This is not arbitrary degree support: degree-64 throughput failed the target.
+Billion-vertex qualification and deployment integration are explicitly deferred,
+not supported promises. See [evidence and limitations](status.md).
 
 ## How do I install it today?
 
@@ -26,7 +43,8 @@ pip install -e ".[dev]"
 ## Which modes are supported?
 
 `basic` provides the single-level algorithm. `multilevel` provides the
-recursive hierarchy. These are the only supported mode names.
+recursive hierarchy. These are the only paper `Matcher` mode names; the native
+`Service` is selected separately, not through a hidden paper-mode alias.
 
 ## How do I run the tests?
 

@@ -1,8 +1,20 @@
 # Axiom Documentation
 
-Axiom is a pure-Python implementation of deterministic fully dynamic maximal matching based on the Chuzhoy–Khanna–Song paper.
+Axiom has a native SQLite-backed local matching service and separate Python
+paper/research modes. Start with [current status](status.md): implementation,
+measured evidence, active repeatability/skew and snapshot migration, and explicitly
+deferred work. The production engine does not inherit the paper theorem.
 
 ## Contents
+
+- [Brand assets](brand.md): logo, favicon, palette and verified product walkthrough.
+
+- **[Current status](status.md)** — authoritative current scope and evidence.
+- **[Build and CI](ci.md)** — Astro-only publishing and package/resource gates.
+- **[Service](service.md)** — thread-safe bounded admission, receipts and queries.
+- **[Durability](durable.md)** — SQLite authority, checkpoints, retries and backups.
+- **[Native engine](engine.md)** and **[storage](storage.md)** — compact compute state and budgets.
+- **[Engineering](engineering.md)**, **[operations](operations.md)** and **[ADRs](adrs/README.md)** — qualification, migration rationale and deferrals.
 
 - **[Getting started](getting-started.md)** &mdash; install Axiom and run your first maximal matching.
 - **[Architecture](architecture.md)** &mdash; module boundaries, data flow, and state ownership.
@@ -15,6 +27,11 @@ Axiom is a pure-Python implementation of deterministic fully dynamic maximal mat
 
 Axiom is split into single-responsibility modules, each with a clear
 purpose:
+
+- `axiom.service` — concurrent clients and bounded single-owner scheduling.
+- `axiom.durable` — FULL-WAL commits, exact recovery and checkpoint/history policy.
+- `axiom.engine` / `axiom.native` — compact incremental matching and storage.
+- `axiom.backup` — private compaction and immutable no-overwrite publication.
 
 - `axiom.core` &mdash; `Matcher`, the orchestrator (graph, matching, z-system, augment, rebuild dispatch).
 - `axiom.graph` &mdash; `Adjacency`: dynamic undirected graph.

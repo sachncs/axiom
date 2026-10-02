@@ -2,7 +2,9 @@
 
 `axiom.engine.Engine` implements the production algorithm approved in
 [ADR 0006](adrs/0006-native-production-matcher.md). It is separate from `Matcher`
-and the paper/coloring/hierarchy engine. **It is not yet a durable service.**
+and the paper/coloring/hierarchy engine. The standalone Engine is **in-memory**;
+the implemented [Durable](durable.md) and thread-safe [Service](service.md) add
+SQLite authority and coherent publication. See [current status](status.md).
 
 ```python
 from axiom.engine import Engine

@@ -1,7 +1,12 @@
 # Architecture
 
 This document describes the module boundaries of Axiom and the
-data flow through the algorithm.
+data flow through the paper/research algorithm below. The production path is
+`Service → Durable → native Engine`: bounded single-owner admission, incremental
+repair/certification, SQLite FULL-WAL commit, coherent publication, acknowledgment.
+SQLite is complete durable authority; C++ is compact live compute state.
+See [service](service.md), [durability](durable.md), [current status](status.md)
+and [ADRs](adrs/README.md). Paper-state snapshot migration is active, not complete.
 
 ## Module dependency graph
 

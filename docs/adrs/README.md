@@ -12,25 +12,29 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Native graph/partner journals and separate durability implemented; paper snapshot migration pending |
 | [0004](0004-sparse-phase-indexes.md) | Sparse phase overlays instead of eager empty maps | Implemented and regression-tested; short-trace evidence only |
 | [0005](0005-incremental-certificates.md) | Immediate incremental certificates, not disabled checks | Native production certificates implemented; paper hierarchy work pending |
-| [0006](0006-native-production-matcher.md) | Separate native production matcher, retaining the paper engine | Native core plus first durable layer implemented; full service qualification pending |
+| [0006](0006-native-production-matcher.md) | Native production matcher, retaining the paper engine | Native service implemented; permanent nondurable paper split superseded by 0023 |
 | [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Durable owner and opt-in checkpoints implemented; full-service qualification pending |
 | [0008](0008-resource-and-release-gates.md) | Single ownership, resource limits, independent qualification gates | Partially implemented; full-service gates pending |
 | [0009](0009-sqlite-wal-durable-owner.md) | SQLite FULL-WAL commits with private native publication and bounded replay | Legacy v1 plus opt-in checkpoint v2; sustained qualification pending |
 | [0010](0010-native-checkpoint-and-history-compaction.md) | Exact portable native images before atomic replay/dedup retirement | Codec/publication/retirement tested; short maintenance-inclusive evidence; sustained qualification pending |
-| [0011](0011-bounded-service-admission.md) | Bounded client receipts and single-owner group aggregation/query scheduling | Local service tested; short concurrent evidence; sustained/latency/resource qualification pending |
+| [0011](0011-bounded-service-admission.md) | Bounded client receipts and single-owner group aggregation/query scheduling | Sustained degree-four service stages and Linux hard-resource recovery pass; wider repeatability active |
 | [0012](0012-committed-partner-reads.md) | Coupled published partner reads using bounded undo indexes, not whole-state copies | Threaded regression coverage; latency/resource qualification pending |
-| [0013](0013-bounded-owner-backups.md) | Bounded self-contained SQLite snapshots with no-overwrite publication | Failure/crash/exact-restore tests; device-loss qualification pending |
+| [0013](0013-bounded-owner-backups.md) | Bounded self-contained SQLite snapshots with no-overwrite publication | Failure/crash and compact backup exact restore under hard resource caps pass; hardware power-loss deferred |
 | [0014](0014-maintenance-admission.md) | Separate active/queued audit/checkpoint/backup work bound | Implemented; overload/RSS/disk qualification pending |
-| [0015](0015-skew-and-offered-load-qualification.md) | Force hub repair and reconcile scheduled/rejected/missed/acknowledged load | Benchmarks tested; million hub throughput below target |
+| [0015](0015-skew-and-offered-load-qualification.md) | Force hub repair and reconcile scheduled/rejected/missed/acknowledged load | Latest installed independently paced indexed-hub stage reaches 10,985/s; wider repeats active; older failing reports retained |
 | [0016](0016-sparse-free-vertex-search.md) | Compact ordered free-vertex bitmaps accelerate nearly matched hub repair | Hub stage above 10k; broad qualification pending |
 | [0017](0017-read-admission-reservation.md) | Reserve bounded read capacity without bypassing global admission | Measured zero query Busy under update saturation; full qualification pending |
-| [0018](0018-checkpoint-history-validation-cost.md) | Inline strict retained-history predicates, not skip certificates | Tested/profiled; paced 10k delivery still below target |
-| [0019](0019-independent-arrivals-and-bounded-ipc.md) | Separate producer GIL and bound transport/admission with explicit losses | 10.93k durable/s stage; current latency accepted, hard resource/recovery work pending |
+| [0018](0018-checkpoint-history-validation-cost.md) | Inline strict retained-history predicates, not skip certificates | Tested/profiled; subsequent full-ring/growth/hub durable stages exceed 10k in the declared envelope |
+| [0019](0019-independent-arrivals-and-bounded-ipc.md) | Separate producer GIL and bound transport/admission with explicit losses | Declared paced stages and Linux resource/recovery pass; current latency accepted; broader repeatability active |
 | [0020](0020-resource-exhaustion-and-recovery.md) | Isolated hard address-space/filesystem exhaustion with exact recovery | Million-vertex growth/drain and compact backup recovery passed; deployment quotas pending; hardware power-loss deferred |
 | [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Fixed-trace memory/compute comparison and new-binary sustained degree-four stage pass; degree 64 fails throughput |
-| [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | macOS cache contribution diagnosed; explicit launch policy measured; wider hard-resource/growth/burst qualification pending |
+| [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | Explicit macOS launch policy measured through growth/drain; burst and Linux hard-resource stages pass separately; aggregate quotas deferred |
+| [0023](0023-durable-paper-integration.md) | Bring basic/multilevel through the durable production service | Required active integration; not implemented or performance-qualified |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
+[current status](../status.md) distinguishes current retained evidence from each
+record's chronological investigation notes. Native measurements do not qualify
+the planned durable paper modes.
 [storage contracts](../storage.md) describe the delivered container. Subsequent
 changes must update the relevant record's implementation/evidence section rather
 than silently changing an accepted contract or declaring an unfinished goal done.

@@ -1,5 +1,10 @@
 # Getting Started
 
+For durable local integration, start with [Service](service.md) and
+[current status](status.md). The examples below use the separate nondurable
+paper/research `Matcher`; they are not million-vertex service benchmarks.
+Source installation requires a C++17 compiler and CPython development headers.
+
 ## Install
 
 ```bash

@@ -13,17 +13,43 @@
 </p>
 
 Start with the [Axiom product site](https://sachncs.github.io/axiom/) for the
-getting-started guide, interactive playground, API reference, and honest
+getting-started guide, executable native walkthrough, API reference, and honest
 implementation status. This repository is the source for contributors and
 release engineering.
 
-**axiom** implements deterministic fully dynamic maximal matching based on *A Faster Deterministic Algorithm for Fully Dynamic Maximal Matching* by Chuzhoy, Khanna, and Song (STOC 2026, [arXiv:2605.00797v1](https://arxiv.org/abs/2605.00797v1)). Python algorithms can use reference adjacency sets or compact native storage. It maintains a **maximal matching** in an undirected graph under online edge insertions and deletions.
+**Axiom** maintains a deterministic **maximal**, not maximum-cardinality, matching
+under online edge insertions and deletions. It has two distinct paths: a native
+incremental matching engine with a durable SQLite-backed, thread-safe local
+service, and Python research modes based on the Chuzhoy–Khanna–Song paper.
+The production engine does not claim the paper's coloring/hierarchy theorem.
+
+## Current status — 2026-10-03
+
+- **Measured target:** million-vertex, average-degree-4 full-ring churn sustained
+  10,998 real durable updates/s for 30 minutes, with coherent queries and exact
+  recovery. Ten-minute growth/drain and three-minute degree-65,536 hub stages
+  also exceeded 10k/s. These are declared workload/hardware results, not a
+  universal rate or loss-free admission guarantee.
+- **Reliability:** bounded admission/undo/history, FULL-WAL acknowledgments,
+  versioned reads, exact checkpoints/retries, immutable compact backups, and
+  Linux allocation/disk-exhaustion recovery are implemented. 886 local tests pass.
+- **Active:** broader repeatability/skew qualification, paper-state snapshot
+  migration, and durable basic/multilevel integration through the production
+  service. Paper modes are not a permanent nondurable endpoint; persistence
+  integration is required but not yet implemented or independently qualified.
+- **Deferred by user:** deployment quota/monitoring/transport integration,
+  tighter latency/background maintenance, hardware power-loss qualification,
+  and larger-scale/billion-vertex qualification. No guarantees are inferred from
+  those deferrals. Degree-64 throughput currently fails the 10k target.
+
+See [current status and evidence](docs/status.md), [engineering](docs/engineering.md),
+[operations](docs/operations.md), and [ADRs](docs/adrs/README.md).
 
 ---
 
 ## Features
 
-- **Explicit native matching core** &mdash; `axiom.engine.Engine` provides compact, deterministic incremental maximal matching with local certificates and joint rollback. It is separate from the paper modes and **not yet durable**; see [contracts and measured limits](docs/engine.md) and [architecture decisions](docs/adrs/README.md).
+- **Explicit native production path** &mdash; `Engine` provides compact matching and local rollback; `Durable` adds SQLite FULL-WAL authority; thread-safe `Service` adds bounded group admission, coherent queries and maintenance. The standalone engine is in-memory, not durable. See [engine](docs/engine.md), [durability](docs/durable.md), and [service contracts](docs/service.md).
 - **Two operating modes**
   - `basic` &mdash; the single-level z-subgraph implementation
   - `multilevel` &mdash; the recursive *k*-level z-subgraph implementation
@@ -59,7 +85,11 @@ This pulls in `pytest`, `pytest-cov`, `mypy`, `ruff`, and `hypothesis`.
 
 ## Runtime model
 
-Axiom supports CPython 3.10, 3.11, 3.12, and 3.13. Matcher instances are
+Axiom's CI supports CPython 3.10–3.13; performance evidence also uses 3.14.
+GIL-enabled CPython and local POSIX ownership/storage are required for the native
+service; free-threaded builds reject. `Service` supports concurrent clients,
+while its mutation worker is the sole owner. `Engine`/`Durable` are owner-bound.
+Research `Matcher` instances are
 stateful and are not thread-safe; protect an instance with an external lock if
 multiple threads can access it. Independent matcher instances may be used
 concurrently.
@@ -81,7 +111,34 @@ gates are complete.
 
 ## Quickstart
 
+### Durable local service
+
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from axiom.durable import Request
+from axiom.service import Service
+
+with TemporaryDirectory() as directory:
+    path = Path(directory) / "graph.db"
+    with Service(path, n=128) as graph:
+        outcome = graph.submit(Request(1, "delete", 0, 1)).result(5)
+        assert outcome.changed  # New stores start with a degree-four ring.
+        version, partner = graph.partner(0).result(5)
+        assert version == outcome.version and partner is None
+        assert graph.check().result(5)
+    with Service(path) as recovered:
+        assert recovered.submit(Request(1, "delete", 0, 1)).result(5) == outcome
+```
+
+Coordinate sequence assignment with admission order across clients. Receipt
+acceptance is not durability: successful `result()` follows commit/publication.
+A timeout does not cancel accepted work; retry the original ID and payload.
+This is a local component, not an authenticated network daemon.
+
 ### Python API
+
+The following examples use the separate, nondurable paper/research API.
 
 ```python
 from axiom import Matcher
@@ -110,7 +167,7 @@ print(algo.stats())  # amortised bookkeeping
 axiom --n 20 --mode basic --updates 200 --seed 42
 ```
 
-Output:
+Illustrative output; elapsed time is not a performance claim:
 
 ```
 === Axiom Demo: n=20, mode=basic, updates=200 ===
@@ -163,6 +220,10 @@ Each Axiom module owns one clear responsibility:
 
 | Module | Responsibility |
 |---|---|
+| `axiom.service` | Thread-safe bounded local admission, receipts and single-owner scheduling |
+| `axiom.durable` | SQLite FULL-WAL authority, checkpoints/history/retries and exact recovery |
+| `axiom.engine` / `axiom.native` | Compact native deterministic incremental maximal matching and storage |
+| `axiom.backup` | Private-image compaction and immutable no-overwrite backup publication |
 | `axiom.core` | The `Matcher` orchestrator: graph, matching, z-system, augment, rebuild dispatch |
 | `axiom.graph` | `Adjacency`: the dynamic undirected graph (BST-replacement: hash sets) |
 | `axiom.system` | `System`: the single-level z-subgraph system + `build`, `promote`, `switch` |

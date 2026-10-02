@@ -7,9 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-The breaking `basic`/`multilevel` API and recursive hierarchy work are under
-validation. The 1.0.0 release remains gated on the complete paper-faithful
-multilevel update pipeline and coloring implementation.
+### Added — engineering through 2026-10-03
+
+- Separate native deterministic incremental maximal matcher, compact blocked
+  adjacency, bounded joint undo, immediate local certificates and exact images.
+- SQLite FULL-WAL `Durable` owner with atomic checkpoint/history retirement,
+  retained request deduplication, exact recovery and fail-stop uncertainty.
+- Thread-safe bounded `Service`, group commit, reserved read admission,
+  committed version/partner queries, bounded maintenance and local ownership.
+- Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
+  explicit offer-loss accounting, long-run recovery evidence and Linux hard
+  allocation/disk-exhaustion drills. 886 local tests pass at this milestone.
+- Architecture decision records and operations guidance explaining production
+  alternatives to whole-state copying and the limits of current guarantees.
+
+### Fixed
+
+- Reconciled the Astro site, README, changelog and documentation with the native
+  durable service and current measured evidence; active and deferred scope is
+  explicit. Removed unused site components, legacy preview duplicates/generator
+  and Jekyll-disable markers. Astro is the only publishing path.
+- Consolidated Astro PR/build/deploy checks and executable documentation examples;
+  removed duplicate CI site builds and repeated shell-embedded install programs.
+  Retained all normal/optimized, sanitizer, artifact and recovery gates.
+
+- Fan-pruning collision/chain/precondition rollback regression coverage.
+- Rounded paced-arrival deadline inversion and bounded IPC drain/loss accounting.
+- Moderate-degree index allocation cliff, retaining indexed hub lookups with an
+  explicit memory/compute tradeoff; degree-64 throughput remains below target.
+- Growth/drain backup restore ENOSPC: compact private staged backups without
+  vacuuming the live authority, weakening durability, or raising resource caps.
+
+### Qualification and boundaries
+
+- Million-vertex degree-four full-ring 30-minute and growth/drain 10-minute
+  stages exceed 10k real durable changes/s with queries and exact recovery.
+  First independently paced degree-65,536 hub stage also passes; broader
+  repeatability/skew and paper snapshot migration remain active.
+- Deployment integration/aggregate quotas, tighter latency, physical power-loss
+  and billion-vertex qualification are deferred by user, not delivered promises.
+- Durable `basic`/`multilevel` integration through the production service is now
+  required active work, alongside paper journal migration. The current Matcher
+  API still lacks persistence; integration is not delivered or performance-qualified
+  yet. Native matching does not inherit the paper's theorem. No 1.0 release is claimed.
+- Replaced the animated browser simulation with an executable native
+  deletion/insertion/query/reopen trace. Removed demo/reveal scripts, switched
+  the default palette to ivory/charcoal/teal and fixed hidden-menu spacing.
+- Redesigned the logo as a shared paired-rail mark; aligned header/footer,
+  README vector, SVG/16px/32px favicons, touch icon and cache-versioned social
+  preview. Build checks reject missing or divergent brand geometry.
+
+Historical releases below describe their original scope. Current contracts and
+evidence are indexed in [status](docs/status.md) and [engineering](docs/engineering.md).
 
 ## [0.6.0.dev0] - 2026-09-23
 

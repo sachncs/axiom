@@ -87,6 +87,13 @@ Thresholds and alert integration belong to the deployment; this repository does
 not yet ship an external monitoring collector or supervisor. Current latency is
 accepted for this version; tighter latency/background maintenance is future work.
 
+On 2026-10-02 the user explicitly deferred remaining deployment aggregate
+quotas, monitoring/supervision and transport integration, alongside tighter
+latency, hardware power-loss and larger-scale qualification. The operating
+responsibilities above remain documented future requirements, not promises of
+an installed deployment. Repeatability/skew and paper snapshot migration stay
+active; see [current status](status.md).
+
 ## Failure and restart
 
 1. Stop new admissions after persistence/certificate uncertainty. Keep original
