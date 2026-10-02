@@ -40,6 +40,20 @@ Choose aggregate limits from measured constructor, active-update, maintenance,
 backup and restore peaks, including transient headroom. No numeric production
 memory limit or recovery deadline has been accepted yet.
 
+### macOS allocator residency
+
+Changing-density checkpoints can leave freed large allocations resident in the
+OS allocator. The measured growth/drain experiment reduces peak owner RSS from
+913 MB (default launch) to 208 MB with `MallocLargeCache=0`, without changing the
+graph budget, encoding or durability. This is a scoped launch-policy measurement,
+not a hard RSS limit; VM inspection perturbs tails. See [ADR 0022](adrs/0022-allocator-residency.md).
+
+For an explicitly selected macOS deployment profile, set the variable before
+launching the application, for example `env MallocLargeCache=0 /path/to/python app.py`.
+The library does not set global allocator policy or re-execute its host process.
+Requalify the actual OS/runtime, workload, maintenance and backup/restore peaks;
+the setting does not replace deployment quotas or Linux hard-resource testing.
+
 ## Monitor and respond
 
 Sample `metrics()` for admission diagnostics; it does not enqueue owner work.

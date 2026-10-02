@@ -283,6 +283,30 @@ pass in this scoped stage; total-memory growth/drain qualification is incomplete
 Separate live Python, allocator and RSS diagnostics from rate measurements to
 identify the cause; do not describe the larger process peak as already solved.
 
+### Growth/drain residency diagnosis
+
+[Traced samples](pulse-profile.json) and their [disposable sampler](pulse-profile.txt)
+separate Python traced bytes, active/reserved malloc statistics and RSS, using the
+active macOS SDK's ABI. Python peak is 40,081,723 bytes; sampled RSS reaches
+643,874,816 bytes. Tracing changes delivery: only 897,045 updates complete, short
+of a full cycle. This is memory diagnosis, not throughput qualification.
+
+The [default repeat](pulse-residency.json) reaches 753,106,944-byte peak RSS;
+an [early VM summary](pulse-vmmap-default.txt) shows 111.7 MiB of resident freed
+large regions. With only the explicit startup setting `MallocLargeCache=0`, the
+[repeat](pulse-nocache.json) completes 1,317,752 updates and 1,197,945 queries,
+40 checkpoints and exact full-cycle recovery, reaching 10,979.2 updates/s with
+207,519,744-byte peak owner RSS. Native allocation stays 77,130,592 bytes. The
+[tuned VM summary](pulse-vmmap-nocache.txt) has no empty-large row. Live accepted
+prefixes differ due to counted losses; this is not a fixed-trace CPU comparison.
+
+The tuned repeat's misses/drops/Busy are 232/2,016/0 for updates and 199/1,856/0
+for queries. Ack/query p99 upper bounds are 201.1/12.1 ms; maxima are
+502.1/496.0 ms. VM inspection can perturb scheduling and tails, so a no-inspection
+repeat is required before adopting latency conclusions. This diagnoses a dominant
+platform cache contribution, not a hard RSS quota or portable storage redesign.
+See [ADR 0022](../../../docs/adrs/0022-allocator-residency.md) for operating boundaries.
+
 `--arrival burst` compresses each second's update quota into its first 250 ms,
 giving four times the configured active update rate and a quiet drain interval.
 Queries remain steady throughout. Thus `--rate 11000` plans 11,000 updates per

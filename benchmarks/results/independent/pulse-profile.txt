@@ -1,0 +1,116 @@
+"""Disposable macOS memory diagnostic; not a throughput qualification runner."""
+
+import ctypes
+import json
+import os
+import sqlite3
+import subprocess
+import sys
+import threading
+import time
+import tracemalloc
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from benchmarks.independent_load import measure
+
+
+class Statistics(ctypes.Structure):
+    """Exact layout from the active macOS SDK malloc_statistics_t declaration."""
+
+    _fields_ = [
+        ("blocks", ctypes.c_uint),
+        ("used", ctypes.c_size_t),
+        ("peak", ctypes.c_size_t),
+        ("reserved", ctypes.c_size_t),
+    ]
+
+
+class Profile:
+    """Correlate read-only control metadata, live Python/allocator bytes and RSS."""
+
+    def __init__(self):
+        self.path = Path(__file__).parents[1] / "pulse-traced.db"
+        self.samples = []
+        self.errors = []
+        self.stop = threading.Event()
+        self.library = ctypes.CDLL(None)
+        self.statistics = self.library.malloc_zone_statistics
+        self.statistics.argtypes = [ctypes.c_void_p, ctypes.POINTER(Statistics)]
+        self.statistics.restype = None
+        self.started = time.monotonic()
+
+    def sample(self):
+        connection = None
+        try:
+            while not self.stop.is_set():
+                if connection is None and self.path.exists():
+                    connection = sqlite3.connect(
+                        self.path.as_uri() + "?mode=ro",
+                        uri=True,
+                        timeout=0,
+                        isolation_level=None,
+                    )
+                control = None
+                if connection is not None:
+                    try:
+                        control = connection.execute(
+                            "SELECT sequence,generation FROM control WHERE id=1"
+                        ).fetchone()
+                    except sqlite3.OperationalError:
+                        pass
+                current, peak = tracemalloc.get_traced_memory()
+                statistics = Statistics()
+                self.statistics(None, ctypes.byref(statistics))
+                rss = int(subprocess.check_output(
+                    ["ps", "-o", "rss=", "-p", str(os.getpid())], text=True
+                ).strip()) * 1024
+                self.samples.append({
+                    "seconds": time.monotonic() - self.started,
+                    "control": control,
+                    "python": current,
+                    "pythonpeak": peak,
+                    "tracing": tracemalloc.get_tracemalloc_memory(),
+                    "malloc": statistics.used,
+                    "reserved": statistics.reserved,
+                    "mallocpeak": statistics.peak,
+                    "rss": rss,
+                })
+                self.stop.wait(3)
+        except BaseException as error:
+            self.errors.append(repr(error))
+        finally:
+            if connection is not None:
+                connection.close()
+
+    def run(self):
+        if self.path.exists():
+            raise ValueError("diagnostic requires a fresh path")
+        tracemalloc.start(1)
+        thread = threading.Thread(target=self.sample)
+        thread.start()
+        try:
+            result = measure(
+                self.path, 1000000, 11000, 120,
+                query_rate=10000, queue_capacity=4096,
+                ipc_bytes=65536, ipc_batch=16,
+                workload="pulse", arrival="steady", width=2,
+                budget=134217728, limit=67108864,
+            )
+            allocations = [str(item) for item in tracemalloc.take_snapshot().statistics("lineno")[:10]]
+        finally:
+            self.stop.set()
+            thread.join(5)
+            tracemalloc.stop()
+        if self.errors or thread.is_alive():
+            raise RuntimeError(f"memory sampler failed: {self.errors}")
+        print(json.dumps({
+            "scope": "instrumented memory diagnostic; tracing/read-only metadata sampling alters timing; NOT throughput qualification",
+            "samples": self.samples,
+            "allocations": allocations,
+            "result": result,
+        }, indent=2))
+
+
+if __name__ == "__main__":
+    Profile().run()

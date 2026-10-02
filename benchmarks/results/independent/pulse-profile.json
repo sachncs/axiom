@@ -1,0 +1,790 @@
+{
+  "scope": "instrumented memory diagnostic; tracing/read-only metadata sampling alters timing; NOT throughput qualification",
+  "samples": [
+    {
+      "seconds": 0.004096375007065944,
+      "control": null,
+      "python": 4466,
+      "pythonpeak": 5007,
+      "tracing": 100560,
+      "malloc": 5082880,
+      "reserved": 33554432,
+      "mallocpeak": 0,
+      "rss": 30490624
+    },
+    {
+      "seconds": 3.1422770409990335,
+      "control": [
+        21856,
+        0
+      ],
+      "python": 4457316,
+      "pythonpeak": 4458769,
+      "tracing": 2562096,
+      "malloc": 88862160,
+      "reserved": 113819648,
+      "mallocpeak": 0,
+      "rss": 137281536
+    },
+    {
+      "seconds": 6.155678916009492,
+      "control": [
+        41360,
+        1
+      ],
+      "python": 7186117,
+      "pythonpeak": 36383474,
+      "tracing": 4467184,
+      "malloc": 120071152,
+      "reserved": 154861568,
+      "mallocpeak": 0,
+      "rss": 206340096
+    },
+    {
+      "seconds": 9.172937958006514,
+      "control": [
+        65599,
+        1
+      ],
+      "python": 12113013,
+      "pythonpeak": 36383474,
+      "tracing": 6129712,
+      "malloc": 124103232,
+      "reserved": 154861568,
+      "mallocpeak": 0,
+      "rss": 208011264
+    },
+    {
+      "seconds": 12.186387250010739,
+      "control": [
+        92190,
+        2
+      ],
+      "python": 4090548,
+      "pythonpeak": 36640488,
+      "tracing": 3472976,
+      "malloc": 117745504,
+      "reserved": 155123712,
+      "mallocpeak": 0,
+      "rss": 258670592
+    },
+    {
+      "seconds": 15.201935500008403,
+      "control": [
+        110333,
+        3
+      ],
+      "python": 4266909,
+      "pythonpeak": 36911277,
+      "tracing": 3386256,
+      "malloc": 118227952,
+      "reserved": 155385856,
+      "mallocpeak": 0,
+      "rss": 309379072
+    },
+    {
+      "seconds": 18.21353600001021,
+      "control": [
+        131197,
+        3
+      ],
+      "python": 12120806,
+      "pythonpeak": 36911277,
+      "tracing": 6131504,
+      "malloc": 124652400,
+      "reserved": 155385856,
+      "mallocpeak": 0,
+      "rss": 310542336
+    },
+    {
+      "seconds": 21.220250166006736,
+      "control": [
+        159660,
+        4
+      ],
+      "python": 4262050,
+      "pythonpeak": 37173164,
+      "tracing": 3564080,
+      "malloc": 118433104,
+      "reserved": 155648000,
+      "mallocpeak": 0,
+      "rss": 322027520
+    },
+    {
+      "seconds": 24.234286083010375,
+      "control": [
+        177355,
+        5
+      ],
+      "python": 4008160,
+      "pythonpeak": 37448266,
+      "tracing": 3410704,
+      "malloc": 118494608,
+      "reserved": 155910144,
+      "mallocpeak": 0,
+      "rss": 373751808
+    },
+    {
+      "seconds": 27.24185400000715,
+      "control": [
+        196875,
+        5
+      ],
+      "python": 12119545,
+      "pythonpeak": 37448266,
+      "tracing": 6132944,
+      "malloc": 125197984,
+      "reserved": 155910144,
+      "mallocpeak": 0,
+      "rss": 374833152
+    },
+    {
+      "seconds": 30.25486341600481,
+      "control": [
+        227146,
+        6
+      ],
+      "python": 3985569,
+      "pythonpeak": 37696970,
+      "tracing": 3395760,
+      "malloc": 118751616,
+      "reserved": 156172288,
+      "mallocpeak": 0,
+      "rss": 427802624
+    },
+    {
+      "seconds": 33.26695129100699,
+      "control": [
+        244569,
+        7
+      ],
+      "python": 4005063,
+      "pythonpeak": 37969878,
+      "tracing": 3376304,
+      "malloc": 119059776,
+      "reserved": 156450816,
+      "mallocpeak": 0,
+      "rss": 428867584
+    },
+    {
+      "seconds": 36.274311625005794,
+      "control": [
+        262537,
+        7
+      ],
+      "python": 12130862,
+      "pythonpeak": 37969878,
+      "tracing": 6135504,
+      "malloc": 125765168,
+      "reserved": 156450816,
+      "mallocpeak": 0,
+      "rss": 429867008
+    },
+    {
+      "seconds": 39.28267854099977,
+      "control": [
+        294136,
+        8
+      ],
+      "python": 4063981,
+      "pythonpeak": 38232661,
+      "tracing": 3418992,
+      "malloc": 119375088,
+      "reserved": 156712960,
+      "mallocpeak": 0,
+      "rss": 510115840
+    },
+    {
+      "seconds": 42.29410020800424,
+      "control": [
+        311767,
+        9
+      ],
+      "python": 3724244,
+      "pythonpeak": 38494099,
+      "tracing": 3394352,
+      "malloc": 119384208,
+      "reserved": 156975104,
+      "mallocpeak": 0,
+      "rss": 464044032
+    },
+    {
+      "seconds": 45.30806495800789,
+      "control": [
+        328327,
+        9
+      ],
+      "python": 38752979,
+      "pythonpeak": 38753667,
+      "tracing": 6134576,
+      "malloc": 179859936,
+      "reserved": 210518016,
+      "mallocpeak": 0,
+      "rss": 545013760
+    },
+    {
+      "seconds": 48.32073420799861,
+      "control": [
+        361206,
+        10
+      ],
+      "python": 5504034,
+      "pythonpeak": 38939616,
+      "tracing": 3973328,
+      "malloc": 121126416,
+      "reserved": 157237248,
+      "mallocpeak": 0,
+      "rss": 546865152
+    },
+    {
+      "seconds": 51.33446700000786,
+      "control": [
+        380021,
+        11
+      ],
+      "python": 3939948,
+      "pythonpeak": 39029501,
+      "tracing": 3455504,
+      "malloc": 120125184,
+      "reserved": 157499392,
+      "mallocpeak": 0,
+      "rss": 476069888
+    },
+    {
+      "seconds": 54.342052125008195,
+      "control": [
+        395397,
+        12
+      ],
+      "python": 11077518,
+      "pythonpeak": 39273913,
+      "tracing": 5819568,
+      "malloc": 126272496,
+      "reserved": 157761536,
+      "mallocpeak": 0,
+      "rss": 558563328
+    },
+    {
+      "seconds": 57.35745000001043,
+      "control": [
+        426788,
+        12
+      ],
+      "python": 8570271,
+      "pythonpeak": 39273913,
+      "tracing": 4996272,
+      "malloc": 124198496,
+      "reserved": 157761536,
+      "mallocpeak": 0,
+      "rss": 560316416
+    },
+    {
+      "seconds": 60.36481237500266,
+      "control": [
+        446995,
+        13
+      ],
+      "python": 3958481,
+      "pythonpeak": 39549205,
+      "tracing": 3357136,
+      "malloc": 120669696,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 643874816
+    },
+    {
+      "seconds": 63.372258290997706,
+      "control": [
+        463347,
+        14
+      ],
+      "python": 9496378,
+      "pythonpeak": 39808742,
+      "tracing": 5244080,
+      "malloc": 125540064,
+      "reserved": 158285824,
+      "mallocpeak": 0,
+      "rss": 545701888
+    },
+    {
+      "seconds": 66.38534008299757,
+      "control": [
+        492514,
+        14
+      ],
+      "python": 10529528,
+      "pythonpeak": 39808742,
+      "tracing": 5631120,
+      "malloc": 126367968,
+      "reserved": 158285824,
+      "mallocpeak": 0,
+      "rss": 547323904
+    },
+    {
+      "seconds": 69.39606208300393,
+      "control": [
+        514529,
+        15
+      ],
+      "python": 3994122,
+      "pythonpeak": 40081723,
+      "tracing": 3475504,
+      "malloc": 121238192,
+      "reserved": 158547968,
+      "mallocpeak": 0,
+      "rss": 631717888
+    },
+    {
+      "seconds": 72.41106362499704,
+      "control": [
+        531073,
+        16
+      ],
+      "python": 8076593,
+      "pythonpeak": 40081723,
+      "tracing": 4771536,
+      "malloc": 124663648,
+      "reserved": 158547968,
+      "mallocpeak": 0,
+      "rss": 444874752
+    },
+    {
+      "seconds": 75.424265499998,
+      "control": [
+        558096,
+        16
+      ],
+      "python": 12132073,
+      "pythonpeak": 40081723,
+      "tracing": 6136688,
+      "malloc": 127973296,
+      "reserved": 158547968,
+      "mallocpeak": 0,
+      "rss": 444874752
+    },
+    {
+      "seconds": 78.43996029099799,
+      "control": [
+        581583,
+        17
+      ],
+      "python": 4299730,
+      "pythonpeak": 40081723,
+      "tracing": 3460560,
+      "malloc": 121255328,
+      "reserved": 158285824,
+      "mallocpeak": 0,
+      "rss": 444874752
+    },
+    {
+      "seconds": 81.45123179099755,
+      "control": [
+        598943,
+        18
+      ],
+      "python": 6280010,
+      "pythonpeak": 40081723,
+      "tracing": 4176560,
+      "malloc": 122690384,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 444907520
+    },
+    {
+      "seconds": 84.45853979099775,
+      "control": [
+        623710,
+        18
+      ],
+      "python": 12134714,
+      "pythonpeak": 40081723,
+      "tracing": 6140272,
+      "malloc": 127475200,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224329728
+    },
+    {
+      "seconds": 87.46784337500867,
+      "control": [
+        649357,
+        19
+      ],
+      "python": 4003146,
+      "pythonpeak": 40081723,
+      "tracing": 3458352,
+      "malloc": 120769296,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224346112
+    },
+    {
+      "seconds": 90.48405145799916,
+      "control": [
+        666701,
+        20
+      ],
+      "python": 5320708,
+      "pythonpeak": 40081723,
+      "tracing": 3785520,
+      "malloc": 121923296,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224346112
+    },
+    {
+      "seconds": 93.49129637501028,
+      "control": [
+        689484,
+        20
+      ],
+      "python": 12146536,
+      "pythonpeak": 40081723,
+      "tracing": 6144432,
+      "malloc": 127502960,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224346112
+    },
+    {
+      "seconds": 96.50390216600499,
+      "control": [
+        717147,
+        21
+      ],
+      "python": 3894293,
+      "pythonpeak": 40081723,
+      "tracing": 3467984,
+      "malloc": 120697712,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224362496
+    },
+    {
+      "seconds": 99.51275454100687,
+      "control": [
+        735290,
+        22
+      ],
+      "python": 3973326,
+      "pythonpeak": 40081723,
+      "tracing": 3464592,
+      "malloc": 120775184,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224362496
+    },
+    {
+      "seconds": 102.52655120800773,
+      "control": [
+        755130,
+        22
+      ],
+      "python": 12139100,
+      "pythonpeak": 40081723,
+      "tracing": 6143088,
+      "malloc": 127519520,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224362496
+    },
+    {
+      "seconds": 105.53570037501049,
+      "control": [
+        784729,
+        23
+      ],
+      "python": 4073226,
+      "pythonpeak": 40081723,
+      "tracing": 3410096,
+      "malloc": 120867312,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224395264
+    },
+    {
+      "seconds": 108.54460775000916,
+      "control": [
+        802504,
+        24
+      ],
+      "python": 4033098,
+      "pythonpeak": 40081723,
+      "tracing": 3431408,
+      "malloc": 120844864,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224411648
+    },
+    {
+      "seconds": 111.55867387499893,
+      "control": [
+        820840,
+        24
+      ],
+      "python": 12107986,
+      "pythonpeak": 40081723,
+      "tracing": 6133040,
+      "malloc": 127524096,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224411648
+    },
+    {
+      "seconds": 114.5664692910068,
+      "control": [
+        852663,
+        25
+      ],
+      "python": 4015708,
+      "pythonpeak": 40081723,
+      "tracing": 3397392,
+      "malloc": 120841632,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224411648
+    },
+    {
+      "seconds": 117.5857557499985,
+      "control": [
+        870998,
+        26
+      ],
+      "python": 4094469,
+      "pythonpeak": 40081723,
+      "tracing": 3442608,
+      "malloc": 120907920,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224428032
+    },
+    {
+      "seconds": 120.60075500000676,
+      "control": [
+        886806,
+        27
+      ],
+      "python": 11930931,
+      "pythonpeak": 40081723,
+      "tracing": 5933232,
+      "malloc": 127397056,
+      "reserved": 158023680,
+      "mallocpeak": 0,
+      "rss": 224444416
+    },
+    {
+      "seconds": 123.66045795800164,
+      "control": [
+        897045,
+        27
+      ],
+      "python": 12758829,
+      "pythonpeak": 40081723,
+      "tracing": 5938960,
+      "malloc": 100463952,
+      "reserved": 130596864,
+      "mallocpeak": 0,
+      "rss": 233766912
+    },
+    {
+      "seconds": 126.71602824999718,
+      "control": [
+        897045,
+        27
+      ],
+      "python": 16054670,
+      "pythonpeak": 40081723,
+      "tracing": 5939344,
+      "malloc": 103757328,
+      "reserved": 134692864,
+      "mallocpeak": 0,
+      "rss": 233996288
+    },
+    {
+      "seconds": 129.77759450000303,
+      "control": [
+        897045,
+        27
+      ],
+      "python": 16055145,
+      "pythonpeak": 40081723,
+      "tracing": 5939536,
+      "malloc": 103757664,
+      "reserved": 134692864,
+      "mallocpeak": 0,
+      "rss": 233996288
+    },
+    {
+      "seconds": 132.8299696250033,
+      "control": [
+        897045,
+        27
+      ],
+      "python": 16055756,
+      "pythonpeak": 40081723,
+      "tracing": 5939952,
+      "malloc": 103758368,
+      "reserved": 134692864,
+      "mallocpeak": 0,
+      "rss": 233996288
+    },
+    {
+      "seconds": 135.88885020800808,
+      "control": [
+        897045,
+        27
+      ],
+      "python": 16056231,
+      "pythonpeak": 40081723,
+      "tracing": 5940176,
+      "malloc": 103758608,
+      "reserved": 134692864,
+      "mallocpeak": 0,
+      "rss": 151191552
+    },
+    {
+      "seconds": 138.94004304100235,
+      "control": [
+        897045,
+        27
+      ],
+      "python": 16056739,
+      "pythonpeak": 40081723,
+      "tracing": 5940368,
+      "malloc": 103758848,
+      "reserved": 134692864,
+      "mallocpeak": 0,
+      "rss": 151191552
+    },
+    {
+      "seconds": 141.99129175000417,
+      "control": [
+        897045,
+        27
+      ],
+      "python": 16057614,
+      "pythonpeak": 40081723,
+      "tracing": 5940496,
+      "malloc": 103759232,
+      "reserved": 134692864,
+      "mallocpeak": 0,
+      "rss": 151191552
+    }
+  ],
+  "allocations": [
+    "<frozen importlib._bootstrap_external>:511: size=1534 KiB, count=12761, average=123 B",
+    "<frozen importlib._bootstrap>:491: size=471 KiB, count=5331, average=90 B",
+    "/private/tmp/axiom-arrivals.AuiYew/runner/benchmarks/independent_load.py:345: size=140 KiB, count=1992, average=72 B",
+    "/private/tmp/axiom-rowpolicy.goSqXs/env/lib/python3.14/site-packages/axiom/durable.py:1050: size=119 KiB, count=1913, average=64 B",
+    "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/enum.py:1876: size=38.3 KiB, count=228, average=172 B",
+    "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/enum.py:487: size=27.0 KiB, count=88, average=315 B",
+    "<frozen abc>:106: size=26.6 KiB, count=90, average=303 B",
+    "/private/tmp/axiom-rowpolicy.goSqXs/env/lib/python3.14/site-packages/axiom/durable.py:953: size=24.7 KiB, count=243, average=104 B",
+    "/private/tmp/axiom-rowpolicy.goSqXs/env/lib/python3.14/site-packages/axiom/service.py:278: size=24.2 KiB, count=393, average=63 B",
+    "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/__init__.py:28: size=20.8 KiB, count=124, average=172 B"
+  ],
+  "result": {
+    "scope": "separate-process paced arrivals over bounded local datagrams; NOT production network/power-cut qualification",
+    "python": "3.14.8",
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "vertices": 1000000,
+    "workload": "pulse",
+    "arrival": "steady",
+    "active_update_rate": 11000,
+    "width": 2,
+    "limits": {
+      "native": 134217728,
+      "snapshot": 67108864,
+      "database": 67108864
+    },
+    "rate": 11000,
+    "query_rate": 10000,
+    "seconds": 120,
+    "ipc_buffers": {
+      "requested_bytes": 65536,
+      "receive_bytes": 65536,
+      "send_bytes": 65536
+    },
+    "ipc_batch": 16,
+    "planned_updates": 1320000,
+    "producer_missed_updates": 159,
+    "ipc_dropped_updates": 121344,
+    "busy_updates": 301452,
+    "real_acknowledged_updates": 897045,
+    "acknowledged_before_drain": 892950,
+    "offering_and_drain_seconds": 120.405710042,
+    "real_acknowledged_updates_per_second": 7450.18653755783,
+    "planned_queries": 1200000,
+    "producer_missed_queries": 141,
+    "ipc_dropped_queries": 102416,
+    "busy_queries": 0,
+    "partner_queries": 1097443,
+    "peak_client_receipts": 4111,
+    "service_metrics": {
+      "state": "open",
+      "capacity": 4096,
+      "query_reserve": 1,
+      "update_admission_limit": 4095,
+      "maintenance_capacity": 1,
+      "maintenance_outstanding": 0,
+      "outstanding": 0,
+      "peak_outstanding": 4096,
+      "accepted": 1994489,
+      "completed": 1994489,
+      "groups": 5844,
+      "largest_group": 256,
+      "batch_limit": 256,
+      "batch_wait_ns": 1000000,
+      "next_admission_sequence": 897046
+    },
+    "final_status": {
+      "version": 897046,
+      "sequence": 897045,
+      "vertices": 1000000,
+      "edges": 2102955,
+      "matching": 500000,
+      "native_bytes": 77130592,
+      "sqlite": "3.53.4",
+      "synchronous": "FULL",
+      "fullfsync": 1,
+      "max_operations": 65536,
+      "max_batch": 256,
+      "checkpoint_interval": 32768,
+      "retain_operations": 16384,
+      "retired_floor": 870038,
+      "checkpoint_sequence": 886422,
+      "checkpoint_generation": 27,
+      "retained_operations": 27007
+    },
+    "acknowledged_latency": {
+      "count": 897045,
+      "p99_upper_ns": null,
+      "max_ns": 1656181959,
+      "overflow_at_1s": 110565,
+      "resolution_ns": 100000
+    },
+    "offered_to_acknowledged_latency": {
+      "count": 897045,
+      "p99_upper_ns": null,
+      "max_ns": 1981139588,
+      "overflow_at_1s": 110565,
+      "resolution_ns": 100000
+    },
+    "offered_query_latency": {
+      "count": 1097443,
+      "p99_upper_ns": 440700000,
+      "max_ns": 458695333,
+      "overflow_at_1s": 0,
+      "resolution_ns": 100000
+    },
+    "matching_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+    "independent_exact_audit_and_recovery_passed": true,
+    "owner_process_peak_rss_bytes": 644579328,
+    "producer_process_peak_rss_bytes": 29097984
+  },
+  "source": "6d5f3cd",
+  "runner": "a500ad4",
+  "wheel": "19736864c92330d21fbe1af76496d145e1d137c991ebfebdfe1b074a0e1fad48",
+  "sampler": "pulse-profile.txt",
+  "sdk": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/malloc/malloc.h"
+}

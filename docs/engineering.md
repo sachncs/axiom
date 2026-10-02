@@ -65,8 +65,13 @@ It traverses a full cycle from two to 2.5 million edges and back, then reaches
 2,319,810 edges in the next growth phase. Native allocation remains bounded at
 77,130,592 bytes under 128 MiB, but owner peak RSS reaches **913,391,616 bytes**.
 This passes scoped throughput/correctness, not bounded total-memory qualification.
-Checkpoint/SQLite/allocator residency needs investigation before broader release
-claims. [Raw growth/drain evidence](../benchmarks/results/independent/pulse-million.json).
+VM and traced-allocation diagnostics identify retained freed macOS large regions
+as the dominant spike on this host. An explicit `MallocLargeCache=0` launch repeat
+completes a full cycle at 10,979.2/s with exact recovery and 207,519,744-byte peak
+RSS; native allocation is unchanged. This does not install aggregate quotas or
+silently alter an embedding process. Longer/no-inspection repeats and Linux
+changing-density hard limits remain open. [ADR 0022](adrs/0022-allocator-residency.md)
+records evidence, operating policy and portable-checkpoint alternatives.
 
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
 zero counters, and coloring-validation buckets. Exact consistency checks remain.

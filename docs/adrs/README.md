@@ -27,7 +27,8 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0018](0018-checkpoint-history-validation-cost.md) | Inline strict retained-history predicates, not skip certificates | Tested/profiled; paced 10k delivery still below target |
 | [0019](0019-independent-arrivals-and-bounded-ipc.md) | Separate producer GIL and bound transport/admission with explicit losses | 10.93k durable/s stage; current latency accepted, hard resource/recovery work pending |
 | [0020](0020-resource-exhaustion-and-recovery.md) | Isolated hard address-space/filesystem exhaustion with exact recovery | Million-vertex Linux stage passed; deployment quotas pending; hardware power-loss deferred |
-| [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Candidate correctness/sanitizers passed; installed comparison/qualification pending |
+| [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Fixed-trace memory/compute comparison and new-binary sustained degree-four stage pass; degree 64 fails throughput |
+| [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | macOS cache contribution diagnosed; explicit launch policy measured; wider hard-resource/growth/burst qualification pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent
@@ -51,6 +52,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Partner queries queued behind durability barriers | First-write undo indexes expose only the last publication (0012), adding 4 bytes/vertex | Coupled version/partner reads support concurrent clients on GIL-enabled CPython; other reads remain owner-queued; audits/native CPU work can still delay calls |
 | Copying a live SQLite main file or exporting only edges | Owner snapshot captures committed WAL state, partners and retry retirement (0013) | Bounded image, no-overwrite publication, independent restore required; not replication or power-loss proof |
 | Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
+| Treating native allocation bytes as whole-process memory | Live Python/allocator/VM measurements plus explicit operator launch policy (0022) | macOS large-cache spike reduced in scoped experiment; aggregate quotas and portable checkpoint allocation work remain separate |
 
 ## What is not being abandoned
 
