@@ -20,6 +20,7 @@ from axiom.paper_coloring import (
     Spoke,
     Vizing,
 )
+from axiom.witness import Witness
 
 
 class Cases:
@@ -114,6 +115,8 @@ def test_pruning_restores_every_index_after_a_later_collision_failure() -> None:
         {key: value for key, value in vars(coloring).items() if key != "graph"}
     )
     snapshot = deepcopy(vars(fans))
+    witness = Witness()
+    before = witness.capture((coloring, fans))
 
     class Failure(Pruning):
         collisions = 0
@@ -133,6 +136,7 @@ def test_pruning_restores_every_index_after_a_later_collision_failure() -> None:
         key: value for key, value in vars(coloring).items() if key != "graph"
     } == colors
     assert vars(fans) == snapshot
+    assert witness.capture((coloring, fans)) == before
     assert tuple(fans) == (sentinel,)
     coloring.validate()
     fans.validate()
@@ -492,7 +496,6 @@ def test_construct_u_fans_reduces_multiple_collisions_and_chain_flips() -> None:
 def test_prune_vizing_fans_rolls_back_coloring_and_fans_on_failed_precondition(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-
     graph = Adjacency(8)
     for edge in (
         (0, 1),
@@ -516,6 +519,8 @@ def test_prune_vizing_fans_rolls_back_coloring_and_fans_on_failed_precondition(
     fans = Fans()
     before_colors = dict(coloring.items())
     before_fans = tuple(fans)
+    witness = Witness()
+    before = witness.capture((coloring, fans))
 
     real_rotate = Pruning.expose
     rotations = 0
@@ -537,6 +542,7 @@ def test_prune_vizing_fans_rolls_back_coloring_and_fans_on_failed_precondition(
 
     assert dict(coloring.items()) == before_colors
     assert tuple(fans) == before_fans
+    assert witness.capture((coloring, fans)) == before
     coloring.validate()
     fans.validate()
 

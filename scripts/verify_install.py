@@ -8,16 +8,24 @@ from axiom import Matcher, Packed
 from axiom.durable import Durable, ExpiredError, Outcome, Request
 from axiom.engine import Engine
 from axiom.service import Service
+from axiom.witness import Witness
 
 
 def verify() -> None:
     """Compact past history capacity, reopen exact state, retry and reject expiry."""
-    graph = Packed(16)
-    graph.ring()
-    matcher = Matcher(16, graph=graph, mode="multilevel")
-    matcher.insert(0, 4)
-    if not matcher.maximal() or not graph.check():
-        raise RuntimeError("installed native paper graph/repair failed")
+    witness = Witness()
+    for mode in ("basic", "multilevel"):
+        graph, replay = Packed(16), Packed(16)
+        graph.ring()
+        replay.ring()
+        matcher = Matcher(16, graph=graph, mode=mode)
+        recovered = Matcher(16, graph=replay, mode=mode)
+        matcher.insert(0, 4)
+        recovered.insert(0, 4)
+        if not matcher.maximal() or not graph.check():
+            raise RuntimeError("installed native paper graph/repair failed")
+        if witness.capture(matcher) != witness.capture(recovered):
+            raise RuntimeError("installed paper full-state replay differs")
     engine = Engine(16)
     token = engine.begin()
     engine.insert(0, 1)

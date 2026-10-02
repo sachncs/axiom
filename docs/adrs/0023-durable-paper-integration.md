@@ -30,6 +30,11 @@ differential snapshot checks until failure injection demonstrates equivalence.
 
 ## Verification gates
 
+Implemented prerequisite: the bounded full-state `Witness` diagnostic compares
+paper replay prefixes and failure rollback, including aliases and redundant
+indexes. See the [state inventory and exclusions](../paper-state.md). It has no
+decoder and does not make paper modes durable or remove their snapshots.
+
 - Both paper modes through the same admission/query/update/reopen workflow.
 - Failure before repair, during fan collisions/chain flips, hierarchy rebuilds,
   persistence and publication; exact full-state rollback or explicit fail-stop.

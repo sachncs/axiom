@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — engineering through 2026-10-03
 
+- Bounded full paper-state diagnostic comparison, replay-prefix and rollback
+  qualification across both modes/storage backends, including shared references
+  and redundant fan indexes. This is a migration oracle, not durable paper storage.
+
 - Separate native deterministic incremental maximal matcher, compact blocked
   adjacency, bounded joint undo, immediate local certificates and exact images.
 - SQLite FULL-WAL `Durable` owner with atomic checkpoint/history retirement,
@@ -17,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed version/partner queries, bounded maintenance and local ownership.
 - Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
   explicit offer-loss accounting, long-run recovery evidence and Linux hard
-  allocation/disk-exhaustion drills. 886 local tests pass at this milestone.
+  allocation/disk-exhaustion drills. 923 local tests pass at this milestone.
 - Architecture decision records and operations guidance explaining production
   alternatives to whole-state copying and the limits of current guarantees.
 

@@ -50,6 +50,11 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
 3. Keep website, README, changelog, API guidance and decision records consistent
    with current implementation and measured boundaries.
 
+Paper migration prerequisite: a bounded full-state comparison oracle now covers
+both modes/storage backends, replay prefixes, post-rebuild rollback and fan
+failure indexes. [State inventory](paper-state.md) records what is and is not
+compared. This is not a durable codec or a completed journal migration.
+
 ## Deferred by explicit user direction
 
 Deployment aggregate quotas/monitoring/supervision/transport integration, tighter
@@ -62,5 +67,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-886 passing tests; CI and benchmark results must be attributed to their exact
+923 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.
