@@ -73,6 +73,12 @@ silently alter an embedding process. Longer/no-inspection repeats and Linux
 changing-density hard limits remain open. [ADR 0022](adrs/0022-allocator-residency.md)
 records evidence, operating policy and portable-checkpoint alternatives.
 
+The Linux hard-limit drill now includes a full growth/drain cycle followed by
+40,000 balanced updates under the same native/address-space/filesystem caps.
+Local component/data-flow coverage passes (866 tests); the extended installed
+CI resource result remains pending. The older 40,000-update hard-limit report
+does not qualify changing density by itself. See [ADR 0020](adrs/0020-resource-exhaustion-and-recovery.md).
+
 The first new-binary burst stage (three minutes, 44k/s active windows and 11k/s
 average offers) delivers 10,611 real durable updates/s with 1,799,880 coherent
 queries, 58 checkpoints and exact recovery. Its bounded queue rejects 37,240

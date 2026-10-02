@@ -10,7 +10,14 @@ import pytest
 
 from axiom.durable import Durable, Request
 from scripts import verify_resource_envelope as module
-from scripts.verify_resource_envelope import Audit, Disk, Memory, Pressure, Volume
+from scripts.verify_resource_envelope import (
+    Audit,
+    Cycle,
+    Disk,
+    Memory,
+    Pressure,
+    Volume,
+)
 
 
 def mounted(tmp_path, monkeypatch, capacity=192 << 20):
@@ -137,6 +144,110 @@ def test_reference_verifies_real_updates_exact_topology_partners_and_retry(tmp_p
             b"".join((vertex ^ 1).to_bytes(4, "little") for vertex in range(8))
         ).hexdigest()
         assert Audit(8, 4).verify(owner) == expected
+
+
+@pytest.mark.parametrize(
+    "vertices,sequence", [(True, 12), (9, 13), (8, 8), (8, 11), (8, True), (8, 40010)]
+)
+def test_cycle_invalid_reference_rejects_before_accessing_owner(vertices, sequence):
+    with pytest.raises(ValueError, match="cycle"):
+        Cycle(vertices, sequence).verify(None)
+
+
+@pytest.mark.parametrize("reference", [Audit(8, 4), Cycle(8, 12)])
+@pytest.mark.parametrize("sequence", [True, 0, -1, 99])
+def test_resource_operation_rejects_out_of_range_sequences(reference, sequence):
+    with pytest.raises(ValueError, match="sequence"):
+        reference.operation(sequence)
+
+
+def test_cycle_launcher_validates_reference_before_starting_pressure_worker(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(Volume, "inspect", lambda volume: 192 << 20)
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("invalid worker launched"),
+    )
+    with pytest.raises(ValueError, match="cycle"):
+        module.Envelope(Volume(tmp_path), Cycle(8, 8)).launch()
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("backend", ["owner", "service"])
+@pytest.mark.parametrize("vertices", [8, 32])
+def test_complete_cycle_each_edge_partner_and_retry_through_restart(
+    tmp_path, backend, vertices
+):
+    from axiom.service import Service
+
+    reference = Cycle(vertices, vertices + 4)
+    reference.inspect()
+    path = tmp_path / "cycle.db"
+    graph = {
+        tuple(sorted((u, (u + distance) % vertices)))
+        for u in range(vertices)
+        for distance in (1, 2)
+    }
+    initial = graph.copy()
+    factory = (
+        Durable(path, n=vertices, checkpoint_interval=4)
+        if backend == "owner"
+        else Service(path, n=vertices, checkpoint_interval=4, queue_capacity=8)
+    )
+    with factory as owner:
+        for sequence in range(1, reference.sequence + 1):
+            action, u, v = reference.operation(sequence)
+            if action == "insert":
+                assert (u, v) not in graph
+                graph.add((u, v))
+            else:
+                assert (u, v) in graph
+                graph.remove((u, v))
+            request = Request(sequence, action, u, v)
+            result = (
+                owner.apply([request])[0]
+                if backend == "owner"
+                else owner.submit(request).result(5)
+            )
+            assert result.changed and result.version == sequence + 1
+            state = owner.status() if backend == "owner" else owner.status().result(5)
+            assert state["edges"] == len(graph)
+            for a in range(vertices):
+                partner = owner.partner(a)
+                if backend == "service":
+                    partner = partner.result(5)
+                expected = a ^ 1
+                if sequence > vertices and sequence % 2 and a in (0, 1):
+                    expected = None
+                assert partner == (sequence + 1, expected)
+                for b in range(a + 1, vertices):
+                    present = owner.has_edge(a, b)
+                    if backend == "service":
+                        present = present.result(5)
+                    assert present == (sequence + 1, (a, b) in graph)
+            if sequence == vertices // 2:
+                assert len(graph) == len(initial) + vertices // 2
+            if sequence == vertices:
+                assert graph == initial
+    with Durable(path) as recovered:
+        digest = reference.verify(recovered)
+        assert (
+            digest
+            == hashlib.sha256(
+                b"".join((u ^ 1).to_bytes(4, "little") for u in range(vertices))
+            ).hexdigest()
+        )
+        # A same-count, still-perfect-matching substitution must be rejected.
+        recovered.apply(
+            [
+                Request(reference.sequence + 1, "insert", 0, vertices // 2),
+                Request(reference.sequence + 2, "delete", 0, 2),
+            ]
+        )
+        with pytest.raises(RuntimeError, match="topology"):
+            Cycle(vertices, reference.sequence + 2).verify(recovered)
 
 
 def test_reference_rejects_changed_topology_even_when_counts_and_matching_agree(

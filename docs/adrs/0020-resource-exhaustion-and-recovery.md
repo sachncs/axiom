@@ -56,6 +56,29 @@ bytes **including deliberate memory ballast**, not ordinary service memory.
 The [archived report](../../benchmarks/results/resource-envelope.json) retains
 the stage metadata. No production-engine bug was found in these drills.
 
+## Changing-density extension
+
+The `--growth` profile adds a complete antipodal-chord growth/drain cycle before
+the existing 40,000 balanced updates: 1,040,000 real changes at one million
+vertices. `Cycle` extends `Audit` with domain operation mapping and validation;
+the same independent final topology/partner/retry certificate is reused by memory,
+disk and backup drills. Every acknowledged transition must be real and have its
+exact expected sequence/version. The graph visits 2.5 million edges, returns to
+the original two-million-edge ring, then completes the balanced tail.
+
+CI selects that profile without changing 128 MiB native, 512 MiB address-space
+or dedicated 192 MiB filesystem limits. The isolated worker deadline becomes
+300 seconds (outer timeout 360 seconds) for the larger trace. The report's
+`working` field captures peak RSS through active updates and backup before
+deliberate memory ballast; `peak` still includes exhaustion. `cycle` identifies
+whether the prefix ran. Legacy balanced mode and its archived evidence remain.
+
+All 866 local tests pass, including every possible small-graph edge/partner after
+each owner/Service cycle change, restart/retry data flow, same-count wrong-topology
+rejection and invalid-reference rejection before worker launch. Lint, formatting
+and types pass. The extended installed Linux hard-limit result is pending CI,
+not inherited from the older 40,000-update report or macOS allocator measurements.
+
 CI explicitly uses Bash with pipefail: logging through `tee` must not mask a
 failed child or timeout. The first run's complete verified report establishes
 its successful execution; the subsequent pipeline fix makes failures dependable.

@@ -131,6 +131,38 @@ class Audit:
             raise RuntimeError("resource recovery original retry differs")
         return digest.hexdigest()
 
+    def operation(self, sequence: int) -> tuple[str, int, int]:
+        """Describe a real balanced edit after reference validation."""
+        if type(sequence) is not int or not 1 <= sequence <= self.sequence:
+            raise ValueError("operation sequence outside resource reference")
+        return "delete" if sequence % 2 else "insert", 0, 1
+
+
+class Cycle(Audit):
+    """Grow/drain every antipodal chord, then run the balanced pressure prefix."""
+
+    def inspect(self) -> None:
+        """Require one complete even cycle plus bounded, balanced tail updates."""
+        if (
+            type(self.vertices) is not int
+            or not 8 <= self.vertices <= 1000000
+            or self.vertices % 2
+            or type(self.sequence) is not int
+            or not 2 <= self.sequence - self.vertices <= 40000
+            or self.sequence % 2
+        ):
+            raise ValueError("require a complete growth/drain cycle and balanced tail")
+
+    def operation(self, sequence: int) -> tuple[str, int, int]:
+        """Every admitted chord edit changes density; tail retries retain identity."""
+        if type(sequence) is not int or not 1 <= sequence <= self.sequence:
+            raise ValueError("operation sequence outside resource reference")
+        if sequence > self.vertices:
+            return super().operation(sequence)
+        half = self.vertices // 2
+        vertex = (sequence - 1) % half
+        return "insert" if sequence <= half else "delete", vertex, vertex + half
+
 
 @dataclass
 class Pressure(ABC):
@@ -247,9 +279,7 @@ class Envelope:
             for first in range(1, self.audit.sequence + 1, 256):
                 end = min(first + 256, self.audit.sequence + 1)
                 receipts = [
-                    service.submit(
-                        Request(seq, "delete" if seq % 2 else "insert", 0, 1)
-                    )
+                    service.submit(Request(seq, *self.audit.operation(seq)))
                     for seq in range(first, end)
                 ]
                 for seq, receipt in zip(range(first, end), receipts, strict=True):
@@ -263,6 +293,7 @@ class Envelope:
             manifest = service.backup(backup).result(30)
             metrics = service.metrics()
 
+        working = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
         results = {}
         for pressure in (
             Memory(self.volume, self.audit),
@@ -281,11 +312,13 @@ class Envelope:
             "platform": platform.platform(),
             "vertices": self.audit.vertices,
             "sequence": self.audit.sequence,
+            "cycle": self.audit.vertices if isinstance(self.audit, Cycle) else 0,
             "limits": {
                 "address": resource.getrlimit(resource.RLIMIT_AS),
                 "filesystem": capacity,
             },
             "peak": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024,
+            "working": working,
             "state": state,
             "metrics": metrics,
             "backup": manifest["bytes"],
@@ -297,19 +330,23 @@ class Envelope:
     def launch(self) -> None:
         """Isolate irreversible address-space limits from the caller, with a deadline."""
         self.volume.inspect()
+        self.audit.inspect()
+        command = [
+            sys.executable,
+            "-I",
+            str(Path(__file__).resolve()),
+            "--directory",
+            str(self.volume.path),
+            "--vertices",
+            str(self.audit.vertices),
+            "--worker",
+        ]
+        if isinstance(self.audit, Cycle):
+            command.append("--growth")
         subprocess.run(
-            [
-                sys.executable,
-                "-I",
-                str(Path(__file__).resolve()),
-                "--directory",
-                str(self.volume.path),
-                "--vertices",
-                str(self.audit.vertices),
-                "--worker",
-            ],
+            command,
             check=True,
-            timeout=180,
+            timeout=300 if isinstance(self.audit, Cycle) else 180,
         )
 
     @classmethod
@@ -318,11 +355,19 @@ class Envelope:
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument("--directory", type=Path, required=True)
         parser.add_argument("--vertices", type=int, default=1000000)
+        parser.add_argument(
+            "--growth", action="store_true", help="include a full growth/drain cycle"
+        )
         parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
         args = parser.parse_args()
         if args.vertices not in (256000, 1000000):
             parser.error("supported pressure stages are 256000 and 1000000 vertices")
-        envelope = cls(Volume(args.directory), Audit(args.vertices))
+        audit = (
+            Cycle(args.vertices, args.vertices + 40000)
+            if args.growth
+            else Audit(args.vertices)
+        )
+        envelope = cls(Volume(args.directory), audit)
         if args.worker:
             print(json.dumps(envelope.run(), indent=2))
         else:
