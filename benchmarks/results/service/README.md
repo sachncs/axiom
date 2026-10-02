@@ -110,6 +110,22 @@ RSS/WAL/disk, backup and device power-loss gates remain open.
 
 ## Forced hub-repair stage
 
+### Moderate-row candidate requalification
+
+[Candidate hub record](rowpolicy-hub-million.json), source `6d5f3cd`, wheel
+SHA-256 `19736864c92330d21fbe1af76496d145e1d137c991ebfebdfe1b074a0e1fad48`,
+repeats the million-vertex degree-65,536 hub with 100,000 pairs on the same
+declared development host in a fresh isolated process, after other benchmarks
+finish. 200,000 real durable updates and 200,000 coherent queries complete at
+16,622.1 updates/s with eight checkpoints including bootstrap. Exact topology,
+proper-maximal matching, recovery and 1,600 retry outcomes pass; trace/matching
+hashes agree with the previous long hub record. Native allocation is 79,233,888
+bytes; peak RSS 283,328,512 bytes. Ack/query p99 upper bounds are 24.5/0.4 ms;
+maximum ack is 190.9 ms. This preserves the short closed-loop indexed-hub stage,
+not a sustained open-loop hub SLA or proof that every skew distribution qualifies.
+
+### Historical baseline
+
 Benchmark source `84c9fe3`, installed native `b8c36e7` / service `c5dd095`, wheel
 SHA-256 `1d6085644c20cd36b1eddb1fea1583276aa2e1309b853b4f9f7cf7869b8b47a1`.
 Same declared Mac/software/filesystem; fresh sequential isolated installed-package

@@ -219,3 +219,14 @@ zero); maximum ack/offered-ack/query latency is 2.390/2.391/1.510 seconds.
 This is a failed denser throughput gate, not evidence that degree 64 meets the
 accepted degree-four production envelope. Maintenance and density-sensitive
 compute still need profiling and engineering.
+
+[Candidate degree-four release-profile smoke](candidate-sweep-million.json)
+uses the same installed wheel sequentially, one million vertices, 128 MiB native
+and 64 MiB database/image caps, 30 seconds and 11k/10k offered updates/queries
+per second. 329,959 real updates complete at 10,975.4/s including drain, with
+299,889 coherent queries, ten checkpoints and independent exact odd-prefix
+topology/matching/recovery. Update/query producer misses are 41/111; both streams
+have zero IPC drops and zero Busy. Ack/offered-ack/query p99 upper bounds are
+185.6/186.4/1.8 ms; maxima are 217.4/218.9/26.5 ms. Native allocation is
+49,142,880 bytes; peak owner RSS is 182,501,376 bytes. This passes a short
+degree-four stage, not a sustained full-ring sweep or aggregate deployment quota.

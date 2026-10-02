@@ -42,6 +42,11 @@ adjacency. Installed fixed traces reduce degree-64 native allocation 81.4%, at
 the cost of 38.8% lower core update throughput; graphs and matchings agree exactly.
 All 815 local tests and CI pass. Full durable service requalification remains
 pending: the hot/full-ring soaks in the table qualify the previous binary only.
+New-binary short stages pass at 10,975 durable updates/s for degree four and
+16,622/s for forced indexed-hub repair, with exact queries/recovery. Degree 64
+now fits its explicit 1 GiB native cap but reaches only 6,640/s with losses and
+long tails; that denser envelope fails throughput qualification. Native budgets
+do not bound SQLite/image copies or total RSS.
 See [ADR 0021](adrs/0021-moderate-row-index-policy.md) for the explicit tradeoff.
 
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,

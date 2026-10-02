@@ -65,3 +65,20 @@ This fails degree-64 throughput/latency qualification. Bounded scans and larger
 full-audit/image/SQLite maintenance costs require separate profiling; the fixed
 core comparison alone does not identify the service bottleneck. The accepted
 release workload remains degree four, not this denser diagnostic.
+
+The [new-binary degree-four smoke](../../benchmarks/results/independent/candidate-sweep-million.json)
+passes under explicit 128 MiB native and 64 MiB database/image caps: 329,959 real
+updates at 10,975.4/s including drain, 299,889 coherent queries, ten checkpoints
+and exact recovery. Ack/query p99 upper bounds are 185.6/1.8 ms. There are no
+IPC drops or Busy rejections; producer misses remain reported. Native allocation
+is 49,142,880 bytes and peak owner RSS 182,501,376 bytes. This is a 30-second
+stage, not the pending new-binary sustained/hub qualification.
+
+The [indexed-hub candidate repeat](../../benchmarks/results/service/rowpolicy-hub-million.json)
+also passes: one million vertices, degree-65,536 hub, 200,000 real durable updates
+and 200,000 queries, eight checkpoints including bootstrap, exact recovery and
+retry outcomes. It reaches 16,622.1/s; ack/query p99 upper bounds are 24.5/0.4 ms,
+native allocation 79,233,888 bytes and peak RSS 283,328,512 bytes. Trace/matching
+hashes match the earlier long hub stage. This short closed-loop repeat preserves
+indexed-hub behavior, not an open-loop or sustained hub SLA. New-binary sustained
+degree-four qualification remains pending.
