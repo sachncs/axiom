@@ -64,8 +64,38 @@ separately in [ADR 0020](../../../docs/adrs/0020-resource-exhaustion-and-recover
 edges rather than repeatedly touching `(0,1)`. Each admitted delete/insert pair
 uses the same endpoints; rejected/dropped offers never advance that logical trace.
 The `Traffic` reference and its `Hot`/`Sweep` strategies independently predict
-vertex-zero queries from the committed version. Exact final topology accounts for
+queries from the committed version. Sweep queries traverse matched endpoints;
+hot queries retain vertex zero. Exact final topology accounts for
 an odd accepted prefix and recovery compares the full live matching digest.
 This widens the working set; it is not a random high-degree/hub workload or evidence
 of a completed sweep performance run. The current hot soak uses an archived runner
 and is unaffected by these additions.
+
+## Completed 30-minute hot-edge soak
+
+[Raw record](soak-million-4096-11000.json): production wheel and archived runner
+source `9b34949`, wheel SHA-256
+`1bc2af233ad3cc2b40f467794aba5b007dad12f9a2bdb1f759209c1febd5e463`.
+Same declared Mac hardware/storage, fresh isolated installed-wheel process,
+1800 seconds, 11000 update/10000 query offers/s, capacity 4096 and IPC batch 16.
+
+19,751,386 real durable updates complete at **10,972.9/s**, including drain;
+17,956,015 coherent matching queries and 602 automatic checkpoints complete.
+Independent exact topology/proper-maximal matching and exact recovery pass with
+the original matching digest. Retained operations are 28,074, native allocation
+49,142,880 bytes, owner/producer peak RSS 183,074,816/28,917,760 bytes.
+
+Of 19.8 million update slots, 48,470 are producer-missed and 144 IPC-dropped;
+Service Busy is zero. Query misses/drops are 43,537/448 with zero Busy. This is
+sustained delivered throughput, **not loss-free delivery**. Acknowledgment p99
+upper bound is 178 ms, offered-to-ack p99 178.9 ms, offered-query p99 1.8 ms.
+Maxima reach **1.88 seconds ack / 1.74 seconds query**; 153 acknowledgment and
+22 query samples exceed the one-second histogram bucket. Do not hide these tails
+behind the percentile or claim a maximum-latency SLA.
+
+Sparse OS samples during the second half show approximately 172 MB live owner
+RSS, 50.6 MB database and 4 MiB WAL, without growing with operation count in those
+samples. Final database size is 50,601,984 bytes. Sampling is not a peak disk bound,
+page-cache quota, or proof of indefinite stability. This establishes the latest
+production path's scoped sustained hot-edge stage, not full-ring/skew/repeatability,
+deployment quotas, network or hardware power-loss qualification.

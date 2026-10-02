@@ -24,7 +24,7 @@ that later-delivered production components are absent.
 | Compact storage and local transactions | Native blocked adjacency, bounded graph/partner undo, local certificates | Wider degree/churn envelopes and deployment sizing |
 | Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Deployment recovery objectives; hardware power-loss deferred by user for this version |
 | Concurrent clients and overload | Single-owner Service, locked admission/publication, bounded receipts, read reservation | Production transport/retry integration if required; broader sustained burst/skew qualification |
-| Million-vertex 10k durable updates/s | Latest independent-arrival 30-second stage at 10.93k/s with queries; older-code 30-minute soak | Latest-code sustained run and repeatability; all misses/drops/rejections remain explicit |
+| Million-vertex 10k durable updates/s | Latest production-path independent 30-minute hot-edge soak at 10.97k/s with queries and exact recovery | Full-ring/broader workload sustained runs and repeatability; all misses/drops/rejections remain explicit |
 | Resource failure and backups | Installed Linux allocation/disk exhaustion and exact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Paper-state deepcopy/journal migration and incremental hierarchy validation, separately certified |
@@ -171,6 +171,16 @@ The user accepted present latency for this version and requested stricter latenc
 engineering be marked future work. Continue with hard resource failure behavior
 and backup/recovery validation; do not invent a numeric RSS/latency SLA or treat
 process-crash tests as physical power-loss proof.
+
+The installed production path now completes a separate-process **30-minute**
+hot-edge soak at **10,972.9 real durable updates/s**, with 19,751,386 acknowledged
+changes, 17,956,015 coherent queries, 602 checkpoints and exact independent
+recovery. Owner peak RSS is 183.1 MB. Update misses/drops are 48,470/144, with no
+Service Busy; this is not loss-free delivery. Ack/query p99 upper bounds are
+178 ms/1.8 ms, but maxima reach 1.88 s/1.74 s. Full-ring working-set qualification,
+repeatability and deployment quotas remain separate work. Hardware power loss is
+deferred for this version, with no delivered guarantee.
+[Raw evidence and provenance](../benchmarks/results/independent/README.md#completed-30-minute-hot-edge-soak).
 
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.

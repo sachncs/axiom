@@ -54,3 +54,14 @@ latency/RSS SLAs from that acceptance. Retain maintenance-tail measurements and
 make stricter query/ack latency, timer-bounded IPC flush and background consistent
 checkpoint design future engineering work. Continue with hard resource failure
 behavior and backup/recovery validation; this acceptance is not a power-loss claim.
+
+The subsequent installed-wheel 30-minute hot-edge soak completes 19,751,386 real
+durable updates at 10,972.9/s, 17,956,015 coherent queries and 602 checkpoints,
+with exact independent recovery. Ack/query p99 upper bounds are 178 ms/1.8 ms;
+maxima are 1.88 s/1.74 s. Explicit update misses/drops are 48,470/144, no Busy.
+Peak owner RSS is 183.1 MB; sampled database/WAL sizes remain around 50.6 MB/4 MiB.
+See the raw artifact/provenance above. This passes the scoped latest production
+path sustained stage, not full-ring/repeatability or deployment resource quotas.
+Actual Linux memory/disk exhaustion is a separate passed stage (ADR 0020).
+Hardware power-loss qualification was explicitly deferred by the user for this
+version; it remains unclaimed future engineering.
