@@ -314,4 +314,25 @@ second but offers them at 44,000/s during the active window. All producer misses
 IPC drops and Busy rejections remain explicit, including the final drain. This
 schedule is independent of the graph trace (`hot`, `sweep`, or `pulse`); it does
 not assert that a bounded owner can admit every burst. No million-vertex burst
-qualification result is claimed yet.
+qualification result is claimed by configuration alone.
+
+[First million-vertex burst stage](burst-million.json), frozen runner `a500ad4`
+and installed wheel source `6d5f3cd`, runs sequentially on a fresh path for
+180 seconds with no tracing/VM inspection. It explicitly selects
+`MallocLargeCache=0`, 128 MiB native, 64 MiB database/image and 4,096 queue caps.
+The 11k average update offer rate becomes 44k/s during each first-quarter active
+window; queries remain steady at 10k/s. 1,910,186 real durable changes complete
+at 10,611.1/s including drain, with 1,799,880 coherent queries, 58 checkpoints
+and independently exact topology/proper-maximal matching/recovery. The full-ring
+trace completes one full cycle plus a partial cycle, ending on the original
+two-million-edge perfect matching.
+
+Update producer misses/IPC drops/Busy are **32,574/0/37,240** out of 1,980,000
+planned offers. Query misses/drops/Busy are 120/0/0. Admission reaches its exact
+4,096 bound; this is not handling every burst offer. Ack/offered-ack/query p99
+upper bounds are 240.1/241.0/2.3 ms; maxima are 261.7/770.8/26.7 ms, with no
+one-second overflow. Native allocation is 49,142,880 bytes; owner/producer peak
+RSS is 170,573,824/29,491,200 bytes. This passes a scoped delivered-throughput
+and bounded-overload recovery stage, not arbitrary burst/skew, network, latency
+SLA or aggregate-resource qualification. Counted rejected offers require caller
+backpressure/retry policy; they must not be counted as durable changes.

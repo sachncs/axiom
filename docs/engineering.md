@@ -73,6 +73,14 @@ silently alter an embedding process. Longer/no-inspection repeats and Linux
 changing-density hard limits remain open. [ADR 0022](adrs/0022-allocator-residency.md)
 records evidence, operating policy and portable-checkpoint alternatives.
 
+The first new-binary burst stage (three minutes, 44k/s active windows and 11k/s
+average offers) delivers 10,611 real durable updates/s with 1,799,880 coherent
+queries, 58 checkpoints and exact recovery. Its bounded queue rejects 37,240
+update offers; producer misses are 32,574, no IPC drops or query Busy. Ack/query
+p99 upper bounds are 240.1/2.3 ms. With the explicit macOS allocator profile,
+peak owner RSS is 170,573,824 bytes. This is scoped overload behavior, not admission
+of every offer or a new latency guarantee. [Raw burst evidence](../benchmarks/results/independent/burst-million.json).
+
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
 zero counters, and coloring-validation buckets. Exact consistency checks remain.
 Identical short 512-vertex basic traces improved median rate from 327.7 to 509.0
