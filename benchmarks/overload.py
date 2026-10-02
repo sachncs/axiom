@@ -33,6 +33,17 @@ class Schedule:
         self.total, self.end = rate * seconds, started + seconds * 1_000_000_000
         self.missed = 0
 
+    def deadline(self, index: int) -> int:
+        """Map an offer slot to its independently measured intended timestamp."""
+        return self.started + index * 1_000_000_000 // self.rate
+
+    def position(self, now: int) -> int:
+        """Select the last rounded slot that has arrived, without moving backward."""
+        return min(
+            self.total - 1,
+            ((now - self.started + 1) * self.rate - 1) // 1_000_000_000,
+        )
+
     def __iter__(self):
         """Yield intended arrival timestamps; never block on operation outcomes."""
         index = 0
@@ -40,19 +51,35 @@ class Schedule:
             now = time.perf_counter_ns()
             if now >= self.end:
                 break
-            due = self.started + index * 1_000_000_000 // self.rate
+            due = self.deadline(index)
             if now < due:
                 self.stop.wait((due - now) / 1_000_000_000)
                 continue
-            latest = min(
-                self.total - 1,
-                ((now - self.started + 1) * self.rate - 1) // 1_000_000_000,
-            )
+            latest = self.position(now)
             self.missed += latest - index
             index = latest
-            yield self.started + index * 1_000_000_000 // self.rate
+            yield self.deadline(index)
             index += 1
         self.missed += self.total - index
+
+
+class Burst(Schedule):
+    """Offer each second's updates in its first quarter, then leave a drain gap."""
+
+    def deadline(self, index: int) -> int:
+        """Keep the same average offer count with a fourfold active-window rate."""
+        second, slot = divmod(index, self.rate)
+        return (
+            self.started
+            + second * 1_000_000_000
+            + slot * 1_000_000_000 // (4 * self.rate)
+        )
+
+    def position(self, now: int) -> int:
+        """Clamp quiet-window time to the last slot, never replaying a late burst."""
+        second, elapsed = divmod(now - self.started, 1_000_000_000)
+        slot = min(self.rate - 1, ((elapsed + 1) * 4 * self.rate - 1) // 1_000_000_000)
+        return min(self.total - 1, second * self.rate + slot)
 
 
 def measure(

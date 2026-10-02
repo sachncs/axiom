@@ -245,3 +245,12 @@ native full audit, exact edge membership/count, proper-maximal matching and matc
 digest recovery are still mandatory. Run fresh paths and report all loss classes,
 maintenance tails and native/process memory separately. This trace is implemented
 for the next stage; no million-vertex pulse result is claimed yet.
+
+`--arrival burst` compresses each second's update quota into its first 250 ms,
+giving four times the configured active update rate and a quiet drain interval.
+Queries remain steady throughout. Thus `--rate 11000` plans 11,000 updates per
+second but offers them at 44,000/s during the active window. All producer misses,
+IPC drops and Busy rejections remain explicit, including the final drain. This
+schedule is independent of the graph trace (`hot`, `sweep`, or `pulse`); it does
+not assert that a bounded owner can admit every burst. No million-vertex burst
+qualification result is claimed yet.

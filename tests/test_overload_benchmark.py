@@ -7,7 +7,7 @@ import pytest
 from axiom.durable import Durable
 from axiom.service import Service
 from benchmarks import overload
-from benchmarks.overload import Schedule, measure
+from benchmarks.overload import Burst, Schedule, measure
 
 
 def test_schedule_reports_missed_slots_without_unbounded_catch_up(monkeypatch):
@@ -44,6 +44,71 @@ def test_schedule_skipping_to_a_rounded_deadline_reconciles_exactly(monkeypatch)
     assert observed == [0, 666666666]
     assert schedule.missed == 1
     assert len(observed) + schedule.missed == schedule.total
+
+
+@pytest.mark.parametrize("rate", [3, 7, 11000])
+def test_burst_exact_deadlines_and_second_boundary_never_duplicate(monkeypatch, rate):
+    expected = [
+        (index // rate) * 1_000_000_000 + (index % rate) * 1_000_000_000 // (4 * rate)
+        for index in range(2 * rate)
+    ]
+    times = iter([*expected, 2_000_000_000])
+    monkeypatch.setattr(overload.time, "perf_counter_ns", lambda: next(times))
+    schedule = Burst(0, rate, 2, threading.Event())
+    observed = list(schedule)
+    assert observed == expected and len(set(observed)) == 2 * rate
+    assert schedule.missed == 0
+    assert observed[rate - 1] < 250000000 and observed[rate] == 1000000000
+
+
+def test_burst_skips_late_slots_without_catchup_and_reconciles(monkeypatch):
+    times = iter([0, 166666666, 1000000000, 1166666666])
+    monkeypatch.setattr(overload.time, "perf_counter_ns", lambda: next(times))
+    schedule = Burst(0, 3, 2, threading.Event())
+    observed = list(schedule)
+    assert observed == [0, 166666666, 1000000000, 1166666666]
+    assert len(observed) + schedule.missed == schedule.total == 6
+    assert schedule.missed == 2
+
+
+def test_burst_quiet_window_waits_without_replaying_finished_slots(monkeypatch):
+    class Clock:
+        now = 0
+        waits = []
+
+        def is_set(self):
+            return False
+
+        def wait(self, seconds):
+            self.waits.append(seconds)
+            self.now += round(seconds * 1_000_000_000)
+
+    clock = Clock()
+    monkeypatch.setattr(overload.time, "perf_counter_ns", lambda: clock.now)
+    schedule = Burst(0, 3, 2, clock)
+    assert list(schedule) == [
+        0,
+        83333333,
+        166666666,
+        1000000000,
+        1083333333,
+        1166666666,
+    ]
+    assert schedule.missed == 0
+    assert max(clock.waits) > 0.75
+
+
+@pytest.mark.parametrize("policy", [Schedule, Burst])
+def test_schedule_stop_during_wait_counts_all_unoffered_slots(monkeypatch, policy):
+    class Stop(threading.Event):
+        def wait(self, timeout=None):
+            self.set()
+            return True
+
+    monkeypatch.setattr(overload.time, "perf_counter_ns", lambda: 0)
+    schedule = policy(1000000000, 7, 2, Stop())
+    assert list(schedule) == []
+    assert schedule.missed == schedule.total == 14
 
 
 def test_offered_load_counts_all_outcomes_and_audits_exact_recovery(tmp_path):

@@ -13,8 +13,9 @@ from benchmarks.independent_load import measure
 
 @pytest.mark.parametrize("ipc_batch", [1, 16])
 @pytest.mark.parametrize("workload", ["hot", "sweep", "pulse"])
+@pytest.mark.parametrize("arrival", ["steady", "burst"])
 def test_separate_producer_saturation_and_exact_recovery(
-    tmp_path, monkeypatch, ipc_batch, workload
+    tmp_path, monkeypatch, ipc_batch, workload, arrival
 ):
     entered, release = threading.Event(), threading.Event()
     persist, submit = Durable._persist, Service.submit
@@ -49,6 +50,7 @@ def test_separate_producer_saturation_and_exact_recovery(
             queue_capacity=8,
             ipc_batch=ipc_batch,
             workload=workload,
+            arrival=arrival,
         )
     finally:
         release.set()
@@ -77,6 +79,8 @@ def test_separate_producer_saturation_and_exact_recovery(
     assert result["peak_client_receipts"] <= 264
     assert result["independent_exact_audit_and_recovery_passed"]
     assert result["workload"] == workload
+    assert result["arrival"] == arrival
+    assert result["active_update_rate"] == 10000 * (4 if arrival == "burst" else 1)
 
 
 @pytest.mark.parametrize("code", [errno.EAGAIN, errno.ENOBUFS])
@@ -135,6 +139,9 @@ def test_producer_counts_ipc_drops_separately_without_blocking(
         {"ipc_batch": 0},
         {"ipc_batch": 65},
         {"workload": "unknown"},
+        {"workload": []},
+        {"arrival": "unknown"},
+        {"arrival": True},
         {"width": True},
         {"width": 3},
         {"width": 32},

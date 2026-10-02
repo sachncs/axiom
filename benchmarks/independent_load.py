@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from axiom.durable import BusyError, Durable, Request
 from axiom.service import Service
 from benchmarks.durable import certificate
-from benchmarks.overload import Schedule
+from benchmarks.overload import Burst, Schedule
 from benchmarks.service import Histogram, live_digest
 
 _PACKET = struct.Struct("<BQ")
@@ -121,14 +121,17 @@ class Pulse(Traffic):
         )
 
 
-def _produce(channel, result, started, rate, query_rate, seconds, ipc_batch=1):
+def _produce(
+    channel, result, started, rate, query_rate, seconds, ipc_batch=1, arrival="steady"
+):
     """Send without blocking on IPC or update acknowledgment; return fixed counters."""
     stop = threading.Event()
     counters = [[0, 0, 0], [0, 0, 0]]
     failures = []
 
     def offer(kind, offered_rate):
-        schedule = Schedule(started, offered_rate, seconds, stop)
+        policy = Burst if arrival == "burst" and kind == 0 else Schedule
+        schedule = policy(started, offered_rate, seconds, stop)
         sent = dropped = 0
         packet = bytearray()
 
@@ -193,6 +196,7 @@ def measure(
     ipc_bytes: int = 16384,
     ipc_batch: int = 1,
     workload: str = "hot",
+    arrival: str = "steady",
     width: int = 2,
     limit: int = 64 << 20,
     budget: int = 1 << 30,
@@ -229,8 +233,10 @@ def measure(
     ):
         raise ValueError("invalid bounded independent-load envelope")
     choices = {"hot": Hot, "sweep": Sweep, "pulse": Pulse}
-    if workload not in choices:
+    if not isinstance(workload, str) or workload not in choices:
         raise ValueError("require hot, sweep or pulse workload")
+    if arrival not in ("steady", "burst"):
+        raise ValueError("require steady or burst arrival")
     traffic = choices[workload](vertices)
     if path.exists():
         raise ValueError("benchmark requires a fresh database")
@@ -263,7 +269,7 @@ def measure(
         started = time.perf_counter_ns() + 1_000_000_000
         process = context.Process(
             target=_produce,
-            args=(send, writer, started, rate, query_rate, seconds, ipc_batch),
+            args=(send, writer, started, rate, query_rate, seconds, ipc_batch, arrival),
         )
         process.start()
         send.close()
@@ -395,6 +401,8 @@ def measure(
         "platform": platform.platform(),
         "vertices": vertices,
         "workload": workload,
+        "arrival": arrival,
+        "active_update_rate": rate * (4 if arrival == "burst" else 1),
         "width": width,
         "limits": {"native": budget, "snapshot": limit, "database": limit},
         "rate": rate,
@@ -440,6 +448,7 @@ def main():
     parser.add_argument("--ipc-bytes", type=int, default=16384)
     parser.add_argument("--ipc-batch", type=int, default=1)
     parser.add_argument("--workload", choices=("hot", "sweep", "pulse"), default="hot")
+    parser.add_argument("--arrival", choices=("steady", "burst"), default="steady")
     parser.add_argument("--width", type=int, choices=(2, 8, 32), default=2)
     parser.add_argument("--limit", type=int, default=64 << 20)
     parser.add_argument("--budget", type=int, default=1 << 30)

@@ -58,6 +58,18 @@ cover every deadline at rates 3/7/11,000 over one/two seconds and a skipped-slot
 deadline. Total offers plus misses must always reconcile; frozen earlier runners
 retain their provenance and must pass their existing count reconciliation.
 
+`--arrival burst` selects a `Burst` schedule for updates while queries retain a
+steady rate. Each second's full update quota is offered during its first quarter
+at four times the configured average rate, followed by a quiet drain interval.
+Planned counts remain `rate * seconds`; timestamp-derived latency includes burst
+queueing. Deadline/position mappings are polymorphic; admission, loss accounting,
+bounded receipts and exact recovery use the same path as steady arrivals. Late
+burst slots are missed, never emitted as an unbounded catch-up batch. Clock tests
+cover rounded deadlines, second boundaries, quiet-window waits, skipped slots and
+cancellation. Stalled-storage end-to-end tests combine both arrival policies,
+all three graph traces and both IPC batch sizes. This is harness coverage, not
+evidence that every offered burst can be admitted or a production burst SLA.
+
 ## Evidence and limits
 
 The degree-65536 million-vertex staged hub run falls to 9048 real durable changes/s,
