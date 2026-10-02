@@ -214,6 +214,112 @@ def test_backup_size_limit_rejects_before_copy_and_source_remains_usable(
         assert source.check() and source.apply([edit(1)]) == (Outcome(1, True, 1),)
 
 
+def bloat(store: Durable) -> tuple[int, int]:
+    # Reproduce freed SQLite pages without changing authoritative graph tables.
+    connection = store._db()
+    connection.execute("CREATE TABLE scratch (payload BLOB)")
+    connection.execute("INSERT INTO scratch VALUES (zeroblob(2097152))")
+    connection.execute("DROP TABLE scratch")
+    connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    pages = connection.execute("PRAGMA page_count").fetchone()[0]
+    free = connection.execute("PRAGMA freelist_count").fetchone()[0]
+    assert free > 400
+    return pages, free
+
+
+def test_compact_backup_preserves_graph_history_and_live_source_pages(tmp_path: Path):
+    destination = tmp_path / "backup.db"
+    with create(tmp_path / "source.db") as source:
+        for seq in range(1, 20):
+            source.apply([edit(seq)])
+        pages, free = bloat(source)
+        before = state(source)
+        records = {
+            table: source._db().execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
+            for table in ("control", "operations", "checkpoints")
+        }
+        contents = source._path.read_bytes()
+        manifest = source.backup(destination)
+        assert source._path.read_bytes() == contents
+        assert state(source) == before
+        assert source._db().execute("PRAGMA page_count").fetchone() == (pages,)
+        assert source._db().execute("PRAGMA freelist_count").fetchone() == (free,)
+        connection = sqlite3.connect(destination)
+        try:
+            assert connection.execute("PRAGMA freelist_count").fetchone() == (0,)
+            assert connection.execute("PRAGMA page_count").fetchone()[0] < pages - 400
+            for table, rows in records.items():
+                assert (
+                    connection.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
+                    == rows
+                )
+        finally:
+            connection.close()
+        assert manifest["bytes"] == destination.stat().st_size
+        assert (
+            manifest["sha256"] == hashlib.sha256(destination.read_bytes()).hexdigest()
+        )
+        assert destination.stat().st_mode & 0o777 == 0o600
+        assert not list(tmp_path.glob(".axiom-backup-*"))
+        with Durable(destination) as restored:
+            assert state(restored) == before and restored.check()
+            assert restored.apply([edit(19)]) == (Outcome(19, True, 19),)
+            with pytest.raises(ExpiredError):
+                restored.apply([edit(1)])
+            assert restored.apply([edit(20)]) == source.apply([edit(20)])
+            assert state(restored) == state(source)
+
+
+@pytest.mark.parametrize("failure", ["full", "memory", "deadline"])
+def test_compaction_failure_is_local_and_unpublished(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+):
+    original = sqlite3.connect
+    callbacks = []
+
+    class Connection(sqlite3.Connection):
+        def set_progress_handler(self, callback, count):
+            callbacks.append(callback)
+            return super().set_progress_handler(
+                callback, 1 if callback is not None and failure == "deadline" else count
+            )
+
+        def execute(self, sql, parameters=()):
+            if sql == "VACUUM INTO ?":
+                if failure == "full":
+                    raise sqlite3.OperationalError("database or disk is full")
+                if failure == "memory":
+                    raise MemoryError("injected compaction allocation failure")
+                monkeypatch.setattr(backup.time, "monotonic", lambda: float("inf"))
+            return super().execute(sql, parameters)
+
+    destination = tmp_path / "backup.db"
+    with create(tmp_path / "source.db") as source:
+        source.apply([edit(1)])
+        pages, free = bloat(source)
+        before = state(source)
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                backup.sqlite3,
+                "connect",
+                lambda *args, **kwargs: original(*args, **kwargs, factory=Connection),
+            )
+            with pytest.raises(MemoryError if failure == "memory" else BackupError):
+                source.backup(destination)
+        assert callbacks[0] is not None and callbacks[-1] is None
+        assert not destination.exists()
+        assert not list(tmp_path.glob(".axiom-backup-*"))
+        for suffix in ("-wal", "-shm", "-journal"):
+            assert not Path(str(destination) + suffix).exists()
+        assert state(source) == before and source.check()
+        assert source._db().execute("PRAGMA page_count").fetchone() == (pages,)
+        assert source._db().execute("PRAGMA freelist_count").fetchone() == (free,)
+        # Reset the injected clock too before the independent successful retry.
+        monkeypatch.undo()
+        assert source.backup(destination)["sequence"] == 1
+        assert source.apply([edit(2)]) == (Outcome(2, True, 2),)
+
+
 def test_service_backup_blocks_mutations_but_not_partner_reads_and_failure_is_local(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

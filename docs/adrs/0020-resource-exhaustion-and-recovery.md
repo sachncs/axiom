@@ -76,8 +76,32 @@ whether the prefix ran. Legacy balanced mode and its archived evidence remain.
 All 866 local tests pass, including every possible small-graph edge/partner after
 each owner/Service cycle change, restart/retry data flow, same-count wrong-topology
 rejection and invalid-reference rejection before worker launch. Lint, formatting
-and types pass. The extended installed Linux hard-limit result is pending CI,
-not inherited from the older 40,000-update report or macOS allocator measurements.
+and types pass. The extended installed Linux hard-limit run on `49bbe15`
+([job 110799841329](https://github.com/sachncs/axiom/actions/runs/36995030785/job/110799841329))
+failed with actual ENOSPC at `shutil.copyfile(backup, restored)`, after reaching
+the memory/disk recovery steps. No successful final report was produced. This
+contradicts changing-density backup/restore qualification: unused SQLite pages
+are copied too, and the live source, backup master and independent restore must
+coexist. The older balanced report does not cover this failure.
+
+The focused correction compacts only a private staged backup with `VACUUM INTO`
+when it contains free pages. It never vacuums the live authority, deletes the
+backup master, changes checkpoint encoding or increases any resource cap.
+Unlike in-place VACUUM, INTO avoids rewriting the original staging file through
+a rollback journal. A second private output still requires transient headroom;
+ENOSPC or interruption must clean staging and leave the live owner usable.
+The progress handler checks the original deadline and is removed on failure;
+final integrity/control, size, digest, mode, fsync and no-overwrite publication
+checks remain. SQLite physical bytes may differ; explicit integer primary keys,
+exact native checkpoint blobs, committed history and retry semantics must not.
+See [SQLite VACUUM documentation](https://www.sqlite.org/lang_vacuum.html).
+All 870 local tests, lint, formatting and source types pass with the correction.
+Regressions compare every control/history/checkpoint column (including image
+bytes), exact restore/retries/future matching, source main-file bytes and page
+counts. Injected disk-full, allocation and deadline failures leave no published
+image or temporary directory, clear the handler, and allow a successful backup
+retry and subsequent graph mutation. A new installed Linux resource run is still
+required before calling this correction qualified.
 
 CI explicitly uses Bash with pipefail: logging through `tee` must not mask a
 failed child or timeout. The first run's complete verified report establishes

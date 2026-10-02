@@ -127,6 +127,33 @@ def copy(
                     "delete",
                 ):
                     raise BackupError("backup cannot be made self-contained")
+                if target.execute("PRAGMA freelist_count").fetchone()[0]:
+                    # Compact only the private copy. INTO avoids an in-place
+                    # rewrite journal, retaining recovery headroom on tight
+                    # filesystems. Never vacuum the live authority.
+                    compact = Path(work) / "compact.db"
+                    descriptor = os.open(
+                        compact, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600
+                    )
+                    os.close(descriptor)
+
+                    def expired() -> int:
+                        return int(time.monotonic() >= deadline)
+
+                    target.set_progress_handler(expired, 1000)
+                    try:
+                        target.execute("VACUUM INTO ?", (str(compact),))
+                    finally:
+                        target.set_progress_handler(None, 0)
+                    target.close()
+                    image = compact
+                    target = sqlite3.connect(image, isolation_level=None, timeout=0)
+                    for setting in (
+                        "cache_size=-4096",
+                        "mmap_size=0",
+                        "trusted_schema=OFF",
+                    ):
+                        target.execute(f"PRAGMA {setting}")
                 if (
                     target.execute("PRAGMA quick_check").fetchone() != ("ok",)
                     or target.execute("SELECT * FROM control WHERE id=1").fetchone()
