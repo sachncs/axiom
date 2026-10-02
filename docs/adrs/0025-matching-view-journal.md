@@ -64,6 +64,12 @@ traverses remaining owned Python state, and global snapshots/certificates still 
 capacity bounds undo records, not preflight scratch, candidate coexistence, total
 RSS or graph allocations. No million-vertex paper throughput claim follows.
 
+The [installed-wheel diagnostic](../../benchmarks/results/paper/README.md) retains
+the initial full-walk regression as well as the uniqueness-proof follow-up:
+108.00, 100.09 and 123.11 real updates/s respectively on the same small basic
+trace. Transient traced memory decreased 8.9%; RSS did not. This is not durable
+throughput qualification, and does not certify other runtimes or shared views.
+
 Tests cover both modes and both graph backends, original edge/vertex/map identity,
 first-write retention, old edits followed by candidate replacement, capacity
 rejection and retry, repair/rebuild/copy/publication failure, endpoint corruption,

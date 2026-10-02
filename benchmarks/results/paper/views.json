@@ -1,0 +1,3908 @@
+{
+  "scope": "Installed basic/Adjacency diagnostic, not durable or million-vertex qualification",
+  "date": "2026-10-03",
+  "environment": {
+    "machine": "Apple M3 Pro, 18 GiB",
+    "os": "macOS 26.7.1",
+    "python": "3.14.8",
+    "sqlite": "3.53.4",
+    "filesystem": "APFS",
+    "MallocLargeCache": "0",
+    "execution": "Sequential isolated wheel interpreters; no overlapping local tests, builds or Astro preview"
+  },
+  "runner": {
+    "source": "aaafdf9ab84dc733092e3b90512b7a57a9d314d6",
+    "path": "benchmarks/performance.py",
+    "sha256": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767"
+  },
+  "runs": [
+    {
+      "source": "aaafdf9ab84dc733092e3b90512b7a57a9d314d6",
+      "wheel": "fee522a8bb9971cfd61f642d95670c66e607103d52d9f20790a83541f9d38977",
+      "result": {
+        "status": "ok",
+        "configuration": {
+          "vertices": 2048,
+          "family": "sparse",
+          "degree": 4,
+          "workload": "churn",
+          "mode": "basic",
+          "seed": 7,
+          "updates": 128,
+          "repeats": 3
+        },
+        "digest": "870bfa5e874d3691be5d083a32196faf841d5d4a4ced33b3b9b6ee27a6c6ae01",
+        "initialedges": 4096,
+        "finaledges": 4096,
+        "maximumdegree": 12,
+        "operations": 128,
+        "counts": {
+          "insert": 64,
+          "delete": 64
+        },
+        "noop": false,
+        "throughput": 107.99909041478567,
+        "realrate": 107.99909041478567,
+        "initialization": {
+          "count": 3,
+          "median": 24345542,
+          "p95": 25065750,
+          "p99": 25065750,
+          "maximum": 25065750,
+          "total": 73288625
+        },
+        "batches": [
+          1176071333,
+          1185195167,
+          1193566667
+        ],
+        "latency": {
+          "delete": {
+            "count": 64,
+            "median": 9405062.5,
+            "p95": 10277167,
+            "p99": 13393167,
+            "maximum": 13393167,
+            "total": 612345791
+          },
+          "ordinary": {
+            "count": 128,
+            "median": 9088479,
+            "p95": 12690750,
+            "p99": 13661167,
+            "maximum": 14323500,
+            "total": 1193354625
+          },
+          "matched-delete": {
+            "count": 17,
+            "median": 9390417,
+            "p95": 10076666,
+            "p99": 10076666,
+            "maximum": 10076666,
+            "total": 158763749
+          },
+          "insert": {
+            "count": 64,
+            "median": 8834542,
+            "p95": 12690750,
+            "p99": 14323500,
+            "maximum": 14323500,
+            "total": 581008834
+          },
+          "unmatched-delete": {
+            "count": 47,
+            "median": 9446583,
+            "p95": 12809708,
+            "p99": 13393167,
+            "maximum": 13393167,
+            "total": 453582042
+          }
+        },
+        "samples": [
+          {
+            "index": 0,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10076666,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 1,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9358458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 2,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9080833,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 3,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 12865750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 4,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9595750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 5,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8893500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 6,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9253166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 7,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8851125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 8,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9934583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 9,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8656583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 10,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9387167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 11,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8999917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 12,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9059917,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 13,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8360083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 14,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9669375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 15,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8778416,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 16,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10277167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 17,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8652000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 18,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9866333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 19,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8685625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 20,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9136792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 21,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 14323500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 22,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9512708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 23,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9339125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 24,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8804625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 25,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8342542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 26,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9938250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 27,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8664375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 28,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9700625,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 29,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8992125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 30,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9011958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 31,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8390292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 32,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9496167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 33,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9117542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 34,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9390417,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 35,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9147792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 36,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8468250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 37,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8286917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 38,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9810125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 39,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8483083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 40,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 13393167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 41,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9037208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 42,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9155834,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 43,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8490834,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 44,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9719917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 45,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9193583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 46,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9001750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 47,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8979208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 48,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8974333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 49,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8685000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 50,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9309667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 51,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8649541,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 52,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9539167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 53,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8750542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 54,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9549042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 55,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8964167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 56,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9264166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 57,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9144209,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 58,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9516709,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 59,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 12690750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 60,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9350875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 61,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8904542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 62,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9004625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 63,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8601000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 64,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9902583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 65,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8720792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 66,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9705916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 67,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8734125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 68,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8782708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 69,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8604875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 70,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9742125,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 71,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8877209,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 72,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9371375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 73,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9028916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 74,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8947916,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 75,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8249417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 76,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9664584,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 77,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8769500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 78,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 13356125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 79,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8746625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 80,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8863750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 81,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8866333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 82,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9904916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 83,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9239083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 84,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9630541,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 85,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8948458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 86,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8811875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 87,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8178334,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 88,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9962458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 89,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8622625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 90,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9701334,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 91,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8649750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 92,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9139125,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 93,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8055834,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 94,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9316833,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 95,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9134333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 96,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9592042,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 97,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 13661167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 98,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8905167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 99,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9499375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 100,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9302792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 101,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8502458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 102,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9232916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 103,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8721042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 104,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9259292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 105,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8864125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 106,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8690292,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 107,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8951625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 108,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9863709,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 109,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9096125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 110,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9384750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 111,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8776958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 112,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9523000,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 113,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8132375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 114,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9419708,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 115,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8938666,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 116,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 12809708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 117,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9039541,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 118,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9446583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 119,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8817959,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 120,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8921667,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 121,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9103625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 122,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9561417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 123,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9147792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 124,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9333083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 125,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8359958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 126,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9045375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 127,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8690500,
+            "boundary": "ordinary",
+            "scans": 0
+          }
+        ],
+        "queries": {
+          "partner": {
+            "count": 256,
+            "median": 250,
+            "p95": 417,
+            "p99": 750,
+            "maximum": 2708,
+            "total": 70035
+          },
+          "size": {
+            "count": 256,
+            "median": 84,
+            "p95": 125,
+            "p99": 166,
+            "maximum": 750,
+            "total": 25167
+          },
+          "matching": {
+            "count": 256,
+            "median": 5167,
+            "p95": 6500,
+            "p99": 6750,
+            "maximum": 16250,
+            "total": 1379994
+          },
+          "stats": {
+            "count": 256,
+            "median": 750,
+            "p95": 917,
+            "p99": 1125,
+            "maximum": 5042,
+            "total": 199190
+          },
+          "maximal": {
+            "count": 256,
+            "median": 199541.5,
+            "p95": 228625,
+            "p99": 236916,
+            "maximum": 239500,
+            "total": 52042360
+          }
+        },
+        "counters": {
+          "phase_rebuilds": 0,
+          "subphase_rebuilds": 0,
+          "rematch_u_scans": 19,
+          "rematch_b_scans": 0,
+          "rematch_a_scans": 0
+        },
+        "memory": {
+          "initial": 2225936,
+          "constructionpeak": 2662392,
+          "current": 2294208,
+          "peak": 5357536,
+          "transient": 3131600,
+          "rss": 44040192
+        },
+        "certificate": "cc0f8f3db91c152bf82f4b1e8438cb9bc847daf6c7f3efda682a5fb94a050050"
+      }
+    },
+    {
+      "source": "39c36c8bbdd4181e1dfc0fadc7ca4513fe870aac",
+      "wheel": "8a7f04714b958941e2bd24f39ec5be0a93fb4f859cf7184bd3f137b97fd049e1",
+      "result": {
+        "status": "ok",
+        "configuration": {
+          "vertices": 2048,
+          "family": "sparse",
+          "degree": 4,
+          "workload": "churn",
+          "mode": "basic",
+          "seed": 7,
+          "updates": 128,
+          "repeats": 3
+        },
+        "digest": "870bfa5e874d3691be5d083a32196faf841d5d4a4ced33b3b9b6ee27a6c6ae01",
+        "initialedges": 4096,
+        "finaledges": 4096,
+        "maximumdegree": 12,
+        "operations": 128,
+        "counts": {
+          "insert": 64,
+          "delete": 64
+        },
+        "noop": false,
+        "throughput": 100.08854833871526,
+        "realrate": 100.08854833871526,
+        "initialization": {
+          "count": 3,
+          "median": 24675125,
+          "p95": 24792916,
+          "p99": 24792916,
+          "maximum": 24792916,
+          "total": 73156541
+        },
+        "batches": [
+          1276852834,
+          1278867584,
+          1284628125
+        ],
+        "latency": {
+          "delete": {
+            "count": 64,
+            "median": 10227958,
+            "p95": 13968500,
+            "p99": 14228625,
+            "maximum": 14228625,
+            "total": 669311497
+          },
+          "ordinary": {
+            "count": 128,
+            "median": 9899208.5,
+            "p95": 13500375,
+            "p99": 14128666,
+            "maximum": 14228625,
+            "total": 1287120622
+          },
+          "matched-delete": {
+            "count": 17,
+            "median": 10257958,
+            "p95": 10788084,
+            "p99": 10788084,
+            "maximum": 10788084,
+            "total": 173044249
+          },
+          "insert": {
+            "count": 64,
+            "median": 9533812.5,
+            "p95": 10141042,
+            "p99": 14010292,
+            "maximum": 14010292,
+            "total": 617809125
+          },
+          "unmatched-delete": {
+            "count": 47,
+            "median": 10218458,
+            "p95": 14076125,
+            "p99": 14228625,
+            "maximum": 14228625,
+            "total": 496267248
+          }
+        },
+        "samples": [
+          {
+            "index": 0,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10788084,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 1,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9700292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 2,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9913084,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 3,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10097166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 4,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 13519084,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 5,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9216375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 6,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10039583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 7,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9979708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 8,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10589417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 9,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9762042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 10,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9465333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 11,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9540041,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 12,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10567416,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 13,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9755250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 14,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10048083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 15,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9141583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 16,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9722542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 17,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9528208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 18,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10268250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 19,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9542959,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 20,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10864167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 21,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9595334,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 22,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 14076125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 23,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10071375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 24,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9895000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 25,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9543166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 26,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10123541,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 27,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9201208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 28,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10401708,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 29,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9521833,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 30,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10630667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 31,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9968208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 32,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10097125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 33,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9472084,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 34,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10601458,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 35,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9589875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 36,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10090166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 37,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9467625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 38,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10126292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 39,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9380042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 40,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 14228625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 41,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9394166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 42,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10522625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 43,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9499166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 44,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10501250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 45,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9580292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 46,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10097209,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 47,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9437625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 48,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10045833,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 49,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10063000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 50,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10186916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 51,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9412166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 52,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10237458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 53,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8862041,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 54,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10386708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 55,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9760750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 56,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10315333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 57,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9789042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 58,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9435292,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 59,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 13500375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 60,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10303958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 61,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9839625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 62,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10218458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 63,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9372375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 64,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9502375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 65,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9556458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 66,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10412708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 67,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9330667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 68,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10442708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 69,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8691209,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 70,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9594834,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 71,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10204875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 72,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9981000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 73,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9898875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 74,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9650791,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 75,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9080584,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 76,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10301208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 77,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9411708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 78,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 13968500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 79,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9275375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 80,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10098417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 81,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9522208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 82,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10313208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 83,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9434042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 84,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10479083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 85,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9279792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 86,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9991833,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 87,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9567250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 88,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9660667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 89,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9386042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 90,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10186375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 91,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9544208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 92,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 9845166,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 93,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9153334,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 94,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10261750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 95,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9539417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 96,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10257958,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 97,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 14010292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 98,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10097333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 99,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9503208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 100,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10374542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 101,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9246375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 102,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10182625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 103,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9483791,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 104,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10008500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 105,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8813875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 106,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10578709,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 107,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9369375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 108,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10136709,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 109,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9787083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 110,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9655375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 111,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9672625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 112,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10406291,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 113,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10019208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 114,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10615667,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 115,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8783625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 116,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 14128666,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 117,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9554125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 118,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10482542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 119,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10141042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 120,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 10140000,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 121,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8997750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 122,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10266500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 123,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9984709,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 124,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9899542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 125,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9769834,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 126,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9083125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 127,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9211167,
+            "boundary": "ordinary",
+            "scans": 0
+          }
+        ],
+        "queries": {
+          "partner": {
+            "count": 256,
+            "median": 250,
+            "p95": 333,
+            "p99": 500,
+            "maximum": 2125,
+            "total": 65944
+          },
+          "size": {
+            "count": 256,
+            "median": 125,
+            "p95": 167,
+            "p99": 292,
+            "maximum": 584,
+            "total": 31018
+          },
+          "matching": {
+            "count": 256,
+            "median": 5792,
+            "p95": 6875,
+            "p99": 10166,
+            "maximum": 19500,
+            "total": 1548870
+          },
+          "stats": {
+            "count": 256,
+            "median": 917,
+            "p95": 1083,
+            "p99": 1417,
+            "maximum": 5000,
+            "total": 232138
+          },
+          "maximal": {
+            "count": 256,
+            "median": 199271,
+            "p95": 228959,
+            "p99": 239125,
+            "maximum": 265041,
+            "total": 51960608
+          }
+        },
+        "counters": {
+          "phase_rebuilds": 0,
+          "subphase_rebuilds": 0,
+          "rematch_u_scans": 19,
+          "rematch_b_scans": 0,
+          "rematch_a_scans": 0
+        },
+        "memory": {
+          "initial": 2225776,
+          "constructionpeak": 2662296,
+          "current": 2294720,
+          "peak": 5078456,
+          "transient": 2852680,
+          "rss": 44220416
+        },
+        "certificate": "cc0f8f3db91c152bf82f4b1e8438cb9bc847daf6c7f3efda682a5fb94a050050"
+      }
+    },
+    {
+      "source": "9d2209eda587013febb77c68e9ee6698c857403f",
+      "wheel": "de5922030469fd2ee42a53777d7e01144987592bb31e61c842232e7ca043ddd3",
+      "result": {
+        "status": "ok",
+        "configuration": {
+          "vertices": 2048,
+          "family": "sparse",
+          "degree": 4,
+          "workload": "churn",
+          "mode": "basic",
+          "seed": 7,
+          "updates": 128,
+          "repeats": 3
+        },
+        "digest": "870bfa5e874d3691be5d083a32196faf841d5d4a4ced33b3b9b6ee27a6c6ae01",
+        "initialedges": 4096,
+        "finaledges": 4096,
+        "maximumdegree": 12,
+        "operations": 128,
+        "counts": {
+          "insert": 64,
+          "delete": 64
+        },
+        "noop": false,
+        "throughput": 123.106303935186,
+        "realrate": 123.106303935186,
+        "initialization": {
+          "count": 3,
+          "median": 23723875,
+          "p95": 23733708,
+          "p99": 23733708,
+          "maximum": 23733708,
+          "total": 70942208
+        },
+        "batches": [
+          1028760791,
+          1039751791,
+          1044150916
+        ],
+        "latency": {
+          "delete": {
+            "count": 64,
+            "median": 8269625,
+            "p95": 10832416,
+            "p99": 13022084,
+            "maximum": 13022084,
+            "total": 546603377
+          },
+          "ordinary": {
+            "count": 128,
+            "median": 7987146,
+            "p95": 10775625,
+            "p99": 11915667,
+            "maximum": 13022084,
+            "total": 1044992876
+          },
+          "matched-delete": {
+            "count": 17,
+            "median": 8222917,
+            "p95": 8874792,
+            "p99": 8874792,
+            "maximum": 8874792,
+            "total": 141373543
+          },
+          "insert": {
+            "count": 64,
+            "median": 7662771,
+            "p95": 8294500,
+            "p99": 11915667,
+            "maximum": 11915667,
+            "total": 498389499
+          },
+          "unmatched-delete": {
+            "count": 47,
+            "median": 8279375,
+            "p95": 11427250,
+            "p99": 13022084,
+            "maximum": 13022084,
+            "total": 405229834
+          }
+        },
+        "samples": [
+          {
+            "index": 0,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8874792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 1,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7603834,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 2,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8131042,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 3,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7952917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 4,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10832416,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 5,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7867584,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 6,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8089292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 7,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7553625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 8,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8359125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 9,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7526625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 10,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8192916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 11,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7670666,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 12,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8039250,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 13,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7620375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 14,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7929542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 15,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7397208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 16,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8259875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 17,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7395292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 18,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8204625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 19,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7388291,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 20,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7937708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 21,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7642167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 22,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 10775625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 23,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7734000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 24,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8649959,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 25,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8422916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 26,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8745792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 27,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7894541,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 28,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8516709,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 29,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7389208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 30,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8296792,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 31,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7413500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 32,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8172958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 33,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7740083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 34,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8313791,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 35,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7794125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 36,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8152583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 37,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7563500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 38,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8044958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 39,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7415166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 40,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 11427250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 41,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7570458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 42,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8652333,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 43,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7556125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 44,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8279375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 45,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7573917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 46,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8034958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 47,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7805875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 48,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8061667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 49,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8065375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 50,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8757875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 51,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8121041,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 52,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8755208,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 53,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7687375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 54,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8443375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 55,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7686417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 56,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8447083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 57,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7535750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 58,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8437250,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 59,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 11915667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 60,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8387416,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 61,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7843375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 62,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8206166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 63,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7834166,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 64,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8016084,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 65,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7447916,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 66,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8340584,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 67,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7418917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 68,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8218250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 69,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7424334,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 70,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8001708,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 71,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7774958,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 72,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7950542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 73,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7689542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 74,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 7965542,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 75,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7683292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 76,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8130791,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 77,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7481542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 78,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 11503875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 79,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7489583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 80,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8373417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 81,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7330500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 82,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8222917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 83,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7365375,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 84,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7990708,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 85,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7658000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 86,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8001083,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 87,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7656875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 88,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8020250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 89,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7326167,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 90,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8297500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 91,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7727917,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 92,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8804125,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 93,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7930250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 94,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8449583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 95,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7430250,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 96,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 7951917,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 97,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 11050583,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 98,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8251417,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 99,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8140750,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 100,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8513709,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 101,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7842000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 102,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8180625,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 103,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7604000,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 104,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8655458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 105,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7514500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 106,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8851208,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 107,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7617042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 108,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8082542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 109,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7815458,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 110,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7969042,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 111,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7805875,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 112,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 7996583,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 113,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7701041,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 114,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8038625,
+            "boundary": "ordinary",
+            "scans": 1
+          },
+          {
+            "index": 115,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7325292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 116,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 13022084,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 117,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7667542,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 118,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 9175709,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 119,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7874667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 120,
+            "operation": "delete",
+            "real": true,
+            "matched": true,
+            "nanoseconds": 8488833,
+            "boundary": "ordinary",
+            "scans": 2
+          },
+          {
+            "index": 121,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7535667,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 122,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7983584,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 123,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7796125,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 124,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8414084,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 125,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8294500,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 126,
+            "operation": "delete",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 8331292,
+            "boundary": "ordinary",
+            "scans": 0
+          },
+          {
+            "index": 127,
+            "operation": "insert",
+            "real": true,
+            "matched": false,
+            "nanoseconds": 7787875,
+            "boundary": "ordinary",
+            "scans": 0
+          }
+        ],
+        "queries": {
+          "partner": {
+            "count": 256,
+            "median": 208,
+            "p95": 291,
+            "p99": 458,
+            "maximum": 2167,
+            "total": 60304
+          },
+          "size": {
+            "count": 256,
+            "median": 83,
+            "p95": 125,
+            "p99": 167,
+            "maximum": 667,
+            "total": 25493
+          },
+          "matching": {
+            "count": 256,
+            "median": 5375,
+            "p95": 5459,
+            "p99": 7125,
+            "maximum": 15667,
+            "total": 1394867
+          },
+          "stats": {
+            "count": 256,
+            "median": 750,
+            "p95": 833,
+            "p99": 1083,
+            "maximum": 1584,
+            "total": 196806
+          },
+          "maximal": {
+            "count": 256,
+            "median": 195917,
+            "p95": 206416,
+            "p99": 214208,
+            "maximum": 233041,
+            "total": 50576907
+          }
+        },
+        "counters": {
+          "phase_rebuilds": 0,
+          "subphase_rebuilds": 0,
+          "rematch_u_scans": 19,
+          "rematch_b_scans": 0,
+          "rematch_a_scans": 0
+        },
+        "memory": {
+          "initial": 2225872,
+          "constructionpeak": 2662392,
+          "current": 2294688,
+          "peak": 5078424,
+          "transient": 2852552,
+          "rss": 44089344
+        },
+        "certificate": "cc0f8f3db91c152bf82f4b1e8438cb9bc847daf6c7f3efda682a5fb94a050050"
+      }
+    }
+  ]
+}
