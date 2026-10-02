@@ -59,6 +59,15 @@ all CI gates (`a500ad4`): 843 tests and one platform skip on Linux Python 3.12,
 including optimized Python, native sanitizers, resource recovery and packaging.
 These harness gates do not substitute for their pending million-vertex measurements.
 
+The first million-vertex growth/drain stage completes 1,319,810 real updates at
+10,996.6/s, with 1,199,839 coherent queries, 40 checkpoints and exact recovery.
+It traverses a full cycle from two to 2.5 million edges and back, then reaches
+2,319,810 edges in the next growth phase. Native allocation remains bounded at
+77,130,592 bytes under 128 MiB, but owner peak RSS reaches **913,391,616 bytes**.
+This passes scoped throughput/correctness, not bounded total-memory qualification.
+Checkpoint/SQLite/allocator residency needs investigation before broader release
+claims. [Raw growth/drain evidence](../benchmarks/results/independent/pulse-million.json).
+
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
 zero counters, and coloring-validation buckets. Exact consistency checks remain.
 Identical short 512-vertex basic traces improved median rate from 327.7 to 509.0

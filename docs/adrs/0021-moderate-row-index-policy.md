@@ -95,3 +95,13 @@ Busy. Native allocation is 49,142,880 bytes; owner/producer peak RSS is
 full-ring stage, not the failing degree-64 gate or unmeasured growth/drain/bursts.
 The old hot soak remains old-binary evidence. No aggregate deployment quota,
 network protocol, hardware power-loss or maximum-latency guarantee follows.
+
+The [first growth/drain stage](../../benchmarks/results/independent/pulse-million.json)
+subsequently completes 1,319,810 real updates at 10,996.6/s, 1,199,839 queries and
+40 checkpoints with exact recovery, including a full million-update cycle.
+Native allocation is 77,130,592 bytes under 128 MiB, but peak process RSS reaches
+913,391,616 bytes. Thus scoped growth/drain throughput/correctness passes while
+bounded total-memory qualification remains open. This is not evidence that the
+native index policy caused the process residency spike; diagnose checkpoint,
+SQLite and allocator contributions separately without transferring instrumented
+profiling rates into throughput claims.

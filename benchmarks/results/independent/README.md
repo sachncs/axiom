@@ -263,7 +263,25 @@ The final reference streams the active chord interval in constant auxiliary spac
 native full audit, exact edge membership/count, proper-maximal matching and matching
 digest recovery are still mandatory. Run fresh paths and report all loss classes,
 maintenance tails and native/process memory separately. This trace is implemented
-for the next stage; no million-vertex pulse result is claimed yet.
+for qualification; the first measured stage follows.
+
+[First million-vertex growth/drain stage](pulse-million.json): frozen runner
+`a500ad4`, installed native/service wheel source `6d5f3cd`, same declared host,
+fresh sequential process, explicit 128 MiB native and 64 MiB database/image caps.
+Over 120 seconds, 1,319,810 real durable updates complete at 10,996.6/s with
+1,199,839 coherent queries and 40 checkpoints. This completes one full million-
+update growth/drain cycle, then inserts another 319,810 chords. Final graph:
+2,319,810 edges, 500,000 matched edges; exact topology/proper-maximal matching and
+recovery pass with the original perfect-matching digest. Update misses/drops/Busy
+are 174/16/0; query misses/drops/Busy are 161/0/0.
+
+Ack/offered-ack/query p99 upper bounds are 196.6/197.5/2.8 ms; maxima are
+236.2/237.7/33.5 ms, no one-second overflow. Native allocation is 77,130,592
+bytes but owner peak RSS reaches **913,391,616 bytes** (producer 29,540,352).
+This is a total-memory concern, not a native-cap violation. Throughput/correctness
+pass in this scoped stage; total-memory growth/drain qualification is incomplete.
+Separate live Python, allocator and RSS diagnostics from rate measurements to
+identify the cause; do not describe the larger process peak as already solved.
 
 `--arrival burst` compresses each second's update quota into its first 250 ms,
 giving four times the configured active update rate and a quiet drain interval.
