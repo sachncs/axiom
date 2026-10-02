@@ -53,12 +53,12 @@ class Traffic(ABC):
         """Choose the same existing matched edge for each delete/insert pair."""
         raise NotImplementedError
 
-    def partner(self, version: int) -> int | None:
-        """Predict vertex-zero's exact committed partner, including genesis."""
+    def partner(self, version: int, vertex: int = 0) -> int | None:
+        """Predict an endpoint's exact committed partner, including genesis."""
         sequence = version - 1
-        if sequence % 2 and self.edge(sequence)[0] == 0:
+        if sequence % 2 and vertex in self.edge(sequence):
             return None
-        return 1
+        return vertex ^ 1
 
 
 class Hot(Traffic):
@@ -247,12 +247,15 @@ def measure(
                     raise RuntimeError("invalid independent offer timestamp/kind")
                 received[kind] += 1
                 if kind == 1:
+                    vertex = traffic.edge(2 * received[kind] - 1)[0]
                     try:
-                        version, partner = service.partner(0).result(0)
+                        version, partner = service.partner(vertex).result(0)
                     except BusyError:
                         query_busy += 1
                         continue
-                    if version < previous or partner != traffic.partner(version):
+                    if version < previous or partner != traffic.partner(
+                        version, vertex
+                    ):
                         raise RuntimeError(
                             "query disagrees with exact committed prefix"
                         )

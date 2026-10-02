@@ -191,7 +191,11 @@ def test_sweep_reference_tracks_every_live_edit_and_exact_restart(tmp_path, coun
             request = Request(sequence, "delete" if sequence % 2 else "insert", *edge)
             outcome = owner.apply([request])[0]
             assert outcome.changed and outcome.version == sequence + 1
-            assert owner.partner(0) == (sequence + 1, traffic.partner(sequence + 1))
+            for vertex in range(32):
+                assert owner.partner(vertex) == (
+                    sequence + 1,
+                    traffic.partner(sequence + 1, vertex),
+                )
             assert owner.has_edge(*edge) == (sequence + 1, not sequence % 2)
         removed = {traffic.edge(count)} if count % 2 else set()
         digest = independent_load.certificate(owner, set(), removed, 32)
