@@ -37,6 +37,13 @@ before renaming. Hardware testing is distinct from process crash and ENOSPC;
 the user explicitly deferred hardware power-loss qualification on 2026-10-02.
 It is future engineering, with no current hardware power-loss guarantee.
 
+Candidate `6d5f3cd` bounds moderate-row scans instead of indexing every degree-64
+adjacency. Installed fixed traces reduce degree-64 native allocation 81.4%, at
+the cost of 38.8% lower core update throughput; graphs and matchings agree exactly.
+All 815 local tests and CI pass. Full durable service requalification remains
+pending: the hot/full-ring soaks in the table qualify the previous binary only.
+See [ADR 0021](adrs/0021-moderate-row-index-policy.md) for the explicit tradeoff.
+
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
 zero counters, and coloring-validation buckets. Exact consistency checks remain.
 Identical short 512-vertex basic traces improved median rate from 327.7 to 509.0

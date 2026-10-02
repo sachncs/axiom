@@ -1,7 +1,7 @@
 # 0021: Bound moderate-row scans instead of indexing every degree-64 adjacency
 
-Date: 2026-10-02. Status: candidate implemented; local correctness/sanitizers pass;
-installed comparison and wider qualification pending.
+Date: 2026-10-02. Status: candidate implemented; local correctness/sanitizers,
+CI and installed fixed-trace comparison pass; wider service qualification pending.
 
 ## Context and decision
 
@@ -33,7 +33,7 @@ neighbors, rolls back edits and restores exact checkpoints. Different arena row
 orders after logical undo must still produce identical future matching decisions;
 each checkpoint encoding independently round-trips exactly.
 
-The complete local suite passes 808 tests before adding the fixed-profile helper;
+The complete local suite passes 815 tests including the fixed-profile helper;
 ASan/UBSan pass 200,000 differential storage edits (now 256 vertices to cross the
 new boundary) and 100,000 matching edits. Lint/format/types pass. These are
 correctness gates, not throughput qualification.
@@ -41,8 +41,15 @@ correctness gates, not throughput qualification.
 `benchmarks/index.py` uses the public `Trial` class to compare fixed real traces
 and partner checks without producer misses changing the workload. Constructor,
 timed updates, native allocation, process RSS, checkpoint hash and exact matching
-hash remain separate. Run fresh installed baseline/candidate processes with the
-same arguments and repeated controls for degrees 4/16/64. Require exact checkpoint
-and matching agreement. Then repeat the rejected million-vertex stage under the
+hash remain separate. The [installed comparison](../../benchmarks/results/independent/index-policy-fixed.json)
+uses 18 sequential fresh processes: three baseline/candidate repetitions per
+degree, 8,192 vertices and 200,000 real edits each. All checkpoint and matching
+hashes agree. Degree-64 native allocation falls from 20,621,024 to 3,843,808 bytes
+(81.4%), but median core rate falls from 2.862 million to 1.751 million updates/s
+(38.8%). Degree-four median falls about 2.7%; degree-16 is approximately unchanged.
+This is an explicit compute/memory tradeoff, not a throughput improvement. The
+short nondurable traces do not establish durable service performance or tail SLAs.
+
+Next repeat the rejected million-vertex stage under the
 same native cap and the existing hub/durable release gates. Old degree-four soaks
 must not silently become new-binary qualification.

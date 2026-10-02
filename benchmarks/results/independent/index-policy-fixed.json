@@ -1,0 +1,449 @@
+{
+  "scope": "sequential fresh installed-wheel fixed nondurable traces, not service qualification",
+  "runner": "6d5f3cd",
+  "baseline": {
+    "source": "9b34949d2317198a904836fec26db10cf5c746e0",
+    "wheel": "1bc2af233ad3cc2b40f467794aba5b007dad12f9a2bdb1f759209c1febd5e463"
+  },
+  "candidate": {
+    "source": "6d5f3cd",
+    "wheel": "19736864c92330d21fbe1af76496d145e1d137c991ebfebdfe1b074a0e1fad48"
+  },
+  "cases": [
+    {
+      "width": 2,
+      "baseline": [
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 2,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.000247875,
+          "seconds": 0.047900125,
+          "rate": 4175354.448448725,
+          "memory": {
+            "allocated": 403168,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 27148288,
+          "checkpoint": "2e77e623b5ccb23360def68026860bec36acba415d95631f7a5cf0632df38a28",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 2,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.00027875,
+          "seconds": 0.048596208,
+          "rate": 4115547.451768253,
+          "memory": {
+            "allocated": 403168,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 27197440,
+          "checkpoint": "2e77e623b5ccb23360def68026860bec36acba415d95631f7a5cf0632df38a28",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 2,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.000251167,
+          "seconds": 0.048192542,
+          "rate": 4150019.727118773,
+          "memory": {
+            "allocated": 403168,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 27181056,
+          "checkpoint": "2e77e623b5ccb23360def68026860bec36acba415d95631f7a5cf0632df38a28",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        }
+      ],
+      "candidate": [
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 2,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.000262208,
+          "seconds": 0.05197425,
+          "rate": 3848059.375556165,
+          "memory": {
+            "allocated": 403168,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 27328512,
+          "checkpoint": "2e77e623b5ccb23360def68026860bec36acba415d95631f7a5cf0632df38a28",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 2,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.000301667,
+          "seconds": 0.049517458,
+          "rate": 4038979.545355499,
+          "memory": {
+            "allocated": 403168,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 27230208,
+          "checkpoint": "2e77e623b5ccb23360def68026860bec36acba415d95631f7a5cf0632df38a28",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 2,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.00028025,
+          "seconds": 0.049185958,
+          "rate": 4066201.1706674495,
+          "memory": {
+            "allocated": 403168,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 27295744,
+          "checkpoint": "2e77e623b5ccb23360def68026860bec36acba415d95631f7a5cf0632df38a28",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        }
+      ]
+    },
+    {
+      "width": 8,
+      "baseline": [
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 8,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.001388958,
+          "seconds": 0.059882417,
+          "rate": 3339878.548990432,
+          "memory": {
+            "allocated": 1091296,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 28540928,
+          "checkpoint": "d592d9f877712198eeef4b2e1ca25b026d98f0dee4ea58e4aebe330a0ae5602b",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 8,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.001508041,
+          "seconds": 0.060302375,
+          "rate": 3316618.955721064,
+          "memory": {
+            "allocated": 1091296,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 28622848,
+          "checkpoint": "d592d9f877712198eeef4b2e1ca25b026d98f0dee4ea58e4aebe330a0ae5602b",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 8,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.001544083,
+          "seconds": 0.061255209,
+          "rate": 3265028.4484377485,
+          "memory": {
+            "allocated": 1091296,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 28540928,
+          "checkpoint": "d592d9f877712198eeef4b2e1ca25b026d98f0dee4ea58e4aebe330a0ae5602b",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        }
+      ],
+      "candidate": [
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 8,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.001375916,
+          "seconds": 0.059505958,
+          "rate": 3361007.985116381,
+          "memory": {
+            "allocated": 1091296,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 28557312,
+          "checkpoint": "d592d9f877712198eeef4b2e1ca25b026d98f0dee4ea58e4aebe330a0ae5602b",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 8,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.0013745,
+          "seconds": 0.060322834,
+          "rate": 3315494.0963151697,
+          "memory": {
+            "allocated": 1091296,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 28524544,
+          "checkpoint": "d592d9f877712198eeef4b2e1ca25b026d98f0dee4ea58e4aebe330a0ae5602b",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 8,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.001459291,
+          "seconds": 0.060624583,
+          "rate": 3298991.7637866475,
+          "memory": {
+            "allocated": 1091296,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 28573696,
+          "checkpoint": "d592d9f877712198eeef4b2e1ca25b026d98f0dee4ea58e4aebe330a0ae5602b",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        }
+      ]
+    },
+    {
+      "width": 32,
+      "baseline": [
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 32,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.024982459,
+          "seconds": 0.069619375,
+          "rate": 2872763.5087215304,
+          "memory": {
+            "allocated": 20621024,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 49725440,
+          "checkpoint": "55b3481e8b22245f5476420dff43fc52e7055c2fed8747160202381d7a5db16e",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 32,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.025885208,
+          "seconds": 0.069889458,
+          "rate": 2861661.911872317,
+          "memory": {
+            "allocated": 20621024,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 49692672,
+          "checkpoint": "55b3481e8b22245f5476420dff43fc52e7055c2fed8747160202381d7a5db16e",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 32,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.02637975,
+          "seconds": 0.070756666,
+          "rate": 2826588.8050745637,
+          "memory": {
+            "allocated": 20621024,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 49692672,
+          "checkpoint": "55b3481e8b22245f5476420dff43fc52e7055c2fed8747160202381d7a5db16e",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        }
+      ],
+      "candidate": [
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 32,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.011856458,
+          "seconds": 0.114149042,
+          "rate": 1752095.300107731,
+          "memory": {
+            "allocated": 3843808,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 32915456,
+          "checkpoint": "55b3481e8b22245f5476420dff43fc52e7055c2fed8747160202381d7a5db16e",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 32,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.012662375,
+          "seconds": 0.114219125,
+          "rate": 1751020.2428883954,
+          "memory": {
+            "allocated": 3843808,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 32866304,
+          "checkpoint": "55b3481e8b22245f5476420dff43fc52e7055c2fed8747160202381d7a5db16e",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        },
+        {
+          "scope": "fixed nondurable real edits plus partner checks; NOT service/durability qualification",
+          "python": "3.14.8",
+          "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+          "vertices": 8192,
+          "width": 32,
+          "updates": 200000,
+          "budget": 33554432,
+          "constructor": 0.012295958,
+          "seconds": 0.114411833,
+          "rate": 1748070.9359843924,
+          "memory": {
+            "allocated": 3843808,
+            "budget": 33554432,
+            "journal": 192,
+            "active": 0,
+            "poisoned": 0
+          },
+          "rss": 32866304,
+          "checkpoint": "55b3481e8b22245f5476420dff43fc52e7055c2fed8747160202381d7a5db16e",
+          "matching": "5f2b934e37c64ff74d58291a4d79f56b37065ae9923dd7a18652245f4e62c073",
+          "verified": true
+        }
+      ]
+    }
+  ]
+}

@@ -188,3 +188,19 @@ million-vertex table. Investigate bounded scans for moderate-degree rows while
 retaining indexed hubs; require deterministic matching, rollback, full certificates
 and compute/memory measurements before adoption. Do not raise the budget silently
 or claim the rejected degree-64 envelope qualified.
+
+### Installed moderate-row policy comparison
+
+[Fixed-trace raw record](index-policy-fixed.json) compares baseline `9b34949`
+with candidate `6d5f3cd`, using 18 sequential fresh installed-wheel processes,
+three repetitions per binary at each degree, 8,192 vertices and 200,000 real
+edits plus partner checks. Wheel hashes and every raw measurement are retained.
+All checkpoint and matching hashes agree. These are nondurable core measurements,
+not offered-load or service qualification.
+
+At degree 64, native allocation decreases 81.4% (20,621,024 to 3,843,808 bytes),
+while median update rate decreases 38.8% (2.862 million to 1.751 million/s).
+Degree-four medians are 4.150/4.039 million/s (about 2.7% lower); degree-16
+medians are 3.317/3.315 million/s. Native allocation is unchanged for both
+controls. The memory saving costs bounded scan work; it is not a free speedup.
+The old-binary soaks above must not be transferred to this candidate.
