@@ -73,10 +73,23 @@ silently alter an embedding process. Longer/no-inspection repeats and Linux
 changing-density hard limits remain open. [ADR 0022](adrs/0022-allocator-residency.md)
 records evidence, operating policy and portable-checkpoint alternatives.
 
+The no-inspection ten-minute repeat on the same installed `6d5f3cd` wheel and
+explicit macOS allocator policy completes 6,599,093 real updates at 10,998.3/s,
+5,999,193 coherent queries and 201 checkpoints. Six full growth/drain cycles
+and the exact terminal partial cycle recover independently. Owner peak RSS is
+208,289,792 bytes, native allocation 77,130,592 bytes; ack/query p99 upper bounds
+are 192.7/4.2 ms. All producer misses and IPC drops reconcile; no Busy rejections
+occur. This is sustained scoped growth evidence, not portable aggregate quotas,
+nor qualification of the later backup correction.
+[Raw long-growth evidence](../benchmarks/results/independent/pulse-long-million.json).
+
 The Linux hard-limit drill now includes a full growth/drain cycle followed by
 40,000 balanced updates under the same native/address-space/filesystem caps.
 Local component/data-flow coverage passes (866 tests); the extended installed
-CI resource result remains pending. The older 40,000-update hard-limit report
+CI resource run failed at cloning the immutable backup for restore: three physical
+SQLite images did not fit the fixed 192 MiB filesystem after growth/drain.
+Private-image compaction is under verification; the limit is not being increased.
+The older 40,000-update hard-limit report
 does not qualify changing density by itself. See [ADR 0020](adrs/0020-resource-exhaustion-and-recovery.md).
 
 The first new-binary burst stage (three minutes, 44k/s active windows and 11k/s
