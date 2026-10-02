@@ -40,14 +40,24 @@ It is future engineering, with no current hardware power-loss guarantee.
 Candidate `6d5f3cd` bounds moderate-row scans instead of indexing every degree-64
 adjacency. Installed fixed traces reduce degree-64 native allocation 81.4%, at
 the cost of 38.8% lower core update throughput; graphs and matchings agree exactly.
-All 815 local tests and CI pass. Full durable service requalification remains
-pending: the hot/full-ring soaks in the table qualify the previous binary only.
+All 815 original local tests and candidate CI pass. The new binary also completes
+a 30-minute full-ring soak at 10,998 durable updates/s, with 17,996,758 coherent
+queries, 603 checkpoints and exact recovery. Ack/query p99 upper bounds are
+186.1/1.9 ms; peak owner RSS is 182,026,240 bytes. Producer misses and IPC drops
+remain explicit; no Busy rejections occur. New-binary sustained full-ring
+qualification passes; wider growth/drain/burst/skew qualification remains open.
+The hot soak in the table still qualifies the previous binary only.
 New-binary short stages pass at 10,975 durable updates/s for degree four and
 16,622/s for forced indexed-hub repair, with exact queries/recovery. Degree 64
 now fits its explicit 1 GiB native cap but reaches only 6,640/s with losses and
 long tails; that denser envelope fails throughput qualification. Native budgets
 do not bound SQLite/image copies or total RSS.
 See [ADR 0021](adrs/0021-moderate-row-index-policy.md) for the explicit tradeoff.
+
+The growth/drain and burst harness plus rounded-deadline corrections now pass
+all CI gates (`a500ad4`): 843 tests and one platform skip on Linux Python 3.12,
+including optimized Python, native sanitizers, resource recovery and packaging.
+These harness gates do not substitute for their pending million-vertex measurements.
 
 Sparse overlay indexes (`48353b9`) remove eager empty per-vertex incident buckets,
 zero counters, and coloring-validation buckets. Exact consistency checks remain.

@@ -50,7 +50,7 @@ hashes agree. Degree-64 native allocation falls from 20,621,024 to 3,843,808 byt
 This is an explicit compute/memory tradeoff, not a throughput improvement. The
 short nondurable traces do not establish durable service performance or tail SLAs.
 
-Next repeat the rejected million-vertex stage under the
+The following stages repeat the rejected million-vertex stage under the
 same native cap and the existing hub/durable release gates. Old degree-four soaks
 must not silently become new-binary qualification.
 
@@ -72,7 +72,7 @@ updates at 10,975.4/s including drain, 299,889 coherent queries, ten checkpoints
 and exact recovery. Ack/query p99 upper bounds are 185.6/1.8 ms. There are no
 IPC drops or Busy rejections; producer misses remain reported. Native allocation
 is 49,142,880 bytes and peak owner RSS 182,501,376 bytes. This is a 30-second
-stage, not the pending new-binary sustained/hub qualification.
+stage, not sustained/hub qualification by itself; those stages are reported below.
 
 The [indexed-hub candidate repeat](../../benchmarks/results/service/rowpolicy-hub-million.json)
 also passes: one million vertices, degree-65,536 hub, 200,000 real durable updates
@@ -80,5 +80,18 @@ and 200,000 queries, eight checkpoints including bootstrap, exact recovery and
 retry outcomes. It reaches 16,622.1/s; ack/query p99 upper bounds are 24.5/0.4 ms,
 native allocation 79,233,888 bytes and peak RSS 283,328,512 bytes. Trace/matching
 hashes match the earlier long hub stage. This short closed-loop repeat preserves
-indexed-hub behavior, not an open-loop or sustained hub SLA. New-binary sustained
-degree-four qualification remains pending.
+indexed-hub behavior, not an open-loop or sustained hub SLA.
+
+The [new-binary 30-minute full-ring soak](../../benchmarks/results/independent/candidate-soak-sweep-million.json)
+now passes under 128 MiB native and 64 MiB database/image caps, with 19,797,233
+real durable updates at 10,998.3/s including drain, 17,996,758 exact versioned
+queries and 603 checkpoints. Independent topology/proper-maximal matching and
+recovery agree on its precise odd prefix: 1,999,999 edges and 499,999 matched
+edges. Ack/offered-ack/query p99 upper bounds are 186.1/186.9/1.9 ms; maxima are
+241.5/242.9/29.6 ms, with no one-second histogram overflow. Update producer
+misses/IPC drops are 2,575/192; query misses/drops are 2,042/1,200; both have zero
+Busy. Native allocation is 49,142,880 bytes; owner/producer peak RSS is
+182,026,240/29,212,672 bytes. This passes the new-binary sustained degree-four
+full-ring stage, not the failing degree-64 gate or unmeasured growth/drain/bursts.
+The old hot soak remains old-binary evidence. No aggregate deployment quota,
+network protocol, hardware power-loss or maximum-latency guarantee follows.

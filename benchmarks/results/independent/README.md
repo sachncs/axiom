@@ -173,7 +173,7 @@ bytes. These tails/caps are not the accepted degree-four version profile.
 [Degree-64 rejected stage](dense64-million-rejected.json): construction rejects
 with `MemoryError: index growth peak exceeds native budget` under an explicit
 1 GiB native cap, before producer start or acknowledgment. There is no throughput
-or recovery result. Current threshold 32 activates the global directed-edge index
+or recovery result. Baseline threshold 32 activates the global directed-edge index
 for every degree-64 row. Its 64 million keys require 134,217,728 power-of-two
 slots at 16 bytes: **2 GiB of index slots alone**, excluding adjacency/metadata.
 This is source-layout arithmetic, not measured RSS. Ring construction already
@@ -230,6 +230,25 @@ have zero IPC drops and zero Busy. Ack/offered-ack/query p99 upper bounds are
 185.6/186.4/1.8 ms; maxima are 217.4/218.9/26.5 ms. Native allocation is
 49,142,880 bytes; peak owner RSS is 182,501,376 bytes. This passes a short
 degree-four stage, not a sustained full-ring sweep or aggregate deployment quota.
+
+[Candidate 30-minute full-ring soak](candidate-soak-sweep-million.json) uses the
+same frozen `6d5f3cd` runner/wheel, sequentially after the hub stage, with explicit
+128 MiB native and 64 MiB database/image caps. 19,797,233 real durable updates
+complete at 10,998.3/s including drain, with 17,996,758 exact version-referenced
+queries and 603 checkpoints. Nineteen full update cycles traverse every matched
+edge; the odd final prefix has exactly 1,999,999 edges and 499,999 matched edges.
+Independent full topology/proper-maximal matching and recovery pass with digest
+`9a6fc077996c251f9eb558e01c61afaa9a9edbc86d6a4a26a78f91778db54d28`.
+
+Update misses/drops/Busy are 2,575/192/0; query misses/drops/Busy are
+2,042/1,200/0. Ack/offered-ack/query p99 upper bounds are 186.1/186.9/1.9 ms;
+maxima are 241.5/242.9/29.6 ms, with no one-second overflow. Native allocation is
+49,142,880 bytes; owner/producer peak RSS is 182,026,240/29,212,672 bytes.
+Retained history is 43,713 rows. This passes sustained full-ring qualification
+for this new binary; it does not transfer the earlier hot soak, qualify degree 64
+or growth/drain/bursts, or establish aggregate quotas and maximum-latency SLAs.
+The frozen runner predates the exact-deadline rounding fix; its actual offer/loss
+counts reconcile exactly. Preserve that provenance rather than rewriting the run.
 
 ## Growth/drain qualification trace
 
