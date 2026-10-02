@@ -21,11 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed version/partner queries, bounded maintenance and local ownership.
 - Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
   explicit offer-loss accounting, long-run recovery evidence and Linux hard
-  allocation/disk-exhaustion drills. 1,011 local tests pass at this milestone.
+  allocation/disk-exhaustion drills. 1,056 local tests pass at this milestone.
 - Architecture decision records and operations guidance explaining production
   alternatives to whole-state copying and the limits of current guarantees.
 
 ### Fixed
+
+- Paper color classes and seed removals now use bounded first-write membership
+  undo. Failed subphase/rebuild candidates retain original list/set identity and
+  seed/class sharing. A GIL-enabled CPython ownership proof accounts for intentional
+  sharing; aliases/other runtimes retain global admission. Remaining System/Hierarchy
+  snapshots still run; this is not durable paper integration or a throughput claim.
 
 - Paper matching views now use first-write edge/endpoint undo, not full set/map
   copies. Failed local repair or rebuilt candidates retain original container

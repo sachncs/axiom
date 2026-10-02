@@ -72,7 +72,13 @@ Matching edge/vertex sets and the partner map now use first-write cell undo, wit
 their original containers retained in the snapshot memo. Failed repair/rebuild
 restores their identities, including old edits before candidate replacement.
 [ADR 0025](adrs/0025-matching-view-journal.md) records the ownership precondition,
-remaining global alias preflight and uncopied-view mutation inventory.
+shared-view alias admission and uncopied-view mutation inventory.
+
+Color classes and the seed now also retain original list/set references through
+the snapshot memo. Registered removals use bounded first-write membership cells;
+failed subphase/rebuild candidates restore original list slots and seed/class
+sharing in place. [ADR 0026](adrs/0026-color-class-journal.md) records the mutation
+inventory, global alias admission and remaining migration boundary.
 
 Existing paper rollback restores logical state but replaces many other Python objects
 from snapshots. The tests do **not** claim preservation of every pre-failure

@@ -39,6 +39,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from axiom.augment import augment as augment
+from axiom.classes import Classes
 from axiom.color import Vizing
 from axiom.graph import Adjacency, empty
 from axiom.hierarchy import Hierarchy
@@ -160,6 +161,7 @@ class Matcher:
         self.matched_vertices: set[Vertex] = set()
         self.partner_map: dict[Vertex, Vertex] = {}
         self.views: Views | None = None
+        self.classes: Classes | None = None
 
         self.z: int = 0
         self.phase_length: int = 0
@@ -843,9 +845,11 @@ class Matcher:
             # immediately.  Keeping it in the seed until the next subphase
             # would violate M_1 subset M* between boundaries.
             edge = canonical(u, v)
-            self.seed_matching.discard(edge)
+            if self.classes is None:
+                raise RuntimeError("deletion requires class undo")
+            self.classes.remove(self.seed_matching, edge)
             for matching in self.matchings:
-                matching.discard(edge)
+                self.classes.remove(matching, edge)
             self.__edit(u, v, added=False)
             if self.multi is not None:
                 self.multi.sync_graph(
@@ -923,12 +927,16 @@ class Matcher:
         accountant = self.accountant
         accounting = None
         views = None
+        classes = None
         snapshot = None
         published = False
         try:
             views = Views(self)
             for value in (views.edges, views.vertices, views.partners):
                 memo[id(value)] = value
+            classes = Classes(self)
+            for container in (classes.list, classes.seed, *classes.slots):
+                memo[id(container)] = container
             for graph in managed.values():
                 if isinstance(graph, Packed):
                     token = graph.begin()
@@ -946,17 +954,19 @@ class Matcher:
             snapshot = {
                 name: copy.deepcopy(value, memo)
                 for name, value in self.__dict__.items()
-                if name not in {"graph", "colorer", "policy", "views"}
+                if name not in {"graph", "colorer", "policy", "views", "classes"}
             }
             yield
             if self.accountant is not accountant:
                 raise RuntimeError("update replaced its accounting owner")
             accountant.validate(accounting)
             views.validate()
+            classes.validate()
             publish(journals)
             published = True
             accountant.commit(accounting)
             views.commit()
+            classes.commit()
         except BaseException as error:
             if published:
                 self.failed = True
@@ -968,6 +978,8 @@ class Matcher:
                     native.rollback(token)
                 if accounting is not None:
                     accountant.rollback(accounting)
+                if classes is not None:
+                    classes.rollback()
                 if views is not None:
                     views.rollback()
                 # Restore every graph object in place.  Multilevel rebuilds can
@@ -1343,9 +1355,12 @@ class Matcher:
         # a stale seed edge that is no longer contained in M*.
         stale_seed = self.seed_matching - self.matched_edges
         if stale_seed:
-            self.seed_matching.difference_update(stale_seed)
-            if self.matchings:
-                self.matchings[0].difference_update(stale_seed)
+            if self.classes is None:
+                raise RuntimeError("seed reconciliation requires class undo")
+            for edge in stale_seed:
+                self.classes.remove(self.seed_matching, edge)
+                if self.matchings:
+                    self.classes.remove(self.matchings[0], edge)
 
         if self.multi is not None:
             if not self.multi.check():
@@ -1457,12 +1472,12 @@ class Matcher:
 
     def __setattr__(self, name: str, value: object) -> None:
         """Reject replacement of active matching undo, using protocol spelling."""
-        if name == "views" and getattr(self, "views", None) is not None:
+        if name in {"views", "classes"} and getattr(self, name, None) is not None:
             raise RuntimeError("active matching journal cannot be replaced")
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name: str) -> None:
         """Prevent deletion of the active matching transaction handle."""
-        if name == "views" and self.views is not None:
+        if name in {"views", "classes"} and getattr(self, name, None) is not None:
             raise RuntimeError("active matching journal cannot be deleted")
         object.__delattr__(self, name)

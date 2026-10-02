@@ -46,6 +46,7 @@ class Witness:
                 "accountant",
                 "bad_vertices",
                 "colorer",
+                "classes",
                 "deleted_edges",
                 "eta",
                 "failed",

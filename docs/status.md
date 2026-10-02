@@ -66,6 +66,12 @@ copies are removed. GIL-enabled CPython skips global alias admission only when
 reference counts prove the views unique; shared views and other runtimes retain
 the walk. Other snapshots/certificates still cost global work.
 [ADR 0025](adrs/0025-matching-view-journal.md) defines the boundary.
+Color classes and seed removals are now journaled too, retaining original
+list/set identities and restoring seed/class aliases after failed subphase or
+phase reconstruction. Class admission uses a GIL-enabled CPython uniqueness proof
+when possible; aliases/other runtimes retain a global walk. System, Hierarchy
+and auxiliary snapshots remain. [ADR 0026](adrs/0026-color-class-journal.md)
+records this partial migration, not durable paper integration.
 
 ## Deferred by explicit user direction
 
@@ -79,5 +85,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,011 passing tests; CI and benchmark results must be attributed to their exact
+1,056 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

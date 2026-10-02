@@ -35,6 +35,7 @@ def verify() -> None:
         if matcher.accountant is not counter or witness.capture(matcher) != before:
             raise RuntimeError("installed paper scalar undo changed exact state")
         held = matcher.matched_edges, matcher.matched_vertices, matcher.partner_map
+        colors = matcher.matchings, matcher.seed_matching, tuple(matcher.matchings)
         matcher.delete(0, 1)
         matcher.insert(0, 1)
         if (
@@ -51,6 +52,13 @@ def verify() -> None:
                 )
             )
             or matcher.views is not None
+            or matcher.classes is not None
+            or matcher.matchings is not colors[0]
+            or matcher.seed_matching is not colors[1]
+            or any(
+                current is not original
+                for current, original in zip(matcher.matchings, colors[2], strict=True)
+            )
             or not matcher.maximal()
         ):
             raise RuntimeError("installed local matching edits replaced their views")
