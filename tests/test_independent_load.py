@@ -5,7 +5,7 @@ import threading
 
 import pytest
 
-from axiom.durable import Durable, Request
+from axiom.durable import CapacityError, Durable, Request
 from axiom.service import Service
 from benchmarks import independent_load
 from benchmarks.independent_load import measure
@@ -271,7 +271,7 @@ def test_dense_image_cap_rejects_before_starting_producer(tmp_path, monkeypatch)
     monkeypatch.setattr(
         independent_load.multiprocessing.process.BaseProcess, "start", forbidden
     )
-    with pytest.raises(MemoryError):
+    with pytest.raises(CapacityError, match="checkpoint image capacity"):
         measure(
             tmp_path / "oversized.db",
             4096,
