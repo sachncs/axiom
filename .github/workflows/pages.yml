@@ -1,7 +1,9 @@
-name: GitHub Pages
+name: Astro site
 
 on:
   push:
+    branches: [master]
+  pull_request:
     branches: [master]
   workflow_dispatch:
 
@@ -9,12 +11,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: "pages"
+  group: site-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,6 +37,17 @@ jobs:
         run: npm ci
         working-directory: site
 
+      - name: Check Astro types
+        run: npm run check
+        working-directory: site
+
+      - name: Reject removed and stale API claims
+        run: |
+          if rg -n -i 'tiered|from_mode|GreedyColorer|VizingColorer|Matcher\.(augment|try_augment|flip|maintain_i3)' README.md docs site/src site/public; then
+            echo "Removed or non-canonical API text found in shipped documentation"
+            exit 1
+          fi
+
       - name: Build static site
         run: npm run build
         working-directory: site
@@ -38,15 +56,30 @@ jobs:
         run: npm run check:links
         working-directory: site
 
+      - name: Set up verified example runtime
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Execute installed documentation examples
+        run: |
+          python -m venv "$RUNNER_TEMP/axiom-site-env"
+          "$RUNNER_TEMP/axiom-site-env/bin/python" -m pip install .
+          "$RUNNER_TEMP/axiom-site-env/bin/python" scripts/verify_site_examples.py
+
       - name: Configure Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: site/dist
 
   deploy:
+    if: github.event_name != 'pull_request'
     permissions:
       pages: write
       id-token: write
@@ -54,6 +87,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: build
     steps:
       - id: deployment

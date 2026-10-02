@@ -1,9 +1,10 @@
-"""Exercise installed checkpoint v2; invoke with Python -I to exclude checkout."""
+"""Verify installed paper/native/storage/durability paths without checkout imports."""
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from axiom import Matcher, Packed
 from axiom.durable import Durable, ExpiredError, Outcome, Request
 from axiom.engine import Engine
 from axiom.service import Service
@@ -11,6 +12,12 @@ from axiom.service import Service
 
 def verify() -> None:
     """Compact past history capacity, reopen exact state, retry and reject expiry."""
+    graph = Packed(16)
+    graph.ring()
+    matcher = Matcher(16, graph=graph, mode="multilevel")
+    matcher.insert(0, 4)
+    if not matcher.maximal() or not graph.check():
+        raise RuntimeError("installed native paper graph/repair failed")
     engine = Engine(16)
     token = engine.begin()
     engine.insert(0, 1)
@@ -20,7 +27,22 @@ def verify() -> None:
     engine.commit(token)
     if engine.committed_partner(0) != (1, 1) or not engine.check():
         raise RuntimeError("installed native coupled publication failed")
+    image = engine.snapshot()
+    token = engine.begin()
+    engine.delete(0, 1)
+    engine.rollback(token)
+    if engine.snapshot() != image or not engine.check():
+        raise RuntimeError("installed native rollback changed committed image")
+    restored = Engine.restore(image)
+    if restored.snapshot() != image or not restored.check():
+        raise RuntimeError("installed exact native image roundtrip failed")
     with TemporaryDirectory() as directory:
+        legacy = Path(directory) / "legacy.db"
+        with Durable(legacy, n=16) as store:
+            result = store.apply([Request(1, "delete", 0, 1)])
+        with Durable(legacy) as store:
+            if store.apply([Request(1, "delete", 0, 1)]) != result or not store.check():
+                raise RuntimeError("installed legacy durability/retry failed")
         path = Path(directory) / "graph.db"
         with Durable(
             path,
