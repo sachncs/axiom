@@ -53,3 +53,15 @@ short nondurable traces do not establish durable service performance or tail SLA
 Next repeat the rejected million-vertex stage under the
 same native cap and the existing hub/durable release gates. Old degree-four soaks
 must not silently become new-binary qualification.
+
+The [candidate million-vertex degree-64 diagnostic](../../benchmarks/results/independent/dense64-candidate-million.json)
+now constructs under the same 1 GiB native cap and passes exact recovery after
+200,938 acknowledged real updates and 230,013 coherent queries. Native allocation
+is 469,142,880 bytes, but peak process RSS is 1,345,044,480 bytes. Throughput is
+only 6,640.4/s including drain, with 76,816 update IPC drops and 52,048 Busy
+rejections. All three latency histograms exceed their one-second p99 range;
+maximum ack/query latency is 2.390/1.510 seconds. Six checkpoints complete.
+This fails degree-64 throughput/latency qualification. Bounded scans and larger
+full-audit/image/SQLite maintenance costs require separate profiling; the fixed
+core comparison alone does not identify the service bottleneck. The accepted
+release workload remains degree four, not this denser diagnostic.

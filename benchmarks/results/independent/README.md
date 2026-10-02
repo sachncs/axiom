@@ -204,3 +204,18 @@ Degree-four medians are 4.150/4.039 million/s (about 2.7% lower); degree-16
 medians are 3.317/3.315 million/s. Native allocation is unchanged for both
 controls. The memory saving costs bounded scan work; it is not a free speedup.
 The old-binary soaks above must not be transferred to this candidate.
+
+[Million-vertex degree-64 candidate](dense64-candidate-million.json) fits the
+same explicit 1 GiB native cap that previously rejected construction. Exact
+topology, proper-maximal matching and recovery pass, with six checkpoints,
+200,938 real durable updates and 230,013 coherent queries. Native allocation
+is 469,142,880 bytes; process peak RSS is 1,345,044,480 bytes, demonstrating why
+native budget is not an aggregate memory limit.
+
+The 30-second stage reaches only 6,640.4 updates/s including drain. Update
+misses/drops/Busy are 198/76,816/52,048; query misses/drops/Busy are
+163/69,824/0. Each p99 exceeds the histogram's one-second range (null is not
+zero); maximum ack/offered-ack/query latency is 2.390/2.391/1.510 seconds.
+This is a failed denser throughput gate, not evidence that degree 64 meets the
+accepted degree-four production envelope. Maintenance and density-sensitive
+compute still need profiling and engineering.
