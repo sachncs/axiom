@@ -12,7 +12,7 @@ from benchmarks.independent_load import measure
 
 
 @pytest.mark.parametrize("ipc_batch", [1, 16])
-@pytest.mark.parametrize("workload", ["hot", "sweep", "pulse"])
+@pytest.mark.parametrize("workload", ["hot", "sweep", "pulse", "hub"])
 @pytest.mark.parametrize("arrival", ["steady", "burst"])
 def test_separate_producer_saturation_and_exact_recovery(
     tmp_path, monkeypatch, ipc_batch, workload, arrival
@@ -20,8 +20,11 @@ def test_separate_producer_saturation_and_exact_recovery(
     entered, release = threading.Event(), threading.Event()
     persist, submit = Durable._persist, Service.submit
     calls = 0
+    bootstrap = 2 if workload == "hub" else 0
 
     def paused(owner, rows):
+        if rows[-1][0] <= bootstrap:
+            return persist(owner, rows)
         if not entered.is_set():
             entered.set()
             if not release.wait(5):
@@ -30,6 +33,8 @@ def test_separate_producer_saturation_and_exact_recovery(
 
     def offered(service, request):
         nonlocal calls
+        if request.sequence <= bootstrap:
+            return submit(service, request)
         try:
             return submit(service, request)
         finally:
@@ -51,6 +56,7 @@ def test_separate_producer_saturation_and_exact_recovery(
             ipc_batch=ipc_batch,
             workload=workload,
             arrival=arrival,
+            degree=6 if workload == "hub" else 0,
         )
     finally:
         release.set()
@@ -81,6 +87,10 @@ def test_separate_producer_saturation_and_exact_recovery(
     assert result["workload"] == workload
     assert result["arrival"] == arrival
     assert result["active_update_rate"] == 10000 * (4 if arrival == "burst" else 1)
+    assert result["bootstrap_real_updates"] == bootstrap
+    assert result["final_status"]["sequence"] == (
+        result["real_acknowledged_updates"] + bootstrap
+    )
 
 
 @pytest.mark.parametrize("code", [errno.EAGAIN, errno.ENOBUFS])
@@ -151,6 +161,11 @@ def test_producer_counts_ipc_drops_separately_without_blocking(
         {"budget": 0},
         {"budget": True},
         {"budget": (1 << 40) + 1},
+        {"degree": True},
+        {"degree": 6},
+        {"workload": "hub", "degree": 5},
+        {"workload": "hub", "degree": 30},
+        {"workload": "hub", "degree": 6, "width": 8},
     ],
 )
 def test_invalid_envelope_never_starts_process_or_creates_store(tmp_path, options):
@@ -195,6 +210,76 @@ def test_sweep_pairing_wraparound_and_query_reference():
         1,
     ]
     assert isinstance(traffic, independent_load.Traffic)
+
+
+@pytest.mark.parametrize("degree", [6, 16, 128])
+def test_hub_setup_every_repair_prefix_and_exact_restart(tmp_path, degree):
+    vertices = 256 if degree == 128 else 32
+    traffic = independent_load.Hub(vertices, degree)
+    path = tmp_path / "hub.db"
+    graph = {
+        tuple(sorted((u, (u + distance) % vertices)))
+        for u in range(vertices)
+        for distance in (1, 2)
+    } | {(0, v) for v in range(3, degree - 1)}
+    with Service(
+        path,
+        n=vertices,
+        width=2,
+        queue_capacity=8,
+        max_batch=4,
+        checkpoint_interval=8,
+        retain_operations=8,
+    ) as service:
+        bootstrap = traffic.prepare(service)
+        assert bootstrap == degree - 4
+        assert service.status().result(5)["sequence"] == bootstrap
+        assert service.check().result(5)
+        for vertex in range(vertices):
+            assert service.partner(vertex).result(0) == (
+                bootstrap + 1,
+                traffic.partner(bootstrap + 1, vertex),
+            )
+    with Durable(path) as owner:
+        for phase in range(10):
+            if phase:
+                edge, action = traffic.edge(phase), traffic.action(phase)
+                if action == "delete":
+                    assert edge in graph
+                    graph.remove(edge)
+                else:
+                    assert edge not in graph
+                    graph.add(edge)
+                outcome = owner.apply([Request(bootstrap + phase, action, *edge)])[0]
+                assert outcome.changed and outcome.version == bootstrap + phase + 1
+            for vertex in range(vertices):
+                assert owner.partner(vertex) == (
+                    bootstrap + phase + 1,
+                    traffic.partner(bootstrap + phase + 1, vertex),
+                )
+                for other in range(vertex + 1, vertices):
+                    assert owner.has_edge(vertex, other) == (
+                        bootstrap + phase + 1,
+                        (vertex, other) in graph,
+                    )
+            digest = traffic.audit(owner, phase, 2)
+            if phase == 2:
+                with pytest.raises(RuntimeError):
+                    traffic.audit(owner, 0, 2)
+            owner.checkpoint()
+        last = Request(bootstrap + 9, traffic.action(9), *traffic.edge(9))
+    with Durable(path) as recovered:
+        assert traffic.audit(recovered, 9, 2) == digest
+        assert recovered.apply([last])[0] == outcome
+        request = Request(bootstrap + 10, traffic.action(10), *traffic.edge(10))
+        assert recovered.apply([request])[0].changed
+        traffic.audit(recovered, 10, 2)
+
+
+@pytest.mark.parametrize("degree", [True, 5, 30, 262145])
+def test_hub_rejects_invalid_degree_before_owner_access(degree):
+    with pytest.raises(ValueError, match="degree"):
+        independent_load.Hub(32, degree)
 
 
 @pytest.mark.parametrize("width", [2, 8, 32])

@@ -57,6 +57,10 @@ class Traffic(ABC):
         """Alternate real deletion/reinsertion of one matched edge."""
         return "delete" if sequence % 2 else "insert"
 
+    def prepare(self, service: Service) -> int:
+        """Return setup edits excluded from independently offered traffic."""
+        return 0
+
     def audit(self, store: Durable, sequence: int, width: int) -> str:
         """Certify the exact accepted prefix independently after recovery."""
         removed = {self.edge(sequence)} if sequence % 2 else set()
@@ -118,6 +122,68 @@ class Pulse(Traffic):
             self.vertices,
             width,
             size=stop - start,
+        )
+
+
+@dataclass
+class Hub(Traffic):
+    """Force indexed hub repair with all permanent neighbors already matched."""
+
+    degree: int
+
+    def __post_init__(self):
+        """Validate setup before opening a database or launching the producer."""
+        super().__post_init__()
+        if type(self.degree) is not int or not 6 <= self.degree <= min(
+            self.vertices - 3, 262144
+        ):
+            raise ValueError("require bounded hub degree")
+
+    def prepare(self, service: Service) -> int:
+        """Add real hub spokes through bounded durable service admission."""
+        chunk = min(256, int(service.metrics()["update_admission_limit"]))
+        count = 0
+        for start in range(3, self.degree - 1, chunk):
+            receipts = [
+                service.submit(Request(count + offset + 1, "insert", 0, vertex))
+                for offset, vertex in enumerate(
+                    range(start, min(start + chunk, self.degree - 1))
+                )
+            ]
+            for offset, receipt in enumerate(receipts):
+                outcome = receipt.result(30)
+                sequence = count + offset + 1
+                if (
+                    not outcome.changed
+                    or outcome.sequence != sequence
+                    or outcome.version != sequence + 1
+                ):
+                    raise RuntimeError("hub setup is not an exact real transition")
+            count += len(receipts)
+        return count
+
+    def edge(self, sequence: int) -> tuple[int, int]:
+        """Remove the matched edge, churn an unmatched chord, then rematch."""
+        return 0, 1 if sequence % 4 in (0, 1) else self.degree - 1
+
+    def partner(self, version: int, vertex: int = 0) -> int | None:
+        """Account for setup sequence and both free endpoints during repair."""
+        sequence = version - 1 - (self.degree - 4)
+        return None if sequence % 4 and vertex in (0, 1) else vertex ^ 1
+
+    def audit(self, store: Durable, sequence: int, width: int) -> str:
+        """Stream permanent spokes and the precise partial-cycle chord."""
+        if width != 2:
+            raise ValueError("hub trace requires degree-four ring")
+        stop = self.degree if sequence % 4 == 2 else self.degree - 1
+        removed = {(0, 1)} if sequence % 4 else set()
+        return certificate(
+            store,
+            ((0, vertex) for vertex in range(3, stop)),
+            removed,
+            self.vertices,
+            width,
+            size=stop - 3,
         )
 
 
@@ -200,6 +266,7 @@ def measure(
     width: int = 2,
     limit: int = 64 << 20,
     budget: int = 1 << 30,
+    degree: int = 0,
 ) -> dict:
     """Reconcile every external offer, bounded admission, publication and recovery."""
     if (
@@ -216,6 +283,7 @@ def measure(
                 width,
                 limit,
                 budget,
+                degree,
             )
         )
         or not 8 <= vertices <= 1000000
@@ -232,12 +300,16 @@ def measure(
         or not 1 << 20 <= budget <= 1 << 40
     ):
         raise ValueError("invalid bounded independent-load envelope")
-    choices = {"hot": Hot, "sweep": Sweep, "pulse": Pulse}
+    choices = {"hot": Hot, "sweep": Sweep, "pulse": Pulse, "hub": Hub}
     if not isinstance(workload, str) or workload not in choices:
-        raise ValueError("require hot, sweep or pulse workload")
+        raise ValueError("require hot, sweep, pulse or hub workload")
     if arrival not in ("steady", "burst"):
         raise ValueError("require steady or burst arrival")
-    traffic = choices[workload](vertices)
+    if (workload == "hub" and width != 2) or (workload != "hub" and degree != 0):
+        raise ValueError("hub degree requires hub workload and degree-four ring")
+    traffic = (
+        Hub(vertices, degree) if workload == "hub" else choices[workload](vertices)
+    )
     if path.exists():
         raise ValueError("benchmark requires a fresh database")
     context = multiprocessing.get_context("spawn")
@@ -264,6 +336,10 @@ def measure(
             max_database_bytes=limit,
             queue_capacity=queue_capacity,
         )
+        tick = time.perf_counter_ns()
+        bootstrap = traffic.prepare(service)
+        setup = (time.perf_counter_ns() - tick) / 10**9
+        previous = bootstrap + 1
         # Spawn/import startup is excluded but measured arrival timestamps are
         # never reset to reception. The producer may still miss late startup slots.
         started = time.perf_counter_ns() + 1_000_000_000
@@ -332,7 +408,7 @@ def measure(
                     queries.record(time.perf_counter_ns() - due)
                 else:
                     request = Request(
-                        accepted + 1,
+                        bootstrap + accepted + 1,
                         traffic.action(accepted + 1),
                         *traffic.edge(accepted + 1),
                     )
@@ -342,7 +418,7 @@ def measure(
                         busy += 1
                     else:
                         accepted += 1
-                        pending.append((accepted, receipt, due))
+                        pending.append((bootstrap + accepted, receipt, due))
                         peak_pending = max(peak_pending, len(pending))
                         if len(pending) > queue_capacity + 256:
                             raise RuntimeError("client receipt envelope exceeded")
@@ -365,7 +441,7 @@ def measure(
             or accepted + busy != received[0]
             or query_count + query_busy != received[1]
             or ack.count != accepted
-            or status["sequence"] != accepted
+            or status["sequence"] != bootstrap + accepted
             or metrics["outstanding"]
         ):
             raise RuntimeError("external offer/admission/completion counts disagree")
@@ -401,6 +477,9 @@ def measure(
         "platform": platform.platform(),
         "vertices": vertices,
         "workload": workload,
+        "hub_initial_degree": degree,
+        "bootstrap_real_updates": bootstrap,
+        "bootstrap_seconds": setup,
         "arrival": arrival,
         "active_update_rate": rate * (4 if arrival == "burst" else 1),
         "width": width,
@@ -447,7 +526,10 @@ def main():
     parser.add_argument("--queue-capacity", type=int, default=512)
     parser.add_argument("--ipc-bytes", type=int, default=16384)
     parser.add_argument("--ipc-batch", type=int, default=1)
-    parser.add_argument("--workload", choices=("hot", "sweep", "pulse"), default="hot")
+    parser.add_argument(
+        "--workload", choices=("hot", "sweep", "pulse", "hub"), default="hot"
+    )
+    parser.add_argument("--degree", type=int, default=0)
     parser.add_argument("--arrival", choices=("steady", "burst"), default="steady")
     parser.add_argument("--width", type=int, choices=(2, 8, 32), default=2)
     parser.add_argument("--limit", type=int, default=64 << 20)

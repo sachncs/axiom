@@ -1,5 +1,17 @@
 # Separate-process offered-load stage
 
+For independently paced skew qualification, the current runner accepts
+`--workload hub --degree 65536 --width 2`. It first durably adds 65,532 spokes
+to the degree-four ring; the million-vertex initial average degree becomes
+4.131064. The timed cycle removes the hub's matched edge, inserts/removes a
+different chord whose endpoint remains matched, then restores the original
+matched edge. Hub queries predict exact partners from the committed version,
+including bootstrap offset. Setup edits/time are reported separately and are
+never credited to offered-throughput counts. Dropped/rejected offers do not
+advance the four-edit trace. Both steady and burst arrivals retain all loss
+classes, bounded queues and independent exact topology/recovery checks.
+This documents the harness, not a completed sustained skew measurement.
+
 Installed production source `e24ae58`; wheel SHA-256
 `e09b81f4bdcffcdab1b3c1c9ae0baeefbc167d0f1e50903461d81234df1d525d`.
 Apple M3 Pro / 18 GiB / internal SSD/APFS, macOS 26.7.1, CPython 3.14.8,

@@ -72,6 +72,29 @@ evidence that every offered burst can be admitted or a production burst SLA.
 
 ## Evidence and limits
 
+The separate-process runner now supports `--workload hub --degree D` through
+the same polymorphic `Traffic` reference as hot, full-ring and growth/drain.
+This is the degree-four ring plus D-4 permanent spokes, not an unchanged
+average-degree-four graph. Setup runs through bounded durable admission before
+the producer clock starts, and is reported separately. Every timed four-edit
+cycle deletes `(0,1)`, inserts/deletes `(0,D-1)`, and reinserts `(0,1)`.
+All other endpoints remain matched. Queries at the hub check the exact committed
+prefix, including all three partial-cycle states and the setup version offset.
+Final certificates stream permanent spokes and the optional churn chord.
+
+Admission request IDs include setup, but reported timed changes and offered-count
+reconciliation exclude it. Losses never advance the logical trace. Steady and
+burst arrivals share bounded IPC, queue/receipt limits, maintenance, exact
+query validation and independent restore. Invalid degrees, non-hub degree
+arguments and non-degree-four hub rings reject before opening the store.
+Tests traverse every graph edge and partner after setup and all repair prefixes,
+including degree-128 index promotion, repeated checkpoints, reopen and exact
+retry/future mutations. Stalled persistence forces bounded overload for both
+arrival policies and IPC batch sizes. Sustained installed-wheel hub measurements
+are still required; this harness addition does not qualify them.
+All 886 local tests pass; lint, formatting and source types pass. No production
+engine, durability or storage code changes are part of this harness extension.
+
 The degree-65536 million-vertex staged hub run falls to 9048 real durable changes/s,
 below 10k, while exact audits/recovery pass. Average degree is 4.131064. The trace
 includes checkpoint maintenance. This is a demonstrated qualification limitation,
