@@ -31,7 +31,27 @@ void audit(const axiom::Store &graph, const std::set<Edge> &reference) {
 
 int main() {
   try {
-    axiom::Store graph(128, 16 * 1024 * 1024);
+    // Cross the degree-128 index boundary and require exact row-index rollback.
+    axiom::Store boundary(257, 1 << 20);
+    for (uint32_t vertex = 1; vertex < 128; ++vertex)
+      boundary.add(0, vertex);
+    require(!boundary.indexed[0] && boundary.index.count == 0,
+            "moderate row unexpectedly indexed");
+    auto token = boundary.begin();
+    boundary.add(0, 128);
+    boundary.add(0, 129);
+    boundary.remove(0, 1);
+    require(boundary.indexed[0] && boundary.index.count == 128,
+            "hub promotion lost its membership index");
+    boundary.rollback(token);
+    require(!boundary.indexed[0] && boundary.index.count == 0 &&
+                boundary.degrees[0] == 127 && boundary.has(0, 1) &&
+                !boundary.has(0, 128) && boundary.check(),
+            "promotion rollback changed exact index/graph state");
+    boundary.add(0, 128);
+    require(boundary.indexed[0] && boundary.check(),
+            "promotion after rollback failed");
+    axiom::Store graph(256, 16 * 1024 * 1024);
     std::set<Edge> reference;
     std::mt19937 random(599);
     for (unsigned batch = 0; batch < 1000; ++batch) {

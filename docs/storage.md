@@ -22,10 +22,15 @@ platform/CPython-version specific; this is not a universal pure-Python wheel.
 Vertices remain fixed dense IDs; insertion/deletion methods edit **edges**.
 Native metadata uses three uint32 arrays and one byte per vertex (13 bytes per
 vertex plus the container). Adjacency uses reusable four-neighbor blocks of
-28 bytes. Low-degree rows use bounded scans; rows reaching degree 32 receive
+28 bytes. Moderate-degree rows use bounded scans; rows reaching degree 128 receive
 an open-addressed membership/location index. Neighbor iteration sorts a temporary
 native row; edge iteration streams canonical edges instead of materializing a
 Python set of the whole graph. High-degree iteration still requires row scratch.
+This policy avoids a global hash entry for every adjacency of a degree-64 graph.
+It trades bounded row scans for substantially less retained memory; large hubs
+remain indexed. [ADR 0021](adrs/0021-moderate-row-index-policy.md) records the
+evidence and qualification still required. Existing indexed rows may retain their
+cache after shrinking; allocation capacity is not reclaimed by logical rollback.
 
 The default native allocation budget is 1 GiB **per graph**, not a process RSS
 limit. `memory()` accounts retained metadata, arena, index, and journal capacity.

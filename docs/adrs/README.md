@@ -27,6 +27,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0018](0018-checkpoint-history-validation-cost.md) | Inline strict retained-history predicates, not skip certificates | Tested/profiled; paced 10k delivery still below target |
 | [0019](0019-independent-arrivals-and-bounded-ipc.md) | Separate producer GIL and bound transport/admission with explicit losses | 10.93k durable/s stage; current latency accepted, hard resource/recovery work pending |
 | [0020](0020-resource-exhaustion-and-recovery.md) | Isolated hard address-space/filesystem exhaustion with exact recovery | Million-vertex Linux stage passed; deployment quotas pending; hardware power-loss deferred |
+| [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Candidate correctness/sanitizers passed; installed comparison/qualification pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [storage contracts](../storage.md) describe the delivered container. Subsequent

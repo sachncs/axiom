@@ -47,6 +47,41 @@ class Reference:
         return True
 
 
+def test_bounded_degree64_checkpoint_and_full_state_rollback():
+    engine = Engine(256, budget=200 << 10)
+    engine.ring(32)
+    for vertex in range(256):
+        assert engine.partner(vertex) == vertex ^ 1
+        for neighbor in range(256):
+            distance = (neighbor - vertex) % 256
+            assert engine.has_edge(vertex, neighbor) == (
+                1 <= distance <= 32 or 224 <= distance <= 255
+            )
+    before = snapshot(engine)
+    image = engine.snapshot()
+    token = engine.begin()
+    engine.delete(0, 1)
+    engine.delete(80, 81)
+    engine.insert(0, 80)
+    assert engine.check()
+    engine.rollback(token)
+    assert snapshot(engine) == before
+    # Undo restores logical rows/partners, not arena row order or retained capacity.
+    # Both encodings must round-trip exactly and drive identical future repairs.
+    candidates = []
+    for encoded in (image, engine.snapshot()):
+        restored = Engine.restore(encoded, budget=200 << 10)
+        assert snapshot(restored) == before and restored.check()
+        assert restored.snapshot() == encoded
+        assert restored.memory()["allocated"] <= 200 << 10
+        restored.delete(0, 1)
+        restored.delete(80, 81)
+        restored.insert(0, 80)
+        assert restored.check()
+        candidates.append(restored)
+    assert snapshot(candidates[0]) == snapshot(candidates[1])
+
+
 def snapshot(engine: Engine) -> tuple:
     """Read one committed graph/matching state through public query methods."""
     return (

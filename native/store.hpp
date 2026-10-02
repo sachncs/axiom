@@ -22,7 +22,10 @@ static_assert(sizeof(Block) == 28,
 
 constexpr uint64_t vacant = std::numeric_limits<uint64_t>::max();
 constexpr uint64_t removed = vacant - 1;
-constexpr uint32_t threshold = 32;
+// Keep moderate rows on a bounded (<128-neighbor) scan. Indexing every row of
+// a degree-64 million-vertex ring would otherwise add 2 GiB of hash slots.
+// Large hubs still use the membership/location index; certificates are unchanged.
+constexpr uint32_t threshold = 128;
 struct Slot {
   uint64_t key = vacant;
   uint64_t location = 0;

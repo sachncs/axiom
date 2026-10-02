@@ -374,18 +374,40 @@ def test_budget_failure_is_atomic_and_freed_blocks_remain_usable() -> None:
 
 
 def test_budget_failure_at_high_degree_promotion_preserves_both_rows() -> None:
-    metadata = Packed(65).memory()["metadata"]
-    graph = Packed(65, budget=metadata + 96 * 28)
-    for vertex in range(1, 32):
+    metadata = Packed(257).memory()["metadata"]
+    graph = Packed(257, budget=metadata + 384 * 28)
+    for vertex in range(1, 128):
         graph.add_edge(0, vertex)
     before = list(graph.edges()), graph.version
     with pytest.raises(MemoryError, match="index.*budget"):
-        graph.add_edge(0, 32)
+        graph.add_edge(0, 128)
     assert (list(graph.edges()), graph.version) == before
-    assert graph.degree(32) == 0
+    assert graph.degree(128) == 0
     assert graph.check()
     graph.remove_edge(0, 1)
-    graph.add_edge(0, 32)
+    graph.add_edge(0, 128)
+    assert graph.check()
+
+
+def test_degree64_ring_avoids_global_index_and_preserves_exact_rollback() -> None:
+    graph = Packed(256, budget=200 << 10)
+    graph.ring(32)
+    before = list(graph.edges()), graph.version
+    assert graph.memory()["index"] == 0
+    assert graph.memory()["allocated"] < 200 << 10
+    assert all(graph.degree(vertex) == 64 for vertex in range(256))
+    for vertex in range(256):
+        expected = sorted(
+            {(vertex + offset) % 256 for offset in range(-32, 33) if offset}
+        )
+        assert list(graph.neighbors(vertex)) == expected
+    token = graph.begin()
+    graph.remove_edge(0, 1)
+    graph.remove_edge(80, 81)
+    graph.add_edge(0, 80)
+    graph.rollback(token)
+    assert (list(graph.edges()), graph.version) == before
+    assert graph.memory()["index"] == 0
     assert graph.check()
 
 
