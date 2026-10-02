@@ -12,7 +12,7 @@ from benchmarks.independent_load import measure
 
 
 @pytest.mark.parametrize("ipc_batch", [1, 16])
-@pytest.mark.parametrize("workload", ["hot", "sweep"])
+@pytest.mark.parametrize("workload", ["hot", "sweep", "pulse"])
 def test_separate_producer_saturation_and_exact_recovery(
     tmp_path, monkeypatch, ipc_batch, workload
 ):
@@ -188,6 +188,87 @@ def test_sweep_pairing_wraparound_and_query_reference():
         1,
     ]
     assert isinstance(traffic, independent_load.Traffic)
+
+
+@pytest.mark.parametrize("width", [2, 8, 32])
+def test_pulse_every_growth_drain_boundary_and_restart(tmp_path, width):
+    vertices = 128 if width == 32 else 32
+    path = tmp_path / "pulse.db"
+    traffic = independent_load.Pulse(vertices)
+    graph = {
+        tuple(sorted((u, (u + distance) % vertices)))
+        for u in range(vertices)
+        for distance in range(1, width + 1)
+    }
+    initial = graph.copy()
+    with Durable(path, n=vertices, width=width, checkpoint_interval=256) as owner:
+        for sequence in range(1, 2 * vertices + 2):
+            edge = traffic.edge(sequence)
+            action = traffic.action(sequence)
+            if action == "insert":
+                assert edge not in graph
+                graph.add(edge)
+            else:
+                assert edge in graph
+                graph.remove(edge)
+            outcome = owner.apply([Request(sequence, action, *edge)])[0]
+            assert outcome.changed and outcome.version == sequence + 1
+            assert owner.status()["edges"] == len(graph)
+            for u in range(vertices):
+                assert owner.partner(u) == (
+                    sequence + 1,
+                    traffic.partner(sequence + 1, u),
+                )
+                for v in range(u + 1, vertices):
+                    assert owner.has_edge(u, v) == (sequence + 1, (u, v) in graph)
+            traffic.audit(owner, sequence, width)
+            if sequence % vertices == 0:
+                assert graph == initial
+            if sequence % vertices == vertices // 2:
+                assert len(graph) == len(initial) + vertices // 2
+        owner.checkpoint()
+        digest = traffic.audit(owner, sequence, width)
+    with Durable(path) as recovered:
+        assert traffic.audit(recovered, sequence, width) == digest
+        for u in range(vertices):
+            for v in range(u + 1, vertices):
+                assert recovered.has_edge(u, v) == (sequence + 1, (u, v) in graph)
+
+
+def test_streamed_topology_certificate_rejects_missing_duplicate_or_unsized_reference(
+    tmp_path,
+):
+    from benchmarks.durable import certificate
+
+    with Durable(tmp_path / "reference.db", n=32) as owner:
+        owner.apply([Request(1, "insert", 0, 16), Request(2, "insert", 1, 17)])
+        correct = certificate(owner, {(0, 16), (1, 17)}, set(), 32)
+        assert (
+            certificate(owner, iter([(0, 16), (1, 17)]), set(), 32, size=2) == correct
+        )
+        with pytest.raises(ValueError, match="explicit size"):
+            certificate(owner, iter([(0, 16), (1, 17)]), set(), 32)
+        with pytest.raises(RuntimeError, match="repeated"):
+            certificate(owner, iter([(0, 16), (0, 16)]), set(), 32, size=2)
+        with pytest.raises(RuntimeError, match="repeated"):
+            certificate(owner, iter([(1, 17), (0, 16)]), set(), 32, size=2)
+        with pytest.raises(RuntimeError, match="exact graph"):
+            certificate(owner, iter([(0, 16)]), set(), 32, size=2)
+        with pytest.raises(RuntimeError, match="edge count"):
+            certificate(owner, iter([(0, 16), (1, 17)]), set(), 32, size=1)
+        with pytest.raises(RuntimeError, match="extra topology"):
+            certificate(owner, iter([(0, 16), (2, 18)]), set(), 32, size=2)
+
+
+@pytest.mark.parametrize("size", [True, -1, 1.5])
+def test_streamed_topology_certificate_rejects_invalid_size(tmp_path, size):
+    from benchmarks.durable import certificate
+
+    with (
+        Durable(tmp_path / "size.db", n=32) as owner,
+        pytest.raises(ValueError, match="nonnegative"),
+    ):
+        certificate(owner, iter([]), set(), 32, size=size)
 
 
 @pytest.mark.parametrize("count", [31, 32, 35])

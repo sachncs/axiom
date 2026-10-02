@@ -31,6 +31,24 @@ thread validates exact coupled committed versions/partners of the hot endpoint.
 Capture live versioned matching pages, then independently recover/audit topology,
 proper maximal matching and the same digest outside headline timing.
 
+The separate-process runner now offers `--workload pulse` through polymorphic
+`Traffic` implementations. Its deterministic cycle inserts one antipodal chord
+per vertex pair, growing average degree from four to five for a width-two ring,
+then deletes every added chord before repeating. Every admitted change is real;
+rejected/dropped offers do not advance the accepted prefix. Original ring partners
+stay matched, allowing exact version-referenced query answers without mirroring
+the engine. `Pulse.audit` streams the active chord interval rather than allocating
+a graph-sized Python edge set. Counted topology streams must be strictly sorted,
+canonical non-ring edges; repeated, missing, incorrect and unsized references
+must reject rather than certify only a plausible edge count.
+
+Small tests cover every insertion/deletion boundary across multiple cycles at
+degrees 4/16/64, independently compare every possible edge and every partner after
+each change, checkpoint/reopen, and force stalled persistence/admission rejection
+with both IPC batch sizes. These tests are a qualification harness gate, not a
+million-vertex growth/drain performance result. Existing frozen-runner soaks are
+unchanged by this harness addition.
+
 ## Evidence and limits
 
 The degree-65536 million-vertex staged hub run falls to 9048 real durable changes/s,

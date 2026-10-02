@@ -16,6 +16,7 @@ import resource
 import sys
 import time
 from array import array
+from collections.abc import Iterable, Sized
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -29,14 +30,27 @@ def canonical(u: int, v: int) -> tuple[int, int]:
 
 
 def certificate(
-    store: Durable, extra: set, removed: set, vertices: int, width: int = 2
+    store: Durable,
+    extra: Iterable[tuple[int, int]],
+    removed: set,
+    vertices: int,
+    width: int = 2,
+    *,
+    size: int | None = None,
 ) -> str:
-    """Independently verify exact topology, proper maximal matching, and its digest."""
+    """Certify topology/matching; counted streams must be strictly sorted chords."""
     if type(width) is not int or not 1 <= width < vertices // 2:
         raise ValueError("require an unambiguous ring width")
-    if not store.check() or store.status()["edges"] != width * vertices + len(
-        extra
-    ) - len(removed):
+    streamed = size is not None
+    if size is None:
+        if not isinstance(extra, Sized):
+            raise ValueError("streamed extras require an explicit size")
+        size = len(extra)
+    if type(size) is not int or size < 0:
+        raise ValueError("require a nonnegative extra edge count")
+    if not store.check() or store.status()["edges"] != (
+        width * vertices + size - len(removed)
+    ):
         raise RuntimeError("native audit/edge count failed")
     version = store.status()["version"]
     partners = array("I")
@@ -72,7 +86,15 @@ def certificate(
                 ):
                     raise RuntimeError("independent ring topology/maximality failed")
                 count += 1
+    previous = None
     for a, b in extra:
+        if (
+            not 0 <= a < b < vertices
+            or min(b - a, vertices - (b - a)) <= width
+            or (streamed and previous is not None and (a, b) <= previous)
+        ):
+            raise RuntimeError("invalid or repeated extra topology reference")
+        previous = a, b
         if (
             store.has_edge(a, b) != (version, True)
             or partners[a] == partners[b] == 0xFFFFFFFF

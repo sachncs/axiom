@@ -230,3 +230,18 @@ have zero IPC drops and zero Busy. Ack/offered-ack/query p99 upper bounds are
 185.6/186.4/1.8 ms; maxima are 217.4/218.9/26.5 ms. Native allocation is
 49,142,880 bytes; peak owner RSS is 182,501,376 bytes. This passes a short
 degree-four stage, not a sustained full-ring sweep or aggregate deployment quota.
+
+## Growth/drain qualification trace
+
+`--workload pulse` starts with the configured ring and inserts `vertices / 2`
+distinct antipodal chords before deleting them in the same order. A full cycle
+contains `vertices` real changes. At one million vertices and width two, the
+edge count varies from two to 2.5 million and average degree from four to five.
+Partners remain the original perfect matching, so every query has an independent
+exact answer at its returned version. Admission sequence, not offer timestamps,
+selects the next change: losses never create missing request IDs or no-op updates.
+The final reference streams the active chord interval in constant auxiliary space;
+native full audit, exact edge membership/count, proper-maximal matching and matching
+digest recovery are still mandatory. Run fresh paths and report all loss classes,
+maintenance tails and native/process memory separately. This trace is implemented
+for the next stage; no million-vertex pulse result is claimed yet.

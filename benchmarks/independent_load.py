@@ -50,8 +50,17 @@ class Traffic(ABC):
 
     @abstractmethod
     def edge(self, sequence: int) -> tuple[int, int]:
-        """Choose the same existing matched edge for each delete/insert pair."""
+        """Choose endpoints deterministically from accepted sequence."""
         raise NotImplementedError
+
+    def action(self, sequence: int) -> str:
+        """Alternate real deletion/reinsertion of one matched edge."""
+        return "delete" if sequence % 2 else "insert"
+
+    def audit(self, store: Durable, sequence: int, width: int) -> str:
+        """Certify the exact accepted prefix independently after recovery."""
+        removed = {self.edge(sequence)} if sequence % 2 else set()
+        return certificate(store, set(), removed, self.vertices, width)
 
     def partner(self, version: int, vertex: int = 0) -> int | None:
         """Predict an endpoint's exact committed partner, including genesis."""
@@ -76,6 +85,40 @@ class Sweep(Traffic):
         """Derive endpoints from admission sequence, not dropped offer slots."""
         vertex = 2 * (((sequence - 1) // 2) % (self.vertices // 2))
         return vertex, vertex + 1
+
+
+class Pulse(Traffic):
+    """Grow by one disjoint chord per pair, then drain every added chord."""
+
+    def edge(self, sequence: int) -> tuple[int, int]:
+        """Antipodal chords are distinct and absent from every supported ring."""
+        vertex = (sequence - 1) % (self.vertices // 2)
+        return vertex, vertex + self.vertices // 2
+
+    def action(self, sequence: int) -> str:
+        """Insert half a universe of chords, then delete them in the same order."""
+        return (
+            "insert"
+            if (sequence - 1) % self.vertices < self.vertices // 2
+            else "delete"
+        )
+
+    def partner(self, version: int, vertex: int = 0) -> int | None:
+        """All endpoints stay matched; added chords never invalidate matching."""
+        return vertex ^ 1
+
+    def audit(self, store: Durable, sequence: int, width: int) -> str:
+        """Stream the exact active chord interval without a graph-sized set."""
+        phase, half = sequence % self.vertices, self.vertices // 2
+        start, stop = (0, phase) if phase <= half else (phase - half, half)
+        return certificate(
+            store,
+            ((vertex, vertex + half) for vertex in range(start, stop)),
+            set(),
+            self.vertices,
+            width,
+            size=stop - start,
+        )
 
 
 def _produce(channel, result, started, rate, query_rate, seconds, ipc_batch=1):
@@ -185,9 +228,10 @@ def measure(
         or not 1 << 20 <= budget <= 1 << 40
     ):
         raise ValueError("invalid bounded independent-load envelope")
-    if workload not in ("hot", "sweep"):
-        raise ValueError("require hot or sweep workload")
-    traffic = Hot(vertices) if workload == "hot" else Sweep(vertices)
+    choices = {"hot": Hot, "sweep": Sweep, "pulse": Pulse}
+    if workload not in choices:
+        raise ValueError("require hot, sweep or pulse workload")
+    traffic = choices[workload](vertices)
     if path.exists():
         raise ValueError("benchmark requires a fresh database")
     context = multiprocessing.get_context("spawn")
@@ -283,7 +327,7 @@ def measure(
                 else:
                     request = Request(
                         accepted + 1,
-                        "delete" if accepted % 2 == 0 else "insert",
+                        traffic.action(accepted + 1),
                         *traffic.edge(accepted + 1),
                     )
                     try:
@@ -342,8 +386,7 @@ def measure(
     with Durable(
         path, budget=budget, max_snapshot_bytes=limit, max_database_bytes=limit
     ) as recovered:
-        removed = {traffic.edge(accepted)} if accepted % 2 else set()
-        if certificate(recovered, set(), removed, vertices, width) != expected:
+        if traffic.audit(recovered, accepted, width) != expected:
             raise RuntimeError("independent-load exact recovery failed")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
@@ -396,7 +439,7 @@ def main():
     parser.add_argument("--queue-capacity", type=int, default=512)
     parser.add_argument("--ipc-bytes", type=int, default=16384)
     parser.add_argument("--ipc-batch", type=int, default=1)
-    parser.add_argument("--workload", choices=("hot", "sweep"), default="hot")
+    parser.add_argument("--workload", choices=("hot", "sweep", "pulse"), default="hot")
     parser.add_argument("--width", type=int, choices=(2, 8, 32), default=2)
     parser.add_argument("--limit", type=int, default=64 << 20)
     parser.add_argument("--budget", type=int, default=1 << 30)
