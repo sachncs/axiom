@@ -10,7 +10,8 @@ including bootstrap offset. Setup edits/time are reported separately and are
 never credited to offered-throughput counts. Dropped/rejected offers do not
 advance the four-edit trace. Both steady and burst arrivals retain all loss
 classes, bounded queues and independent exact topology/recovery checks.
-This documents the harness, not a completed sustained skew measurement.
+The retained steady and burst hub stages qualify specific installed artifacts,
+not arbitrary skew or loss-free admission.
 
 Installed production source `e24ae58`; wheel SHA-256
 `e09b81f4bdcffcdab1b3c1c9ae0baeefbc167d0f1e50903461d81234df1d525d`.
@@ -348,3 +349,43 @@ RSS is 170,573,824/29,491,200 bytes. This passes a scoped delivered-throughput
 and bounded-overload recovery stage, not arbitrary burst/skew, network, latency
 SLA or aggregate-resource qualification. Counted rejected offers require caller
 backpressure/retry policy; they must not be counted as durable changes.
+
+## Indexed hub with burst arrivals — 2026-10-03
+
+[Raw record](hub-burst-million.json): fresh installed wheel and frozen runner
+from `3a3c5cf5fd44ff447fa486ab8f3382784f288bbe`, wheel SHA-256
+`48e254ec90f448a3ee06c8429319574d230839c4d7bf6bfc96e0d3c6ffe03730`.
+Individual runner hashes are retained in the record. M3 Pro / 18 GiB / APFS,
+macOS 26.7.1, Python 3.14.8, SQLite 3.53.4, `MallocLargeCache=0`.
+No competing local tests, builds, preview or performance jobs ran during this stage.
+
+```sh
+MallocLargeCache=0 python -I runner/benchmarks/independent_load.py \
+  --database /private/local/path/fresh.db --vertices 1000000 \
+  --rate 11000 --query-rate 10000 --seconds 180 \
+  --queue-capacity 4096 --ipc-bytes 65536 --ipc-batch 16 \
+  --workload hub --degree 65536 --arrival burst --width 2 \
+  --budget 134217728 --limit 67108864
+```
+
+The setup's 65,532 real additions and 2.187 seconds are excluded. Initial average
+degree is 4.131064. Burst windows offer 44k updates/s, with 11k/s planned across
+the entire interval. Delivered **1,877,663 real durable changes in 180.00679
+seconds: 10,431.07/s**, with 1,799,808 exact versioned partner queries and 59
+checkpoints. Every topology/matching/query and independent recovery check passes.
+Final version/sequence are 1,943,196/1,943,195, including bootstrap; partial cycle
+state has 2,065,531 edges and 499,999 matching pairs. Its matching SHA agrees with
+the earlier steady hub's same partial-cycle state.
+
+All offers reconcile: updates have 45,751 producer misses, 32 IPC drops and
+56,554 Busy rejections; queries have 176 misses, 16 drops and no Busy rejections.
+Ack/offered-ack/query p99 upper bounds are 247.7/248.6/2.4 ms; maxima are
+265.163/1,002.357/29.320 ms. **Twelve accepted updates exceed the one-second
+scheduled-offer-to-ack bucket**; none reach it for admission-to-ack
+latency or queries. Native allocation is 79,233,888 bytes; owner/producer
+peak RSS is 179,191,808/29,687,808 bytes. Maximum service outstanding remains
+4,096; 4,111 client receipts include IPC-side/busy receipts, not extra admitted work.
+
+This extends qualification to combined indexed skew and overload. It passes the
+scoped delivered-rate and exact-recovery gate, not a no-loss, tight latency,
+network, aggregate quota or paper-engine guarantee. Wider repeats remain active.

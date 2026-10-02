@@ -28,7 +28,9 @@ The production engine does not claim the paper's coloring/hierarchy theorem.
 - **Measured target:** million-vertex, average-degree-4 full-ring churn sustained
   10,998 real durable updates/s for 30 minutes, with coherent queries and exact
   recovery. Ten-minute growth/drain and three-minute degree-65,536 hub stages
-  also exceeded 10k/s. These are declared workload/hardware results, not a
+  also exceeded 10k/s. Combined hub/burst delivered 10,431/s, with explicit
+  rejections and twelve scheduled-offer-to-ack tails beyond one second.
+  These are declared workload/hardware results, not a
   universal rate or loss-free admission guarantee.
 - **Reliability:** bounded admission/undo/history, FULL-WAL acknowledgments,
   versioned reads, exact checkpoints/retries, immutable compact backups, and

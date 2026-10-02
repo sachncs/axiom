@@ -72,6 +72,17 @@ evidence that every offered burst can be admitted or a production burst SLA.
 
 ## Evidence and limits
 
+### Current installed independent hub stages — 2026-10-03
+
+Steady hub delivery reaches 10,985/s; a fresh combined burst/hub stage on
+`3a3c5cf` reaches 10,431/s, with 1.80m queries, 59 checkpoints and exact recovery.
+The latter retains 56,554 Busy rejections and twelve accepted scheduled-offer
+latencies exceeding one second. These qualify delivered throughput in their
+declared envelope, not every offer or a tight tail SLA. Wider repeatability is
+still active. [Raw records and provenance](../../benchmarks/results/independent/README.md).
+
+### Harness and earlier measurements
+
 The separate-process runner now supports `--workload hub --degree D` through
 the same polymorphic `Traffic` reference as hot, full-ring and growth/drain.
 This is the degree-four ring plus D-4 permanent spokes, not an unchanged
@@ -90,8 +101,9 @@ arguments and non-degree-four hub rings reject before opening the store.
 Tests traverse every graph edge and partner after setup and all repair prefixes,
 including degree-128 index promotion, repeated checkpoints, reopen and exact
 retry/future mutations. Stalled persistence forces bounded overload for both
-arrival policies and IPC batch sizes. Sustained installed-wheel hub measurements
-are still required; this harness addition does not qualify them.
+arrival policies and IPC batch sizes. At this historical harness-only milestone,
+sustained installed-wheel hub measurements were still required; the harness
+addition alone did not qualify them. Current scoped stages are recorded above.
 All 886 local tests pass; lint, formatting and source types pass. No production
 engine, durability or storage code changes are part of this harness extension.
 

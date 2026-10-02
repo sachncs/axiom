@@ -1,0 +1,120 @@
+{
+  "scope": "separate-process paced arrivals over bounded local datagrams; NOT production network/power-cut qualification",
+  "python": "3.14.8",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "vertices": 1000000,
+  "workload": "hub",
+  "hub_initial_degree": 65536,
+  "bootstrap_real_updates": 65532,
+  "bootstrap_seconds": 2.187186333,
+  "arrival": "burst",
+  "active_update_rate": 44000,
+  "width": 2,
+  "limits": {
+    "native": 134217728,
+    "snapshot": 67108864,
+    "database": 67108864
+  },
+  "rate": 11000,
+  "query_rate": 10000,
+  "seconds": 180,
+  "ipc_buffers": {
+    "requested_bytes": 65536,
+    "receive_bytes": 65536,
+    "send_bytes": 65536
+  },
+  "ipc_batch": 16,
+  "planned_updates": 1980000,
+  "producer_missed_updates": 45751,
+  "ipc_dropped_updates": 32,
+  "busy_updates": 56554,
+  "real_acknowledged_updates": 1877663,
+  "acknowledged_before_drain": 1877663,
+  "offering_and_drain_seconds": 180.006790042,
+  "real_acknowledged_updates_per_second": 10431.067625626207,
+  "planned_queries": 1800000,
+  "producer_missed_queries": 176,
+  "ipc_dropped_queries": 16,
+  "busy_queries": 0,
+  "partner_queries": 1799808,
+  "peak_client_receipts": 4111,
+  "service_metrics": {
+    "state": "open",
+    "capacity": 4096,
+    "query_reserve": 1,
+    "update_admission_limit": 4095,
+    "maintenance_capacity": 1,
+    "maintenance_outstanding": 0,
+    "outstanding": 0,
+    "peak_outstanding": 4096,
+    "accepted": 3743004,
+    "completed": 3743004,
+    "groups": 7833,
+    "largest_group": 256,
+    "batch_limit": 256,
+    "batch_wait_ns": 1000000,
+    "next_admission_sequence": 1943196
+  },
+  "final_status": {
+    "version": 1943196,
+    "sequence": 1943195,
+    "vertices": 1000000,
+    "edges": 2065531,
+    "matching": 499999,
+    "native_bytes": 79233888,
+    "sqlite": "3.53.4",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 65536,
+    "max_batch": 256,
+    "checkpoint_interval": 32768,
+    "retain_operations": 16384,
+    "retired_floor": 1923698,
+    "checkpoint_sequence": 1940082,
+    "checkpoint_generation": 59,
+    "retained_operations": 19497
+  },
+  "acknowledged_latency": {
+    "count": 1877663,
+    "p99_upper_ns": 247700000,
+    "max_ns": 265162875,
+    "overflow_at_1s": 0,
+    "resolution_ns": 100000
+  },
+  "offered_to_acknowledged_latency": {
+    "count": 1877663,
+    "p99_upper_ns": 248600000,
+    "max_ns": 1002356978,
+    "overflow_at_1s": 12,
+    "resolution_ns": 100000
+  },
+  "offered_query_latency": {
+    "count": 1799808,
+    "p99_upper_ns": 2400000,
+    "max_ns": 29320125,
+    "overflow_at_1s": 0,
+    "resolution_ns": 100000
+  },
+  "matching_digest": "3f11d7dd772206fcc705bd6b092efc8a6c91c431b3ecdcf13afeb7a15838ac69",
+  "independent_exact_audit_and_recovery_passed": true,
+  "owner_process_peak_rss_bytes": 179191808,
+  "producer_process_peak_rss_bytes": 29687808,
+  "source": "3a3c5cf5fd44ff447fa486ab8f3382784f288bbe",
+  "runner": "3a3c5cf5fd44ff447fa486ab8f3382784f288bbe",
+  "wheel": "48e254ec90f448a3ee06c8429319574d230839c4d7bf6bfc96e0d3c6ffe03730",
+  "allocator": {
+    "MallocLargeCache": "0"
+  },
+  "runner_hashes": {
+    "benchmarks/durable.py": "859931b41683b6be1512913e91e84dddb38cc711ca64ddd766ec4dbf8941faf6",
+    "benchmarks/independent_load.py": "9b029b58db699ae8c14617477e00c8e245f4297b9412eaf58d9ba4a6f0ea3fb0",
+    "benchmarks/overload.py": "7b4c072ffe5387c0d13440b05831b6791a1de0c6e825ab35bbc6e6f1ee1b61ce",
+    "benchmarks/service.py": "86f0135476ef0b05fbf460a3cf8681a93838f9da40dcb57a44595caa2866a4b1"
+  },
+  "hardware": {
+    "model": "Mac15,6",
+    "cpu": "Apple M3 Pro",
+    "memory_bytes": 19327352832,
+    "filesystem": "APFS"
+  }
+}

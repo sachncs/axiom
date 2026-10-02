@@ -22,12 +22,14 @@ SQLite checkpoint plus committed tail is the complete durable authority.
 | 10-minute million-vertex growth/drain | 10,998/s | Six full cycles, 201 checkpoints, exact recovery; explicit macOS allocator profile |
 | Three-minute million-vertex hub degree 65,536 | 10,985/s | 62 checkpoints, exact versioned queries and recovery; initial average degree 4.131064 |
 | Three-minute burst windows, 44k active offers/s | 10,611/s | Bounded rejection, every loss accounted, exact recovery; not admission of every offer |
+| Three-minute burst plus degree-65,536 hub | 10,431/s | 59 checkpoints, exact query/recovery; 56,554 rejections and 12 offered-ack tails beyond 1s retained |
 | Linux changing-density hard-resource drill | Not a rate test | 1.04m real changes, actual memory/disk exhaustion, compact backup restore under unchanged caps |
 
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),
 [hub](../benchmarks/results/independent/hub-steady-million.json),
 [burst](../benchmarks/results/independent/burst-million.json),
+[burst hub](../benchmarks/results/independent/hub-burst-million.json),
 [Linux recovery](../benchmarks/results/resource-growth-envelope.json).
 These use declared source/wheel/runner hashes and machine/storage stacks. Producer
 misses, IPC drops and Busy rejections do not count as real acknowledged changes.

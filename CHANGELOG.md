@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Qualification and boundaries
 
+- Fresh installed-wheel million-vertex burst-plus-indexed-hub stage delivers
+  10,431 real durable changes/s with 1.80m exact queries, 59 checkpoints and exact
+  recovery. Retains all losses, including 56,554 rejections and twelve accepted
+  scheduled-offer-to-ack tails over one second; not a no-loss latency guarantee.
+
 - Million-vertex degree-four full-ring 30-minute and growth/drain 10-minute
   stages exceed 10k real durable changes/s with queries and exact recovery.
   First independently paced degree-65,536 hub stage also passes; broader
