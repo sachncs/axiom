@@ -63,7 +63,12 @@ topology or native graph version. Duplicate inserts do not change state. A futur
 durable paper codec/replay must retain these algorithm-specific semantics rather
 than borrowing native `changed` bookkeeping without examination.
 
-Existing paper rollback restores logical state but replaces many Python objects
+Accounting now uses ten-entry first-write undo, not deepcopy; failed updates
+preserve Ledger identity and exact counters, including absent-edge deletion
+failures. [ADR 0024](adrs/0024-accounting-journal.md) records publication/fail-stop
+behavior and the remaining migration boundary.
+
+Existing paper rollback restores logical state but replaces many other Python objects
 from snapshots. The tests do **not** claim preservation of every pre-failure
 Python object identity. Journal migration must additionally preserve identities
 and aliases while covering in-place container edits, attribute replacement,

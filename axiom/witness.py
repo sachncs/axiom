@@ -48,6 +48,7 @@ class Witness:
                 "colorer",
                 "deleted_edges",
                 "eta",
+                "failed",
                 "graph",
                 "inserted_edges",
                 "inserted_incident_counts",

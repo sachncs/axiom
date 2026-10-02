@@ -26,6 +26,14 @@ def verify() -> None:
             raise RuntimeError("installed native paper graph/repair failed")
         if witness.capture(matcher) != witness.capture(recovered):
             raise RuntimeError("installed paper full-state replay differs")
+        before = witness.capture(matcher)
+        counter = matcher.accountant
+        journal = counter.begin()
+        counter.record_deletion()
+        counter.record_phase_rebuild(7)
+        counter.rollback(journal)
+        if matcher.accountant is not counter or witness.capture(matcher) != before:
+            raise RuntimeError("installed paper scalar undo changed exact state")
     engine = Engine(16)
     token = engine.begin()
     engine.insert(0, 1)

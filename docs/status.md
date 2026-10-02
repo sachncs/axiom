@@ -56,6 +56,10 @@ Paper migration prerequisite: a bounded full-state comparison oracle now covers
 both modes/storage backends, replay prefixes, post-rebuild rollback and fan
 failure indexes. [State inventory](paper-state.md) records what is and is not
 compared. This is not a durable codec or a completed journal migration.
+Accounting is now migrated to bounded scalar undo with retained Ledger identity;
+failed absent-edge deletions restore exact counters. Uncertain publication cleanup
+or rollback fail-stops the Matcher rather than exposing uncertified query state.
+[ADR 0024](adrs/0024-accounting-journal.md) records this partial migration.
 
 ## Deferred by explicit user direction
 
@@ -69,5 +73,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-923 passing tests; CI and benchmark results must be attributed to their exact
+961 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

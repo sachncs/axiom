@@ -25,6 +25,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from axiom.journal import Journal
+
 
 @dataclass
 class Ledger:
@@ -63,6 +65,51 @@ class Ledger:
     rematch_a_scans: int = 0
     stale_cleanups: int = 0
     phase_update_work: int = field(default=0, repr=False)
+    journal: Journal | None = field(
+        default_factory=lambda: None, init=False, repr=False, compare=False
+    )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Route active counter writes through undo, retaining protocol spelling."""
+        journal: Journal | None = getattr(self, "journal", None)
+        if journal is not None:
+            if name == "journal":
+                raise RuntimeError("active accounting journal cannot be replaced")
+            journal.write(name, value)
+        else:
+            object.__setattr__(self, name, value)
+
+    def begin(self) -> Journal:
+        """Open bounded first-write undo for the ten accounting counters."""
+        if self.journal is not None:
+            raise RuntimeError("accounting transaction is already active")
+        journal = Journal(self, capacity=10)
+        object.__setattr__(self, "journal", journal)
+        return journal
+
+    def __delattr__(self, name: str) -> None:
+        """Reject unjournaled deletion of active accounting fields."""
+        if self.journal is not None:
+            raise RuntimeError("active accounting fields cannot be deleted")
+        object.__delattr__(self, name)
+
+    def validate(self, journal: Journal) -> None:
+        """Validate ownership and the exact open token before publication."""
+        if self.journal is not journal or journal.owner is not self:
+            raise RuntimeError("stale accounting journal")
+        journal.check()
+
+    def commit(self, journal: Journal) -> None:
+        """Close a validated accounting transaction without replacing this ledger."""
+        self.validate(journal)
+        journal.commit()
+        object.__setattr__(self, "journal", None)
+
+    def rollback(self, journal: Journal) -> None:
+        """Restore exact old counters in place and close their transaction."""
+        self.validate(journal)
+        journal.rollback()
+        object.__setattr__(self, "journal", None)
 
     def record_insertion(self) -> None:
         """Record a successful (or attempted) insertion."""

@@ -42,6 +42,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Paper-state deepcopy/journal migration and incremental hierarchy validation, separately certified |
+| Paper accounting | Ten-entry first-write undo, retained Ledger identity and exact absent-delete failure rollback | Remaining matching/index/hierarchy containers still use snapshots; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak

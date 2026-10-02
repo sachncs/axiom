@@ -21,11 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed version/partner queries, bounded maintenance and local ownership.
 - Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
   explicit offer-loss accounting, long-run recovery evidence and Linux hard
-  allocation/disk-exhaustion drills. 923 local tests pass at this milestone.
+  allocation/disk-exhaustion drills. 961 local tests pass at this milestone.
 - Architecture decision records and operations guidance explaining production
   alternatives to whole-state copying and the limits of current guarantees.
 
 ### Fixed
+
+- Paper accounting now journals first writes instead of copying/replacing the
+  Ledger. Failed absent-edge deletions restore exact counters. Uncertain graph
+  publication cleanup or failed rollback fail-stops the Matcher and rejects
+  future updates/queries. Wider snapshot removal and durable paper integration
+  remain required; this partial migration carries no throughput claim.
 
 - Reconciled the Astro site, README, changelog and documentation with the native
   durable service and current measured evidence; active and deferred scope is

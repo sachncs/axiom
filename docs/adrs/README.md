@@ -30,6 +30,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Fixed-trace memory/compute comparison and new-binary sustained degree-four stage pass; degree 64 fails throughput |
 | [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | Explicit macOS launch policy measured through growth/drain; burst and Linux hard-resource stages pass separately; aggregate quotas deferred |
 | [0023](0023-durable-paper-integration.md) | Bring basic/multilevel through the durable production service | Required active integration; not implemented or performance-qualified |
+| [0024](0024-accounting-journal.md) | Bounded first-write paper accounting undo and explicit publication/rollback fail-stop | Accounting migrated in place; wider journal migration/durable paper integration remain active |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

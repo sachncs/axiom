@@ -144,6 +144,7 @@ class Matcher:
                 "custom colorers are supported only in basic mode"
             )
         self.n = n
+        self.failed = False
         self.mode = mode
         self.graph = graph if graph is not None else Adjacency(n)
         self.__validate_graph(self.graph, n)
@@ -284,6 +285,7 @@ class Matcher:
 
     def partition(self) -> None:
         """Color the active system matching and select its first color class."""
+        self.ready()
         if self.system is None:
             self.seed_matching = set()
             self.matchings = []
@@ -536,6 +538,7 @@ class Matcher:
             u: One endpoint.
             v: The other endpoint.
         """
+        self.ready()
         e = canonical(u, v)
         # Drop any prior matches of u and v so the new edge is the
         # only match incident to either endpoint.
@@ -562,6 +565,7 @@ class Matcher:
             u: One endpoint.
             v: The other endpoint.
         """
+        self.ready()
         e = canonical(u, v)
         self.matched_edges.discard(e)
         self.matched_vertices.discard(u)
@@ -573,6 +577,7 @@ class Matcher:
 
     def refresh(self) -> None:
         """Extend the seed to a maximal matching and rebuild its partner indexes."""
+        self.ready()
         if self.system is None:
             raise RuntimeError(
                 "cannot refresh matching without an active z-system; "
@@ -797,7 +802,20 @@ class Matcher:
         self.__validate_vertex(u)
         self.__validate_vertex(v)
         if not self.graph.has_edge(u, v):
-            self.accountant.record_deletion()
+            accountant = self.accountant
+            journal = accountant.begin()
+            try:
+                accountant.record_deletion()
+                accountant.commit(journal)
+            except BaseException:
+                try:
+                    accountant.rollback(journal)
+                except BaseException as failure:
+                    self.failed = True
+                    raise RuntimeError(
+                        "accounting rollback failed; discard matcher"
+                    ) from failure
+                raise
             return
         with self.__atomic_update():
             if self.mode == "multilevel":
@@ -876,7 +894,7 @@ class Matcher:
 
     @contextmanager
     def __atomic_update(self) -> Iterator[None]:
-        """Make one accepted graph update all-or-nothing.
+        """Roll back before publication; fail-stop on uncertain publication.
 
         Dynamic repair touches the live graph, matching views, recursive
         hierarchy, auxiliary indexes, and accounting counters.  A failed
@@ -892,12 +910,16 @@ class Matcher:
         if self.multi is not None:
             graph_objects.append(self.multi.graph)
             graph_objects.extend(level.graph for level in self.multi.levels)
-        memo = {id(graph): graph for graph in graph_objects if graph is not None}
+        managed = {id(graph): graph for graph in graph_objects if graph is not None}
+        memo: dict[int, object] = dict(managed)
         graph_snapshots: list[tuple[Graph, set[Edge]]] = []
         journals: list[tuple[Packed, int]] = []
+        accountant = self.accountant
+        accounting = None
         snapshot = None
+        published = False
         try:
-            for graph in memo.values():
+            for graph in managed.values():
                 if isinstance(graph, Packed):
                     token = graph.begin()
                     try:
@@ -907,32 +929,52 @@ class Matcher:
                         raise
                 else:
                     graph_snapshots.append((graph, set(graph.edges())))
+            accounting = accountant.begin()
+            # Keep the accounting object and its aliases; only its changed
+            # scalar cells need undo. Other paper state retains the oracle.
+            memo[id(accountant)] = accountant
             snapshot = {
                 name: copy.deepcopy(value, memo)
                 for name, value in self.__dict__.items()
                 if name not in {"graph", "colorer", "policy"}
             }
             yield
+            if self.accountant is not accountant:
+                raise RuntimeError("update replaced its accounting owner")
+            accountant.validate(accounting)
             publish(journals)
-        except BaseException:
-            for native, token in reversed(journals):
-                native.rollback(token)
-            # Restore every graph object in place.  Multilevel rebuilds can
-            # mutate a phase graph or an inherited level graph before a later
-            # invariant check fails; restoring only ``self.graph`` would leave
-            # those same-identity objects observably split from the snapshot.
-            for graph, expected_edges in graph_snapshots:
-                current_edges = set(graph.edges())
-                for left, right in current_edges - expected_edges:
-                    graph.remove_edge(left, right)
-                for left, right in expected_edges - current_edges:
-                    graph.add_edge(left, right)
-                if set(graph.edges()) != expected_edges:
-                    raise RuntimeError(
-                        "atomic rollback could not restore a managed graph"
-                    )
-            if snapshot is not None:
-                self.__dict__.update(snapshot)
+            published = True
+            accountant.commit(accounting)
+        except BaseException as error:
+            if published:
+                self.failed = True
+                raise RuntimeError(
+                    "publication cleanup failed; discard matcher"
+                ) from error
+            try:
+                for native, token in reversed(journals):
+                    native.rollback(token)
+                if accounting is not None:
+                    accountant.rollback(accounting)
+                # Restore every graph object in place.  Multilevel rebuilds can
+                # mutate a phase graph or an inherited level graph before a later
+                # invariant check fails; restoring only ``self.graph`` would leave
+                # those same-identity objects observably split from the snapshot.
+                for graph, expected_edges in graph_snapshots:
+                    current_edges = set(graph.edges())
+                    for left, right in current_edges - expected_edges:
+                        graph.remove_edge(left, right)
+                    for left, right in expected_edges - current_edges:
+                        graph.add_edge(left, right)
+                    if set(graph.edges()) != expected_edges:
+                        raise RuntimeError(
+                            "atomic rollback could not restore a managed graph"
+                        )
+                if snapshot is not None:
+                    self.__dict__.update(snapshot)
+            except BaseException as failure:
+                self.failed = True
+                raise RuntimeError("rollback failed; discard matcher") from failure
             raise
 
     def __handle_insertion(self, u: Vertex, v: Vertex) -> None:
@@ -1019,6 +1061,7 @@ class Matcher:
         self.accountant.record_deletion()
 
     def __validate_vertex(self, vertex: Vertex) -> None:
+        self.ready()
         if not isinstance(vertex, int) or isinstance(vertex, bool):
             raise ValueError(
                 f"vertex must be an integer in [0, {self.n}), got {vertex!r}"
@@ -1328,6 +1371,7 @@ class Matcher:
         Complexity:
             O(|M*|) to copy.
         """
+        self.ready()
         return set(self.matched_edges)
 
     def maximal(self) -> bool:
@@ -1336,10 +1380,12 @@ class Matcher:
         Complexity:
             O(n + m).
         """
+        self.ready()
         return is_maximal_matching(self.graph, self.matched_edges)
 
     def size(self) -> int:
         """Return the number of edges in the current matching."""
+        self.ready()
         return len(self.matched_edges)
 
     def partner(self, v: Vertex) -> Vertex | None:
@@ -1367,6 +1413,7 @@ class Matcher:
         Complexity:
             O(|M*|) time and space.
         """
+        self.ready()
         return partners(self.matched_edges)
 
     def stats(self) -> dict[str, int]:
@@ -1375,6 +1422,7 @@ class Matcher:
         Returns:
             A flat dict suitable for logging or CSV export.
         """
+        self.ready()
         stats: dict[str, int] = {
             "n": self.n,
             "m": self.graph.num_edges(),
@@ -1387,3 +1435,8 @@ class Matcher:
         }
         stats.update(self.accountant.snapshot())
         return stats
+
+    def ready(self) -> None:
+        """Refuse updates and queries after uncertain publication or rollback."""
+        if self.failed:
+            raise RuntimeError("matcher has failed; discard matcher")

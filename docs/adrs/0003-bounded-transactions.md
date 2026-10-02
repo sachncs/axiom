@@ -56,4 +56,7 @@ by successful reuse. A standalone 200,000-edit C++ differential stress test pass
 ASan/UBSan. The production graph/partner path additionally passed a 100,000-edit
 reference differential run under ASan/UBSan, memory-budget rejection after earlier
 batch mutations, and injected certificate corruption with rollback and fail-stop.
+Paper accounting now uses bounded first-write undo and retains Ledger identity
+on failure ([0024](0024-accounting-journal.md)). Absent-edge accounting failures
+also roll back; uncertain cleanup/rollback explicitly fail-stops the Matcher.
 Full Python algorithm snapshot elimination is **not implemented**.
