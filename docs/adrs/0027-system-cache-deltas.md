@@ -54,3 +54,13 @@ Installed comparisons must retain the exact trace, source/runner/wheel provenanc
 matching/counter results and measurement scope. Native durable throughput does not
 qualify this paper path. The durable integration gates in [0023](0023-durable-paper-integration.md)
 and the remaining state inventory in [paper-state](../paper-state.md) remain required.
+
+The [installed comparison](../../benchmarks/results/paper/README.md#shared-system-cache-deltas-and-union-free-membership)
+retains both mode records and a separate full-state prefix comparison. On the
+512-vertex churn trace, multilevel measured 117.36 to 199.35 real updates/s and
+basic 574.28 to 585.56/s; memory was essentially unchanged. All operation,
+trace/matching and counter results agree. All 257 complete-state hashes also
+agree per mode on a separate 128-vertex trace spanning phase/subphase rebuilds.
+These are small nondurable diagnostics, not million-vertex qualification. The
+local suite passes 1,090 tests; optimized focused tests, types/lint and the clean
+installed wheel pass. CI must qualify the exact pushed revision.

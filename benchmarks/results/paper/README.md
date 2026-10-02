@@ -56,3 +56,40 @@ The small rate difference is diagnostic, not a statistically established speedup
 This sparse fixture has no phase/subphase rebuild and mostly empty color classes:
 it exposes admission overhead, not dense color-class or rebuild performance.
 Separate dense, per-mode and durable qualification still remains necessary.
+
+## Shared System cache deltas and union-free membership
+
+[deltas.json](deltas.json) compares installed `2730390` and `d0d4953` using the
+unchanged archived runner, sequential isolated interpreters and the same hardware
+and allocator policy. Each mode uses 512 vertices, average degree four, seed seven,
+128 real churn updates and three timed repeats. Diagnostic latency, queries and
+memory remain separate passes; no tests, builds or preview overlap measurement.
+
+| Mode | Before real updates/s | After real updates/s | Before/after transient traced bytes |
+| --- | ---: | ---: | ---: |
+| basic | 574.28 | 585.56 | 704,320 / 704,256 |
+| multilevel | 117.36 | 199.35 | 1,434,576 / 1,433,616 |
+
+The multilevel rate measured 69.9% higher after removing per-neighbor/edge
+partition-union allocations; basic measured 2.0% higher. These single-host
+three-repeat results are scoped diagnostics, not cross-host repeatability or
+durable throughput qualification. Traced memory and RSS are essentially unchanged
+(RSS rose from 34,504,704 to 34,766,848 bytes in basic and from 38,043,648 to
+38,584,320 bytes in multilevel); do not advertise lower resident memory.
+All operation outcomes, trace/final matching hashes and repair counters agree.
+The performance cases exercise two basic and five multilevel subphase rebuilds,
+but no full phase rebuild.
+
+A separate installed differential run uses 128 vertices, average degree four,
+seed seven and 256 real churn updates. It captures and hashes the entire Witness
+state initially and after every update: all 257 prefixes agree in each mode.
+Basic ends with one phase and ten subphase rebuilds; multilevel ends with three
+phase and 24 subphase rebuilds. Maximality and hierarchy certificates are checked
+separately, not inferred from hash equality. The report retains the shared hashes,
+full accounting and executable Python procedure. Run that procedure with each
+isolated wheel interpreter (`python -I -c ...`), using the benchmark file archived
+from the declared runner revision, and compare the resulting JSON outputs.
+
+See [ADR 0027](../../../docs/adrs/0027-system-cache-deltas.md). The shared delta
+boundary still relies on snapshots for System/Hierarchy undo; it is not their
+journal migration, an exact recovery codec, or a durable Service implementation.
