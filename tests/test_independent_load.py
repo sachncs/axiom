@@ -261,7 +261,13 @@ def test_invalid_certificate_width_rejects_before_owner_access(width):
         independent_load.certificate(None, set(), set(), 32, width)
 
 
-def test_dense_image_cap_rejects_before_starting_producer(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "limit,budget,error",
+    [(1 << 20, 16 << 20, CapacityError), (16 << 20, 1 << 20, MemoryError)],
+)
+def test_dense_resource_caps_reject_before_starting_producer(
+    tmp_path, monkeypatch, limit, budget, error
+):
     started = []
 
     def forbidden(process):
@@ -271,16 +277,19 @@ def test_dense_image_cap_rejects_before_starting_producer(tmp_path, monkeypatch)
     monkeypatch.setattr(
         independent_load.multiprocessing.process.BaseProcess, "start", forbidden
     )
-    with pytest.raises(CapacityError, match="checkpoint image capacity"):
+    with pytest.raises(error) as failure:
         measure(
             tmp_path / "oversized.db",
             4096,
             100,
             1,
             width=32,
-            limit=1 << 20,
-            budget=16 << 20,
+            limit=limit,
+            budget=budget,
         )
+    assert type(failure.value) is error
+    if error is CapacityError:
+        assert "checkpoint image capacity" in str(failure.value)
     assert not started
     with Durable(tmp_path / "subsequent.db", n=128, width=32) as owner:
         outcome = owner.apply([Request(1, "delete", 0, 1)])[0]
