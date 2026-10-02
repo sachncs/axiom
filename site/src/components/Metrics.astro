@@ -3,7 +3,7 @@ import { METRICS } from "../lib/data";
 ---
 
 <section class="metrics shell" aria-label="Key metrics">
-  <div class="metrics__grid" data-reveal>
+  <div class="metrics__grid">
     {
       METRICS.map((m) => (
         <div class="metric">
@@ -18,7 +18,7 @@ import { METRICS } from "../lib/data";
 
 <style>
   .metrics {
-    padding-block: 0 clamp(54px, 7vw, 90px);
+    padding-block: 0 32px;
   }
   .metrics__grid {
     display: grid;
@@ -36,7 +36,7 @@ import { METRICS } from "../lib/data";
   .metric:not(:first-child) { padding-left: 20px; }
   .metric:last-child { border-right: 0; }
   .metric__value {
-    font-size: clamp(22px, 2.5vw, 30px);
+    font-size: clamp(26px, 3vw, 38px);
     font-weight: 680;
     letter-spacing: -0.04em;
     overflow: hidden;
@@ -64,7 +64,7 @@ import { METRICS } from "../lib/data";
     .metric:nth-child(odd) { padding-left: 0; }
     .metric:nth-child(even) { padding-left: 16px; }
   }
-  @media (max-width: 420px) {
+  @media (max-width: 340px) {
     .metrics__grid { grid-template-columns: 1fr; }
     .metric, .metric:not(:first-child), .metric:nth-child(even), .metric:nth-child(odd) {
       padding: 18px 0;

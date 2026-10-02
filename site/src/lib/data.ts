@@ -2,38 +2,33 @@ export const SITE = {
   title: "Axiom",
   tagline: "Deterministic dynamic graph matching",
   description:
-    "Axiom keeps a maximal matching current as edges arrive and disappear.",
-  repo: "https://github.com/sachncs/axiom",
+    "Deterministic maximal matching: a native SQLite-backed local service and separate paper research modes, with measured million-vertex qualification.",
   paper: "https://arxiv.org/abs/2605.00797v1",
-  readme: "https://github.com/sachncs/axiom/blob/master/README.md",
-  docs: "https://github.com/sachncs/axiom/tree/master/docs",
-  changelog: "https://github.com/sachncs/axiom/blob/master/CHANGELOG.md",
-  license: "https://github.com/sachncs/axiom/blob/master/LICENSE",
-  citation: `Chuzhoy, J., Khanna, S., Song, J. (2026).\n  A Faster Deterministic Algorithm for Fully Dynamic Maximal Matching.\n  arXiv:2605.00797v1 (STOC 2026).`,
 } as const;
 
 export const NAV = [
+  { label: "Production", href: "production/" },
   { label: "Research", href: "research/" },
   { label: "Docs", href: "docs/" },
-  { label: "Playground", href: "playground/" },
+  { label: "Walkthrough", href: "playground/" },
   { label: "GitHub", href: "https://github.com/sachncs/axiom" },
 ] as const;
 
 export const METRICS = [
   {
-    value: "6",
-    label: "public methods",
-    note: "insert · delete · inspect",
+    value: "10,998/s",
+    label: "real durable updates",
+    note: "30-minute degree-four stage",
   },
   {
-    value: "1",
-    label: "state owner",
-    note: "atomic accepted state",
+    value: "1 million",
+    label: "vertices measured",
+    note: "queries + exact recovery",
   },
   {
     value: "0",
     label: "runtime dependencies",
-    note: "Python standard library only",
+    note: "stdlib + bundled C++ extension",
   },
   {
     value: "3.10+",
@@ -42,117 +37,16 @@ export const METRICS = [
   },
 ] as const;
 
-export const PROBLEM = [
-  {
-    step: "01",
-    title: "The stream",
-    body: "Edges arrive and depart one at a time — insertions, deletions, insertions again. Axiom repairs updates locally and uses explicit phase rebuilds to refresh its bounded hierarchy state.",
-  },
-  {
-    step: "02",
-    title: "The invariant",
-    body: "A maximal matching is a local proof of coverage: every edge touches at least one matched vertex. Axiom restores it deterministically after every accepted update.",
-  },
-  {
-    step: "03",
-    title: "The cost",
-    body: "The z-subgraph system localises update damage while preserving maximality after every accepted operation.",
-  },
-] as const;
+export const API_SNIPPET = `from pathlib import Path
+from tempfile import TemporaryDirectory
+from axiom.durable import Request
+from axiom.service import Service
 
-export const FEATURES = [
-  {
-    icon: "layers",
-    title: "Two operating modes",
-    body: "basic is the recommended single-level path; multilevel exposes recursive z-system refinement while its research validation continues.",
-  },
-  {
-    icon: "graph",
-    title: "z-subgraph system",
-    body: "The implemented (A, B, U) partition, S = A ∪ B saturation, Λ(u) and L(a) index lists, with explicit state validators.",
-  },
-  {
-    icon: "palette",
-    title: "Deterministic colouring",
-    body: "Basic uses deterministic Vizing colouring; multilevel uses the paper-oriented recursive fan colourer with explicit failure diagnostics. The ABB+26 asymptotic bound is not claimed.",
-  },
-  {
-    icon: "invariant",
-    title: "Invariant checks",
-    body: "Read-only validators check maximality, active z-system structure, and the multi-level (I3) bound. The complete paper proof remains a research gate.",
-  },
-  {
-    icon: "path",
-    title: "Augmenting-path maintenance",
-    body: "Deterministic alternating-path augmentation is applied internally at subphase boundaries; the low-level primitives remain available in axiom.augment.",
-  },
-  {
-    icon: "ledger",
-    title: "Empirical ledger",
-    body: "Explicit counters track phase and subphase rebuilds, rematch scan sizes, and cleanup work — an account of where every update spends its time.",
-  },
-] as const;
-
-export const MODES = [
-  {
-    name: "Basic",
-    tag: "single-level · deterministic",
-    status: "Stable implementation · recommended",
-    complexity: "single-level",
-    period: "deterministic maximality",
-    points: [
-      "single-level z-system",
-      "deterministic maximality",
-      "atomic state validation",
-      "recommended integration path",
-    ],
-    accent: "cobalt",
-    cta: 'mode="basic"',
-  },
-  {
-    name: "Multilevel",
-    tag: "multi-level · density-sensitive depth",
-    status: "Experimental · research validation",
-    complexity: "recursive",
-    period: "deterministic maximality",
-    points: [
-      "recursive hierarchy",
-      "density-sensitive depth",
-      "Invariant (I3) checked at runtime",
-      "paper-level validation ongoing",
-    ],
-    accent: "violet",
-    cta: 'mode="multilevel"',
-  },
-] as const;
-
-export const API_SNIPPET = `from axiom import Matcher
-
-matcher = Matcher(n=100, mode="basic")
-
-matcher.insert(0, 1)
-matcher.insert(2, 3)
-matcher.delete(0, 1)
-
-assert matcher.maximal()  # every accepted state is checked`;
-
-export const CLI_SNIPPET = `$ axiom --n 20 --mode basic --updates 200 --seed 42
-
-=== Axiom Demo: n=20, mode=basic, updates=200 ===
-Completed 200 updates in 0.001s
-Final edges: 12
-Matching size: 8
-Maximal: True`;
-
-export const REBUILD_SNIPPET = `# Strobes of work land on a dark chart —
-# matching size stays maximal through every
-# update, while the ledger explains the cost.
-# Illustrative trace — not a performance claim.
-
-n=200 · updates=5000 · mode=multilevel   ───■── example trace
-rebuilds          827
-rematch scans     12,913
-cleanup work      31`;
+with TemporaryDirectory() as directory:
+    with Service(Path(directory) / "graph.db", n=128) as graph:
+        outcome = graph.submit(Request(1, "delete", 0, 1)).result(5)
+        assert graph.partner(0).result(5) == (outcome.version, None)
+        assert graph.check().result(5)`;
 
 export const INSTALL = {
   pip: "pip install git+https://github.com/sachncs/axiom.git",
@@ -177,6 +71,7 @@ export const FOOTER_LINKS = [
       { label: "API reference", href: "api/" },
       { label: "Modes deep-dive", href: "modes/" },
       { label: "Architecture", href: "architecture/" },
+      { label: "Production & evidence", href: "production/" },
     ],
   },
 ] as const;

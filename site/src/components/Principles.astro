@@ -1,23 +1,24 @@
 <section class="section shell principles" aria-labelledby="principles-title">
-  <div class="section-head" data-reveal>
-    <span class="eyebrow">The product</span>
-    <h2 id="principles-title">The invariant is the <span class="serif gradient-text">interface.</span></h2>
-    <p>Change the graph. Keep the guarantee. Axiom makes algorithmic state deterministic, checked, and visible enough to debug.</p>
+  <div class="section-head">
+    <span class="eyebrow">One update. A complete path.</span>
+    <h2 id="principles-title">Fast repair. Durable state.<br /><span class="gradient-text">One coherent answer.</span></h2>
+    <p>A local graph component with explicit contracts at every boundary. No hidden network service. No silent admission on overload.</p>
   </div>
   <div class="principles__grid">
-    <article data-reveal><span class="principles__number mono">01</span><h3>Deterministic</h3><p>The same update stream produces the same matching and the same repair path.</p></article>
-    <article data-reveal style="--reveal-delay: 90ms"><span class="principles__number mono">02</span><h3>Verified</h3><p>Accepted state is exposed only after matching and invariant checks pass.</p></article>
-    <article data-reveal style="--reveal-delay: 180ms"><span class="principles__number mono">03</span><h3>Observable</h3><p>Inspect matching state, rebuilds, repair scans, and the work ledger directly.</p></article>
+    <article><span class="principles__number mono">01 / COMPUTE</span><div class="principles__symbol" aria-hidden="true">◇ → ◈</div><h3>Repair, not recompute.</h3><p>Compact native graph state and incremental maximal-matching repair. Deterministic updates without copying the whole graph.</p><code>Engine</code></article>
+    <article><span class="principles__number mono">02 / COMMIT</span><div class="principles__symbol" aria-hidden="true">▱ ≡ ▱</div><h3>Acknowledge durably.</h3><p>SQLite FULL-WAL checkpoints and committed tails. Exact recovery and bounded retry history, with explicit failure semantics.</p><code>Durable</code></article>
+    <article><span class="principles__number mono">03 / PUBLISH</span><div class="principles__symbol" aria-hidden="true">↳ [ v, p ]</div><h3>Query a coherent version.</h3><p>Thread-safe admission, one mutation owner and partner queries coupled to committed versions. Bounded queues reject overload.</p><code>Service</code></article>
   </div>
 </section>
 
 <style>
-  .principles__grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
-  .principles__grid article { padding: 28px 30px 30px 0; border-right: 1px solid var(--line); }
-  .principles__grid article + article { padding-left: 30px; }
-  .principles__grid article:last-child { border-right: 0; }
+  .principles { padding-block:48px 68px; }
+  .principles__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap:16px; }
+  .principles__grid article { padding:28px; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--bg-2); }
   .principles__number { color: var(--cobalt); font-size: 12px; }
   .principles h3 { margin: 24px 0 8px; font-size: 25px; letter-spacing: -.025em; }
   .principles p { margin: 0; color: var(--ink-dim); line-height: 1.65; font-size: 15px; }
-  @media (max-width: 700px) { .principles__grid { grid-template-columns: 1fr; } .principles__grid article, .principles__grid article + article { padding: 24px 0; border-right: 0; } .principles__grid article + article { border-top: 1px solid var(--line); } }
+  .principles__symbol { color:var(--cyan); font-family:var(--font-mono); font-size:32px; height:76px; display:flex; align-items:end; }
+  .principles code { display:inline-block; color:var(--mint); font-size:11px; margin-top:26px; padding:4px 10px; background:var(--bg); border:1px solid var(--line); border-radius:6px; }
+  @media (max-width: 700px) { .principles__grid { grid-template-columns: 1fr; } }
 </style>

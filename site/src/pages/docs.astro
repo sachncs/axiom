@@ -2,17 +2,17 @@
 import Base from "../layouts/Base.astro";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const groups = [
-  { title: "Start here", links: [["Get started", "get-started/"], ["Concepts", "concepts/"], ["Examples", "examples/"]] },
+  { title: "Start here", links: [["Production & evidence", "production/"], ["Get started", "get-started/"], ["Examples", "examples/"]] },
   { title: "Build", links: [["API reference", "api/"], ["Modes", "modes/"], ["Architecture", "architecture/"]] },
   { title: "Research", links: [["Research status", "research/"], ["Changelog", "changelog/"]] },
-  { title: "Project", links: [["Contributing", "contributing/"], ["Playground", "playground/"]] },
+  { title: "Project", links: [["Contributing", "contributing/"], ["Walkthrough", "playground/"]] },
 ] as const;
 ---
 <Base title="Documentation" description="Learn, integrate, inspect, and extend Axiom without leaving the product site.">
   <section class="docs-index shell">
-    <header data-reveal><span class="eyebrow"><span class="dot" aria-hidden="true"></span>Axiom documentation</span><h1>Understand it.<br /><span class="serif gradient-text">Then use it.</span></h1><p>Start with the mental model, move through a working update stream, and open the architecture only when you need to inspect the engine.</p></header>
+    <header><span class="eyebrow"><span class="dot" aria-hidden="true"></span>Axiom documentation</span><h1>Understand it.<br /><span class="serif gradient-text">Then use it.</span></h1><p>Start with the mental model, move through a working update stream, and open the architecture only when you need to inspect the engine.</p></header>
     <div class="docs-index__grid">
-      {groups.map((group, index) => <section class="docs-index__group" data-reveal style={`--reveal-delay: ${index * 70}ms`}><span class="mono">0{index + 1}</span><h2>{group.title}</h2><ul>{group.links.map(([label, href]) => <li><a href={`${base}/${href}`}>{label}<span aria-hidden="true">→</span></a></li>)}</ul></section>)}
+      {groups.map((group, index) => <section class="docs-index__group"><span class="mono">0{index + 1}</span><h2>{group.title}</h2><ul>{group.links.map(([label, href]) => <li><a href={`${base}/${href}`}>{label}<span aria-hidden="true">→</span></a></li>)}</ul></section>)}
     </div>
   </section>
 </Base>

@@ -2,7 +2,7 @@
 import DocLayout from "../layouts/DocLayout.astro";
 ---
 <DocLayout title="Examples" eyebrow="Practical usage" description="Copyable workflows for live updates, reproducible traces, mode comparisons, and benchmark interpretation." next={{ label: "Read the architecture", href: "/architecture/" }}>
-  <div class="doc-callout"><p><strong>Choose deliberately.</strong> Use <code>basic</code> for the recommended integration path. The <code>multilevel</code> recipe below is for research and evaluation while its complete paper-level guarantees remain under validation.</p></div>
+  <div class="doc-callout"><p><strong>Research examples.</strong> These recipes use nondurable paper modes. Use <a class="text-link" href="../production/">Service</a> for native durable local integration; do not transfer the paper theorem to that production algorithm.</p></div>
 
   <h2>Maintain a live stream</h2>
   <p>Keep the matcher as the owner of graph state. Feed it updates in order and inspect the matching after each operation.</p>

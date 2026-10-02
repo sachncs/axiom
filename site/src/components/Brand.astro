@@ -1,0 +1,8 @@
+---
+import mark from "../../public/mark.svg?raw";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+<a class="brand" href={`${base}/`} aria-label="Axiom — home">
+  <span class="brand__mark" aria-hidden="true" set:html={mark} />
+  <span class="brand__name">axiom</span>
+</a>

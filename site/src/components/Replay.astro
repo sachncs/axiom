@@ -1,0 +1,43 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const nodes = [[180,40],[279,81],[320,180],[279,279],[180,320],[81,279],[40,180],[81,81]];
+---
+<article class="replay" aria-label="Verified native eight-vertex update and recovery trace">
+  <header class="replay__head"><span class="mono">NATIVE / EIGHT VERTICES</span><span class="replay__badge">Verified trace</span></header>
+  <div class="replay__graph">
+    <svg viewBox="0 0 360 360" role="img" aria-labelledby="trace-title trace-desc">
+      <title id="trace-title">Recovered matching at committed version three</title>
+      <desc id="trace-desc">An eight-vertex degree-four ring, with sixteen edges and matching pairs zero-one, two-three, four-five, six-seven. Delete and reinsert edge zero-one, then reopen the SQLite store: the matching is recovered exactly.</desc>
+      {nodes.map(([x,y],i) => [1,2].map(offset => <line x1={x} y1={y} x2={nodes[(i+offset)%8][0]} y2={nodes[(i+offset)%8][1]} class="replay__edge" />))}
+      {[0,2,4,6].map(i => <line x1={nodes[i][0]} y1={nodes[i][1]} x2={nodes[i+1][0]} y2={nodes[i+1][1]} class="replay__match" />)}
+      {nodes.map(([x,y],i) => <g><circle cx={x} cy={y} r="18" /><text x={x} y={y} dy=".35em" text-anchor="middle">{i}</text></g>)}
+    </svg>
+    <div class="replay__summary"><span>16 edges</span><span>4 matching pairs</span><strong>Maximal ✓</strong></div>
+  </div>
+  <ol class="replay__log mono">
+    <li><span>01</span><code>delete(0, 1)</code><strong>v2 · partner ∅</strong></li>
+    <li><span>02</span><code>insert(0, 1)</code><strong>v3 · partner 1</strong></li>
+    <li><span>↳</span><code>close → reopen</code><strong>v3 · partner 1</strong></li>
+  </ol>
+  <footer><span>Real package results. Not a browser engine.</span><a href={`${base}/playground/`}>Reproduce →</a></footer>
+</article>
+<style>
+  .replay { overflow:hidden; border:1px solid var(--line-strong); border-radius:12px; background:var(--bg-2); box-shadow:0 16px 40px -28px rgba(20,45,35,.25); }
+  .replay__head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--line); font-size:10px; letter-spacing:.05em; }
+  .replay__badge { border:1px solid var(--line-strong); border-radius:4px; padding:3px 7px; color:var(--cobalt); font-size:10px; }
+  .replay__graph { background:var(--bg); padding:8px 20px 16px; }
+  .replay svg { width:100%; max-height:295px; margin:auto; }
+  .replay__edge { stroke:var(--line-strong); stroke-width:1; }
+  .replay__match { stroke:var(--cobalt); stroke-width:5; }
+  .replay circle { fill:var(--bg-2); stroke:var(--cobalt); stroke-width:1.5; }
+  .replay text { fill:var(--ink); font:12px var(--font-mono); }
+  .replay__summary { display:flex; justify-content:space-between; gap:10px; font-size:11px; color:var(--ink-dim); }
+  .replay__summary strong { color:var(--mint); font-weight:600; }
+  .replay__log { list-style:none; padding:0; margin:0; font-size:11px; }
+  .replay__log li { display:grid; grid-template-columns:18px 1fr auto; align-items:center; gap:12px; padding:14px 20px; border-top:1px solid var(--line); }
+  .replay__log li > span { color:var(--ink-faint); }
+  .replay__log strong { color:var(--cobalt); font-weight:500; }
+  .replay footer { padding:15px 20px; border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:12px; font-size:10px; color:var(--ink-faint); }
+  .replay footer a { color:var(--ink); font-weight:600; }
+  @media(max-width:380px) { .replay__log li { padding-inline:12px; gap:8px; font-size:10px; } .replay footer { flex-wrap:wrap; } }
+</style>

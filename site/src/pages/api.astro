@@ -4,6 +4,7 @@ import DocLayout from "../layouts/DocLayout.astro";
 
 <DocLayout title="API reference" eyebrow="Developer first" description="The small public surface for creating a matcher, applying updates, inspecting state, and asserting the invariant." next={{ label: "Run examples", href: "/examples/" }}>
   <h2>Constructor</h2>
+  <p>This page covers the research Matcher API. For thread-safe durable integration, see <a class="text-link" href="../production/">Service, durability and qualification</a>. The standalone native Engine is in-memory; Service adds SQLite persistence.</p>
   <pre><code>{`Matcher(n: int, mode: "basic" | "multilevel")`}</code></pre>
   <table class="doc-table">
     <thead><tr><th>Argument</th><th>Meaning</th></tr></thead>

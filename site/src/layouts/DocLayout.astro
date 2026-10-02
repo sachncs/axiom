@@ -18,8 +18,9 @@ const active = (path: string) => Astro.url.pathname.endsWith(path);
     <aside class="docs-sidebar" aria-label="Documentation navigation">
       <p class="docs-sidebar__label">Learn Axiom</p>
       <nav>
+        <a class:list={{ active: active("/production/") }} aria-current={active("/production/") ? "page" : undefined} href={`${base}/production/`}>Production & evidence</a>
         <a class:list={{ active: active("/get-started/") }} aria-current={active("/get-started/") ? "page" : undefined} href={`${base}/get-started/`}>Get started</a>
-        <a class:list={{ active: active("/playground/") }} aria-current={active("/playground/") ? "page" : undefined} href={`${base}/playground/`}>Playground</a>
+        <a class:list={{ active: active("/playground/") }} aria-current={active("/playground/") ? "page" : undefined} href={`${base}/playground/`}>Walkthrough</a>
         <a class:list={{ active: active("/concepts/") }} aria-current={active("/concepts/") ? "page" : undefined} href={`${base}/concepts/`}>Concepts</a>
         <a class:list={{ active: active("/modes/") }} aria-current={active("/modes/") ? "page" : undefined} href={`${base}/modes/`}>Modes</a>
         <a class:list={{ active: active("/api/") }} aria-current={active("/api/") ? "page" : undefined} href={`${base}/api/`}>API reference</a>

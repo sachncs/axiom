@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <path class="logo-rail" d="M27 10H19L7 22V42L19 54H27M37 10H45L57 22V42L45 54H37" stroke="#20684f" stroke-width="7" stroke-linecap="square" stroke-linejoin="round"/>
+  <path class="logo-pair" d="M21 26H43M21 38H43" stroke="#a9502d" stroke-width="6" stroke-linecap="round"/>
+</svg>

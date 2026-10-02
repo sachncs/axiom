@@ -33,6 +33,12 @@ export function initNav(): void {
   });
 
   mobile?.querySelectorAll("a").forEach((a) => a.addEventListener("click", close));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && burger?.getAttribute("aria-expanded") === "true") {
+      close();
+      burger.focus();
+    }
+  });
   window.addEventListener("resize", close);
 }
 

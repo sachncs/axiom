@@ -35,8 +35,16 @@ if (files.length === 0) failures.push("site/dist contains no HTML files; run npm
 for (const file of files) {
   const html = await fs.readFile(file, "utf8");
   const relative = path.relative(dist, file);
+  if (/pure[ -]python|not yet (?:a )?durable/i.test(html)) {
+    failures.push(`${relative}: obsolete runtime/durability claim`);
+  }
+  if (/data-demo|data-reveal|Live engine|Play update sequence/i.test(html)) {
+    failures.push(`${relative}: obsolete simulated-engine or reveal markup`);
+  }
   if (!/<html[^>]+lang=["'][^"']+["']/i.test(html)) failures.push(`${relative}: missing html lang`);
   if (!/<title>[^<]+<\/title>/i.test(html)) failures.push(`${relative}: missing title`);
+  if ((html.match(/class="logo-rail"/g) ?? []).length !== 2) failures.push(`${relative}: header/footer must share the branded mark`);
+  if (!html.includes("favicon.svg?v=paired-20261003") || !html.includes("apple-touch-icon.png")) failures.push(`${relative}: missing current favicon/touch branding`);
   if (!/<meta[^>]+name=["']description["'][^>]+content=["'][^"']+/i.test(html)) failures.push(`${relative}: missing description`);
   if ((html.match(/<h1\b/gi) ?? []).length !== 1) failures.push(`${relative}: expected exactly one h1`);
   if (html.includes('class="docs-sidebar"')) {
@@ -75,4 +83,20 @@ if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log(`Checked ${files.length} HTML pages, internal links, metadata, and accessible graph canvases.`);
+const home = await fs.readFile(path.join(dist, "index.html"), "utf8");
+const walkthrough = await fs.readFile(path.join(dist, "playground", "index.html"), "utf8");
+const mark = await fs.readFile(path.join(dist, "mark.svg"), "utf8");
+const paths = [...mark.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(match => match[1]);
+if (paths.length !== 2) failures.push("brand: expected paired-rail and matching-bar geometry");
+for (const asset of ["favicon.svg", "logo.svg", "og.svg"]) {
+  const svg = await fs.readFile(path.join(dist, asset), "utf8");
+  if (!paths.every(geometry => svg.includes(`d="${geometry}"`))) failures.push(`${asset}: brand geometry diverges from mark.svg`);
+}
+if (!home.includes('data-theme="light"')) failures.push("home: expected ivory/teal default theme");
+if (!home.includes("Verified native eight-vertex update and recovery trace")) failures.push("home: missing verified native trace");
+if (!walkthrough.includes('data-verify="python"') || !walkthrough.includes("recovered.submit")) failures.push("walkthrough: missing executable reopen/retry verification");
+if (failures.length) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
+console.log(`Checked ${files.length} HTML pages, internal links, metadata, and the verified native walkthrough.`);

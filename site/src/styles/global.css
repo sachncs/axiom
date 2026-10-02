@@ -1,45 +1,45 @@
 /* ==========================================================================
    Axiom — design system
-   Apple-grade restraint: one palette, one sans, one serif accent, hairline
-   borders, layered depth. Revisit tokens here before touching components.
+   Product surfaces, readable contrast, topology-inspired accents.
+   Revisit tokens here before touching components.
    ========================================================================== */
 
 :root {
   /* Surfaces */
-  --bg: #0b0d10;
-  --bg-2: #11151a;
-  --bg-3: #171c22;
-  --glass: #11151a;
-  --glass-strong: #171c22;
-  --surface: #11151a;
-  --surface-2: #171c22;
-  --surface-3: #1d232a;
+  --bg: #142322;
+  --bg-2: #1b2c2a;
+  --bg-3: #253936;
+  --glass: #1b2c2a;
+  --glass-strong: #253936;
+  --surface: #1b2c2a;
+  --surface-2: #253936;
+  --surface-3: #304540;
 
   /* Ink */
   --ink: #f4f6f8;
-  --ink-dim: #9099a5;
-  --ink-faint: #616b78;
+  --ink-dim: #b6c7bf;
+  --ink-faint: #a1b6ac;
 
   /* Lines */
-  --line: #242b33;
-  --line-strong: #303943;
+  --line: #354943;
+  --line-strong: #50645a;
 
   /* Brand */
-  --cobalt: #6c7cff;
-  --cobalt-soft: rgba(108, 124, 255, 0.14);
-  --violet: #e8b86d;
-  --cyan: #aab3ff;
-  --mint: #6bcb9c;
-  --amber: #e8b86d;
+  --cobalt: #98d4ba;
+  --cobalt-soft: rgba(152, 212, 186, 0.12);
+  --violet: #f0bb8a;
+  --cyan: #98d4ba;
+  --mint: #98d4ba;
+  --amber: #f0bb8a;
   --rose: #9099a5;
 
-  --brand-grad: #6c7cff;
+  --brand-grad: var(--cobalt);
   --ring: 0 0 0 1px var(--line);
 
   /* Shape */
   --r-sm: 8px;
   --r-md: 10px;
-  --r-lg: 12px;
+  --r-lg: 10px;
   --r-xl: 12px;
 
   /* Shadows */
@@ -70,28 +70,29 @@
 }
 
 html[data-theme="light"] {
-  --bg: #f7f7f4;
-  --bg-2: #fffefa;
-  --bg-3: #eeeee8;
-  --glass: rgba(255, 255, 255, 0.74);
-  --glass-strong: rgba(255, 255, 255, 0.92);
-  --surface: rgba(15, 23, 42, 0.03);
-  --surface-2: rgba(15, 23, 42, 0.05);
-  --surface-3: rgba(15, 23, 42, 0.08);
+  --bg: #f4f3ed;
+  --bg-2: #fcfbf7;
+  --bg-3: #e8ebe3;
+  --glass: #fcfbf7;
+  --glass-strong: #e8ebe3;
+  --surface: #fcfbf7;
+  --surface-2: #eeeee6;
+  --surface-3: #e2e6dc;
 
-  --ink: #0b1120;
-  --ink-dim: #414c61;
-  --ink-faint: #76819a;
+  --ink: #192b25;
+  --ink-dim: #495d53;
+  --ink-faint: #596e61;
 
-  --line: rgba(15, 23, 42, 0.1);
-  --line-strong: rgba(15, 23, 42, 0.16);
+  --line: #d9ddd1;
+  --line-strong: #b9c6b7;
 
-  --cobalt: #2457d6;
-  --violet: #7652d4;
-  --cyan: #1687a8;
-  --mint: #16875b;
-  --cobalt-soft: rgba(36, 87, 214, 0.1);
-  --brand-grad: #4254d6;
+  --cobalt: #20684f;
+  --violet: #a9502d;
+  --cyan: #20684f;
+  --mint: #20684f;
+  --amber: #a9502d;
+  --cobalt-soft: rgba(32, 104, 79, 0.08);
+  --brand-grad: var(--cobalt);
 
   --ring: 0 0 0 1px var(--line);
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
@@ -189,6 +190,8 @@ button {
   white-space: nowrap;
   border: 0;
 }
+.skip { position:fixed; left:16px; top:12px; z-index:100; padding:10px 16px; background:var(--ink); color:var(--bg); transform:translateY(-160%); border-radius:8px; }
+.skip:focus { transform:none; }
 
 /* ------------------------------------------------------------------------
    Typography helpers
@@ -230,18 +233,6 @@ button {
   background: var(--mint);
   box-shadow: none;
   animation: none;
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(61, 220, 151, 0.45);
-  }
-  70% {
-    box-shadow: 0 0 0 9px rgba(61, 220, 151, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(61, 220, 151, 0);
-  }
 }
 
 .gradient-text {
@@ -330,9 +321,10 @@ button {
 
 .btn--primary {
   color: #0b0d10;
-  background: var(--ink);
+  background: var(--cobalt);
   box-shadow: none;
 }
+html[data-theme="light"] .btn--primary { background:var(--cobalt); color:#fff; }
 
 .btn--primary:hover {
   transform: translateY(-1px);
@@ -397,79 +389,13 @@ html[data-theme="light"] .btn--ghost:hover {
 }
 
 /* ------------------------------------------------------------------------
-   Chrome / backdrop ambience
-   ------------------------------------------------------------------------ */
-
-.bg-field {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  overflow: hidden;
-}
-
-.bg-field::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--bg);
-}
-
-.bg-field::after {
-  display: none;
-}
-
-.grid-glow {
-  position: absolute;
-  pointer-events: none;
-  inset: 0;
-  overflow: hidden;
-}
-
-.grid-glow::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: min(920px, 92vw);
-  height: 480px;
-  transform: translateX(-50%);
-  background: transparent;
-}
-
-/* ------------------------------------------------------------------------
-   Reveal-on-scroll
-   ------------------------------------------------------------------------ */
-
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(22px);
-  transition:
-    opacity var(--t-slow) var(--ease-out),
-    transform var(--t-slow) var(--ease-out);
-  transition-delay: var(--reveal-delay, 0ms);
-  will-change: opacity, transform;
-}
-
-[data-reveal].in-view {
-  opacity: 1;
-  transform: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-}
-
-/* ------------------------------------------------------------------------
    Copy button (injected into [data-copy] blocks)
    ------------------------------------------------------------------------ */
 
 [data-copy] {
   position: relative;
 }
+pre[data-copy] { padding-top:52px !important; }
 
 .copy-btn {
   position: absolute;
