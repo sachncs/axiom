@@ -49,6 +49,15 @@ with both IPC batch sizes. These tests are a qualification harness gate, not a
 million-vertex growth/drain performance result. Existing frozen-runner soaks are
 unchanged by this harness addition.
 
+The schedule's inverse rounding must match its integer-floor arrival timestamps.
+At an exact deadline for a non-divisor rate (including 11,000/s), the old inverse
+`elapsed * rate // 1e9` can return the preceding index and duplicate an offer.
+Use `((elapsed + 1) * rate - 1) // 1e9`, capped at the final slot, to select the
+largest index whose rounded deadline has arrived. Deterministic clock cases
+cover every deadline at rates 3/7/11,000 over one/two seconds and a skipped-slot
+deadline. Total offers plus misses must always reconcile; frozen earlier runners
+retain their provenance and must pass their existing count reconciliation.
+
 ## Evidence and limits
 
 The degree-65536 million-vertex staged hub run falls to 9048 real durable changes/s,

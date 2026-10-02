@@ -18,6 +18,34 @@ def test_schedule_reports_missed_slots_without_unbounded_catch_up(monkeypatch):
     assert schedule.missed == 7 and schedule.total == 10
 
 
+@pytest.mark.parametrize("rate", [3, 7, 11000])
+@pytest.mark.parametrize("seconds", [1, 2])
+def test_schedule_exact_rounded_deadlines_never_regress_or_repeat(
+    monkeypatch, rate, seconds
+):
+    started = 23
+    expected = [
+        started + index * 1_000_000_000 // rate for index in range(rate * seconds)
+    ]
+    times = iter([*expected, started + seconds * 1_000_000_000])
+    monkeypatch.setattr(overload.time, "perf_counter_ns", lambda: next(times))
+    schedule = Schedule(started, rate, seconds, threading.Event())
+    observed = list(schedule)
+    assert observed == expected
+    assert len(set(observed)) == schedule.total
+    assert schedule.missed == 0
+
+
+def test_schedule_skipping_to_a_rounded_deadline_reconciles_exactly(monkeypatch):
+    times = iter([0, 666666666])
+    monkeypatch.setattr(overload.time, "perf_counter_ns", lambda: next(times))
+    schedule = Schedule(0, 3, 1, threading.Event())
+    observed = list(schedule)
+    assert observed == [0, 666666666]
+    assert schedule.missed == 1
+    assert len(observed) + schedule.missed == schedule.total
+
+
 def test_offered_load_counts_all_outcomes_and_audits_exact_recovery(tmp_path):
     result = measure(
         tmp_path / "offered.db", 32, 10000, 1, query_rate=1000, queue_capacity=8

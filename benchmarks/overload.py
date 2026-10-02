@@ -45,7 +45,8 @@ class Schedule:
                 self.stop.wait((due - now) / 1_000_000_000)
                 continue
             latest = min(
-                self.total - 1, (now - self.started) * self.rate // 1_000_000_000
+                self.total - 1,
+                ((now - self.started + 1) * self.rate - 1) // 1_000_000_000,
             )
             self.missed += latest - index
             index = latest
