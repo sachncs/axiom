@@ -99,3 +99,17 @@ samples. Final database size is 50,601,984 bytes. Sampling is not a peak disk bo
 page-cache quota, or proof of indefinite stability. This establishes the latest
 production path's scoped sustained hot-edge stage, not full-ring/skew/repeatability,
 deployment quotas, network or hardware power-loss qualification.
+
+## Short sweep prefix
+
+[Raw record](sweep-million-4096-11000.json): same installed production wheel,
+runner `d6bddb6`, fresh isolated process, 30 seconds at the same offers/capacity.
+329,932 real updates complete at 10,972.6/s with 299,959 coherent queries,
+ten checkpoints and exact recovery. Update/query misses are 68/41; no IPC drops
+or server Busy. Ack/query p99 upper bounds are 182.9 ms/1.9 ms, maxima
+208.7 ms/27.0 ms; peak owner RSS is 184.1 MB.
+
+This prefix visits only 164,966 of 500,000 matched edges (329,932 update endpoint
+vertices). It is not a complete sweep or a sustained working-set qualification.
+A fresh 1800-second sweep uses `--workload sweep` with a distinct database path;
+require its completed record and exact recovery before reporting that gate passed.
