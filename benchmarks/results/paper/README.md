@@ -32,3 +32,27 @@ three strong references on GIL-enabled CPython. Shared views, other interpreters
 and free-threaded builds retain the conservative walk. Remaining paper snapshots
 and global certificates still run. See [ADR 0025](../../../docs/adrs/0025-matching-view-journal.md)
 for ownership, failure behavior and the active migration boundary.
+
+## Color-class follow-up
+
+[classes.json](classes.json) retains the next journal's initial full-walk
+regression and ownership-proof correction, using the same installed runner,
+configuration and pass separation. The intermediate uncommitted wheel is identified
+by its artifact hash and changed-package file hashes, not assigned a fictional
+commit. The final package code matches `2730390`.
+
+| Installed candidate | Real updates/s | Transient traced bytes | Process peak RSS bytes |
+| --- | ---: | ---: | ---: |
+| `9d2209e` matching-view baseline | 123.11 | 2,852,552 | 44,089,344 |
+| Intermediate class journal, full alias walk | 99.72 | 2,824,696 | 44,515,328 |
+| `2730390` class journal, ownership proof | 126.50 | 2,824,504 | 44,105,728 |
+
+All operation outcomes, trace/final matching hashes and repair counters agree.
+The initial full walk measured 19.0% slower than the matching-view baseline.
+Accounting for known seed/class sharing removes that traversal for uniquely owned
+GIL-enabled CPython containers. The final candidate measured 2.8% faster with 1.0%
+less transient traced memory than that baseline; RSS remains essentially unchanged.
+The small rate difference is diagnostic, not a statistically established speedup.
+This sparse fixture has no phase/subphase rebuild and mostly empty color classes:
+it exposes admission overhead, not dense color-class or rebuild performance.
+Separate dense, per-mode and durable qualification still remains necessary.

@@ -76,3 +76,12 @@ proof of faster updates. Shared-class alias admission remains global. System/Hie
 and auxiliary containers, clocks, typed recovery, persisted algorithm identity,
 bounded SQLite history and concurrent per-mode durable qualification remain
 required by [0023](0023-durable-paper-integration.md).
+
+The [installed diagnostic](../../benchmarks/results/paper/README.md#color-class-follow-up)
+retains the initial full-walk regression (99.72 versus 123.11 updates/s) and the
+ownership-proof correction (126.50/s, 1.0% less transient traced memory, unchanged
+RSS). All trace/outcome/certificate/counter checks agree. This small sparse case
+mostly has empty classes and no rebuilds; it measures admission overhead, not
+dense-class scaling or durable paper throughput. The full local suite passes
+1,056 tests with 100% class-journal line coverage; optimized focused tests and a
+fresh installed wheel also pass. CI must qualify the exact pushed revision.
