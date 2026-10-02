@@ -26,7 +26,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0017](0017-read-admission-reservation.md) | Reserve bounded read capacity without bypassing global admission | Measured zero query Busy under update saturation; full qualification pending |
 | [0018](0018-checkpoint-history-validation-cost.md) | Inline strict retained-history predicates, not skip certificates | Tested/profiled; paced 10k delivery still below target |
 | [0019](0019-independent-arrivals-and-bounded-ipc.md) | Separate producer GIL and bound transport/admission with explicit losses | 10.93k durable/s stage; current latency accepted, hard resource/recovery work pending |
-| [0020](0020-resource-exhaustion-and-recovery.md) | Isolated hard address-space/filesystem exhaustion with exact recovery | Million-vertex Linux stage passed; deployment quotas pending; hardware power-loss deferred |
+| [0020](0020-resource-exhaustion-and-recovery.md) | Isolated hard address-space/filesystem exhaustion with exact recovery | Million-vertex growth/drain and compact backup recovery passed; deployment quotas pending; hardware power-loss deferred |
 | [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Fixed-trace memory/compute comparison and new-binary sustained degree-four stage pass; degree 64 fails throughput |
 | [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | macOS cache contribution diagnosed; explicit launch policy measured; wider hard-resource/growth/burst qualification pending |
 

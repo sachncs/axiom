@@ -22,6 +22,15 @@ Keep separate generations according to a bounded retention policy outside the
 live graph filesystem; avoid deleting a last known-good backup before certifying
 its replacement. Copy a master to a fresh restore path before opening it.
 
+Backups with unused SQLite pages are compacted privately before publication.
+The live database is not vacuumed: its free pages remain available for reuse.
+Compaction temporarily needs both a copied image and a compact output, in addition
+to the live database/WAL. Final restoration needs the live source, immutable
+master and restore copy to coexist. Include these phases in disk sizing; the
+image byte cap is not an aggregate filesystem quota. Backup failure is local to
+that operation; inspect a possibly published destination before retrying at a
+fresh path. Do not delete the source or master to conceal insufficient headroom.
+
 ## Capacity controls
 
 | Control | Enforced by component | Additional deployment responsibility |

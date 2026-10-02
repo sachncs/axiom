@@ -25,7 +25,7 @@ that later-delivered production components are absent.
 | Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Deployment recovery objectives; hardware power-loss deferred by user for this version |
 | Concurrent clients and overload | Single-owner Service, locked admission/publication, bounded receipts, read reservation | Production transport/retry integration if required; broader sustained burst/skew qualification |
 | Million-vertex 10k durable updates/s | Independent 30-minute hot/full-ring soaks at 10.97k/11.00k/s with queries and exact recovery | Broader degree/growth/skew/burst runs and repeatability; all misses/drops/rejections remain explicit |
-| Resource failure and backups | Installed Linux allocation/disk exhaustion and exact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
+| Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Paper-state deepcopy/journal migration and incremental hierarchy validation, separately certified |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
@@ -85,10 +85,14 @@ nor qualification of the later backup correction.
 
 The Linux hard-limit drill now includes a full growth/drain cycle followed by
 40,000 balanced updates under the same native/address-space/filesystem caps.
-Local component/data-flow coverage passes (866 tests); the extended installed
+Local component/data-flow coverage passes (870 tests). The first extended installed
 CI resource run failed at cloning the immutable backup for restore: three physical
 SQLite images did not fit the fixed 192 MiB filesystem after growth/drain.
-Private-image compaction is under verification; the limit is not being increased.
+Correction `181f52f` compacts only the private backup; the new installed Linux
+resource job passes at the unchanged limits, including exact immutable-backup
+restore. Active-work peak RSS is 240,746,496 bytes; the compact backup is
+26,054,656 bytes. This resolves that storage failure, not aggregate deployment
+quota installation or hardware power-loss qualification.
 The older 40,000-update hard-limit report
 does not qualify changing density by itself. See [ADR 0020](adrs/0020-resource-exhaustion-and-recovery.md).
 

@@ -100,8 +100,21 @@ Regressions compare every control/history/checkpoint column (including image
 bytes), exact restore/retries/future matching, source main-file bytes and page
 counts. Injected disk-full, allocation and deadline failures leave no published
 image or temporary directory, clear the handler, and allow a successful backup
-retry and subsequent graph mutation. A new installed Linux resource run is still
-required before calling this correction qualified.
+retry and subsequent graph mutation.
+
+The installed Linux resource repeat on `181f52fcdef8829bf6641371928cc733aeaa115b`
+passes ([job 110803945100](https://github.com/sachncs/axiom/actions/runs/36996337654/job/110803945100)).
+Its [archived report](../../benchmarks/results/resource-growth-envelope.json)
+records 1,040,000 real changes, 31 automatic checkpoints, exact final graph,
+partners and retries, actual allocation and disk exhaustion, same-owner memory
+recovery, fail-stop/reopen disk recovery and immutable-master restore. All three
+digests agree. The dedicated filesystem remains 171,745,280 usable bytes and
+RLIMIT_AS 536,870,912 bytes; native allocation is 77,142,880 bytes. Compacted
+backup size is 26,054,656 bytes. `working` peak RSS is 240,746,496 bytes through
+updates and backup; `peak` 492,867,584 bytes includes deliberate memory ballast.
+This closes the measured changing-density restore failure without raising caps
+or deleting the source/master. It does not prove throughput, power-loss behavior
+or deployment-wide memory/page-cache quotas.
 
 CI explicitly uses Bash with pipefail: logging through `tee` must not mask a
 failed child or timeout. The first run's complete verified report establishes

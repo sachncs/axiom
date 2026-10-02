@@ -1,0 +1,71 @@
+{
+  "scope": "installed Linux resource exhaustion and exact recovery; NOT performance/power-loss qualification",
+  "python": "3.12.14",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "vertices": 1000000,
+  "sequence": 1040000,
+  "cycle": 1000000,
+  "limits": {
+    "address": [
+      536870912,
+      536870912
+    ],
+    "filesystem": 171745280
+  },
+  "peak": 492867584,
+  "working": 240746496,
+  "state": {
+    "version": 1040001,
+    "sequence": 1040000,
+    "vertices": 1000000,
+    "edges": 2000000,
+    "matching": 500000,
+    "native_bytes": 77142880,
+    "sqlite": "3.45.1",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 65536,
+    "max_batch": 256,
+    "checkpoint_interval": 32768,
+    "retain_operations": 16384,
+    "retired_floor": 999424,
+    "checkpoint_sequence": 1015808,
+    "checkpoint_generation": 31,
+    "retained_operations": 40576
+  },
+  "metrics": {
+    "state": "open",
+    "capacity": 4096,
+    "query_reserve": 1,
+    "update_admission_limit": 4095,
+    "maintenance_capacity": 1,
+    "maintenance_outstanding": 0,
+    "outstanding": 0,
+    "peak_outstanding": 256,
+    "accepted": 1040003,
+    "completed": 1040003,
+    "groups": 4186,
+    "largest_group": 256,
+    "batch_limit": 256,
+    "batch_wait_ns": 1000000,
+    "next_admission_sequence": 1040001
+  },
+  "backup": 26054656,
+  "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+  "pressure": {
+    "Memory": {
+      "allocated": 407896064,
+      "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "verified": true
+    },
+    "Disk": {
+      "written": 83034112,
+      "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "verified": true
+    }
+  },
+  "verified": true,
+  "source": "181f52fcdef8829bf6641371928cc733aeaa115b",
+  "run": 36996337654,
+  "job": 110803945100
+}
