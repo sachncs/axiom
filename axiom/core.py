@@ -376,7 +376,7 @@ class Matcher:
             if vertex in self.system.U:
                 self.__remove_h_source(vertex)
         else:
-            if vertex in self.system.S:
+            if vertex in self.system.A or vertex in self.system.B:
                 self.S_hat.add(vertex)
             if vertex in self.system.U:
                 # ProcUpdate replaces the source's outgoing H edges.  Remove
@@ -1018,22 +1018,7 @@ class Matcher:
         """Update basic-mode Lambda/L lists for one live edge transition."""
         if self.system is None or self.multi is not None:
             return
-        endpoints = ((u, v), (v, u))
-        for source, target in endpoints:
-            if source in self.system.U and target in self.system.B | self.system.U:
-                values = self.system.lambda_lists.setdefault(source, [])
-                if added and target not in values:
-                    values.append(target)
-                    values.sort()
-                elif not added and target in values:
-                    values.remove(target)
-            if source in self.system.A and target in self.system.U:
-                values = self.system.L_lists.setdefault(source, [])
-                if added and target not in values:
-                    values.append(target)
-                    values.sort()
-                elif not added and target in values:
-                    values.remove(target)
+        self.system.update(u, v, added)
 
     def __try_fast_insert(self, u: Vertex, v: Vertex) -> bool:
         """Attempt the (A, U) fast path for inserting (u, v).

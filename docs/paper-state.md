@@ -80,6 +80,12 @@ failed subphase/rebuild candidates restore original list slots and seed/class
 sharing in place. [ADR 0026](adrs/0026-color-class-journal.md) records the mutation
 inventory, global alias admission and remaining migration boundary.
 
+Basic and multilevel now share `System.update` for endpoint-cache edits, using
+sorted binary-search row deltas and no temporary partition union for point
+membership. [ADR 0027](adrs/0027-system-cache-deltas.md) records its preconditions
+and journal boundary. These rows still rely on Matcher snapshots for rollback;
+System/Hierarchy identities have not yet been journal-migrated.
+
 Existing paper rollback restores logical state but replaces many other Python objects
 from snapshots. The tests do **not** claim preservation of every pre-failure
 Python object identity. Journal migration must additionally preserve identities

@@ -43,6 +43,7 @@ Limitations:
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -252,7 +253,7 @@ class System:
             return False
         for a in self.A:
             for w in self.partner_in(a):
-                if w not in self.S:
+                if w not in self.A and w not in self.B:
                     return False
         return True
 
@@ -331,8 +332,8 @@ class System:
         r"""Recompute :math:`\Lambda(u)` and :math:`L(a)` from the current graph.
 
         Call this whenever the host graph has been mutated so that the
-        cached lists stay consistent.  Mutates ``self.lambda_lists`` and
-        ``self.L_lists`` in place.
+        cached lists stay consistent. Replaces ``self.lambda_lists`` and
+        ``self.L_lists`` with new maps/lists; old rows are not edited in place.
 
         Complexity:
             :math:`O(n + m)`.  The list is sorted to make
@@ -345,6 +346,47 @@ class System:
         self.L_lists = {
             a: sorted(w for w in self.graph.neighbors(a) if w in self.U) for a in self.A
         }
+
+    @staticmethod
+    def change(values: list[Vertex], value: Vertex, added: bool) -> None:
+        """Apply a delta to a sorted unique list without sorting the whole row.
+
+        Lookup is logarithmic; insertion/removal still shifts O(row length)
+        entries. Duplicate insertion and absent deletion leave the row untouched.
+        Owners provide valid labels and sorted lists, not arbitrary raw edits.
+        """
+        position = bisect_left(values, value)
+        present = position < len(values) and values[position] == value
+        if added and not present:
+            values.insert(position, value)
+        elif not added and present:
+            values.pop(position)
+
+    def update(self, left: Vertex, right: Vertex, added: bool) -> None:
+        r"""Update Lambda/L endpoint rows after their graph delta is applied.
+
+        Basic and recursive owners use this same mutation boundary. Membership
+        tests never materialize B union U. Other rows and their identities remain
+        untouched. This method does not edit the graph or provide standalone undo;
+        the owner must serialize access and restore coupled state on failure.
+        """
+        if type(added) is not bool:
+            raise ValueError("system delta requires a boolean")
+        if (
+            any(
+                type(vertex) is not int or not 0 <= vertex < self.graph.n
+                for vertex in (left, right)
+            )
+            or left == right
+        ):
+            raise ValueError("system delta requires distinct vertices in [0, n)")
+        if self.graph.has_edge(left, right) != added:
+            raise ValueError("system graph delta must precede cache update")
+        for source, target in ((left, right), (right, left)):
+            if source in self.U and (target in self.B or target in self.U):
+                self.change(self.lambda_lists.setdefault(source, []), target, added)
+            if source in self.A and target in self.U:
+                self.change(self.L_lists.setdefault(source, []), target, added)
 
     def maximal(self, matching: Matching) -> bool:
         """Return ``True`` iff ``matching`` is maximal in the current ``graph``.

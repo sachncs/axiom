@@ -27,7 +27,6 @@ References:
 
 from __future__ import annotations
 
-from bisect import insort
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import pairwise
@@ -137,15 +136,7 @@ class Hierarchy:
                 added = should_exist
                 left, right = edge
                 for system in self.levels:
-                    for source, target in ((left, right), (right, left)):
-                        if source in system.U and target in system.B | system.U:
-                            update(
-                                system.lambda_lists.setdefault(source, []),
-                                target,
-                                added,
-                            )
-                        if source in system.A and target in system.U:
-                            update(system.L_lists.setdefault(source, []), target, added)
+                    system.update(left, right, added)
                 for index, vertices in enumerate(self.A_levels):
                     region = self.R_levels[index]
                     for source, target in ((left, right), (right, left)):
@@ -233,9 +224,9 @@ class Hierarchy:
             for left, right in level.M:
                 level_degree[left] += 1
                 level_degree[right] += 1
-                if left in level.A and right not in level.S:
+                if left in level.A and right not in level.A and right not in level.B:
                     return False
-                if right in level.A and left not in level.S:
+                if right in level.A and left not in level.A and left not in level.B:
                     return False
             if any(value > level.z for value in level_degree.values()):
                 return False
@@ -286,7 +277,7 @@ class Hierarchy:
                     if vertex not in edge:
                         continue
                     other = edge[1] if edge[0] == vertex else edge[0]
-                    if other not in lower | self.N_levels[index]:
+                    if other not in lower and other not in self.N_levels[index]:
                         return False
                 expected = sorted(
                     neighbor
@@ -300,9 +291,9 @@ class Hierarchy:
         if not self.N1 <= self.A2 | set(self.levels[0].B):
             return False
         for left, right in self.levels[-1].M:
-            if left in self.A1 and right not in self.A1 | self.N1:
+            if left in self.A1 and right not in self.A1 and right not in self.N1:
                 return False
-            if right in self.A1 and left not in self.A1 | self.N1:
+            if right in self.A1 and left not in self.A1 and left not in self.N1:
                 return False
         if any(
             not self.R_levels[index + 1] <= self.R_levels[index]
@@ -313,7 +304,7 @@ class Hierarchy:
             expected = sorted(
                 neighbor
                 for neighbor in self.graph.neighbors(vertex)
-                if neighbor in system.B | system.U
+                if neighbor in system.B or neighbor in system.U
             )
             if system.lambda_lists.get(vertex, []) != expected:
                 return False
@@ -846,10 +837,5 @@ def lists(
     }
 
 
-def update(values: list[Vertex], value: Vertex, added: bool) -> None:
-    """Apply one deterministic adjacency-list delta without rebuilding it."""
-    if added:
-        if value not in values:
-            insort(values, value)
-    elif value in values:
-        values.remove(value)
+# Preserve the existing public helper while sharing the class-owned primitive.
+update = System.change

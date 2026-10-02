@@ -21,11 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed version/partner queries, bounded maintenance and local ownership.
 - Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
   explicit offer-loss accounting, long-run recovery evidence and Linux hard
-  allocation/disk-exhaustion drills. 1,056 local tests pass at this milestone.
+  allocation/disk-exhaustion drills. 1,090 local tests pass at this milestone.
 - Architecture decision records and operations guidance explaining production
   alternatives to whole-state copying and the limits of current guarantees.
 
 ### Fixed
+
+- Basic/multilevel share class-owned System endpoint-cache deltas. Sorted rows
+  use binary-search insert/remove rather than whole-row sorting; point-membership
+  checks no longer construct partition unions inside endpoint/edge/neighbor loops.
+  Invalid or unapplied graph deltas reject before cache edits. System/Hierarchy
+  snapshots and full certificates remain; this is not durable paper integration.
 
 - Paper color classes and seed removals now use bounded first-write membership
   undo. Failed subphase/rebuild candidates retain original list/set identity and

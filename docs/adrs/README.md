@@ -33,6 +33,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0024](0024-accounting-journal.md) | Bounded first-write paper accounting undo and explicit publication/rollback fail-stop | Accounting migrated in place; wider journal migration/durable paper integration remain active |
 | [0025](0025-matching-view-journal.md) | Bounded matching-cell undo and retained edge/vertex/partner containers | Matching views migrated; global alias preflight, other snapshots and durable integration remain active |
 | [0026](0026-color-class-journal.md) | Bounded class/seed membership undo and retained list/set aliases | Color classes migrated; shared-class admission, System/Hierarchy snapshots and durable integration remain active |
+| [0027](0027-system-cache-deltas.md) | Shared endpoint-cache mutations and union-free point membership | Cache delta boundary implemented; System/Hierarchy journals and durable integration remain active |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

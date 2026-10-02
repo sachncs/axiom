@@ -72,6 +72,9 @@ phase reconstruction. Class admission uses a GIL-enabled CPython uniqueness proo
 when possible; aliases/other runtimes retain a global walk. System, Hierarchy
 and auxiliary snapshots remain. [ADR 0026](adrs/0026-color-class-journal.md)
 records this partial migration, not durable paper integration.
+Basic/multilevel now share System endpoint-cache deltas and avoid temporary
+partition unions for point membership. [ADR 0027](adrs/0027-system-cache-deltas.md)
+defines the new mutation boundary; it is not yet System/Hierarchy undo.
 
 ## Deferred by explicit user direction
 
@@ -85,5 +88,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,056 passing tests; CI and benchmark results must be attributed to their exact
+1,090 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.
