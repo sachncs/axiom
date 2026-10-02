@@ -24,7 +24,7 @@ that later-delivered production components are absent.
 | Compact storage and local transactions | Native blocked adjacency, bounded graph/partner undo, local certificates | Wider degree/churn envelopes and deployment sizing |
 | Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Deployment recovery objectives; hardware power-loss deferred by user for this version |
 | Concurrent clients and overload | Single-owner Service, locked admission/publication, bounded receipts, read reservation | Production transport/retry integration if required; broader sustained burst/skew qualification |
-| Million-vertex 10k durable updates/s | Latest production-path independent 30-minute hot-edge soak at 10.97k/s with queries and exact recovery | Full-ring/broader workload sustained runs and repeatability; all misses/drops/rejections remain explicit |
+| Million-vertex 10k durable updates/s | Independent 30-minute hot/full-ring soaks at 10.97k/11.00k/s with queries and exact recovery | Broader degree/growth/skew/burst runs and repeatability; all misses/drops/rejections remain explicit |
 | Resource failure and backups | Installed Linux allocation/disk exhaustion and exact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Paper-state deepcopy/journal migration and incremental hierarchy validation, separately certified |
@@ -181,6 +181,16 @@ Service Busy; this is not loss-free delivery. Ack/query p99 upper bounds are
 repeatability and deployment quotas remain separate work. Hardware power loss is
 deferred for this version, with no delivered guarantee.
 [Raw evidence and provenance](../benchmarks/results/independent/README.md#completed-30-minute-hot-edge-soak).
+
+The separate 30-minute **full-ring sweep** also passes: 19,796,515 real durable
+updates at 10,998.0/s, 17,997,025 exact version-referenced queries and 603
+checkpoints. It traverses all matched ring edges nineteen times. The odd final
+prefix leaves one edge absent, with exact independent topology/matching/restart
+agreement. Owner peak RSS is 182.2 MB; native allocation remains 49.1 MB.
+Update misses/drops are 3,421/64, no Busy. Ack/query p99 upper bounds are
+183.4 ms/1.9 ms, maxima 238.0 ms/46.9 ms. This expands sustained working-set
+evidence without claiming loss-free delivery or deployment quotas.
+[Raw record](../benchmarks/results/independent/soak-sweep-million-4096-11000.json).
 
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.

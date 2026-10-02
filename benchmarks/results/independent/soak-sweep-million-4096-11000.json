@@ -1,0 +1,146 @@
+{
+  "scope": "separate-process paced arrivals over bounded local datagrams; NOT production network/power-cut qualification",
+  "python": "3.14.8",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "vertices": 1000000,
+  "workload": "sweep",
+  "rate": 11000,
+  "query_rate": 10000,
+  "seconds": 1800,
+  "ipc_buffers": {
+    "requested_bytes": 65536,
+    "receive_bytes": 65536,
+    "send_bytes": 65536
+  },
+  "ipc_batch": 16,
+  "planned_updates": 19800000,
+  "producer_missed_updates": 3421,
+  "ipc_dropped_updates": 64,
+  "busy_updates": 0,
+  "real_acknowledged_updates": 19796515,
+  "acknowledged_before_drain": 19796515,
+  "offering_and_drain_seconds": 1800.018595458,
+  "real_acknowledged_updates_per_second": 10997.950271154248,
+  "planned_queries": 18000000,
+  "producer_missed_queries": 2703,
+  "ipc_dropped_queries": 272,
+  "busy_queries": 0,
+  "partner_queries": 17997025,
+  "peak_client_receipts": 2608,
+  "service_metrics": {
+    "state": "open",
+    "capacity": 4096,
+    "query_reserve": 1,
+    "update_admission_limit": 4095,
+    "maintenance_capacity": 1,
+    "maintenance_outstanding": 0,
+    "outstanding": 0,
+    "peak_outstanding": 2593,
+    "accepted": 37793541,
+    "completed": 37793541,
+    "groups": 324938,
+    "largest_group": 256,
+    "batch_limit": 256,
+    "batch_wait_ns": 1000000,
+    "next_admission_sequence": 19796516
+  },
+  "final_status": {
+    "version": 19796516,
+    "sequence": 19796515,
+    "vertices": 1000000,
+    "edges": 1999999,
+    "matching": 499999,
+    "native_bytes": 49142880,
+    "sqlite": "3.53.4",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 65536,
+    "max_batch": 256,
+    "checkpoint_interval": 32768,
+    "retain_operations": 16384,
+    "retired_floor": 19753808,
+    "checkpoint_sequence": 19770192,
+    "checkpoint_generation": 603,
+    "retained_operations": 42707
+  },
+  "acknowledged_latency": {
+    "count": 19796515,
+    "p99_upper_ns": 183400000,
+    "max_ns": 237999708,
+    "overflow_at_1s": 0,
+    "resolution_ns": 100000
+  },
+  "offered_to_acknowledged_latency": {
+    "count": 19796515,
+    "p99_upper_ns": 184200000,
+    "max_ns": 239412382,
+    "overflow_at_1s": 0,
+    "resolution_ns": 100000
+  },
+  "offered_query_latency": {
+    "count": 17997025,
+    "p99_upper_ns": 1900000,
+    "max_ns": 46906458,
+    "overflow_at_1s": 0,
+    "resolution_ns": 100000
+  },
+  "matching_digest": "7af898ccd935d422db03add95e57cb2361ba04c48dddceb2e6d937d7844eb57c",
+  "independent_exact_audit_and_recovery_passed": true,
+  "owner_process_peak_rss_bytes": 182239232,
+  "producer_process_peak_rss_bytes": 29294592,
+  "evidence": {
+    "source": "9b34949d2317198a904836fec26db10cf5c746e0",
+    "runner": "d6bddb6",
+    "wheel": "1bc2af233ad3cc2b40f467794aba5b007dad12f9a2bdb1f759209c1febd5e463",
+    "hardware": "Apple M3 Pro, 18 GiB RAM, internal SSD/APFS",
+    "complete_update_traversals": 19,
+    "samples": [
+      {
+        "time": "2026-10-02 07:53:11 UTC",
+        "output": "73694 07:39 162944\n73697 07:39  28592\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50839552\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n[{\"conclusion\":\"\",\"databaseId\":36980873539,\"headSha\":\"155570954138add3581c9f3eb56010b681a76c89\",\"name\":\"CI\",\"status\":\"queued\"},{\"conclusion\":\"success\",\"databaseId\":36980873535,\"headSha\":\"155570954138add3581c9f3eb56010b681a76c89\",\"name\":\"GitHub Pages\",\"status\":\"completed\"},{\"conclusion\":\"success\",\"databaseId\":36980312409,\"headSha\":\"cc4becb3ff9c25867730859200910f24b5ba8e61\",\"name\":\"GitHub Pages\",\"status\":\"completed\"},{\"conclusion\":\"success\",\"databaseId\":36980312405,\"headSha\":\"cc4becb3ff9c25867730859200910f24b5ba8e61\",\"name\":\"CI\",\"status\":\"completed\"}]\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:01:11 UTC",
+        "output": "73694 15:39 163856\n73697 15:39  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:04:24 UTC",
+        "output": "73694 18:52 163856\n73697 18:52  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:05:54 UTC",
+        "output": "73694 20:22 163856\n73697 20:22  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:07:20 UTC",
+        "output": "73694 21:48 163856\n73697 21:48  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:08:49 UTC",
+        "output": "73694 23:17 163856\n73697 23:17  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:10:14 UTC",
+        "output": "73694 24:42 163856\n73697 24:42  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:11:40 UTC",
+        "output": "73694 26:08 163856\n73697 26:08  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      },
+      {
+        "time": "2026-10-02 08:13:10 UTC",
+        "output": "73694 27:38 163856\n73697 27:38  28608\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db 50917376\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-wal 4194304\n/private/tmp/axiom-soak.XPu1ok/sweep-soak.db-shm 65536\n",
+        "exit": 0
+      }
+    ],
+    "sample_scope": "Sparse OS observations, not peak disk accounting or enforced quotas"
+  }
+}

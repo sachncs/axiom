@@ -114,6 +114,33 @@ vertices). It is not a complete sweep or a sustained working-set qualification.
 A fresh 1800-second sweep uses `--workload sweep` with a distinct database path;
 require its completed record and exact recovery before reporting that gate passed.
 
+## Completed 30-minute full-ring sweep
+
+[Raw record](soak-sweep-million-4096-11000.json): same production wheel and
+runner `d6bddb6`, fresh isolated process, 1800 seconds with the same offers and
+capacity. Production sources in `axiom/` and `native/` are unchanged between wheel
+source `9b34949` and `e2202c9`; later additions change the harness/tests/docs.
+
+19,796,515 real durable updates complete at **10,998.0/s**, including drain;
+17,997,025 exact version-referenced queries and 603 automatic checkpoints complete.
+The trace traverses all 500,000 matched edges nineteen times and queries all
+matched endpoints repeatedly. Its odd final prefix leaves exactly one edge absent:
+1,999,999 edges, 499,999 matching edges. Independent exact topology/proper-maximal
+matching and restart checks reproduce that precise state and its partner digest.
+
+Update misses/drops are 3,421/64; query misses/drops are 2,703/272; no Service
+Busy. Ack p99 upper bound is 183.4 ms, offered-to-ack p99 184.2 ms, query p99
+1.9 ms; maxima are 238.0 ms / 239.4 ms / 46.9 ms, respectively. No histogram
+sample exceeds one second in this run; this does not invalidate the hot soak's
+larger tails or establish a maximum-latency guarantee.
+
+Native allocation remains 49,142,880 bytes; owner/producer peak RSS is
+182,239,232/29,294,592 bytes. Retained history is 42,707 rows. Sparse samples
+show approximately 168 MB live owner RSS, 50.9 MB database and 4 MiB WAL; final
+database size is 50,917,376 bytes. These are measured values, not aggregate
+deployment quotas. Sustained hot and full-ring stages now pass; broader degree,
+growth/drain/skew/burst repeatability and deployment resource qualification remain.
+
 ## Explicit denser envelopes
 
 The runner accepts `--width 2`, `8`, or `32` for initial degrees 4, 16, or 64,
@@ -129,5 +156,5 @@ them automatically. Database coexistence, WAL, native candidate/undo peaks,
 Python/SQLite copies and process headroom all count separately. These options are
 not aggregate RSS/filesystem quotas. Small dense exact-recovery and cap-rejection
 tests are release gates, not degree-16/64 performance qualification. No denser
-million-vertex measurement has completed yet; run only after the current sweep
-finishes, on fresh paths with no competing local jobs.
+million-vertex measurement has completed yet. The full-ring sweep has finished;
+run denser stages on fresh paths with no competing local jobs.
