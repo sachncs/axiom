@@ -150,6 +150,9 @@ def measure(
     ipc_bytes: int = 16384,
     ipc_batch: int = 1,
     workload: str = "hot",
+    width: int = 2,
+    limit: int = 64 << 20,
+    budget: int = 1 << 30,
 ) -> dict:
     """Reconcile every external offer, bounded admission, publication and recovery."""
     if (
@@ -163,6 +166,9 @@ def measure(
                 queue_capacity,
                 ipc_bytes,
                 ipc_batch,
+                width,
+                limit,
+                budget,
             )
         )
         or not 8 <= vertices <= 1000000
@@ -173,6 +179,10 @@ def measure(
         or not 2 <= queue_capacity <= 4096
         or not 1024 <= ipc_bytes <= 65536
         or not 1 <= ipc_batch <= 64
+        or width not in (2, 8, 32)
+        or width >= vertices // 2
+        or not 1 << 20 <= limit <= 1 << 30
+        or not 1 << 20 <= budget <= 1 << 40
     ):
         raise ValueError("invalid bounded independent-load envelope")
     if workload not in ("hot", "sweep"):
@@ -195,7 +205,15 @@ def measure(
     accepted = busy = query_busy = query_count = peak_pending = 0
     previous = 1
     try:
-        service = Service(path, n=vertices, queue_capacity=queue_capacity)
+        service = Service(
+            path,
+            n=vertices,
+            width=width,
+            budget=budget,
+            max_snapshot_bytes=limit,
+            max_database_bytes=limit,
+            queue_capacity=queue_capacity,
+        )
         # Spawn/import startup is excluded but measured arrival timestamps are
         # never reset to reception. The producer may still miss late startup slots.
         started = time.perf_counter_ns() + 1_000_000_000
@@ -321,9 +339,11 @@ def measure(
                 process.join(5)
         if service is not None:
             service.close(30)
-    with Durable(path) as recovered:
+    with Durable(
+        path, budget=budget, max_snapshot_bytes=limit, max_database_bytes=limit
+    ) as recovered:
         removed = {traffic.edge(accepted)} if accepted % 2 else set()
-        if certificate(recovered, set(), removed, vertices) != expected:
+        if certificate(recovered, set(), removed, vertices, width) != expected:
             raise RuntimeError("independent-load exact recovery failed")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
@@ -332,6 +352,8 @@ def measure(
         "platform": platform.platform(),
         "vertices": vertices,
         "workload": workload,
+        "width": width,
+        "limits": {"native": budget, "snapshot": limit, "database": limit},
         "rate": rate,
         "query_rate": query_rate,
         "seconds": seconds,
@@ -375,6 +397,9 @@ def main():
     parser.add_argument("--ipc-bytes", type=int, default=16384)
     parser.add_argument("--ipc-batch", type=int, default=1)
     parser.add_argument("--workload", choices=("hot", "sweep"), default="hot")
+    parser.add_argument("--width", type=int, choices=(2, 8, 32), default=2)
+    parser.add_argument("--limit", type=int, default=64 << 20)
+    parser.add_argument("--budget", type=int, default=1 << 30)
     args = parser.parse_args()
     options = vars(args)
     options["path"] = options.pop("database")

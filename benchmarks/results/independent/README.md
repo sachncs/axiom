@@ -113,3 +113,21 @@ This prefix visits only 164,966 of 500,000 matched edges (329,932 update endpoin
 vertices). It is not a complete sweep or a sustained working-set qualification.
 A fresh 1800-second sweep uses `--workload sweep` with a distinct database path;
 require its completed record and exact recovery before reporting that gate passed.
+
+## Explicit denser envelopes
+
+The runner accepts `--width 2`, `8`, or `32` for initial degrees 4, 16, or 64,
+and independently checks every expected ring distance, not just edge counts.
+Width must remain less than half the vertex universe. `--limit` explicitly sets
+both the database-page and checkpoint-image caps (default 64 MiB); `--budget`
+sets the shared native allocation budget (default 1 GiB). Reports retain these
+settings. Reopen uses the same caps, not a silently smaller recovery policy.
+
+Denser million-vertex images exceed the default 64 MiB snapshot allowance.
+Choose and account for explicit limits before running; the harness never grows
+them automatically. Database coexistence, WAL, native candidate/undo peaks,
+Python/SQLite copies and process headroom all count separately. These options are
+not aggregate RSS/filesystem quotas. Small dense exact-recovery and cap-rejection
+tests are release gates, not degree-16/64 performance qualification. No denser
+million-vertex measurement has completed yet; run only after the current sweep
+finishes, on fresh paths with no competing local jobs.

@@ -135,6 +135,15 @@ def test_producer_counts_ipc_drops_separately_without_blocking(
         {"ipc_batch": 0},
         {"ipc_batch": 65},
         {"workload": "unknown"},
+        {"width": True},
+        {"width": 3},
+        {"width": 32},
+        {"limit": True},
+        {"limit": 0},
+        {"limit": (1 << 30) + 1},
+        {"budget": 0},
+        {"budget": True},
+        {"budget": (1 << 40) + 1},
     ],
 )
 def test_invalid_envelope_never_starts_process_or_creates_store(tmp_path, options):
@@ -182,22 +191,97 @@ def test_sweep_pairing_wraparound_and_query_reference():
 
 
 @pytest.mark.parametrize("count", [31, 32, 35])
-def test_sweep_reference_tracks_every_live_edit_and_exact_restart(tmp_path, count):
+@pytest.mark.parametrize("width", [2, 8, 32])
+def test_sweep_reference_tracks_every_live_edit_and_exact_restart(
+    tmp_path, count, width
+):
     path = tmp_path / "sweep.db"
-    traffic = independent_load.Sweep(32)
-    with Durable(path, n=32) as owner:
+    vertices = 128 if width == 32 else 32
+    traffic = independent_load.Sweep(vertices)
+    with Durable(path, n=vertices, width=width) as owner:
         for sequence in range(1, count + 1):
             edge = traffic.edge(sequence)
             request = Request(sequence, "delete" if sequence % 2 else "insert", *edge)
             outcome = owner.apply([request])[0]
             assert outcome.changed and outcome.version == sequence + 1
-            for vertex in range(32):
+            for vertex in range(vertices):
                 assert owner.partner(vertex) == (
                     sequence + 1,
                     traffic.partner(sequence + 1, vertex),
                 )
             assert owner.has_edge(*edge) == (sequence + 1, not sequence % 2)
         removed = {traffic.edge(count)} if count % 2 else set()
-        digest = independent_load.certificate(owner, set(), removed, 32)
+        digest = independent_load.certificate(owner, set(), removed, vertices, width)
+        with pytest.raises(RuntimeError, match="edge count"):
+            independent_load.certificate(owner, set(), removed, vertices, width + 1)
     with Durable(path) as recovered:
-        assert independent_load.certificate(recovered, set(), removed, 32) == digest
+        assert (
+            independent_load.certificate(recovered, set(), removed, vertices, width)
+            == digest
+        )
+
+
+@pytest.mark.parametrize("width", [2, 8, 32])
+def test_dense_independent_sweep_preserves_explicit_limits_and_exact_recovery(
+    tmp_path, width
+):
+    result = measure(
+        tmp_path / "dense.db",
+        128,
+        100,
+        1,
+        query_rate=100,
+        workload="sweep",
+        width=width,
+        limit=1 << 20,
+        budget=1 << 20,
+    )
+    assert result["width"] == width
+    assert result["limits"] == {
+        "native": 1 << 20,
+        "snapshot": 1 << 20,
+        "database": 1 << 20,
+    }
+    assert result["final_status"]["native_bytes"] <= 1 << 20
+    assert result["final_status"]["edges"] == width * 128 - (
+        result["real_acknowledged_updates"] % 2
+    )
+    assert result["independent_exact_audit_and_recovery_passed"]
+    assert (
+        result["real_acknowledged_updates"]
+        + result["busy_updates"]
+        + result["ipc_dropped_updates"]
+        + result["producer_missed_updates"]
+    ) == 100
+
+
+@pytest.mark.parametrize("width", [True, 0, 16])
+def test_invalid_certificate_width_rejects_before_owner_access(width):
+    with pytest.raises(ValueError, match="width"):
+        independent_load.certificate(None, set(), set(), 32, width)
+
+
+def test_dense_image_cap_rejects_before_starting_producer(tmp_path, monkeypatch):
+    started = []
+
+    def forbidden(process):
+        started.append(process)
+        raise AssertionError("producer must not start after failed construction")
+
+    monkeypatch.setattr(
+        independent_load.multiprocessing.process.BaseProcess, "start", forbidden
+    )
+    with pytest.raises(MemoryError):
+        measure(
+            tmp_path / "oversized.db",
+            4096,
+            100,
+            1,
+            width=32,
+            limit=1 << 20,
+            budget=16 << 20,
+        )
+    assert not started
+    with Durable(tmp_path / "subsequent.db", n=128, width=32) as owner:
+        outcome = owner.apply([Request(1, "delete", 0, 1)])[0]
+        assert outcome.changed and owner.check()

@@ -28,11 +28,15 @@ def canonical(u: int, v: int) -> tuple[int, int]:
     return min(u, v), max(u, v)
 
 
-def certificate(store: Durable, extra: set, removed: set, vertices: int) -> str:
+def certificate(
+    store: Durable, extra: set, removed: set, vertices: int, width: int = 2
+) -> str:
     """Independently verify exact topology, proper maximal matching, and its digest."""
-    if not store.check() or store.status()["edges"] != 2 * vertices + len(extra) - len(
-        removed
-    ):
+    if type(width) is not int or not 1 <= width < vertices // 2:
+        raise ValueError("require an unambiguous ring width")
+    if not store.check() or store.status()["edges"] != width * vertices + len(
+        extra
+    ) - len(removed):
         raise RuntimeError("native audit/edge count failed")
     version = store.status()["version"]
     partners = array("I")
@@ -59,7 +63,7 @@ def certificate(store: Durable, extra: set, removed: set, vertices: int) -> str:
         raise RuntimeError("independent matching count failed")
     count = 0
     for u in range(vertices):
-        for distance in (1, 2):
+        for distance in range(1, width + 1):
             a, b = canonical(u, (u + distance) % vertices)
             if (a, b) not in removed:
                 if (
