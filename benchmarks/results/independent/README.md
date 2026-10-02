@@ -156,5 +156,35 @@ them automatically. Database coexistence, WAL, native candidate/undo peaks,
 Python/SQLite copies and process headroom all count separately. These options are
 not aggregate RSS/filesystem quotas. Small dense exact-recovery and cap-rejection
 tests are release gates, not degree-16/64 performance qualification. No denser
-million-vertex measurement has completed yet. The full-ring sweep has finished;
-run denser stages on fresh paths with no competing local jobs.
+million-vertex sustained qualification is claimed. Sequential diagnostics now
+retain the following outcomes on fresh paths with no competing local jobs.
+
+### Degree-16 prefix and degree-64 admission rejection
+
+[Degree-16 raw record](dense16-million-4096-11000.json): one million vertices,
+eight million initial edges, 30-second sweep prefix with explicit 256 MiB native,
+image and database caps. 322,736 real updates complete at 10,751.1/s with 299,847
+coherent queries, nine checkpoints and exact recovery. There are 183 update misses
+and **7,081 Busy rejections**, no update IPC drops; query misses are 153, no query
+Busy/drop. Ack/query p99 upper bounds are 422.7 ms/125.4 ms, maxima
+456.8 ms/159.2 ms. Native allocation is 133,142,880 bytes; peak owner RSS 420,708,352
+bytes. These tails/caps are not the accepted degree-four version profile.
+
+[Degree-64 rejected stage](dense64-million-rejected.json): construction rejects
+with `MemoryError: index growth peak exceeds native budget` under an explicit
+1 GiB native cap, before producer start or acknowledgment. There is no throughput
+or recovery result. Current threshold 32 activates the global directed-edge index
+for every degree-64 row. Its 64 million keys require 134,217,728 power-of-two
+slots at 16 bytes: **2 GiB of index slots alone**, excluding adjacency/metadata.
+This is source-layout arithmetic, not measured RSS. Ring construction already
+builds the index once; repeated table growth is not the cause of this minimum.
+
+[Small degree-64 baseline](dense64-baseline-8192.json): 8,192 vertices, five
+seconds, explicit 32 MiB native cap, 64 MiB image/database caps. 54,955 real
+updates complete at 10,949.8/s with one checkpoint and exact odd-prefix recovery;
+native allocation is 20,636,192 bytes and peak owner RSS 67,223,552 bytes. This
+baseline permits bounded index-policy comparison without allocating the rejected
+million-vertex table. Investigate bounded scans for moderate-degree rows while
+retaining indexed hubs; require deterministic matching, rollback, full certificates
+and compute/memory measurements before adoption. Do not raise the budget silently
+or claim the rejected degree-64 envelope qualified.

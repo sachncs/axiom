@@ -192,6 +192,17 @@ Update misses/drops are 3,421/64, no Busy. Ack/query p99 upper bounds are
 evidence without claiming loss-free delivery or deployment quotas.
 [Raw record](../benchmarks/results/independent/soak-sweep-million-4096-11000.json).
 
+Denser diagnostics identify a storage-policy cliff rather than establishing wider
+support. A 30-second degree-16 prefix delivers 10,751.1/s with exact recovery,
+but 7,081 update Busy rejections, ack/query p99 422.7/125.4 ms and 420.7 MB peak
+RSS. Degree-64 construction rejects under a 1 GiB native budget before producer
+start. The degree-32 indexing threshold would index every degree-64 row; its
+global directed-key table needs 2 GiB of slots alone, before adjacency/metadata.
+Next investigate bounded moderate-degree scans while retaining indexed hubs, with
+deterministic/rollback/certificate and compute regressions. Do not silently raise
+resource ceilings or claim a rejected configuration supported.
+[Dense diagnostics](../benchmarks/results/independent/README.md#degree-16-prefix-and-degree-64-admission-rejection).
+
 `Packed` now provides compact native segmented adjacency, bounded native growth,
 reusable blocks, high-degree edge lookup, and owner-bound inverse-edit journals.
 Matcher transactions use those journals for native managed graphs; phase snapshots,

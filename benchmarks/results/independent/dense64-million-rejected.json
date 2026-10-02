@@ -1,0 +1,25 @@
+{
+  "scope": "degree-64 construction rejection; NOT throughput or recovery qualification",
+  "vertices": 1000000,
+  "width": 32,
+  "limits": {
+    "native": 1073741824,
+    "snapshot": 1073741824,
+    "database": 1073741824
+  },
+  "stage": "Service construction before producer start",
+  "exit": 1,
+  "error": {
+    "type": "MemoryError",
+    "message": "index growth peak exceeds native budget"
+  },
+  "acknowledged": 0,
+  "evidence": {
+    "source": "9b34949d2317198a904836fec26db10cf5c746e0",
+    "runner": "e2202c9211eb824888ea07cc4d757e2dd7d6fcbf",
+    "wheel": "1bc2af233ad3cc2b40f467794aba5b007dad12f9a2bdb1f759209c1febd5e463",
+    "reason": "native/store.hpp threshold=32; indexRows indexes all degree-64 rows; 64000000 directed keys require 134217728 power-of-two slots at 16 bytes each",
+    "minimum_index_bytes": 2147483648,
+    "accounting": "Index bytes derived from checked source layout and capacity rules, not measured RSS. Adjacency and metadata are additional."
+  }
+}
