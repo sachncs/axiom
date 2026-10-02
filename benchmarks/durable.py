@@ -41,7 +41,7 @@ def certificate(
     """Certify topology/matching; counted streams must be strictly sorted chords."""
     if type(width) is not int or not 1 <= width < vertices // 2:
         raise ValueError("require an unambiguous ring width")
-    streamed = size is not None
+    streamed = size is not None or not isinstance(extra, (set, frozenset))
     if size is None:
         if not isinstance(extra, Sized):
             raise ValueError("streamed extras require an explicit size")

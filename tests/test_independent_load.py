@@ -226,6 +226,10 @@ def test_pulse_every_growth_drain_boundary_and_restart(tmp_path, width):
                 assert graph == initial
             if sequence % vertices == vertices // 2:
                 assert len(graph) == len(initial) + vertices // 2
+            if sequence == vertices // 2 + 1:
+                # Equal edge counts must not certify a different accepted prefix.
+                with pytest.raises(RuntimeError, match="extra topology"):
+                    traffic.audit(owner, vertices // 2 - 1, width)
         owner.checkpoint()
         digest = traffic.audit(owner, sequence, width)
     with Durable(path) as recovered:
@@ -250,6 +254,8 @@ def test_streamed_topology_certificate_rejects_missing_duplicate_or_unsized_refe
             certificate(owner, iter([(0, 16), (1, 17)]), set(), 32)
         with pytest.raises(RuntimeError, match="repeated"):
             certificate(owner, iter([(0, 16), (0, 16)]), set(), 32, size=2)
+        with pytest.raises(RuntimeError, match="repeated"):
+            certificate(owner, [(0, 16), (0, 16)], set(), 32)
         with pytest.raises(RuntimeError, match="repeated"):
             certificate(owner, iter([(1, 17), (0, 16)]), set(), 32, size=2)
         with pytest.raises(RuntimeError, match="exact graph"):
