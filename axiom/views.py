@@ -6,6 +6,8 @@ and are discarded on failure. Other algorithm state is still snapshot-protected.
 
 from __future__ import annotations
 
+import sys
+import sysconfig
 from threading import get_ident
 from typing import TYPE_CHECKING
 
@@ -45,10 +47,18 @@ class Views:
     def isolate(self) -> None:
         """Reject internal aliases whose mutations are not matching operations.
 
-        This preflight traverses remaining owned Python state: it is not a local
-        incremental certificate. Sets contain immutable labels/edges and need no
-        member traversal. Native graphs have no Python containers to inspect.
+        GIL-enabled CPython can prove uniqueness from three references: the owner,
+        this journal, and getrefcount's argument. Otherwise traverse owned Python
+        state, not a local certificate. Native graphs have no Python containers.
         """
+        if (
+            sys.implementation.name == "cpython"
+            and not sysconfig.get_config_var("Py_GIL_DISABLED")
+            and sys.getrefcount(self.edges) == 3
+            and sys.getrefcount(self.vertices) == 3
+            and sys.getrefcount(self.partners) == 3
+        ):
+            return
         pending = [
             value
             for name, value in vars(self.owner).items()

@@ -34,6 +34,14 @@ seed/color-class aliases remain supported; they are separate from these views.
 Plain sets/dictionary are required. Active journal replacement/deletion, nesting,
 stale handles and cross-thread operations reject before modifying journal state.
 
+GIL-enabled CPython skips the alias walk only when each plain matching container
+has exactly three strong references: its Matcher field, this journal field and
+the `getrefcount` argument. An additional internal or external alias prevents that
+proof and retains the full walk. Other interpreters and free-threaded CPython
+builds always use the conservative walk. This is an ownership proof, not a
+replacement for graph or matching certificates. Tests trap any traversal to prove
+both the unique fast path and the shared/disabled-GIL fallback.
+
 All algorithm writes to existing matching views must use the registered matching
 helpers. Raw field/container edits during a transaction are not a supported update
 API. Adding a write site requires extending the mutation inventory and tests;
@@ -51,8 +59,8 @@ allocation-free guarantee. Failure during undo is explicit fail-stop.
 ## Efficiency boundary and evidence
 
 This removes complete matching-view copies and preserves their identity. It does
-**not** make ordinary paper updates constant-time: alias preflight traverses
-remaining owned Python state, and global snapshots/certificates still run. Entry
+**not** make ordinary paper updates constant-time: shared-view alias preflight
+traverses remaining owned Python state, and global snapshots/certificates still run. Entry
 capacity bounds undo records, not preflight scratch, candidate coexistence, total
 RSS or graph allocations. No million-vertex paper throughput claim follows.
 

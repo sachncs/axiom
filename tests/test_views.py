@@ -1,5 +1,7 @@
 """Matching-container identity, bounded cells, candidates and exact undo."""
 
+import sys
+import sysconfig
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -358,3 +360,37 @@ def test_changed_partner_boolean_rejects_before_using_it_as_a_vertex():
         journal.validate()
     journal.rollback()
     assert type(matcher.partner(0)) is int
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython" or sysconfig.get_config_var("Py_GIL_DISABLED"),
+    reason="reference-count proof requires GIL-enabled CPython",
+)
+def test_unique_views_skip_global_walk_but_external_aliases_trigger_it():
+    class Trap:
+        @property
+        def __dict__(self):
+            raise RuntimeError("global walk executed")
+
+    matcher = Matcher(8)
+    matcher.trap = Trap()
+    journal = Views(matcher)
+    journal.rollback()
+    external = matcher.matched_vertices
+    with pytest.raises(RuntimeError, match="global walk executed"):
+        Views(matcher)
+    assert matcher.matched_vertices is external and matcher.views is None
+
+
+def test_disabled_gil_configuration_uses_conservative_alias_walk(monkeypatch):
+    class Trap:
+        @property
+        def __dict__(self):
+            raise RuntimeError("conservative walk executed")
+
+    matcher = Matcher(8)
+    matcher.trap = Trap()
+    monkeypatch.setattr(sysconfig, "get_config_var", lambda name: 1)
+    with pytest.raises(RuntimeError, match="conservative walk"):
+        Views(matcher)
+    assert matcher.views is None

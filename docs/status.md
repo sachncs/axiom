@@ -62,8 +62,10 @@ or rollback fail-stops the Matcher rather than exposing uncertified query state.
 [ADR 0024](adrs/0024-accounting-journal.md) records this partial migration.
 Matching views now also use bounded first-write cells and retain external
 container identity on failure, including failed rebuild candidates. Their full
-copies are removed; alias admission and other snapshots/certificates still cost
-global work. [ADR 0025](adrs/0025-matching-view-journal.md) defines the boundary.
+copies are removed. GIL-enabled CPython skips global alias admission only when
+reference counts prove the views unique; shared views and other runtimes retain
+the walk. Other snapshots/certificates still cost global work.
+[ADR 0025](adrs/0025-matching-view-journal.md) defines the boundary.
 
 ## Deferred by explicit user direction
 
@@ -77,5 +79,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,009 passing tests; CI and benchmark results must be attributed to their exact
+1,011 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.
