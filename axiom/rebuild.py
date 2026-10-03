@@ -297,6 +297,7 @@ class Multilevel:
         )
         phase_base_graph: Graph
         phase_base_system: System
+        child_rebuild = False
         if not isinstance(matcher.colorer, Paper):
             raise RuntimeError("multilevel rebuild requires the deterministic Paper")
         recursive_colorer = matcher.colorer
@@ -307,6 +308,7 @@ class Multilevel:
             and len(matcher.level_zs) > 1
             and (matcher.inserted_edges or matcher.deleted_edges)
         ):
+            child_rebuild = True
             if (
                 matcher.multi is None
                 or matcher.phase_base_graph is None
@@ -434,10 +436,13 @@ class Multilevel:
         # Matcher transaction setup deduplicates graph identities before
         # opening their journals.
         matcher.phase_graph = matcher.multi.graph
-        if parent_boundary:
+        if parent_boundary and child_rebuild:
             next_base_graph = snapshot(matcher.graph)
             next_base_system = build(next_base_graph, matcher.level_zs[0])
         else:
+            # A full rebuild already captured this exact live topology before
+            # building the hierarchy. Reuse that immutable root/System instead
+            # of taking an identical parent-boundary snapshot a second time.
             next_base_graph = phase_base_graph
             next_base_system = phase_base_system
         matcher.phase_base_graph = next_base_graph

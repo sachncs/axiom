@@ -901,6 +901,34 @@ class TestMatcher:
         assert snapshotcalls[0][0] is base_graph
         assert copycalls == [(base_system, snapshotcalls[0][1])]
 
+    def test_full_rebuild_reuses_its_phase_base_snapshot(self, monkeypatch):
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        algo.multi = None
+        algo.update_count = 1
+
+        snapshotcalls = []
+        snapshotgraph = rebuild_module.snapshot
+
+        def recordsnapshot(graph):
+            result = snapshotgraph(graph)
+            snapshotcalls.append((graph, result))
+            return result
+
+        monkeypatch.setattr(rebuild_module, "snapshot", recordsnapshot)
+        algo.policy.rebuild(algo)
+
+        assert len(snapshotcalls) == 1
+        assert snapshotcalls[0][0] is algo.graph
+        assert algo.phase_base_graph is snapshotcalls[0][1]
+        assert algo.phase_base_system is not None
+        assert algo.phase_base_system.graph is algo.phase_base_graph
+        assert algo.phase_base_system.check()
+        assert algo.multi is not None and algo.multi.check()
+
     def test_removed_mode_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="basic.*multilevel"):
             Matcher(10, mode="tiered")

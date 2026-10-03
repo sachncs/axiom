@@ -104,7 +104,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Child-phase rebuilds reuse inherited phase graph/System roots and copy only
   detached refinement inputs; instrumented copy counts and injected-failure
   rollback are covered. See [ADR 0056](docs/adrs/0056-reuse-inherited-phase-roots.md).
-- 1,227 local tests pass after inherited phase-root reuse.
+- Full rebuilds now reuse their already-captured phase-base graph/System rather
+  than snapshotting and rebuilding level one again; incremental parent rebases
+  remain separate. See [ADR 0057](docs/adrs/0057-reuse-full-rebuild-phase-base.md).
+- 1,228 local tests pass after phase-base snapshot reuse.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references
