@@ -93,7 +93,15 @@ class Witness:
         Ledger: frozenset(field.name for field in fields(Ledger)),
         Partial: frozenset({"graph", "palette", "assignments", "incident", "index"}),
         Fans: frozenset(
-            {"members", "spokes", "assignments", "assigned", "vertices", "types"}
+            {
+                "members",
+                "spokes",
+                "assignments",
+                "assigned",
+                "vertices",
+                "types",
+                "journal",
+            }
         ),
         Greedy: frozenset(),
         Vizing: frozenset(),

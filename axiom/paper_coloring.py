@@ -667,6 +667,7 @@ class Fans:
         self.assigned: dict[Vertex, set[Color]] = {}
         self.vertices: dict[Vertex, set[Fan]] = {}
         self.types: dict[frozenset[Color], set[Fan]] = {}
+        self.journal: FanJournal | None = None
 
     def __len__(self) -> int:
         """Return the number of stored fans."""
@@ -691,6 +692,8 @@ class Fans:
             key = (vertex, fan.color(vertex))
             if key in self.assignments:
                 raise ValueError("u-fan colors must be distinct at each vertex")
+        if self.journal is not None:
+            self.journal.capture(fan, False)
         self.members.add(fan)
         self.spokes.update(fan.edges)
         self.types.setdefault(fan.type, set()).add(fan)
@@ -703,6 +706,8 @@ class Fans:
         """Remove a fan from every index, doing nothing if it is absent."""
         if fan not in self.members:
             return
+        if self.journal is not None:
+            self.journal.capture(fan, True)
         self.members.remove(fan)
         self.spokes.difference_update(fan.edges)
         typed = self.types.get(fan.type)
@@ -728,16 +733,20 @@ class Fans:
         """Apply a global color permutation while preserving all indexes."""
         replacement = type(self)()
         for fan in self.members:
-            replacement.add(
-                Fan(
-                    fan.center,
-                    fan.first,
-                    fan.second,
-                    mapping[fan.alpha],
-                    mapping[fan.beta],
-                    mapping[fan.gamma],
-                )
+            relabeled = Fan(
+                fan.center,
+                fan.first,
+                fan.second,
+                mapping[fan.alpha],
+                mapping[fan.beta],
+                mapping[fan.gamma],
             )
+            replacement.add(relabeled)
+            if self.journal is not None:
+                self.journal.capture(fan, True)
+                self.journal.capture(relabeled, False)
+        if self.journal is not None:
+            self.journal.capture_roots()
         replacement.validate()
         self.members = replacement.members
         self.spokes = replacement.spokes
@@ -825,6 +834,9 @@ class Fans:
             newtyped = {replacement}
         if newtyped is None:
             raise RuntimeError("fan type reservation failed")
+        if self.journal is not None:
+            self.journal.capture(fan, True)
+            self.journal.capture(replacement, False)
         stages = [False] * 11
         try:
             self.members.add(replacement)
@@ -1104,6 +1116,78 @@ class Fans:
         for fan in damaged:
             self.discard(fan)
         return len(damaged)
+
+
+class FanJournal:
+    """Undo first membership changes to a fan collection without copying it."""
+
+    def __init__(self, fans: Fans, parent: FanJournal | None = None) -> None:
+        """Bind an owner-specific fan journal and optional enclosing journal."""
+        if fans.journal is not parent:
+            raise RuntimeError("fan journal parent is not the active owner journal")
+        self.fans = fans
+        self.parent = parent
+        self.before: dict[Fan, bool] = {}
+        self.order: list[Fan] = []
+        self.roots: tuple[
+            set[Fan],
+            set[Edge],
+            dict[tuple[Vertex, Color], Fan],
+            dict[Vertex, set[Color]],
+            dict[Vertex, set[Fan]],
+            dict[frozenset[Color], set[Fan]],
+        ] | None = None
+
+    def capture(self, fan: Fan, present: bool) -> None:
+        """Retain a fan's pre-transaction membership on its first mutation."""
+        if fan not in self.before:
+            self.before[fan] = present
+            self.order.append(fan)
+            if self.parent is not None:
+                self.parent.capture(fan, present)
+
+    def capture_roots(self) -> None:
+        """Retain fan index roots before an operation replaces every root."""
+        if self.roots is not None:
+            return
+        if self.parent is not None:
+            self.parent.capture_roots()
+        fans = self.fans
+        self.roots = (
+            fans.members,
+            fans.spokes,
+            fans.assignments,
+            fans.assigned,
+            fans.vertices,
+            fans.types,
+        )
+
+    def commit(self) -> None:
+        """Finish this transaction while retaining its before-images upstream."""
+        if self.fans.journal is not self:
+            raise RuntimeError("fan journal is not the active owner journal")
+        self.fans.journal = self.parent
+
+    def rollback(self) -> None:
+        """Restore only touched memberships and preserve the original roots."""
+        if self.fans.journal is not self:
+            raise RuntimeError("fan journal is not the active owner journal")
+        self.fans.journal = self.parent
+        if self.roots is not None:
+            (
+                self.fans.members,
+                self.fans.spokes,
+                self.fans.assignments,
+                self.fans.assigned,
+                self.fans.vertices,
+                self.fans.types,
+            ) = self.roots
+        for fan in reversed(self.order):
+            present = fan in self.fans.members
+            if self.before[fan] and not present:
+                self.fans.add(fan)
+            elif not self.before[fan] and present:
+                self.fans.discard(fan)
 
 
 class BlockedColors(Mapping[Vertex, set[Color]]):
@@ -2001,7 +2085,8 @@ class Construction:
         fans.validate()
         fans.compatible(coloring)
         journal = ColorJournal(coloring)
-        fansbefore = tuple(fans)
+        fanjournal = FanJournal(fans, fans.journal)
+        fans.journal = fanjournal
         extended = 0
         rounds = 0
         maxrounds = max(1, coloring.palette**2)
@@ -2031,13 +2116,11 @@ class Construction:
             fans.validate()
             fans.compatible(coloring)
             coloring.validate()
+            fanjournal.commit()
             return extended
         except Exception:
             journal.rollback()
-            for fan in tuple(fans):
-                fans.discard(fan)
-            for fan in fansbefore:
-                fans.add(fan)
+            fanjournal.rollback()
             coloring.validate()
             fans.validate()
             raise

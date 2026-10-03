@@ -1213,3 +1213,10 @@ once rather than retaining a normalized edge-set duplicate. At 100k labels and
 one edge, the old intake allocation shape used 44.06 MB traced peak versus
 2,264 bytes for a full direct call; this component comparison does not establish
 end-to-end pruning throughput. See [ADR 0099](adrs/0099-sparse-paper-fan-intake.md).
+
+Color-Small now journals only changed fan memberships for failure rollback
+instead of sorting and retaining every fan. On a 20k-fan/one-touched-fan
+operation probe, traced peak fell from 1.78 MB to 1,872 bytes and median time
+from 8.24 ms to 0.017 ms. Full coloring/fan audits at the operation boundary
+remain global; this is a rollback-state reduction, not end-to-end throughput.
+See [ADR 0100](adrs/0100-journal-color-small-fan-rollback.md).

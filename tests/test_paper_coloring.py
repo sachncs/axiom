@@ -13,6 +13,7 @@ from axiom.paper_coloring import (
     Event,
     Extension,
     Fan,
+    FanJournal,
     Fans,
     Paper,
     Partial,
@@ -334,6 +335,33 @@ def test_fan_update_changes_only_the_target_fan_indexes() -> None:
     assert replacement == Fan(0, 1, 2, 2, 1, 1)
     assert original not in fans.members and replacement in fans.members
     assert unrelated in fans.members
+    assert all(vars(fans)[name] is value for name, value in roots.items())
+    fans.validate()
+
+
+def test_nested_fan_journal_restores_updates_relabel_and_membership() -> None:
+    fans = Fans()
+    original = Fan(0, 1, 2, 0, 1, 1)
+    unrelated = Fan(3, 4, 5, 0, 1, 1)
+    added = Fan(6, 7, 8, 0, 1, 1)
+    fans.add(original)
+    fans.add(unrelated)
+    statebefore = Witness().capture(fans)
+    roots = vars(fans).copy()
+
+    outer = FanJournal(fans)
+    fans.journal = outer
+    assert fans.update(original, 0, 2) == Fan(0, 1, 2, 2, 1, 1)
+
+    inner = FanJournal(fans, outer)
+    fans.journal = inner
+    fans.relabel({0: 1, 1: 2, 2: 0})
+    inner.commit()
+    fans.add(added)
+    outer.rollback()
+
+    assert fans.journal is None
+    assert Witness().capture(fans) == statebefore
     assert all(vars(fans)[name] is value for name, value in roots.items())
     fans.validate()
 
@@ -863,6 +891,7 @@ def test_color_small_journals_changes_and_rolls_back_mid_batch(
     fans.add(first)
     fans.add(second)
     colorsbefore = dict(coloring.items())
+    statebefore = Witness().capture((coloring, fans))
     coloringroots = (coloring.assignments, coloring.incident, coloring.index)
     fanroots = (
         fans.members,
@@ -873,7 +902,24 @@ def test_color_small_journals_changes_and_rolls_back_mid_batch(
         fans.types,
     )
     originalactivate = Construction.activate
+    originaliterate = Fans.__iter__
+    originalcompatible = Fans.compatible
     activations = 0
+    iterationlocked = False
+
+    def guardediterate(collection: Fans):
+        if iterationlocked:
+            raise AssertionError("Color-Small copied or scanned every fan")
+        return originaliterate(collection)
+
+    def compatible_then_lock(
+        collection: Fans,
+        candidate: Partial,
+        vertices=None,
+    ) -> None:
+        nonlocal iterationlocked
+        originalcompatible(collection, candidate, vertices)
+        iterationlocked = True
 
     def fail_after_second_activation(
         strategy: type[Construction],
@@ -892,12 +938,17 @@ def test_color_small_journals_changes_and_rolls_back_mid_batch(
     monkeypatch.setattr(
         Construction, "activate", classmethod(fail_after_second_activation)
     )
+    monkeypatch.setattr(Fans, "__iter__", guardediterate)
+    monkeypatch.setattr(Fans, "compatible", compatible_then_lock)
 
     with pytest.raises(RuntimeError, match="could not activate valid fan"):
         Construction.small(coloring, fans)
 
+    iterationlocked = False
     assert activations == 2
     assert dict(coloring.items()) == colorsbefore
+    assert fans.journal is None
+    assert Witness().capture((coloring, fans)) == statebefore
     assert fans.members == {first, second}
     assert all(
         current is original
@@ -1038,6 +1089,7 @@ def test_color_small_activates_deterministic_common_type() -> None:
     assert Construction.small(coloring, fans) == 1
     assert coloring[(0, 1)] == 0
     assert len(fans) == 0
+    assert fans.journal is None
 
 
 def test_color_small_repairs_fans_locally_across_many_components() -> None:
