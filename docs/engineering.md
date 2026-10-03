@@ -70,6 +70,14 @@ projection allocations remain.
 See [ADR 0067](adrs/0067-reuse-child-refinement-partition-roots.md) and its
 [raw probe](../benchmarks/results/paper/child-refinement-roots.json).
 
+The recursive rebuild loop now passes read-only insertion and deferred-delete
+sets by reference instead of cloning them at each level; the one combined
+deletion set is built with a direct union rather than cloning both inputs
+first. Refinement regression coverage proves caller-owned edge sets are
+unchanged. An isolated 180,000-edge union reduced traced peak from 21.0 MB to
+12.6 MB with the same result. See [ADR 0068](adrs/0068-share-refinement-update-sets.md)
+and its [raw probe](../benchmarks/results/paper/refinement-update-sets.json).
+
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new
 work are recorded in ADR 0020; established APIs need compatibility planning

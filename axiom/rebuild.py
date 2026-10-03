@@ -328,7 +328,7 @@ class Multilevel:
                     "phase snapshot cannot inherit the previous level-1 system: "
                     "its partition or matching is no longer valid"
                 )
-            deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
+            deleted = matcher.deleted_edges | previous.deferred_deletions
             phase_base_graph = old_graph
             phase_base_system = base_system
             # Refinement reads its hierarchy graph and emits a detached
@@ -350,7 +350,7 @@ class Multilevel:
                 R_levels=[working_base_system.U],
                 L_levels=[],
             )
-            inserted = set(matcher.inserted_edges)
+            inserted = matcher.inserted_edges
             for z in matcher.level_zs[1:]:
                 matcher.multi = refine_hierarchy(
                     matcher.multi,
@@ -359,7 +359,7 @@ class Multilevel:
                     inserted=inserted,
                     colorer=recursive_colorer,
                 )
-                deleted = set(matcher.multi.deferred_deletions)
+                deleted = matcher.multi.deferred_deletions
                 # E_I is incorporated into the graph produced by this
                 # refinement.  It is therefore part of the input graph for
                 # the next recursive level, not a second insertion set.

@@ -1,0 +1,18 @@
+{
+  "probe": "temporary allocation for combining two edge sets",
+  "left_members": 120000,
+  "right_members": 120000,
+  "result_members": 180000,
+  "prior_expression": "set(left) | set(right)",
+  "candidate_expression": "left | right",
+  "prior_current_bytes": 8388824,
+  "prior_peak_bytes": 20972168,
+  "candidate_current_bytes": 8388824,
+  "candidate_peak_bytes": 12583128,
+  "result_equal": true,
+  "limitations": [
+    "Expression-level tracemalloc probe, not process RSS",
+    "does not include copying avoided by passing insertion/deferred sets by reference",
+    "does not measure end-to-end refinement latency or durable service behavior"
+  ]
+}

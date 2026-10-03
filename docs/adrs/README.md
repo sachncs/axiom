@@ -74,6 +74,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0065](0065-avoid-saturated-partition-union.md) | Query inherited A/B roots and promoted destination partitions directly instead of materializing a mutable `A ∪ B` set | 1m-member union peak 87.2 MB; direct membership was 3.1× slower in an isolated query probe; full-refinement tradeoff qualification open |
 | [0066](0066-local-refinement-witness-search.md) | Search incident graph rows for B-to-U matching witnesses instead of rescanning all chosen matching edges | Fixed witness-heavy refinement traces are 1.6–7.1% faster with identical certified state; broad adversarial qualification remains open |
 | [0067](0067-reuse-child-refinement-partition-roots.md) | Reuse detached System roots and the immutable parent graph during child refinement; defer duplicate cache indexing | One-million-label duplicate-root peak 65.5 MB→80 B; skips a 37 MB Packed parent clone in the measured ring shape; full child-rebuild/RSS qualification remains open |
+| [0068](0068-share-refinement-update-sets.md) | Pass read-only insertion/deferred sets by reference and directly union deletion inputs | Same 180k-edge result; temporary union peak 21.0→12.6 MB (40% lower); end-to-end rebuild/RSS remains open |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

@@ -2161,6 +2161,8 @@ class TestHierarchy:
         base = build_hierarchy(old_graph, [8])
         deleted = {(0, 1)}
         inserted = {(0, 7)}
+        original_deleted = set(deleted)
+        original_inserted = set(inserted)
         refined = refine_hierarchy(
             base,
             4,
@@ -2170,6 +2172,8 @@ class TestHierarchy:
         assert refined.check()
         assert (0, 7) in set(refined.graph.edges())
         assert len(refined.deferred_deletions) <= len(deleted) * 4 // 8
+        assert deleted == original_deleted
+        assert inserted == original_inserted
 
     def test_refinement_repairs_b_neighbors_from_local_u_witnesses(self) -> None:
         """Repeated ProcProcess swaps use incident edges, preserving the matching."""
