@@ -1,6 +1,6 @@
 # ADR 0006: Introduce an explicitly selected native production matcher
 
-Date: 2026-10-01. Status: superseded for production direction by [ADR 0023](0023-durable-paper-integration.md) on 2026-10-04. The native implementation remains in the repository for existing-store compatibility during migration; it is no longer an allowed production matching method after the migration gates pass.
+Date: 2026-10-01. Status: superseded and scheduled for complete removal from production and persistence by [ADR 0023](0023-durable-paper-integration.md) on 2026-10-04. Its historical implementation details are retained here as a record only; no matcher or database compatibility shim is required.
 
 ## Context
 

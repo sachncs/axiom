@@ -26,16 +26,20 @@ construction parameters. Opening a store with incompatible parameters must
 reject, never reinterpret its history. New production stores default to `basic`;
 selecting `multilevel` is explicit. Existing native-format stores must remain
 readable only under an explicit compatibility/migration policy, never silently
-open as Basic or Multilevel.
+open as Basic or Multilevel. The user has since rejected backward compatibility
+shims: do not retain a native matching backend, native database reader, or
+migration-only native service mode. Replace the old native durable format
+outright; old stores are unsupported and must be clearly rejected, not silently
+reinterpreted.
 
 Paper recovery must reproduce the exact accepted graph, matching,
 coloring/fans, hierarchy and accounting—not merely any valid matching with the
 same size. Reject invalid/unsupported state explicitly. The durable Service
 contract must retain commit-before-ack, bounded history, same-ID retries,
 failure isolation, coherent reads, backup and exact reopen. The old native
-engine may be retained temporarily only as an explicitly versioned on-disk
-compatibility reader/migrator while existing stores require it; it is not a
-supported matching method after migration.
+engine and its durable compatibility reader are not part of the target product.
+Compact `Packed` graph storage remains allowed because it is a storage primitive,
+not a matching algorithm.
 
 Complete the paper mutation-journal inventory before replacing its snapshot oracle.
 A graph-only undo log cannot restore fan/coloring/hierarchy state. Journals must
@@ -69,9 +73,9 @@ Do not remove truthful current limitations from docs before implementation.
 This is a backend replacement, not a mode rename. Current `Durable`/`Service`
 are coupled to `Engine` transactions, checkpoint images, recovery, and queries;
 paper `Matcher` currently provides per-update rollback but not a durable
-multi-update transaction or a versioned exact checkpoint codec. Therefore the
-native matching path cannot be removed from existing-store compatibility until
-paper recovery, publication, and migration gates pass. Hardware power-loss and
+multi-update transaction or a versioned exact checkpoint codec. The former
+native database format will not be carried forward; a format change must reject
+old stores with a direct unsupported-format error. Hardware power-loss and
 billion-vertex qualification remain deferred. The paper’s complete theoretical
 bound is still not established. Shared production durability does not transfer
 a theorem or a 10k-throughput result between Basic and Multilevel.

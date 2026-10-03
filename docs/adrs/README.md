@@ -12,7 +12,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Matcher recursive `deepcopy` removed; durable paper integration and state-sized admission/certificates remain |
 | [0004](0004-sparse-phase-indexes.md) | Sparse phase overlays instead of eager empty maps | Implemented and regression-tested; short-trace evidence only |
 | [0005](0005-incremental-certificates.md) | Immediate incremental certificates, not disabled checks | Native production certificates implemented; paper hierarchy work pending |
-| [0006](0006-native-production-matcher.md) | Native production matcher, retaining the paper engine | Superseded for production direction by 0023; implementation remains during migration |
+| [0006](0006-native-production-matcher.md) | Native production matcher, retaining the paper engine | Superseded by 0023; historical record only, no compatibility shim |
 | [0007](0007-durability-and-publication.md) | WAL, bounded group commit, coherent query versions and recovery | Durable owner and opt-in checkpoints implemented; full-service qualification pending |
 | [0008](0008-resource-and-release-gates.md) | Single ownership, resource limits, independent qualification gates | Partially implemented; full-service gates pending |
 | [0009](0009-sqlite-wal-durable-owner.md) | SQLite FULL-WAL commits with private native publication and bounded replay | Legacy v1 plus opt-in checkpoint v2; sustained qualification pending |
@@ -29,7 +29,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0020](0020-resource-exhaustion-and-recovery.md) | Isolated hard address-space/filesystem exhaustion with exact recovery | Million-vertex growth/drain and compact backup recovery passed; deployment quotas pending; hardware power-loss deferred |
 | [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Fixed-trace memory/compute comparison and new-binary sustained degree-four stage pass; degree 64 fails throughput |
 | [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | Explicit macOS launch policy measured through growth/drain; burst and Linux hard-resource stages pass separately; aggregate quotas deferred |
-| [0023](0023-durable-paper-integration.md) | Make Basic (default) and Multilevel the only durable production matching methods; retain native code only as storage/temporary compatibility | Required active migration; not implemented or performance-qualified |
+| [0023](0023-durable-paper-integration.md) | Make Basic (default) and Multilevel the only durable production matching methods; retain Packed only as storage | Required active migration; no backward matcher/database shim; not implemented or performance-qualified |
 | [0024](0024-accounting-journal.md) | Bounded first-write paper accounting undo and explicit publication/rollback fail-stop | Accounting migrated in place; wider journal migration/durable paper integration remain active |
 | [0025](0025-matching-view-journal.md) | Bounded matching-cell undo and retained edge/vertex/partner containers | Matching views migrated; global alias preflight, other snapshots and durable integration remain active |
 | [0026](0026-color-class-journal.md) | Bounded class/seed membership undo and retained list/set aliases | Color classes migrated; shared-class admission, System/Hierarchy snapshots and durable integration remain active |
