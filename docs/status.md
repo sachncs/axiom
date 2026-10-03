@@ -132,7 +132,7 @@ vertices, and now limits those degree certificates to active components
 ([ADRs 0090–0093](adrs/README.md)). These remain component-level changes;
 an adaptive sparse maximum-degree path also avoids universe scans in Paper.color
 and recursive seeding ([ADR 0094](adrs/0094-adaptive-paper-maximum-degree.md)).
-full-suite verification currently passes 1,271 tests. The
+full-suite verification currently passes 1,273 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
@@ -171,5 +171,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,271 passing tests; CI and benchmark results must be attributed to their exact
+1,273 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.
