@@ -363,20 +363,100 @@ class Partial:
             wanted = beta if wanted == gamma else gamma
 
     def flip(self, path: list[Vertex], beta: Color, gamma: Color) -> None:
-        """Flip a validated alternating path in place."""
+        """Flip an alternating path using only path-local index updates."""
         if len(path) < 1 or len(set(path)) != len(path):
             raise ValueError("path must be non-empty and simple")
         edges = [canonical(left, right) for left, right in pairwise(path)]
+        if not edges:
+            return
+        if beta == gamma:
+            raise ValueError("alternating path colors must differ")
         if any(edge not in self.assignments for edge in edges):
             raise ValueError("alternating path contains an uncolored edge")
-        expected = gamma
-        for edge in edges:
-            if self.assignments[edge] != expected:
+        colors = [self.assignments[edge] for edge in edges]
+        for index, color in enumerate(colors):
+            if color != (gamma if index % 2 == 0 else beta):
                 raise ValueError("path is not alternating from its start")
-            expected = beta if expected == gamma else gamma
-        for edge in edges:
-            self.assignments[edge] = beta if self.assignments[edge] == gamma else gamma
-        self.reindex()
+        if (
+            type(self.assignments) is not dict
+            or type(self.incident) is not dict
+            or type(self.index) is not dict
+            or any(type(self.incident[vertex]) is not set for vertex in path)
+        ):
+            raise TypeError("path flips require the owned plain coloring indexes")
+
+        replacements: list[Color] = []
+        targets: list[tuple[tuple[Vertex, Color], Edge]] = []
+        for edge, color in zip(edges, colors, strict=True):
+            replacement = beta if color == gamma else gamma
+            replacements.append(replacement)
+            for vertex in edge:
+                oldkey = vertex, color
+                if self.index.get(oldkey) != edge:
+                    raise RuntimeError("path edge-color index is inconsistent")
+                if color not in self.incident[vertex]:
+                    raise RuntimeError("path incidence index is inconsistent")
+                targets.append(((vertex, replacement), edge))
+
+        endpoints = (
+            (
+                path[0],
+                replacements[0],
+                colors[0],
+                edges[0],
+                (path[0], replacements[0]),
+                (path[0], colors[0]),
+            ),
+            (
+                path[-1],
+                replacements[-1],
+                colors[-1],
+                edges[-1],
+                (path[-1], replacements[-1]),
+                (path[-1], colors[-1]),
+            ),
+        )
+        for vertex, replacement, _, _, newkey, _ in endpoints:
+            if replacement in self.incident[vertex]:
+                raise ValueError(
+                    "path flip would use a color already present at an endpoint"
+                )
+            if newkey in self.index:
+                raise RuntimeError("endpoint color index contradicts its incidence")
+
+        # Endpoint entries are the only new dictionary/set cells. Reserve them
+        # before changing any coloring value; an allocation failure removes the
+        # partial reservation and leaves all live state untouched.
+        first_color = first_key = second_color = second_key = False
+        try:
+            first = endpoints[0]
+            second = endpoints[1]
+            self.incident[first[0]].add(first[1])
+            first_color = True
+            self.index[first[4]] = first[3]
+            first_key = True
+            self.incident[second[0]].add(second[1])
+            second_color = True
+            self.index[second[4]] = second[3]
+            second_key = True
+        except BaseException:
+            if second_key:
+                self.index.pop(endpoints[1][4])
+            if second_color:
+                self.incident[endpoints[1][0]].discard(endpoints[1][1])
+            if first_key:
+                self.index.pop(endpoints[0][4])
+            if first_color:
+                self.incident[endpoints[0][0]].discard(endpoints[0][1])
+            raise
+
+        for edge, replacement in zip(edges, replacements, strict=True):
+            self.assignments[edge] = replacement
+        for key, edge in targets:
+            self.index[key] = edge
+        for vertex, _, oldcolor, _, _, oldkey in endpoints:
+            self.index.pop(oldkey)
+            self.incident[vertex].remove(oldcolor)
 
 
 class Fans:

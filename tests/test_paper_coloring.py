@@ -376,7 +376,9 @@ def test_project_subproblem_isolates_the_recursive_edge_scope() -> None:
     assert tuple(childfans) == tuple(fans)
 
 
-def test_partial_coloring_flip_preserves_properness() -> None:
+def test_partial_coloring_flip_preserves_properness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)
     graph.add_edge(1, 2)
@@ -387,6 +389,11 @@ def test_partial_coloring_flip_preserves_properness() -> None:
 
     path = coloring.path(1, 0, 1)
     assert path == [1, 2, 3]
+
+    def reject_full_reindex() -> None:
+        raise AssertionError("path-local flip invoked a full reindex")
+
+    monkeypatch.setattr(coloring, "reindex", reject_full_reindex)
     coloring.flip(path, 0, 1)
     assert coloring[(1, 2)] == 0
     assert coloring[(2, 3)] == 1
@@ -394,6 +401,57 @@ def test_partial_coloring_flip_preserves_properness() -> None:
     assert coloring.available(1, 1)
     assert not coloring.available(1, 0)
     assert coloring.vacancy(1) == 1
+
+
+@pytest.mark.parametrize("edge_count", [1, 2, 3, 4])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_path_local_flip_handles_path_parity_and_orientation(
+    edge_count: int, reverse: bool
+) -> None:
+    path = list(range(edge_count + 1))
+    if reverse:
+        path.reverse()
+    graph = Adjacency(edge_count + 1)
+    coloring = Partial(graph, 3)
+    originals = []
+    for index in range(edge_count):
+        edge = path[index], path[index + 1]
+        graph.add_edge(*edge)
+        color = 1 if index % 2 == 0 else 0
+        coloring.assign(edge, color)
+        originals.append(color)
+
+    coloring.flip(path, 0, 1)
+
+    result = [
+        coloring[(path[index], path[index + 1])] for index in range(edge_count)
+    ]
+    assert result == [1 - color for color in originals]
+    coloring.validate()
+
+
+def test_partial_coloring_rejects_an_improper_endpoint_flip_atomically() -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = Partial(graph, 2)
+    coloring.assign((0, 1), 1)
+    coloring.assign((0, 2), 0)
+    assignments = dict(coloring.assignments)
+    incident = {vertex: set(colors) for vertex, colors in coloring.incident.items()}
+    index = dict(coloring.index)
+    roots = (coloring.assignments, coloring.incident, coloring.index)
+
+    with pytest.raises(ValueError, match="already present at an endpoint"):
+        coloring.flip([1, 0], 0, 1)
+
+    assert coloring.assignments == assignments
+    assert coloring.incident == incident
+    assert coloring.index == index
+    assert coloring.assignments is roots[0]
+    assert coloring.incident is roots[1]
+    assert coloring.index is roots[2]
+    coloring.validate()
 
 
 def test_activate_fan_extends_one_uncolored_spoke() -> None:
