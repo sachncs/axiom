@@ -820,7 +820,6 @@ def refine_hierarchy(
         degree[u] += 1
         degree[v] += 1
 
-    old_s = previous.A | previous.B
     old_u = previous.U.copy()
     levels = list(hierarchy.A_levels)
     # The base construction already removes U-U matching edges.  Keep this
@@ -834,13 +833,18 @@ def refine_hierarchy(
     new_a: set[Vertex] = set()
     new_b: set[Vertex] = set()
     new_u = old_u
-    settled = old_s
+    # Avoid materializing A ∪ B: the first pass queries the immutable source
+    # partitions directly. Once this pass finishes, new_a/new_b represent all
+    # of old B plus each subsequently promoted U vertex.
     for vertex in sorted(previous.B):
         # Step 1 of the paper's construction keeps S and U fixed and
         # partitions the previous B according to the selected matching:
         # vertices whose selected M-neighbours all remain in S become the
         # new A_{h+1}; the rest remain in B.
-        if all(neighbor in settled for neighbor in neighbors(vertex, chosen)):
+        if all(
+            neighbor in previous.A or neighbor in previous.B
+            for neighbor in neighbors(vertex, chosen)
+        ):
             new_a.add(vertex)
         else:
             new_b.add(vertex)
@@ -866,9 +870,11 @@ def refine_hierarchy(
         if vertex not in new_u:
             return
         new_u.discard(vertex)
-        settled.add(vertex)
+        # previous.A plus the already-built destination partitions is exactly
+        # the settled region, without a universe-sized union snapshot.
         if degree[vertex] >= z_prime - h and all(
-            neighbor in settled for neighbor in neighbors(vertex, chosen)
+            neighbor in previous.A or neighbor in new_a or neighbor in new_b
+            for neighbor in neighbors(vertex, chosen)
         ):
             new_a.add(vertex)
         else:

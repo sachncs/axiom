@@ -70,6 +70,20 @@ fallback. One 100k-vertex/200k-edge projection reduced traced Python scratch fro
 unqualified. See [ADR 0064](adrs/0064-stream-hierarchy-projections.md) and the
 [raw result](../benchmarks/results/paper/stream-projection.json).
 
+Refinement also no longer materializes `previous.A | previous.B`: the initial
+partition pass queries the inherited roots directly, and later promotion checks
+use the already-built A/B destination partitions plus inherited A. On one
+million-label/two-partition membership probe, direct checks avoided an 87.2 MB
+union but were about 3.1× slower than union-plus-query in a one-million-check
+microbenchmark. This is an explicit memory/compute tradeoff, not a speedup. A
+targeted dense hierarchy regression rejects any `Vertices` union during
+refinement while retaining the full hierarchy certificate. End-to-end refinement
+qualification remains open. A 2,048-vertex full-refinement comparison across the
+streaming and union changes kept identical state digests, reduced traced peak by
+22%, and had time within sample resolution. This does not isolate union removal
+or qualify million-scale behavior. See [ADR 0065](adrs/0065-avoid-saturated-partition-union.md) and the
+[raw record](../benchmarks/results/paper/saturated-union-membership.json).
+
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),
 [hub](../benchmarks/results/independent/hub-steady-million.json),

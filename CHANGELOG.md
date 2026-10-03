@@ -46,6 +46,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with equal native output size. Opaque graph fallback and full-refinement
   qualification remain; see [ADR 0064](docs/adrs/0064-stream-hierarchy-projections.md)
   and [raw measurement](benchmarks/results/paper/stream-projection.json).
+- Hierarchy refinement no longer copies dense `A ∪ B` into a mutable Python
+  set; it checks inherited roots and the destination partitions directly. This
+  avoids an 87.2 MB traced union peak in a million-label probe, at the cost of
+  about 3.1× slower isolated membership queries than union-plus-query; full
+  refinement effects remain to be qualified. A 2,048-vertex refinement across
+  the combined streaming/union changes kept identical state digests and reduced
+  traced peak 22%, with time within sample resolution. See
+  [ADR 0065](docs/adrs/0065-avoid-saturated-partition-union.md) and the
+  [raw record](benchmarks/results/paper/saturated-union-membership.json).
 
 - Matcher update transactions now contain no recursive `deepcopy`: shallow root
   references combine with bounded undo for indexes and phase-clock cells. Failure

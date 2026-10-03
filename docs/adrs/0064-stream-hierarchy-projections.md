@@ -61,5 +61,6 @@ See the [raw measurement](../benchmarks/results/paper/stream-projection.json).
 
 Measure full multilevel rebuild/refinement peak RSS and native memory under
 representative sizes, deletions, insertions, and deferred-edge cases. Migrate
-remaining hierarchy working-graph/System copies with exact owner-journal
-rollback; this commit only removes redundant edge materialization.
+remaining hierarchy working-graph/System copies and multi-source A/N/R unions
+with exact owner-journal rollback; this commit only removes redundant edge
+materialization.

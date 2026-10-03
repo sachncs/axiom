@@ -1,0 +1,60 @@
+{
+  "status": "isolated dense partition membership diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "configuration": {
+    "universe_vertices": 1000000,
+    "partition_a_members": 500000,
+    "partition_b_members": 500000,
+    "queries": 1000000,
+    "overlap": 0,
+    "timing_repeats": 5,
+    "timing": "alternating untraced runs; median reported",
+    "union_memory_repeats": 1,
+    "memory_measurement": "tracemalloc peak during union construction; direct query uses existing Vertices roots"
+  },
+  "union_path": {
+    "operation": "union = a | b; hits = sum(vertex in union for vertex in range(n))",
+    "median_union_plus_query_seconds": 0.0422,
+    "union_peak_bytes": 87230568,
+    "hits": 1000000,
+    "queries": 1000000
+  },
+  "direct_path": {
+    "sources": {
+      "axiom/hierarchy.py": "d6b5b851911f56d5630abb96c44ddbf798cbd65031ceb64a5a635e9eb0bd4eef",
+      "tests/test_hierarchies.py": "b76d5303b98b5975da0b9cd0682d44c94d3582efdd92d1c9521466063a658d48"
+    },
+    "operation": "hits = sum(vertex in a or vertex in b for vertex in range(n))",
+    "median_seconds": 0.13272,
+    "traced_peak_bytes": "not separately captured; no retained/materialized union",
+    "hits": 1000000,
+    "slower_than_union_path_factor": 3.15
+  },
+  "full_refinement_comparison": {
+    "baseline_commit": "21db8c2",
+    "vertices": 2048,
+    "average_degree": 4,
+    "hierarchy_levels": [8, 4],
+    "refined_z": 4,
+    "repeats": 3,
+    "measurement": "tracemalloc peak/time around refine_hierarchy; base hierarchy built before tracing",
+    "baseline_median_seconds": 1.6141389580006944,
+    "candidate_median_seconds": 1.6328801249910612,
+    "baseline_median_peak_bytes": 3434623,
+    "candidate_median_peak_bytes": 2680767,
+    "candidate_peak_reduction_percent": 21.98,
+    "baseline_state_digest": "e0fd75dd34353ab54de193cde2fb0360b7a7965a047be10b30e9a663801ce6a2",
+    "candidate_state_digest": "e0fd75dd34353ab54de193cde2fb0360b7a7965a047be10b30e9a663801ce6a2",
+    "hierarchy_certificate": true,
+    "attribution": "combined ADR 0063/0064/0065 candidate changes; not isolated to union removal"
+  },
+  "limits": [
+    "One host and three refinement samples; this is not million-vertex qualification.",
+    "The old_s union and membership checks are modeled by direct membership over disjoint source partitions; promotion updates and new A/B roots are not included.",
+    "This does not measure other hierarchy union construction or total process RSS."
+  ]
+}

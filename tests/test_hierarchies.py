@@ -8,7 +8,7 @@ import pytest
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchies import Hierarchies
-from axiom.hierarchy import Hierarchy, build_hierarchy, project
+from axiom.hierarchy import Hierarchy, build_hierarchy, project, refine_hierarchy
 from axiom.rebuild import copy as copysystem
 from axiom.storage import Packed
 from axiom.system import build as buildsystem
@@ -71,6 +71,28 @@ def test_unordered_custom_projection_retains_sorted_reference_fallback():
 
     assert isinstance(child, Adjacency)
     assert list(child.edges()) == sorted(backing.edges())
+
+
+def test_refinement_does_not_materialize_old_saturated_partition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(64)
+    for vertex in range(64):
+        for neighbor in (vertex + 1, vertex + 7):
+            if neighbor < 64:
+                graph.add_edge(vertex, neighbor)
+    hierarchy = build_hierarchy(graph, [8, 4])
+    previous = hierarchy.levels[-1]
+    assert isinstance(previous.A, Vertices)
+    assert isinstance(previous.B, Vertices)
+
+    def reject_union(self, other):
+        raise AssertionError("refinement materialized A union B")
+
+    monkeypatch.setattr(Vertices, "__or__", reject_union)
+    refined = refine_hierarchy(hierarchy, 2)
+
+    assert refined.check()
 
 
 def test_derived_hierarchy_partitions_share_exact_roots_when_possible():
