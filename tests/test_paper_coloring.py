@@ -518,6 +518,22 @@ def test_paper_eta_selects_only_a_valid_recursive_regime() -> None:
     assert Paper.regime(1024, 99) is None
 
 
+def test_seed_palette_reduction_certifies_complete_graph_with_excess_palette() -> None:
+    graph = Adjacency(34)
+    for left in range(graph.n):
+        for right in range(left + 1, graph.n):
+            graph.add_edge(left, right)
+    delta = max(graph.degree(vertex) for vertex in range(graph.n))
+    left, right = Paper.partition(graph)
+    leftdelta = max(left.degree(vertex) for vertex in range(graph.n))
+    rightdelta = max(right.degree(vertex) for vertex in range(graph.n))
+    assert leftdelta + rightdelta + 2 > delta + 1
+
+    coloring = Paper.seed(graph, delta)
+
+    Paper.certify(graph, delta, set(graph.edges()), coloring)
+
+
 def test_separable_fans_enforce_edge_and_vertex_color_disjointness() -> None:
     fans = Fans()
     first = Fan(0, 1, 2, 0, 1, 1)

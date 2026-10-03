@@ -3104,14 +3104,13 @@ class Paper:
             }
             return {edge: remap[color] for edge, color in combined.items()}
 
-        counts = {
-            color: sum(1 for edgecolor in combined.values() if edgecolor == color)
-            for color in range(palettesize)
-        }
+        counts = [0] * palettesize
+        for color in combined.values():
+            counts[color] += 1
         removed = {
             color
-            for color, ignored in sorted(
-                counts.items(), key=lambda item: (item[1], item[0])
+            for color in sorted(
+                range(palettesize), key=lambda color: (counts[color], color)
             )[:2]
         }
         retained = {

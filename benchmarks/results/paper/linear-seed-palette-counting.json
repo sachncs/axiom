@@ -1,0 +1,32 @@
+{
+  "benchmark": "linear-seed-palette-frequency-counting",
+  "date": "2026-10-04",
+  "baseline_revision": "96a35a9",
+  "candidate_revision": "working-tree-after-96a35a9",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 34,
+    "edges": 561,
+    "graph": "complete graph",
+    "delta": 33,
+    "left_partition_max_degree": 17,
+    "right_partition_max_degree": 17,
+    "combined_child_palette_width": 36,
+    "requested_palette_width": 34
+  },
+  "measurement": "Three alternating before/after Paper.seed runs; each result fully certified; elapsed seconds and tracemalloc peak",
+  "baseline_seconds": [1.219419, 1.152478, 1.17488],
+  "candidate_seconds": [1.154117, 1.178922, 1.177317],
+  "baseline_peak_bytes": [630896, 536752, 536616],
+  "candidate_peak_bytes": [536016, 535896, 535768],
+  "median": {
+    "baseline_seconds": 1.17488,
+    "candidate_seconds": 1.177317,
+    "elapsed_reduction_percent": -0.21,
+    "baseline_peak_bytes": 536752,
+    "candidate_peak_bytes": 535896,
+    "peak_reduction_percent": 0.16
+  },
+  "certificate": "Every run returned a coloring accepted by Paper.certify for all 561 edges and delta 33.",
+  "limitations": "Small K34 fixture, one process, no large E/C asymptotic or service qualification; time and allocation were neutral after the first warm run."
+}

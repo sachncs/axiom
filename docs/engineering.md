@@ -1154,3 +1154,11 @@ certificate reduced isolated traced peak by 87.4% in one before/after run, with
 no demonstrated timing gain. This is component evidence only; repeatability,
 connected/dense adversarial cases, full paper snapshots, and durable production
 integration remain open. See [ADR 0090](adrs/0090-sparse-hierarchy-degree-audits.md).
+
+Paper seed palette reduction also accumulates all color frequencies in one pass
+over the combined coloring, replacing one full edge-color scan per palette
+color. A deterministic K34 excess-palette fixture enters the reduction branch
+and remains fully certified; three warmed before/after runs were timing-neutral
+at this small scale. The asymptotic frequency work falls from O(E·C) to O(E),
+with O(C log C) deterministic ordering. Large high-degree seed qualification
+remains open; see [ADR 0091](adrs/0091-linear-seed-palette-counting.md).
