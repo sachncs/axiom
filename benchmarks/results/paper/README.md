@@ -128,6 +128,18 @@ measurement noise and RSS differs by 1.52% in a single sample; this is compute
 evidence, not a storage claim or release qualification. A separate 512-vertex
 profile identifies full auxiliary-index validation as the next cost.
 
+## Incremental auxiliary-index certificates
+
+[auxiliary-certificates.json](auxiliary-certificates.json) compares `6668b6d`
+with touched-row certificates on the same seeded 8,192-vertex, average-degree-
+four multilevel churn trace. Rate rises from 228.92 to 436.54 updates/s (1.91×),
+with identical final graph/matching certificates and rebuild counters. A
+separate 512-vertex cProfile comparison falls from 0.1423 to 0.1035 profiled
+seconds for 128 updates (27.3%); this is diagnostic, not a throughput claim.
+Traced transient allocation changes by less than 0.1%, and single-sample RSS
+is effectively unchanged. Full reconstruction remains at rebuilt-root
+boundaries; property tests independently run it after each generated update.
+
 ## System root and row journal
 
 [systems.json](systems.json) captures isolated installed-wheel comparisons of

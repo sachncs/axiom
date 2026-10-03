@@ -51,6 +51,7 @@ def test_generated_updates_preserve_matching_contract(
             assert reference(matcher.graph, matching)
             assert partners(matching) == matcher.partner_map
             assert matcher.maximal()
+            assert matcher._Matcher__check_auxiliary_indexes()
             if mode == "multilevel":
                 assert matcher.multi is not None
                 assert matcher.multi.check()
@@ -91,6 +92,7 @@ def test_long_adversarial_multilevel_sequence_stays_consistent() -> None:
             matcher.delete(left, right)
 
         assert matcher.maximal()
+        assert matcher._Matcher__check_auxiliary_indexes()
         assert is_maximal_matching(matcher.graph, matcher.matching())
         assert reference(matcher.graph, matcher.matching())
         assert partners(matcher.matching()) == matcher.partner_map

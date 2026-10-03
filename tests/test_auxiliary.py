@@ -135,3 +135,24 @@ def test_parent_rebuild_undoes_auxiliary_clear_on_both_graph_backends(backend):
     matcher.phase_length = 1
     matcher.delete(0, 1)
     assert matcher.maximal() and matcher.multi is not None and matcher.multi.check()
+
+
+def test_affected_edge_certificate_rejects_missing_incident_delta_and_rolls_back(
+    monkeypatch,
+):
+    matcher = Matcher(16, mode="multilevel", graph=Packed(16))
+    before = Witness().capture(matcher)
+    add = Auxiliary.add
+
+    def omit_incident(journal, container, key, item):
+        if container is matcher.inserted_incident_edges:
+            return
+        add(journal, container, key, item)
+
+    monkeypatch.setattr(Auxiliary, "add", omit_incident)
+    with pytest.raises(RuntimeError, match="auxiliary index delta certificate"):
+        matcher.insert(0, 1)
+
+    assert Witness().capture(matcher) == before
+    assert matcher.auxiliary is None
+    assert matcher._Matcher__check_auxiliary_indexes()

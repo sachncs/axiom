@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy and maximality certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; auxiliary checks, `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy, maximality and auxiliary-index certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -184,10 +184,16 @@ replacement still receives the complete audit. A forced missing-rematch test
 proves this local certificate rejects and exactly rolls back an uncovered edge.
 On the same 8,192-vertex trace, this reduced update rate's previous batch time
 from 148.65 to 228.92 updates/s (1.54×) without changing the final certificate.
-This does not reduce retained storage. A separate 512-vertex profile now assigns
-30.8% of cumulative update time to the still-global auxiliary-index audit, which
-is the next measured target. See [ADR 0046](adrs/0046-local-maximality-certificates.md)
-and its [raw run record](../benchmarks/results/paper/local-maximality.json).
+This does not reduce retained storage. A separate 512-vertex profile had
+assigned 30.8% of cumulative update time to the global auxiliary-index audit.
+That per-update reconstruction is now replaced with touched inserted-edge and
+H/H̃/Ŝ row certificates; changed reverse rows are checked against their source
+entries. Full independent audits remain for replacement roots and are asserted
+after each generated test update. The same 8,192-vertex trace improved from
+228.92 to 436.54 updates/s (1.91×), with final certificate and rebuild counters
+unchanged. At 512 vertices profiled time fell 27.3%; sampled memory stayed level.
+This is a bounded diagnostic, not production qualification. See [ADR 0047](adrs/0047-incremental-auxiliary-certificates.md)
+and its [raw run record](../benchmarks/results/paper/auxiliary-certificates.json).
 
 ## Implemented foundation, not product qualification
 

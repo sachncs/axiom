@@ -515,63 +515,7 @@ class Matcher:
 
     def __check_auxiliary_indexes(self) -> bool:
         """Validate H, reverse-H, H-tilde, and S-hat against live state."""
-        expected_inserted_incident: dict[Vertex, set[Edge]] = {}
-        for edge in self.inserted_edges:
-            left, right = edge
-            expected_inserted_incident.setdefault(left, set()).add(edge)
-            expected_inserted_incident.setdefault(right, set()).add(edge)
-        if self.inserted_incident_edges != expected_inserted_incident:
-            return False
-
-        if self.system is None:
-            return not (
-                self.H
-                or self.H_reverse
-                or self.H_tilde
-                or self.H_tilde_reverse
-                or self.S_hat
-            )
-
-        expected_s_hat = {
-            vertex for vertex in self.system.S if vertex not in self.matched_vertices
-        }
-        if self.S_hat != expected_s_hat:
-            return False
-
-        expected_h: dict[Vertex, set[Vertex]] = {}
-        for source in self.system.U:
-            if source in self.matched_vertices:
-                continue
-            targets = {
-                target
-                for target in self.system.lambda_lists.get(source, [])
-                if self.graph.has_edge(source, target)
-            }
-            if targets:
-                expected_h[source] = targets
-        if self.H != expected_h:
-            return False
-
-        expected_reverse: dict[Vertex, set[Vertex]] = {}
-        for source, targets in expected_h.items():
-            for target in targets:
-                expected_reverse.setdefault(target, set()).add(source)
-        if self.H_reverse != expected_reverse:
-            return False
-
-        expected_tilde: set[tuple[Vertex, Vertex]] = set()
-        for left, right in self.inserted_edges:
-            if left not in self.matched_vertices and right in self.bad_vertices:
-                expected_tilde.add((left, right))
-            if right not in self.matched_vertices and left in self.bad_vertices:
-                expected_tilde.add((right, left))
-        expected_tilde_reverse: dict[Vertex, set[Vertex]] = {}
-        for source, target in expected_tilde:
-            expected_tilde_reverse.setdefault(target, set()).add(source)
-        return (
-            self.H_tilde == expected_tilde
-            and self.H_tilde_reverse == expected_tilde_reverse
-        )
+        return Auxiliary.complete(self)
 
     def __check_matching_state(self) -> bool:
         """Validate the matching, vertex cache, and partner map together."""
@@ -951,6 +895,8 @@ class Matcher:
         if self.views is not None:
             self.views.affect(u)
             self.views.affect(v)
+        if self.auxiliary is not None:
+            self.auxiliary.affect(u, v)
         if isinstance(graph, Packed) or type(graph) is Adjacency:
             version = graph.version if isinstance(graph, Packed) else 0
             count = graph.num_edges()
@@ -1440,10 +1386,6 @@ class Matcher:
             self.policy.advance_phase_clocks(self)
         self.__check_subphase_boundary()
         self.__maintain_i3()
-        if not self.__check_auxiliary_indexes():
-            raise RuntimeError(
-                "auxiliary matching indexes diverged from authoritative state"
-            )
 
         # Local rematching is allowed to remove an edge from M_1.  Reconcile
         # that legal transition before the next subphase rather than leaving

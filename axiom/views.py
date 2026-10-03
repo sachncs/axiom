@@ -114,6 +114,9 @@ class Views:
         """Retain original edge and endpoint cells before any local view edit."""
         if not self.check():
             return
+        auxiliary = self.owner.auxiliary
+        if auxiliary is not None:
+            auxiliary.affect(left, right)
         edge = (min(left, right), max(left, right))
         if edge not in self.edge:
             self.reserve()

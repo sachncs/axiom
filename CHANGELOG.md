@@ -67,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   audit. A matched 8,192-vertex trace improved 1.54× with its final certificate
   unchanged. Retained storage is essentially unchanged, and full auxiliary-index
   validation is now a leading profiled cost. See [ADR 0046](docs/adrs/0046-local-maximality-certificates.md).
+- Auxiliary index transactions now validate touched inserted-edge, H/reverse-H,
+  H̃/reverse-H̃ and Ŝ rows; rebuilt roots retain the full reconstruction audit.
+  A 512-vertex profile's cumulative time fell 27.3%; the matched 8,192-vertex
+  trace improved another 1.91×. Full oracle checks run after each generated
+  update in tests. Memory is unchanged; see [ADR 0047](docs/adrs/0047-incremental-auxiliary-certificates.md).
 - 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.
