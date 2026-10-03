@@ -8,7 +8,7 @@ mode. The hardware power-loss test remains explicitly deferred for this version.
 | # | Requirement | Current status | What remains before calling it done |
 | ---: | --- | --- | --- |
 | 1 | Paper-engine performance hardening | **Partial** — recursive `deepcopy` is gone; graph, coloring, fan and hierarchy journals/sparse paths exist. Recent fan-root and parent-boundary snapshot reductions are scoped changes. | Finish remaining graph-sized snapshots/rebases, detached child Systems, multi-source hierarchy construction and hot-path global work; publish repeated time/allocation/RSS budgets without weakening rollback or audits. See [paper state](paper-state.md). |
-| 2 | Durable `native`, `basic` and `multilevel` production modes | **Not implemented** — `Service`/`Durable` persist only the native engine; paper modes remain nondurable and externally serialized. | Mode-specific journals/codecs, persisted identity/configuration, exact hierarchy/color/fan recovery, incompatible/corrupt-state refusal, and independent installed/recovery/overload qualification. See [ADR 0023](adrs/0023-durable-paper-integration.md). |
+| 2 | Durable `basic` and `multilevel` production modes; Basic default | **Not implemented** — `Service`/`Durable` currently persist the separate native matching engine; paper modes remain nondurable. The native `Packed` graph container is storage, not a matching method, and may remain underneath either mode. | Paper-mode transaction/publication contract, exact versioned checkpoint/recovery codecs, persisted mode identity, old native-store compatibility policy, exact hierarchy/color/fan recovery, and independent installed/recovery/overload qualification. See [ADR 0023](adrs/0023-durable-paper-integration.md). |
 | 3 | Repeatability, skew and adversarial qualification | **Partial** — four repeated 10s and one 60s 1M-vertex power-law source-checkout samples now exist; exact final recovery passed. 10k offers delivered 9.54k/s; 12k offers delivered 11.15k/s short-run and 11.35k/s over 60s, with 5.4% producer-missed slots. | Installed-wheel soaks, independent load generation, exact per-version query replay, uniform/power-law/hub and insert/delete/churn matrix, repair cascades, overload boundaries, restart loops and resource characterization. See [recorded power-law evidence](../benchmarks/results/overload/README.md). |
 | 4 | Native Service deployment qualification | **Partial** — scoped 30-minute, recovery and hard-resource evidence plus operating guidance exist. | Broader sustained skew/burst repeatability, disk/page-cache/WAL quota guidance, corruption/error drills, alert thresholds, sizing, idempotency and service-ready deployment examples. Hardware power-loss remains deferred. See [operations](operations.md). |
 | 5 | Arbitrary durable external IDs | **Not implemented** — public graph APIs use dense integer labels. | Stable string/UUID/database-key codec and mapping persistence, no-reuse lifecycle, efficient lookup, migration and crash/rollback tests. |
@@ -31,5 +31,9 @@ The work is not complete. The newly implemented batch API, cross-platform
 workflow, explicit batch API and power-law samples advance items 7, 14 and 3, respectively;
 they do not close adjacent requirements. In particular, basic/multilevel are
 not durable, arbitrary IDs and dynamic vertices are absent, and the paper engine
-is not a production-qualified billion-node system. See [current measured status](status.md)
-for the native operating envelope and historical evidence boundaries.
+is not a production-qualified billion-node system. The accepted architecture
+permits only Basic and Multilevel matching methods, with Basic the default; the
+separate native matching engine is to be retired from the production path, while
+compact native graph storage may remain an implementation detail. See [current
+measured status](status.md) for the native operating envelope and historical
+evidence boundaries.

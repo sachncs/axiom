@@ -11,17 +11,31 @@ The current SQLite formats and Service implementation select native Engine only.
 
 ## Required direction
 
-Provide basic, multilevel and native algorithms through a common durable service
-boundary, with explicit selection rather than silently substituting algorithms.
-Use polymorphic backend contracts for mutation, validation, publication, rollback
-and recovery. Persist algorithm identity and construction parameters. Opening a
-store with incompatible parameters must reject, never reinterpret its history.
+The only supported matching methods are **`basic`** and **`multilevel`**. The
+paper `Matcher` is the production matching algorithm; `basic` is the default and
+replaces the separate native matching algorithm. `multilevel` selects the paper
+hierarchy. The native `Packed` container may remain as an implementation of the
+graph-storage contract because compact mutable storage is a separate concern
+from matching policy. The native `Engine` matching algorithm must not remain a
+third selectable production method or be relabeled as either paper method.
 
-Preserve the existing native format and receipts. Paper recovery must reproduce
-the exact accepted graph, matching, coloring/fans, hierarchy and accounting—not
-merely any valid matching with the same size. Reject invalid/unsupported state
-explicitly. The storage contract must retain commit-before-ack, bounded history,
-same-ID retries, failure isolation, coherent reads, backup and exact reopen.
+Bring both paper methods through the same durable Service boundary, with a
+shared lifecycle contract and mode-specific implementations for mutation,
+validation, publication, rollback and recovery. Persist algorithm identity and
+construction parameters. Opening a store with incompatible parameters must
+reject, never reinterpret its history. New production stores default to `basic`;
+selecting `multilevel` is explicit. Existing native-format stores must remain
+readable only under an explicit compatibility/migration policy, never silently
+open as Basic or Multilevel.
+
+Paper recovery must reproduce the exact accepted graph, matching,
+coloring/fans, hierarchy and accounting—not merely any valid matching with the
+same size. Reject invalid/unsupported state explicitly. The durable Service
+contract must retain commit-before-ack, bounded history, same-ID retries,
+failure isolation, coherent reads, backup and exact reopen. The old native
+engine may be retained temporarily only as an explicitly versioned on-disk
+compatibility reader/migrator while existing stores require it; it is not a
+supported matching method after migration.
 
 Complete the paper mutation-journal inventory before replacing its snapshot oracle.
 A graph-only undo log cannot restore fan/coloring/hierarchy state. Journals must
@@ -52,7 +66,12 @@ Do not remove truthful current limitations from docs before implementation.
 
 ## Consequences
 
-This expands active engineering scope; hardware power-loss and billion-vertex
-qualification remain deferred. The paper’s complete theoretical bound is still
-not established. Shared production durability does not transfer a theorem or a
-10k-throughput result between different algorithms.
+This is a backend replacement, not a mode rename. Current `Durable`/`Service`
+are coupled to `Engine` transactions, checkpoint images, recovery, and queries;
+paper `Matcher` currently provides per-update rollback but not a durable
+multi-update transaction or a versioned exact checkpoint codec. Therefore the
+native matching path cannot be removed from existing-store compatibility until
+paper recovery, publication, and migration gates pass. Hardware power-loss and
+billion-vertex qualification remain deferred. The paper’s complete theoretical
+bound is still not established. Shared production durability does not transfer
+a theorem or a 10k-throughput result between Basic and Multilevel.
