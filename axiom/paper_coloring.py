@@ -2740,7 +2740,9 @@ class Extension:
         ordered = tuple(sorted(colorgroup))
         tolocal = {color: index for index, color in enumerate(ordered)}
         edgescope = {edge for edge, color in coloring.items() if color in colorgroup}
-        selectedfans = [fan for fan in fans if fan.type <= colorgroup]
+        selectedfans = [
+            fan for fan in fans.members if fan.type <= colorgroup
+        ]
         for fan in selectedfans:
             edgescope.update(fan.edges)
         degree: dict[Vertex, int] = {}

@@ -1,0 +1,29 @@
+{
+  "benchmark": "paper-extension-project-fan-selection",
+  "date": "2026-10-04",
+  "baseline_revision": "df4872c",
+  "candidate_revision": "working-tree-after-df4872c",
+  "fixture": {
+    "vertices": 75000,
+    "fans": 25000,
+    "selected_fans": 1250,
+    "selected_fraction": 0.05,
+    "colored_edges": 0,
+    "palette": 4,
+    "operation": "one Extension.project color-group projection"
+  },
+  "measurement": "Five runs; fixture setup excluded; traced peak and elapsed time measured for projection",
+  "baseline_peak_bytes": [3553152, 3553008, 3552976, 3552928, 3552896],
+  "candidate_peak_bytes": [3409160, 3409080, 3409048, 3409000, 3408968],
+  "baseline_seconds": [0.04679, 0.04697, 0.04557, 0.04825, 0.05051],
+  "candidate_seconds": [0.03441, 0.03413, 0.03482, 0.03631, 0.03394],
+  "median": {
+    "baseline_peak_bytes": 3552976,
+    "candidate_peak_bytes": 3409048,
+    "peak_reduction_percent": 4.05,
+    "baseline_seconds": 0.04697,
+    "candidate_seconds": 0.03441,
+    "elapsed_reduction_percent": 26.73
+  },
+  "limitations": "Synthetic disconnected fan gadgets and one color group on one host; traced Python memory rather than RSS; excludes colored-edge-heavy, connected, full-engine, durable-service, and billion-vertex qualification."
+}

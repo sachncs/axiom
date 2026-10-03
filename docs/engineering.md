@@ -181,6 +181,17 @@ Tests cover both disjoint multi-group projection and rejection of overlapping
 groups. See [ADR 0083](adrs/0083-disjoint-recursive-scopes.md) and its
 [raw comparison](../benchmarks/results/paper/disjoint-extension-scopes.json).
 
+`Extension.project` now scans the authoritative fan-member set directly when
+selecting fans for a color group. This avoids invoking `Fans.__iter__`, which
+sorts and materializes the full parent collection even when only a small
+fraction belongs to the projected group. In five runs on 75,000 vertices and
+25,000 fan gadgets, selecting 1,250 fans reduced median projection time from
+46.97 ms to 34.41 ms (26.73%) and traced peak from 3,552,976 to 3,409,048 bytes
+(4.05%). This is a one-color-group component probe with no colored edges; it is
+not connected-graph, process-RSS, or product throughput qualification. See
+[ADR 0084](adrs/0084-stream-parent-fan-selection.md) and its
+[raw comparison](../benchmarks/results/paper/project-fan-selection.json).
+
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores
 touched coloring cells without replacing container roots. A failure injected
@@ -683,10 +694,12 @@ These short, cache-friendly, fixed-degree traces are **not matcher throughput,
 durable acknowledged throughput, long-running churn, or a billion-scale result**.
 The native byte budget excludes Python objects, allocator overhead, audit scratch,
 and other containers. Each derived graph currently has its own budget, not a shared
-service-level quota. Python paper matcher state is still deep-copied; its hierarchy
-checks/rebuilds perform global work. Native production journals/certificates,
-FULL-WAL recovery and local bounded admission are now separate delivered paths;
-paper-state migration and full-service qualification remain open.
+service-level quota. The paper `Matcher` update path no longer uses recursive
+`deepcopy`, but remaining paper operations still materialize graph-sized scopes,
+indexes, or snapshots and some hierarchy checks/rebuilds perform global work.
+Native production journals/certificates, FULL-WAL recovery and local bounded
+admission are delivered; paper-state migration and full-service qualification
+remain open.
 
 See [native storage contracts and reproduction](storage.md) and the raw
 [seed 599](../benchmarks/results/storage/million-599.json),

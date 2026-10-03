@@ -593,6 +593,38 @@ def test_project_subproblem_preserves_packed_budget() -> None:
     assert set(child.graph.edges()) == scope
 
 
+def test_project_does_not_sort_materialize_the_parent_fan_collection() -> None:
+    class CountedFans(Fans):
+        def __init__(self) -> None:
+            super().__init__()
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return super().__iter__()
+
+    count = 100
+    graph = Adjacency(3 * count)
+    fans = CountedFans()
+    for index in range(count):
+        center = 3 * index
+        graph.add_edge(center, center + 1)
+        graph.add_edge(center, center + 2)
+        fans.add(Fan(center, center + 1, center + 2, 0, 1, 1))
+    coloring = Partial(graph, 4)
+
+    child, childfans, scope, ignored = Extension.project(
+        coloring, fans, frozenset({0, 1})
+    )
+
+    assert fans.iterations == 0
+    assert len(childfans) == count
+    assert len(scope) == 2 * count
+    assert isinstance(child.graph, Packed)
+    child.validate()
+    childfans.validate()
+
+
 def test_project_subproblem_keeps_custom_graph_fallback() -> None:
     class Custom:
         def __init__(self, graph: Adjacency) -> None:
