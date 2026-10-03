@@ -8,6 +8,7 @@ import pytest
 from axiom.graph import Adjacency
 from axiom.paper_coloring import (
     Chain,
+    ColorJournal,
     Construction,
     Event,
     Extension,
@@ -1060,6 +1061,43 @@ def test_prune_rolls_back_touched_spokes_and_added_fan_without_root_replacement(
     coloring.validate()
     fans.validate()
     fans.compatible(coloring)
+
+
+def test_construct_rolls_back_completed_inner_reduction_from_edge_journal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(2)
+    graph.add_edge(0, 1)
+    coloring = Partial(graph, 2)
+    roots = (coloring.assignments, coloring.incident, coloring.index)
+    originalreduce = Pruning.reduce
+
+    def fail_after_reduce(
+        cls: type[Pruning],
+        coloring: Partial,
+        fans: Fans,
+        uedges: tuple[Spoke, ...],
+        *,
+        journal: ColorJournal | None = None,
+    ) -> int:
+        originalreduce(coloring, fans, uedges, journal=journal)
+        raise RuntimeError("injected enclosing construction failure")
+
+    monkeypatch.setattr(Pruning, "reduce", classmethod(fail_after_reduce))
+
+    with pytest.raises(RuntimeError, match="enclosing construction failure"):
+        Pruning.construct(coloring, {(0, 1)})
+
+    assert not coloring.assignments
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            roots,
+            strict=True,
+        )
+    )
+    coloring.validate()
 
 
 def test_vizing_chain_exploration_detects_oriented_collisions() -> None:

@@ -84,6 +84,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0075](0075-bounded-vizing-collision-rollback.md) | Journal only chain/spoke colors and fan entries touched by Vizing collision resolution | 20k-vertex local collision 120.23× faster; other paper snapshots remain |
 | [0076](0076-local-pruning-certificates.md) | Read blocked fan colors from the owner index and certify only touched chain regions between full audits | 4,000-fan/100-edge Pruning.reduce 56.88× faster; broader graph qualification remains |
 | [0077](0077-bounded-prune-rollback.md) | Capture only exposed fan spokes and newly added fans for PruneVFans rollback | 10k-fan/10k-color case: 2.59% lower traced temporary peak; broader rollback migration remains |
+| [0078](0078-journal-construct-coloring-changes.md) | Propagate first-write spoke/chain deltas through Pruning.construct instead of copying the full coloring map | 100k-vertex/50k-colored-edge stage: 6.06% lower traced peak; other snapshots remain |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

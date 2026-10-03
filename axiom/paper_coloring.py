@@ -612,9 +612,12 @@ class Partial:
 class ColorJournal:
     """Retain first-write before-images for a bounded Partial coloring region."""
 
-    def __init__(self, coloring: Partial) -> None:
-        """Bind the journal to one coloring owner for a single operation."""
+    def __init__(
+        self, coloring: Partial, parent: ColorJournal | None = None
+    ) -> None:
+        """Bind a local before-image to its owner and optional enclosing journal."""
         self.coloring = coloring
+        self.parent = parent
         self.before: dict[Edge, Color | None] = {}
 
     def capture(self, edges: Iterable[Edge]) -> None:
@@ -622,6 +625,8 @@ class ColorJournal:
         for edge in edges:
             edge = canonical(*edge)
             if edge not in self.before:
+                if self.parent is not None:
+                    self.parent.capture((edge,))
                 self.before[edge] = self.coloring.assignments.get(edge)
 
     def rollback(self) -> None:
@@ -1583,9 +1588,11 @@ class Pruning:
         coloring: Partial,
         fans: Fans,
         uedges: tuple[Spoke, ...],
+        *,
+        journal: ColorJournal | None = None,
     ) -> tuple[Spoke, ...]:
         """Run pruning atomically, including the caller-owned fan collection."""
-        colorjournal = ColorJournal(coloring)
+        colorjournal = ColorJournal(coloring, journal)
         createdfans: list[Fan] = []
         try:
             if not uedges:
@@ -1714,6 +1721,8 @@ class Pruning:
         coloring: Partial,
         fans: Fans,
         uedges: tuple[Spoke, ...],
+        *,
+        journal: ColorJournal | None = None,
     ) -> int:
         """Reduce the surviving pruned u-edges through deterministic Vizing chains.
 
@@ -1748,6 +1757,13 @@ class Pruning:
                 selectedchains: tuple[Chain, ...] = (event.terminal,)
             elif event.collision is not None:
                 collisionchains = event.collision
+                if journal is not None:
+                    for chain in collisionchains:
+                        journal.capture(chain.edges)
+                        journal.capture(
+                            canonical(chain.spoke.center, leaf)
+                            for leaf in chain.leaves
+                        )
                 resolved, added = cls.vizing.resolve(
                     coloring, fans, collisionchains
                 )
@@ -1787,6 +1803,11 @@ class Pruning:
                 item = chain.spoke
                 if item not in active or item.edge in coloring:
                     continue
+                if journal is not None:
+                    journal.capture(chain.edges)
+                    journal.capture(
+                        canonical(chain.spoke.center, leaf) for leaf in chain.leaves
+                    )
                 cls.vizing.activate(coloring, chain)
                 changededges.update(chain.edges)
                 changededges.update(
@@ -1807,7 +1828,13 @@ class Pruning:
         return extended
 
     @classmethod
-    def construct(cls, coloring: Partial, uncolorededges: set[Edge]) -> Fans:
+    def construct(
+        cls,
+        coloring: Partial,
+        uncolorededges: set[Edge],
+        *,
+        journal: ColorJournal | None = None,
+    ) -> Fans:
         """Construct paper u-fans from a matching of uncolored edges.
 
         This executes the explicit ``create u-edges``, ``PruneVFans``, and the
@@ -1818,7 +1845,7 @@ class Pruning:
         coloring.validate()
         if not uncolorededges:
             return Fans()
-        before = dict(coloring.assignments)
+        colorjournal = ColorJournal(coloring, journal)
         try:
             seeded = cls.seed(coloring, uncolorededges)
             result = Fans()
@@ -1826,8 +1853,13 @@ class Pruning:
             for item in seeded:
                 bycolor.setdefault(item.alpha, []).append(item)
             for color in sorted(bycolor):
-                remaining = cls.prune(coloring, result, tuple(bycolor[color]))
-                cls.reduce(coloring, result, remaining)
+                remaining = cls.prune(
+                    coloring,
+                    result,
+                    tuple(bycolor[color]),
+                    journal=colorjournal,
+                )
+                cls.reduce(coloring, result, remaining, journal=colorjournal)
             coloring.validate()
             result.validate()
             result.compatible(coloring)
@@ -1840,8 +1872,7 @@ class Pruning:
                 )
             return result
         except Exception:
-            coloring.assignments = before
-            coloring.reindex()
+            colorjournal.rollback()
             coloring.validate()
             raise
 

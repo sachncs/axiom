@@ -1,0 +1,29 @@
+{
+  "benchmark": "construct-color-journal",
+  "date": "2026-10-03",
+  "baseline_revision": "8fd4092",
+  "candidate_revision": "working-tree-after-8fd4092",
+  "python": "3.14.8",
+  "fixture": {
+    "unrelated_colored_edges": 50000,
+    "pending_uncolored_edges": 100,
+    "vertices": 100200,
+    "graph_edges": 50100,
+    "operation": "Pruning.construct"
+  },
+  "measurement": "construct elapsed time and tracemalloc peak; setup and independent end-state validation excluded; gc.collect before each run; alternating baseline/candidate order",
+  "certificate": "all 100 pending edges were colored in a deterministic verification run; full coloring and returned fan audits passed",
+  "baseline_seconds": [0.9128554579947377, 0.9279789580032229, 0.951457749994006],
+  "candidate_seconds": [0.9083499160042265, 0.9170558330079075, 0.9544452080008341],
+  "baseline_peak_bytes": [43037752, 43037680, 43037672],
+  "candidate_peak_bytes": [40427576, 40427552, 40427528],
+  "median": {
+    "baseline_seconds": 0.9279789580032229,
+    "candidate_seconds": 0.9170558330079075,
+    "elapsed_reduction_percent": 1.18,
+    "baseline_peak_bytes": 43037680,
+    "candidate_peak_bytes": 40427552,
+    "peak_reduction_percent": 6.06
+  },
+  "limitations": "Single-host sparse synthetic graph, three repeats; traced peak only; wall-time change is small and not a performance claim; other paper snapshots remain."
+}
