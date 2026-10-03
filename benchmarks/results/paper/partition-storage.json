@@ -1,0 +1,48 @@
+{
+  "status": "isolated_partition_representation_diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "candidate_sources": {
+    "axiom/system.py": "78692488964b68683cbb56f9f658a799ffbe82a99f3d9f291f7b61e042dc6f1d",
+    "axiom/systems.py": "d993f2987a00ce88682e71852b01061c9146f6ebef77eac53f2f478489d5084a",
+    "axiom/vertices.py": "90dfcf7b10af232ef1d0c936c8419e68e5f0eef65169e84b209770662e693080",
+    "axiom/rebuild.py": "2af8a61dfad8ddcf46edc71d01f610b9d32e6f0f5e19960a2adc36c18b2402c2",
+    "tests/test_system_delta.py": "97961a05167999870940e0b02b03d29f66d21c74470b972b29a76d57b9c61336",
+    "tests/test_axiom.py": "d32501ccdc0e1736cb8423cb4fac21f8b561717ca10bffb69584fa2d8046d2b7"
+  },
+  "configuration": {
+    "universe_vertices": 1000000,
+    "A_vertices": 500000,
+    "B_vertices": 500000,
+    "U_vertices": 0,
+    "repeats": 1,
+    "measurement": "tracemalloc live retained and peak allocations"
+  },
+  "python_set_representation": {
+    "construction": "set(range(500000)); set(range(500000, 1000000))",
+    "retained_bytes": 65543888,
+    "peak_bytes": 67998672
+  },
+  "compact_representation": {
+    "construction": "Vertices(1000000, member_list) for A and B; source lists then released",
+    "retained_bytes": 12201064,
+    "peak_bytes": 52189904,
+    "retained_reduction_percent": 81.38,
+    "peak_reduction_percent": 23.25
+  },
+  "caller_set_conversion": {
+    "construction": "System converts two already-created dense sets to Vertices",
+    "retained_bytes": 12201952,
+    "peak_bytes": 77749712,
+    "note": "Peak includes old sets and replacement arrays simultaneously; canonical builder avoids this route for dense partitions."
+  },
+  "limits": [
+    "Only A/B partition objects are measured; no graph, matching, cache, phase or process RSS is included.",
+    "One host and one allocation shape; this does not qualify update throughput or durability.",
+    "Sparse partitions intentionally remain Python sets; the compact position array is universe-sized.",
+    "Million-vertex end-to-end paper qualification and billion-vertex support are not established."
+  ]
+}

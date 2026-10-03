@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense partitions/counters and hierarchy `R` copies, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local hierarchy/maximality/auxiliary/System-row certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; materialized `A/B` sets, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U partitions and counters, hierarchy `R` copies, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -229,6 +229,17 @@ bytes for the union to 632–1,432 bytes for traversal. This measures temporary
 allocation only: retained `A` and `B` are still Python sets, and the probe is
 not end-to-end Matcher RSS or update-rate evidence. See [ADR 0050](adrs/0050-lazy-saturated-partition-scan.md)
 and its [raw record](../benchmarks/results/paper/saturated-scan.json).
+
+Dense `A` and `B` partitions now use the existing indexed `Vertices` storage at
+an explicit 1/8 universe-density threshold; sparse partitions keep Python sets.
+System building creates dense partitions directly from temporary member lists,
+and phase copies preserve their compact representation instead of round-tripping
+through sets. An isolated one-million-label representation probe measured
+retained partition allocation of 12.2 MB versus 65.5 MB for two Python sets
+(81.4% lower). Set-to-compact conversion itself has a higher transient peak due
+to overlap, so the builder path avoids first constructing those dense sets. The
+probe is not whole-Matcher RSS or billion-vertex qualification. See [ADR 0051](adrs/0051-compact-dense-system-partitions.md)
+and its [raw record](../benchmarks/results/paper/partition-storage.json).
 
 ## Implemented foundation, not product qualification
 

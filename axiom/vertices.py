@@ -21,15 +21,23 @@ class Vertices:
     empty = 0xFFFFFFFF
     __slots__ = ("n", "positions", "members", "size")
 
-    def __init__(self, n: int, values: Iterable[Vertex] = ()) -> None:
-        """Create an empty bounded partition and optionally populate it."""
+    def __init__(
+        self,
+        n: int,
+        values: Iterable[Vertex] = (),
+        *,
+        ordered: bool = True,
+    ) -> None:
+        """Create a bounded partition, optionally sorting set input first."""
         if type(n) is not int or not 0 <= n <= self.empty:
             raise ValueError("vertex universe must fit unsigned 32-bit labels")
+        if type(ordered) is not bool:
+            raise ValueError("ordered must be a boolean")
         self.n = n
         self.positions = array("I", [self.empty]) * n
         self.members = array("I")
         self.size = 0
-        if type(values) is set:
+        if type(values) is set and ordered:
             values = sorted(values)
         for value in values:
             if type(value) is not int or not 0 <= value < self.n:

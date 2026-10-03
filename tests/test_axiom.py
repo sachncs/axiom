@@ -622,6 +622,20 @@ class TestBuild:
         copied.U.discard(0)
         assert 0 in system.U
 
+    def test_phase_system_copy_retains_dense_a_representation(self) -> None:
+        graph = Adjacency(32)
+        for vertex in range(0, 32, 2):
+            graph.add_edge(vertex, vertex + 1)
+        system = build(graph, z=1)
+        assert type(system.A) is Vertices and len(system.A) == 32
+
+        copied = rebuild_module.copy(system, graph.copy())
+
+        assert type(copied.A) is Vertices and copied.A == system.A
+        assert copied.A is not system.A
+        copied.A.discard(0)
+        assert 0 in system.A
+
     def test_hierarchy_region_retains_compact_dense_u(self) -> None:
         hierarchy = build_hierarchy(Adjacency(32), [2])
         assert type(hierarchy.R1) is Vertices

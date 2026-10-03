@@ -45,8 +45,8 @@ def copy(system: System, graph: Graph) -> System:
     copied = System(
         graph=graph,
         z=system.z,
-        A=set(system.A),
-        B=set(system.B),
+        A=system.A.copy(),
+        B=system.B.copy(),
         U=system.U.copy(),
         M=set(system.M),
     )

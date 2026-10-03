@@ -9,6 +9,7 @@ from axiom.hierarchy import update
 from axiom.storage import Packed
 from axiom.system import System
 from axiom.systems import Systems
+from axiom.vertices import Vertices
 from axiom.witness import Witness
 
 
@@ -36,6 +37,42 @@ def test_saturated_partition_scan_does_not_build_union():
 
     assert tuple(system.saturated()) == (0, 1, 2)
     assert system.check_bound()
+
+
+def test_dense_system_partitions_use_compact_set_semantics():
+    """Dense A/B save hash storage while sparse partitions retain Python sets."""
+    graph = Adjacency(128)
+    left = set(range(40))
+    right = set(range(40, 80))
+    rest = set(range(80, 128))
+    system = System(graph, 0, A=left, B=right, U=rest)
+
+    assert type(system.A) is Vertices and type(system.B) is Vertices
+    assert type(system.U) is Vertices
+    assert tuple(system.A) == tuple(left)
+    assert tuple(system.B) == tuple(right)
+    assert system.check_partition() and system.check_bound()
+    assert system.S == left | right
+    system.A.add(80)
+    system.A.discard(80)
+    system.B.add(81)
+    system.B.discard(81)
+    assert system.check_partition()
+
+    sparse = System(
+        Adjacency(128), 0, A={0}, B={1}, U=set(range(2, 128))
+    )
+    assert type(sparse.A) is set and type(sparse.B) is set
+
+    crossover = System(
+        Adjacency(128),
+        0,
+        A=set(range(15)),
+        B=set(range(15, 31)),
+        U=set(range(31, 128)),
+    )
+    assert type(crossover.A) is set
+    assert type(crossover.B) is Vertices
 
 
 @pytest.mark.parametrize("backend", [Adjacency, Packed])

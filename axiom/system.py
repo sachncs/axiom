@@ -99,8 +99,8 @@ class System:
 
     graph: Graph
     z: int
-    A: set[Vertex] = field(default_factory=set)
-    B: set[Vertex] = field(default_factory=set)
+    A: set[Vertex] | Vertices = field(default_factory=set)
+    B: set[Vertex] | Vertices = field(default_factory=set)
     U: set[Vertex] | Vertices = field(default_factory=set)
     M: set[Edge] = field(default_factory=set)
     lambda_lists: dict[Vertex, list[Vertex]] = field(default_factory=dict)
@@ -110,13 +110,14 @@ class System:
     )
 
     def __post_init__(self) -> None:
-        """Compact dense U partitions while retaining ordinary sparse sets."""
-        if (
-            type(self.U) is set
-            and self.graph.n > 0
-            and len(self.U) * 12 >= self.graph.n
-        ):
-            self.U = Vertices(self.graph.n, self.U)
+        """Compact dense partitions while retaining ordinary sparse sets."""
+        if self.graph.n > 0:
+            if type(self.A) is set and len(self.A) * 8 >= self.graph.n:
+                self.A = Vertices(self.graph.n, self.A, ordered=False)
+            if type(self.B) is set and len(self.B) * 8 >= self.graph.n:
+                self.B = Vertices(self.graph.n, self.B, ordered=False)
+            if type(self.U) is set and len(self.U) * 12 >= self.graph.n:
+                self.U = Vertices(self.graph.n, self.U)
 
     @property
     def S(self) -> set[Vertex]:
@@ -871,8 +872,8 @@ def build(graph: Graph, z: int) -> System:
         deg_M[u] -= 1
         deg_M[v] -= 1
 
-    A: set[Vertex] = set()
-    B: set[Vertex] = set()
+    A_values: list[Vertex] = []
+    B_values: list[Vertex] = []
     for v in S:
         has_neighbor_in_U = False
         for w in sorted(graph.neighbors(v)):
@@ -880,9 +881,20 @@ def build(graph: Graph, z: int) -> System:
                 has_neighbor_in_U = True
                 break
         if has_neighbor_in_U:
-            B.add(v)
+            B_values.append(v)
         else:
-            A.add(v)
+            A_values.append(v)
+
+    A: set[Vertex] | Vertices = (
+        Vertices(graph.n, A_values)
+        if graph.n and len(A_values) * 8 >= graph.n
+        else set(A_values)
+    )
+    B: set[Vertex] | Vertices = (
+        Vertices(graph.n, B_values)
+        if graph.n and len(B_values) * 8 >= graph.n
+        else set(B_values)
+    )
 
     system = System(graph=graph, z=z, A=A, B=B, U=U_set, M=M)
     system.index()

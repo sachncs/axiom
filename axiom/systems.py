@@ -80,10 +80,24 @@ class Systems:
             }:
                 raise TypeError("unsupported System fields")
             if (
-                any(type(attributes[name]) is not set for name in ("A", "B", "M"))
-                or type(attributes["U"]) not in (set, Vertices)
+                any(
+                    type(attributes[name]) not in (set, Vertices)
+                    for name in ("A", "B", "U")
+                )
+                or type(attributes["M"]) is not set
+                or any(
+                    type(attributes[name]) is Vertices
+                    and attributes[name].n != owner.n
+                    for name in ("A", "B", "U")
+                )
             ):
-                raise TypeError("System partitions require plain sets")
+                raise TypeError("System partitions require bounded set storage")
+            if audit and any(
+                type(attributes[name]) is Vertices
+                and not attributes[name].check()
+                for name in ("A", "B", "U")
+            ):
+                raise ValueError("System contains an invalid compact partition")
             for name in ("lambda_lists", "L_lists"):
                 container = attributes[name]
                 if type(container) is not dict:
@@ -220,10 +234,27 @@ class Systems:
                 "journal",
             }:
                 raise TypeError("unsupported System candidate fields")
-            if any(
-                type(getattr(system, name)) is not set for name in ("A", "B", "M")
-            ) or type(system.U) not in (set, Vertices):
-                raise TypeError("System candidate requires plain sets")
+            if (
+                any(
+                    type(getattr(system, name)) not in (set, Vertices)
+                    for name in ("A", "B", "U")
+                )
+                or type(system.M) is not set
+            ):
+                raise TypeError("System candidate requires bounded set storage")
+            for name in ("A", "B", "U"):
+                partition = getattr(system, name)
+                if type(partition) is Vertices:
+                    if partition.n != self.owner.n:
+                        raise ValueError("System candidate partition universe differs")
+                    if (
+                        self.audit
+                        or original is None
+                        or partition is not original[1][name]
+                    ) and not partition.check():
+                        raise ValueError(
+                            "System candidate compact partition is invalid"
+                        )
             for name in ("lambda_lists", "L_lists"):
                 container = getattr(system, name)
                 if type(container) is not dict:
