@@ -172,6 +172,15 @@ its progress guard rather than materializing all edge keys; the base-case
 regression forbids that snapshot helper. This allocation removal is not covered
 by the sparsification benchmark above.
 
+`Extension.extend` also no longer accumulates a second edge set across every
+recursive color-group scope. It validates groups are disjoint in color space;
+the `project` contract and fan compatibility prove sibling edge scopes are
+disjoint, avoiding an O(m) duplicate overlap ledger. Five full two-group runs
+with 5,000 fans reduced traced peak by 4.85%; median time changed by +0.57%.
+Tests cover both disjoint multi-group projection and rejection of overlapping
+groups. See [ADR 0083](adrs/0083-disjoint-recursive-scopes.md) and its
+[raw comparison](../benchmarks/results/paper/disjoint-extension-scopes.json).
+
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores
 touched coloring cells without replacing container roots. A failure injected

@@ -1645,6 +1645,64 @@ def test_extend_recursive_synchronizes_parent_fans_after_child_coloring() -> Non
     assert not fans
 
 
+def test_extend_projects_disjoint_color_groups_without_scope_overlap() -> None:
+    class Partitioned:
+        @classmethod
+        def sparsify(
+            cls: type[Partitioned], coloring: Partial, fans: Fans, eta: int
+        ) -> tuple[tuple[frozenset[int], ...], Fans]:
+            return (frozenset({0, 1}), frozenset({2, 3})), fans
+
+    class Grouped(Extension):
+        spectrum = Partitioned
+
+    graph = Adjacency(6)
+    for edge in ((0, 1), (0, 2), (3, 4), (3, 5)):
+        graph.add_edge(*edge)
+    fans = Fans()
+    fans.add(Fan(0, 1, 2, 0, 1, 1))
+    fans.add(Fan(3, 4, 5, 2, 3, 3))
+    coloring = Partial(graph, 200)
+
+    assert Grouped.extend(coloring, fans, 10) == 2
+
+    assert len(coloring.assignments) == 2
+    assert not fans
+    coloring.validate()
+
+
+def test_extend_rejects_overlapping_color_group_contract() -> None:
+    class Overlapping:
+        @classmethod
+        def sparsify(
+            cls: type[Overlapping],
+            coloring: Partial,
+            fans: Fans,
+            eta: int,
+        ) -> tuple[tuple[frozenset[int], ...], Fans]:
+            return (frozenset({0, 1}), frozenset({1, 2})), fans
+
+    class Guarded(Extension):
+        spectrum = Overlapping
+
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    coloring = Partial(graph, 200)
+    fans = Fans()
+    fan = Fan(0, 1, 2, 0, 1, 1)
+    fans.add(fan)
+
+    with pytest.raises(RuntimeError, match="overlapping color groups"):
+        Guarded.extend(coloring, fans, 10)
+
+    assert fans.members == {fan}
+    assert not coloring.assignments
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_color_blocks_are_ordered_and_disjoint() -> None:
     blocks, pairs = Spectrum.blocks(100, 10)
 

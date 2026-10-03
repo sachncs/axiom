@@ -1,0 +1,54 @@
+{
+  "benchmark": "extension-disjoint-recursive-scopes",
+  "date": "2026-10-04",
+  "baseline_revision": "446f309",
+  "candidate_revision": "working-tree-after-446f309",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 15000,
+    "fans": 5000,
+    "color_groups": 2,
+    "colored_edges": 0,
+    "palette": 200,
+    "operation": "full Extension.extend with two disjoint scope groups"
+  },
+  "measurement": "Five alternating fresh-state runs; tracemalloc peak and elapsed time for full Extend; fixture setup and independent post-operation checks excluded",
+  "certificate": "All fans activated, resulting coloring and fan indexes validated, compatible; separate tests reject overlapping groups",
+  "baseline_peak_bytes": [
+    14103256,
+    14103080,
+    14103016,
+    14102968,
+    14102904
+  ],
+  "candidate_peak_bytes": [
+    13418920,
+    13418872,
+    13418808,
+    13418760,
+    13418696
+  ],
+  "baseline_seconds": [
+    0.7981167920079315,
+    0.7998163750016829,
+    0.8046137919882312,
+    0.8039617909962544,
+    0.8012466670043068
+  ],
+  "candidate_seconds": [
+    0.8084856670029694,
+    0.8054936669941526,
+    0.8074750840023626,
+    0.8058532090071822,
+    0.8024824589956552
+  ],
+  "median": {
+    "baseline_peak_bytes": 14103016,
+    "candidate_peak_bytes": 13418808,
+    "peak_reduction_percent": 4.85,
+    "baseline_seconds": 0.8012466670043068,
+    "candidate_seconds": 0.8058532090071822,
+    "elapsed_change_percent": 0.57
+  },
+  "limitations": "Disconnected fan gadgets, two custom disjoint groups, no precolored edges, one host; traced Python memory rather than RSS; no connected/skewed or production qualification."
+}

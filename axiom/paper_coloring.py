@@ -2730,7 +2730,13 @@ class Extension:
         fans: Fans,
         colorgroup: frozenset[Color],
     ) -> tuple[Partial, Fans, set[Edge], tuple[Color, ...]]:
-        """Project one paper ``Extend`` subproblem onto local color numbers."""
+        """Project one paper ``Extend`` subproblem onto local color numbers.
+
+        The edge scope is exactly the colored edges in ``colorgroup`` plus the
+        spokes of fans whose complete type belongs to that group. Combined
+        with disjoint groups and a compatible, edge-disjoint fan collection,
+        this contract makes sibling recursive edge scopes disjoint.
+        """
         ordered = tuple(sorted(colorgroup))
         tolocal = {color: index for index, color in enumerate(ordered)}
         edgescope = {edge for edge, color in coloring.items() if color in colorgroup}
@@ -2823,7 +2829,11 @@ class Extension:
         if not social:
             raise RuntimeError("Extend received no social fans after Sparsify-Types")
         total = 0
-        scopededges: set[Edge] = set()
+        assignedcolors: set[Color] = set()
+        for group in groups:
+            if any(color in assignedcolors for color in group):
+                raise RuntimeError("Extend received overlapping color groups")
+            assignedcolors.update(group)
         for group in groups:
             selected = [fan for fan in social if fan.type <= group]
             if not selected:
@@ -2831,9 +2841,12 @@ class Extension:
             child, childfans, edgescope, localcolors = cls.project(
                 coloring, social, group
             )
-            if scopededges & edgescope:
-                raise RuntimeError("Extend produced overlapping recursive edge scopes")
-            scopededges.update(edgescope)
+            # The color groups are disjoint, so a colored edge can enter only
+            # its one color group. Every fan type has two distinct colors and
+            # can belong to at most one group; Fans.compatible guarantees its
+            # uncolored spokes are pairwise disjoint and not colored. Therefore
+            # these edge scopes are disjoint without retaining every prior
+            # child edge in a second O(m) set.
             total += cls.extend(child, childfans, eta)
             cls.merge(coloring, child, edgescope, localcolors)
             # The child owns the authoritative fan state for this edge-disjoint
