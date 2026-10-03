@@ -55,6 +55,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0046](0046-local-maximality-certificates.md) | Certify incremental matching maximality at changed unmatched endpoints | Same 8,192-vertex trace: 148.65 to 228.92 updates/s (1.54×); exact injected-failure rollback; retained storage unchanged |
 | [0047](0047-incremental-auxiliary-certificates.md) | Certify touched auxiliary-index rows; fully audit replacement roots | Same 8,192-vertex trace: 228.92 to 436.54 updates/s (1.91×); 512-vertex profiled time -27.3%; tests run full oracle per update |
 | [0048](0048-incremental-system-row-validation.md) | Validate touched System cache rows; fully audit new/replaced roots | Same 8,192-vertex trace: 436.54 to 610.30 updates/s (1.40×); 512-vertex profiled time -29.2%; complete Lambda/L cache oracle per generated update |
+| [0049](0049-local-matching-deletion.md) | Remove global stale-matching scans; the deleted edge is the only possible stale edge | Same 8,192-vertex trace: 610.30 to 1,103.56 updates/s (1.81×); exact final matching certificate; lookup count stays four as unrelated matching size grows 16→512 |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

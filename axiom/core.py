@@ -1126,10 +1126,8 @@ class Matcher:
         if canonical(u, v) in self.matched_edges:
             self.drop_match(u, v)
 
-        self.__cleanup_stale_edges()
         self.__rematch_vertex(u)
         self.__rematch_vertex(v)
-        self.__cleanup_stale_edges()
 
         if self.views is None and not self.maximal():
             raise RuntimeError(
@@ -1147,13 +1145,6 @@ class Matcher:
             )
         if not 0 <= vertex < self.n:
             raise ValueError(f"vertex must be in [0, {self.n}), got {vertex}")
-
-    def __cleanup_stale_edges(self) -> None:
-        stale = [e for e in self.matched_edges if not self.graph.has_edge(e[0], e[1])]
-        for e in stale:
-            self.drop_match(e[0], e[1])
-        if stale:
-            self.accountant.record_stale_cleanup(len(stale))
 
     def __rematch_vertex(self, v: Vertex) -> None:
         if v in self.matched_vertices:

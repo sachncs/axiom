@@ -76,9 +76,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   standalone journals and replaced/rebuilt roots retain full admission. The same
   bounded trace improved another 1.40×, and the 512-vertex profile fell 29.2%.
   Memory was unchanged. See [ADR 0048](docs/adrs/0048-incremental-system-row-validation.md).
-- 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
-  adjacency-journal integration and prior no-copy
-  transaction/collision-routing regressions.
+- Matched-edge deletion no longer rescans the complete matching twice: only the
+  deleted edge can become stale in an owner-controlled graph mutation. The same
+  8,192-vertex trace rose from 610.30 to 1,103.56 updates/s with the final
+  matching certificate unchanged. Memory was unchanged. See [ADR 0049](docs/adrs/0049-local-matching-deletion.md).
+- 1,221 local tests pass after the incremental deletion cleanup regression.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references

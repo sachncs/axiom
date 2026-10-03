@@ -1,0 +1,66 @@
+{
+  "status": "diagnostic_only_not_durable_or_release_qualification",
+  "comparison": {
+    "baseline": "b8ea912; prior stable-System-row validation candidate",
+    "candidate": "b8ea912 plus local deletion cleanup",
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8",
+    "runner": {
+      "path": "benchmarks/performance.py",
+      "sha256": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767"
+    },
+    "candidate_sources": {
+      "axiom/core.py": "9820190ee565c99f940fad174c39fe4c65c43e96651a4f144da2c825ddcbf6d3",
+      "tests/test_axiom.py": "8f81075d37b3682dae1695a0a059c9fd85b441ef3d57f7f9db04ea13e591b3a0"
+    }
+  },
+  "configuration": {
+    "vertices": 8192,
+    "family": "sparse",
+    "average_degree_target": 4,
+    "initial_edges": 16384,
+    "workload": "churn",
+    "mode": "multilevel",
+    "seed": 42,
+    "real_updates": 128,
+    "insertions": 64,
+    "deletions": 64,
+    "timed_repeats": 5,
+    "phase_rebuilds": 0,
+    "subphase_rebuilds": 1,
+    "trace_digest": "b914aa5584db0f34e16609e9d251d51b5d32f20a717cf98e8bfd6a89f093f633",
+    "matching_certificate_sha256": "28c548aecae0c5dfc168e326f0dd2def74e7758320b1349bb1e35b9ecf0f1c89"
+  },
+  "baseline": {
+    "updates_per_second": 610.2979434032096,
+    "batch_nanoseconds": [209733625, 209231208, 206591333, 213849375, 210636333],
+    "transient_traced_bytes": 2393224,
+    "process_peak_rss_bytes": 101220352
+  },
+  "candidate": {
+    "updates_per_second": 1103.5628371007274,
+    "batch_nanoseconds": [116680667, 112940250, 112288083, 118125167, 115987958],
+    "delete_latency_nanoseconds": {
+      "median": 877958.5,
+      "p95": 966958,
+      "p99": 1033834,
+      "maximum": 1033834,
+      "sample_count": 64
+    },
+    "transient_traced_bytes": 2393224,
+    "process_peak_rss_bytes": 101023744
+  },
+  "derived": {
+    "throughput_ratio": 1.808,
+    "transient_traced_change_percent": 0.0,
+    "process_peak_rss_change_percent": -0.19
+  },
+  "limits": [
+    "One host, one seed, and one 128-update workload; five timing batches do not establish cross-host confidence intervals.",
+    "The comparison reuses the immediately preceding same-runner measurement; the candidate run is recorded here in full.",
+    "Memory and RSS are isolated measurements; no material storage improvement is claimed.",
+    "The paper Matcher diagnostic has no durable acknowledgments, concurrent clients, or million-vertex workload.",
+    "The optimization relies on the Matcher single-owner graph mutation contract; out-of-band edits to its exposed graph remain unsupported."
+  ]
+}

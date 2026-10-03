@@ -32,6 +32,31 @@ from axiom.types import canonical
 from axiom.vertices import Vertices
 from axiom.visualize import visualize_adjacency, visualize_matching, visualize_system
 
+
+@pytest.mark.parametrize("pairs", [16, 128, 512])
+def test_deletion_graph_lookups_do_not_scale_with_unrelated_matching(pairs):
+    """Deleting one edge must not query every unrelated matched edge."""
+    graph = Adjacency(pairs * 2)
+    for left in range(0, pairs * 2, 2):
+        graph.add_edge(left, left + 1)
+    matcher = Matcher(pairs * 2, graph=graph)
+
+    calls = 0
+    original = graph.has_edge
+
+    def counted(left, right):
+        nonlocal calls
+        calls += 1
+        return original(left, right)
+
+    graph.has_edge = counted
+    matcher.delete(0, 1)
+
+    assert len(matcher.matched_edges) == pairs - 1
+    assert matcher.maximal()
+    assert calls == 4
+
+
 # ------------------------------------------------------------------
 # Graph layer
 # ------------------------------------------------------------------

@@ -209,6 +209,18 @@ cleanup's scan of the matching plus graph lookups; durable paper integration
 and state-sized snapshot/admission work remain open. See [ADR 0048](adrs/0048-incremental-system-row-validation.md)
 and its [raw record](../benchmarks/results/paper/system-certificates.json).
 
+Deletion no longer performs that global scan. Under the Matcher ownership rule,
+one update mutates one graph edge, so deleting `(u, v)` can make only `(u, v)`
+stale in the matching; it is dropped directly before local rematching. A
+regression instruments graph membership calls while unrelated matching size
+grows from 16 to 512 edges: the count remains four. On the same fixed
+8,192-vertex seeded trace and runner, measured rate rose from 610.30 to
+1,103.56 updates/s (1.81×), with an identical final matching certificate and
+unchanged sampled memory. This is one-host diagnostic evidence, not a general
+latency or durability guarantee. Durable paper integration and state-sized
+snapshot/admission work remain open. See [ADR 0049](adrs/0049-local-matching-deletion.md)
+and its [raw record](../benchmarks/results/paper/deletion-cleanup.json).
+
 ## Implemented foundation, not product qualification
 
 The installed Linux resource drill now passes at one million vertices under a
