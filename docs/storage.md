@@ -20,9 +20,22 @@ platform/CPython-version specific; this is not a universal pure-Python wheel.
 ## Storage and memory contracts
 
 Vertices remain fixed dense IDs; insertion/deletion methods edit **edges**.
-Native metadata uses three uint32 arrays and one byte per vertex (13 bytes per
-vertex plus the container). Adjacency uses reusable four-neighbor blocks of
-28 bytes. Moderate-degree rows use bounded scans; rows reaching degree 128 receive
+Native `Packed` metadata uses three uint32 arrays and one byte per vertex (13
+bytes per vertex, excluding vector capacity and container objects). Adjacency
+uses reusable four-neighbor blocks of 28 bytes. In the production `Engine`,
+partners and first-write lookup add another 8 bytes per vertex, and the
+hierarchical free-vertex bitmap adds about 0.127 bytes per vertex. Thus a
+degree-four graph that uses roughly one adjacency block per vertex has a
+structural baseline near 49.13 bytes per vertex: about 49 GB (45.8 GiB) at one
+billion vertices, before allocator/capacity slack, indexes, journals, SQLite,
+Python, or process overhead. The default 1 GiB graph budget cannot hold that
+representation. This is an order-of-magnitude estimate, not a billion-vertex
+capacity claim; uint32 block addresses additionally cap higher-density graphs
+at fewer than 4.3 billion adjacency blocks. `Engine.memory()` and
+`Packed.memory()` report retained native allocation under the graph budget, not
+this broader process footprint.
+
+Moderate-degree rows use bounded scans; rows reaching degree 128 receive
 an open-addressed membership/location index. Neighbor iteration sorts a temporary
 native row; edge iteration streams canonical edges instead of materializing a
 Python set of the whole graph. High-degree iteration still requires row scratch.
@@ -67,12 +80,16 @@ cached transient rows. An internal rollback inconsistency poisons native storage
 and subsequent topology operations fail explicitly.
 
 Matcher rollback protects the caller graph and existing managed native graph
-identities. It still snapshots **Python algorithm state**: this implementation
-does not yet eliminate whole-matcher copying. Native local edge certificates rely
-on a sealed storage type with tested two-endpoint mutation semantics; callers
-cannot subclass or override its mutators. Custom graph backends retain full
-edge-set mutation certificates. Mandatory matching/hierarchy/coloring checks are
-not disabled.
+identities. The update transaction no longer uses recursive `deepcopy`: enlisted
+state uses shallow root retention and bounded owner-specific undo journals.
+This does not mean every operation is bounded by the number of touched edges;
+some admission, alias, and certificate checks still inspect state-sized
+collections, and rebuild paths may construct replacement structures. Native
+local edge certificates rely on a sealed storage type with tested two-endpoint
+mutation semantics; callers cannot subclass or override its mutators. Custom
+graph backends retain full edge-set mutation certificates. Mandatory
+matching/hierarchy/coloring checks are not disabled. Paper matching remains
+nondurable and is not yet integrated into the SQLite-backed production service.
 
 ## Reproduce the measurements
 
