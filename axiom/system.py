@@ -43,6 +43,7 @@ Limitations:
 
 from __future__ import annotations
 
+from array import array
 from bisect import bisect_left
 from collections import deque
 from collections.abc import Iterator
@@ -676,7 +677,7 @@ def promote(
     graph: Graph,
     system: System,
     M: set[Edge],
-    deg_M: dict[Vertex, int],
+    deg_M: array[int],
     z: int,
     u: Vertex,
 ) -> bool:
@@ -694,7 +695,7 @@ def promote(
         graph: The host graph.
         system: System being updated (its ``A``/``B``/``U`` are mutated).
         M: Current :math:`M` edge set (mutated).
-        deg_M: :math:`M`-degree dictionary (mutated).
+        deg_M: Packed :math:`M`-degree counters (mutated).
         z: Degree parameter.
         u: The U-vertex to consider for promotion.
 
@@ -813,7 +814,12 @@ def build(graph: Graph, z: int) -> System:
         raise ValueError(f"z must be a positive integer, got {z!r}")
     # --- Step 1: greedy maximal M with degree cap z ---
     M: set[Edge] = set()
-    deg_M: dict[Vertex, int] = {v: 0 for v in range(graph.n)}
+    # Matching degrees are bounded integers indexed by dense vertex labels;
+    # a Python dict stores substantial per-entry hash-table and object overhead.
+    degree_typecode = (
+        "I" if graph.n <= Vertices.empty and array("I").itemsize >= 4 else "Q"
+    )
+    deg_M = array(degree_typecode, [0]) * graph.n
     edges = sorted(graph.edges())
     for u, v in edges:
         if deg_M[u] < z and deg_M[v] < z:
@@ -828,7 +834,7 @@ def build(graph: Graph, z: int) -> System:
     # the capped greedy pass, while deg_M below is updated to describe the
     # actual matching retained by the system.
     S = {v for v in range(graph.n) if deg_M[v] == z}
-    ucount = sum(1 for v in range(graph.n) if deg_M[v] < z)
+    ucount = graph.n - len(S)
     U_set: set[Vertex] | Vertices
     if graph.n and ucount * 12 >= graph.n:
         U_set = Vertices(graph.n, (v for v in range(graph.n) if deg_M[v] < z))

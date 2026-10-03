@@ -33,7 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on rollback. One empty 100k Matcher sample peaked at 40.5 MB RSS; the remaining
   dominant Python allocation is the `U` partition set. See
   [ADR 0040](docs/adrs/0040-sparse-system-cache-rows.md).
-- 1,202 local tests pass after sparse System/H rows, compact Matcher defaults,
+- Dense paper `U` partitions now use indexed packed membership/member arrays,
+  while sparse partitions remain Python sets. `System.build()` also stores
+  per-vertex matching degrees in unsigned integer arrays instead of a Python
+  dictionary. An isolated million-counter allocation fell from 73.9 MB to
+  4.0 MB; this is component memory evidence, not end-to-end paper qualification.
+  See [ADR 0041](docs/adrs/0041-compact-paper-system-vertices.md).
+- 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.
 

@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; the `U/A/B` partitions and some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U` and degree counters, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active; end-to-end compact-partition memory/rate repeats are pending |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -126,6 +126,16 @@ zero counters, and coloring-validation buckets. Exact consistency checks remain.
 Identical short 512-vertex basic traces improved median rate from 327.7 to 509.0
 updates/s, with lower traced peaks and p99 samples. This does not eliminate
 whole-matcher snapshots or qualify the production target; see [ADR 0004](adrs/0004-sparse-phase-indexes.md).
+
+Dense paper `U` partitions now use fixed-universe indexed membership plus
+packed ordered members, while sparse partitions keep ordinary sets. System
+matching-degree counters use unsigned integer arrays. An isolated one-million
+counter allocation is 4.0 MB versus 73.9 MB for the equivalent Python dict;
+one-million-label dense `U` needs about 8 MB packed payload. These are
+representation measurements only, not end-to-end Matcher memory or update-rate
+qualification. The 1/12 density crossover and remaining `A/B` sets, phase
+copies, certificates and durable paper integration still need broader evidence.
+See [ADR 0041](adrs/0041-compact-paper-system-vertices.md).
 
 ## Implemented foundation, not product qualification
 
