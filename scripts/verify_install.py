@@ -1,5 +1,6 @@
 """Verify installed paper/native/storage/durability paths without checkout imports."""
 
+import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -89,6 +90,12 @@ def verify() -> None:
     restored = Engine.restore(image)
     if restored.snapshot() != image or not restored.check():
         raise RuntimeError("installed exact native image roundtrip failed")
+    if os.name == "nt":
+        # Durable's single-owner lock intentionally depends on POSIX flock.
+        # Windows packaging qualifies the native matcher/storage extension and
+        # paper Python APIs, not Service/Durable support.
+        print("Windows wheel verified; POSIX Durable/Service paths are unsupported")
+        return
     with TemporaryDirectory() as directory:
         legacy = Path(directory) / "legacy.db"
         with Durable(legacy, n=16) as store:

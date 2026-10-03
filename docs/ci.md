@@ -40,8 +40,10 @@ signing, PyPI trusted publishing and GitHub Release creation all operate only
 after this check. The workflow trigger and job guards are version-tag-only;
 ordinary CI has no publishing credentials or publication path.
 
-Linux wheels use manylinux repair; musllinux is intentionally excluded. No
-Windows ARM64 support is claimed. The release matrix is configured in
+Linux wheels use manylinux repair; musllinux is intentionally excluded. The
+Windows wheel verifies the installed native matching/storage extension and
+paper Python paths only: `Durable`/`Service` require a POSIX owner lock and are
+not supported on Windows. No Windows ARM64 support is claimed. The release matrix is configured in
 `.github/workflows/release.yml`; its artifact completeness is validated at
 runtime because the authoritative wheel filenames are produced by the native
 builders.
