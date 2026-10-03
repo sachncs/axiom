@@ -2815,7 +2815,7 @@ class Extension:
         fans.compatible(coloring)
         if not fans:
             return 0
-        coloredbefore = len(coloring.edges())
+        coloredbefore = len(coloring.assignments)
         if coloring.palette <= 10 * eta:
             return cls.construction.small(coloring, fans)
 
@@ -2865,7 +2865,7 @@ class Extension:
             fans.add(fan)
         fans.repair(coloring)
         fans.compatible(coloring)
-        coloredafter = len(coloring.edges())
+        coloredafter = len(coloring.assignments)
         if total <= 0 or coloredafter <= coloredbefore:
             raise RuntimeError(
                 "Extend made no coloring progress for a non-empty fan collection"

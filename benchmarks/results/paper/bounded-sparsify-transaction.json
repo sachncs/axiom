@@ -1,6 +1,6 @@
 {
   "benchmark": "spectrum-sparsify-bounded-transaction",
-  "date": "2026-10-03",
+  "date": "2026-10-04",
   "baseline_revision": "d9c357d",
   "candidate_revision": "working-tree-after-d9c357d",
   "python": "3.14.8",

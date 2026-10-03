@@ -1604,7 +1604,9 @@ def test_paper_vizing_activation_flips_nontrivial_chain() -> None:
     coloring.validate()
 
 
-def test_extend_recursive_uses_small_base_case() -> None:
+def test_extend_recursive_uses_small_base_case_without_copying_edge_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)
     graph.add_edge(0, 2)
@@ -1613,6 +1615,11 @@ def test_extend_recursive_uses_small_base_case() -> None:
     coloring.assign((1, 3), 0)
     fans = Fans()
     fans.add(Fan(0, 1, 2, 0, 1, 1))
+
+    def reject_edge_copy(candidate: Partial) -> set[tuple[int, int]]:
+        raise AssertionError("Extend must not materialize all colored edge keys")
+
+    monkeypatch.setattr(Partial, "edges", reject_edge_copy)
 
     assert Extension.extend(coloring, fans, 10) == 1
     coloring.validate()

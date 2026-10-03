@@ -1,6 +1,6 @@
 # ADR 0082: Bound the `Spectrum.sparsify` transaction
 
-Date: 2026-10-03
+Date: 2026-10-04
 State: Implemented; fan algorithm work and broader qualification remain
 
 ## Context
@@ -29,6 +29,12 @@ membership tuple, or colored-edge key set.
 `Fans.relabel` now iterates its immutable source membership directly while
 building replacement indexes. It does not sort/materialize a source tuple;
 public iteration remains deterministic through `Fans.__iter__`.
+
+The recursive `Extension.extend` progress guard also reads assignment count
+directly instead of materializing all colored edge keys before and after
+recursive work. A regression forbids `Partial.edges()` on the small base-case
+path; this separate allocation removal is not included in the measurements
+below.
 
 The colored-edge invariant is checked by cardinality at the transaction
 boundary; the permitted operations (`Partial.relabel` and alternating path

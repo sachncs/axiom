@@ -167,6 +167,10 @@ an extra sorted tuple. Five complete runs with 30,000 colored edges and 2,000
 fans reduced traced peak 9.31%; median elapsed time regressed 3.33%, so this is
 a memory improvement with a visible compute tradeoff. See [ADR 0082](adrs/0082-bounded-sparsify-transaction.md)
 and its [raw comparison](../benchmarks/results/paper/bounded-sparsify-transaction.json).
+Recursive `Extension.extend` also uses the O(1) coloring assignment count for
+its progress guard rather than materializing all edge keys; the base-case
+regression forbids that snapshot helper. This allocation removal is not covered
+by the sparsification benchmark above.
 
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores
