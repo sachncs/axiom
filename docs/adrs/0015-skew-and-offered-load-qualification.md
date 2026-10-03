@@ -187,3 +187,12 @@ probe: it is not an installed-wheel run, sustained SLA, independent producer,
 per-version historical-query replay, hard RSS limit or deployment qualification.
 See the [recorded results and provenance limits](../../benchmarks/results/overload/power-law-million.json)
 and [overload results index](../../benchmarks/results/overload/README.md).
+
+A subsequent 60-second source-checkout run at 12k offers/s completed 681,039
+real updates (11,348/s) while serving 59,451 queries. It had no server Busy
+offers, but the colocated Python producer missed 38,961 scheduled update slots
+and 549 query slots. Update-ack p99 was 181.4 ms, queue-wait p99 166.6 ms,
+query p99 0.7 ms, peak process RSS 198.2 MB; independent exact recovery/audit
+passed. This is longer single-run evidence, not a soak or independent load test.
+At a literal 10k offered/s, the earlier profile still delivers below target.
+See [60-second raw summary](../../benchmarks/results/overload/power-law-million-60s.json).

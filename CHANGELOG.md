@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Two 10k-offer runs delivered 9.54k/s (below target); two 12k-offer runs
   delivered 11.15k/s, but only for ten-second source-checkout samples. This is
   not sustained or installed-wheel qualification; see [qualification record](benchmarks/results/overload/README.md).
+- A 60-second, 12k-offer source-checkout probe delivered 11,348 real updates/s
+  with 59,451 queries and exact recovery; 5.4% of scheduled update slots were
+  missed by the colocated producer. Ack p99 upper was 181.4 ms. This adds
+  duration evidence but does not establish a production SLA.
 
 ### Added — engineering through 2026-10-03
 

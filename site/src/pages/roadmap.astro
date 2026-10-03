@@ -1,0 +1,32 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+
+const items = [
+  ["Partial", "Paper-engine performance hardening", "Recursive deepcopy is removed and journals/sparse paths are in place. Remaining graph-sized snapshots, hierarchy construction and global hot-path work still need migration and resource budgets."],
+  ["Not done", "Durable basic and multilevel modes", "SQLite durability and Service currently select the native engine only. Paper state codecs, exact recovery and per-mode release qualification remain."],
+  ["Partial", "Repeatability, skew and adversarial qualification", "Four 10-second one-million-vertex power-law samples and one 60-second sample recovered exactly. 10k offered delivered 9.54k/s; 12k offered delivered 11.15k/s short-run and 11.35k/s over 60s, with 5.4% producer-missed slots. Installed-wheel soak and wider adversarial matrices remain."],
+  ["Partial", "Service and deployment qualification", "Local native recovery, bounded-resource tests and operational guidance exist. Deployment supervision, broader skew/burst and explicit quota/alert policy remain. Hardware power-loss testing is deferred."],
+  ["Not done", "Durable external vertex IDs", "Public graph labels are dense integers. Persistent UUID/string mapping and lifecycle semantics are absent."],
+  ["Not done", "Dynamic vertex lifecycle", "The vertex universe is fixed at construction; durable add/remove semantics are absent."],
+  ["Partial", "Atomic batch updates", "Native Service has a bounded atomic submit_batch API with exact retry and rollback tests. Installed-release and workload qualification remain."],
+  ["Not done", "Atomic multi-query read snapshots", "Individual reads are versioned, but there is no multi-query snapshot API yet."],
+  ["Not done", "First-class bipartite API", "No typed partitions or same-side edge rejection contract exists."],
+  ["Not done", "Event subscriptions", "Versioned change delivery, bounded subscriber queues and backpressure semantics are absent."],
+  ["Partial", "Observability", "Service admission/group counters and benchmark histograms exist. Stable metrics/exporter, storage/recovery health and alert contracts remain."],
+  ["Partial", "Deterministic replay and historical debugging", "Durable operation history, checksums and recovery exist. Public replay/export and historical query APIs remain."],
+  ["Not done", "Match explanations", "There is no version-linked explanation of partner changes or algorithm repair evidence."],
+  ["Partial", "Cross-platform packaging", "CI/release matrices define 20 CPython wheels across five platform targets; this hosted run is still pending. Windows ARM64 and musllinux are excluded."],
+  ["Not done", "Network transport", "Service is local and threaded; authenticated HTTP/gRPC transport and end-to-end network semantics are absent."],
+  ["Future scope", "Weighted and constrained matching", "Weighted, maximum-cardinality and capacity-constrained matching remain separate future engine contracts."],
+  ["Partial", "Machine-enforced release gates", "Research, quality and packaging gates exist. Paper-mode durable qualification and complete mode-specific release gates do not."],
+] as const;
+---
+<DocLayout title="Product roadmap" eyebrow="17 requirements · evidence first" description="A requirement-by-requirement view of what exists, what is only partially qualified, and what still needs engineering." next={{ label: "Read research status", href: "/research/" }}>
+  <div class="doc-callout"><p><strong>Current boundary:</strong> durable production uses the native matching engine. Paper <code>basic</code> and <code>multilevel</code> are research modes and are not durable or production-qualified. The 10k/s result is not yet a sustained qualification. Hardware power-loss and billion-vertex qualification are explicitly deferred/unsupported.</p></div>
+  <p>“Partial” means only the evidence stated exists; it does not imply the full requirement is met. Native engine results do not qualify paper modes.</p>
+  <table class="doc-table">
+    <thead><tr><th>#</th><th>Status</th><th>Requirement</th><th>Evidence and remaining work</th></tr></thead>
+    <tbody>{items.map(([status, title, detail], index) => <tr><td>{index + 1}</td><td>{status}</td><td><strong>{title}</strong></td><td>{detail}</td></tr>)}</tbody>
+  </table>
+  <p>Implementation-level decisions and benchmark artifacts are maintained alongside this roadmap in the repository. A claim is complete only when its stated gate passes on the relevant engine and packaging path.</p>
+</DocLayout>

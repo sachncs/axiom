@@ -122,6 +122,10 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
    updates/s (miss); 12k offers/s delivered 11,146–11,151/s. All four recovered
    and certified exactly, but they are not installed-wheel, sustained or
    historical-query replay qualification. See [raw results](../benchmarks/results/overload/power-law-million.json).
+   One 60-second 12k-offer probe completed 11,348 real updates/s while serving
+   59,451 queries, with exact recovery. The colocated producer missed 5.4% of
+   scheduled update slots; ack p99 was 181.4 ms. This is not an independent
+   producer or installed-wheel soak. See [60-second summary](../benchmarks/results/overload/power-law-million-60s.json).
 2. Continue paper-engine adversarial qualification and finish integrating
    coloring/fan/hierarchy operations into the durable production service.
    Endpoint-local hierarchy, maximality, auxiliary-index and System-row

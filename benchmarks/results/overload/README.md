@@ -95,6 +95,18 @@ independent load generator, full historical-query replay, or deployment gate.
 Do not generalize the short 12k sample into a sustained production guarantee.
 See [ADR 0015](../../../docs/adrs/0015-skew-and-offered-load-qualification.md).
 
+### Longer single-run probe
+
+`power-law-million-60s.json` records one additional 60-second run at 12k
+updates/s offered and 1k queries/s. It completed 681,039 real updates
+(11,348/s), 59,451 partner queries, zero server Busy updates and zero Busy
+queries. The same-process producer missed 38,961 update slots (5.4%) and 549
+query slots. Ack p99 upper was 181.4 ms, queue-wait p99 166.6 ms, query p99
+0.7 ms, peak RSS 198.2 MB, and exact recovery took 0.149 s. Exact audit and
+recovery passed. This strengthens duration evidence but does not pass the
+10k-offered profile, remove producer/GIL losses, or establish an installed-wheel
+soak or production SLO.
+
 ## Inline checkpoint field-validation stage
 
 `inline-million-10000.json`: installed production `e24ae58`, frozen runner

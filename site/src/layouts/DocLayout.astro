@@ -30,6 +30,7 @@ const active = (path: string) => Astro.url.pathname.endsWith(path);
       <p class="docs-sidebar__label docs-sidebar__label--lower">Project</p>
       <nav>
         <a class:list={{ active: active("/research/") }} aria-current={active("/research/") ? "page" : undefined} href={`${base}/research/`}>Research status</a>
+        <a class:list={{ active: active("/roadmap/") }} aria-current={active("/roadmap/") ? "page" : undefined} href={`${base}/roadmap/`}>Product roadmap</a>
         <a class:list={{ active: active("/changelog/") }} aria-current={active("/changelog/") ? "page" : undefined} href={`${base}/changelog/`}>Changelog</a>
         <a class:list={{ active: active("/contributing/") }} aria-current={active("/contributing/") ? "page" : undefined} href={`${base}/contributing/`}>Contributing</a>
       </nav>
