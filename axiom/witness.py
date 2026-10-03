@@ -85,7 +85,7 @@ class Witness:
                 "z",
             ]
         ),
-        Adjacency: frozenset({"n", "adj", "edge_count"}),
+        Adjacency: frozenset({"n", "adj", "edge_count", "journal", "token"}),
         System: frozenset(field.name for field in fields(System)),
         Hierarchy: frozenset(field.name for field in fields(Hierarchy)),
         Ledger: frozenset(field.name for field in fields(Ledger)),
@@ -188,6 +188,16 @@ class Witness:
                 },
                 depth + 1,
             )
+        elif kind is Adjacency:
+            attributes = {
+                name: getattr(value, name) for name in ("n", "adj", "edge_count")
+            }
+            if vars(value).keys() != self.schema[kind]:
+                raise TypeError(f"unsupported witness fields: {kind.__name__}")
+            content = [
+                [name, self.encode(attributes[name], depth + 1)]
+                for name in sorted(attributes)
+            ]
         else:
             attributes = vars(value)
             if attributes.keys() != self.schema[kind]:

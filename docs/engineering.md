@@ -42,7 +42,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, System, Hierarchy, auxiliary indexes and clocks use owner journals/root retention | Some certificate/admission checks remain state-sized; arbitrary partition/index in-place edits are outside journal contract; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, System, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak

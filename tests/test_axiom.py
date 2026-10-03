@@ -44,6 +44,34 @@ class TestAdjacency:
         assert g.num_edges() == 0
         assert g.degree(0) == 0
 
+    def test_edge_journal_restores_exact_touched_state(self) -> None:
+        graph = Adjacency(6)
+        graph.add_edge(0, 1)
+        graph.add_edge(4, 5)
+        before = (list(graph.edges()), graph.num_edges(), graph.adj)
+        rows = [set(row) for row in graph.adj]
+        token = graph.begin()
+        graph.remove_edge(0, 1)
+        graph.add_edge(1, 2)
+        graph.add_edge(2, 3)
+        graph.rollback(token)
+        assert list(graph.edges()) == before[0]
+        assert graph.num_edges() == before[1]
+        assert graph.adj is before[2]
+        assert graph.adj == rows
+        assert graph.journal is None
+
+    def test_edge_journal_rejects_stale_or_nested_tokens(self) -> None:
+        graph = Adjacency(3)
+        token = graph.begin()
+        with pytest.raises(RuntimeError, match="already active"):
+            graph.begin()
+        with pytest.raises(RuntimeError, match="stale"):
+            graph.commit(token + 1)
+        graph.commit(token)
+        with pytest.raises(RuntimeError, match="stale"):
+            graph.rollback(token)
+
     def test_add_edge(self) -> None:
         g = Adjacency(4)
         g.add_edge(0, 1)
@@ -1459,6 +1487,20 @@ class TestMatcher:
         assert algo.partner_map == before["partners"]
         assert algo.stats == before["stats"]
         assert algo.update_count == before["update_count"]
+
+    def test_local_adjacency_update_does_not_scan_all_edges(self) -> None:
+        algo = Matcher(64, mode="basic")
+        for vertex in range(0, 40, 2):
+            algo.insert(vertex, vertex + 1)
+        algo.phase_length = 10_000
+
+        def reject_scan():
+            raise AssertionError("local update scanned the whole graph")
+
+        algo.graph.edges = reject_scan  # type: ignore[method-assign]
+        algo.insert(50, 51)
+        assert algo.graph.has_edge(50, 51)
+        assert algo.graph.journal is None
 
     def test_failed_multilevel_update_rolls_back_hierarchy_state(self) -> None:
         """A failed recursive rebuild cannot leak a partial phase update."""

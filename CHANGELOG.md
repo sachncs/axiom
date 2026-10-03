@@ -13,8 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   references combine with bounded undo for indexes and phase-clock cells. Failure
   tests patch `copy.deepcopy` to raise and verify exact rollback/retry. This removes
   a global recursive allocation but does not finish durable paper integration.
-- 1,173 local tests pass after no-copy transactions and real collision-routing
-  regressions.
+- The built-in `Adjacency` backend now journals only touched edges and uses local
+  endpoint/count certificates during Matcher updates, removing the remaining
+  whole-edge-set snapshots from its ordinary rollback path. Custom graph fallbacks,
+  phase snapshots, state-sized certificates elsewhere, and durable paper modes
+  remain open; see [ADR 0037](docs/adrs/0037-adjacency-edge-journal.md).
+- 1,198 local tests pass after adjacency-journal integration and prior no-copy
+  transaction/collision-routing regressions.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references

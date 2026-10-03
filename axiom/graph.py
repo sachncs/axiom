@@ -78,6 +78,8 @@ class Adjacency:
         self.n: int = n
         self.adj: list[set[Vertex]] = [set() for _ in range(n)]
         self.edge_count: int = 0
+        self.journal: list[tuple[Edge, bool]] | None = None
+        self.token: int = 0
 
     def add_edge(self, u: Vertex, v: Vertex, *, strict: bool = False) -> None:
         r"""Insert an undirected edge ``(u, v)``.
@@ -109,8 +111,18 @@ class Adjacency:
             if strict:
                 raise ValueError(f"Edge ({u}, {v}) already exists")
             return
-        self.adj[u].add(v)
-        self.adj[v].add(u)
+        edge = (min(u, v), max(u, v))
+        if self.journal is not None:
+            self.journal.append((edge, True))
+        try:
+            self.adj[u].add(v)
+            self.adj[v].add(u)
+        except BaseException:
+            self.adj[u].discard(v)
+            self.adj[v].discard(u)
+            if self.journal is not None:
+                self.journal.pop()
+            raise
         self.edge_count += 1
 
     def remove_edge(self, u: Vertex, v: Vertex, *, strict: bool = False) -> None:
@@ -144,9 +156,40 @@ class Adjacency:
             if strict:
                 raise ValueError(f"Edge ({u}, {v}) does not exist")
             return
+        if self.journal is not None:
+            self.journal.append(((min(u, v), max(u, v)), False))
         self.adj[u].discard(v)
         self.adj[v].discard(u)
         self.edge_count -= 1
+
+    def begin(self) -> int:
+        """Start a single-owner edge journal for an atomic graph transition."""
+        if self.journal is not None:
+            raise RuntimeError("adjacency journal is already active")
+        self.token += 1
+        self.journal = []
+        return self.token
+
+    def commit(self, token: int) -> None:
+        """Publish the active edge journal without copying graph contents."""
+        if self.journal is None or token != self.token:
+            raise RuntimeError("stale adjacency journal token")
+        self.journal = None
+
+    def rollback(self, token: int) -> None:
+        """Reverse only touched edges; unrelated adjacency rows remain untouched."""
+        if self.journal is None or token != self.token:
+            raise RuntimeError("stale adjacency journal token")
+        for (left, right), added in reversed(self.journal):
+            if added:
+                self.adj[left].discard(right)
+                self.adj[right].discard(left)
+                self.edge_count -= 1
+            else:
+                self.adj[left].add(right)
+                self.adj[right].add(left)
+                self.edge_count += 1
+        self.journal = None
 
     def has_edge(self, u: Vertex, v: Vertex) -> bool:
         """Return ``True`` iff the edge ``(u, v)`` exists.

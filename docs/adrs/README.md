@@ -43,6 +43,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0034](0034-path-local-coloring-flips.md) | Apply alternating-path coloring flips with local index deltas | Equal checksums; 2,960× faster and 19,445× lower traced peak in one 50k sparse microbenchmark; improper endpoint failure is mutation-free |
 | [0035](0035-local-failure-atomic-fan-updates.md) | Reserve one fan's replacement indexes before dropping its old value | Constant-size update; injected mid-reservation failure restores exact indexes; aggregate flip integration is recorded in 0036 |
 | [0036](0036-aggregate-fan-flip-rollback.md) | Couple endpoint fan deltas to the alternating-path coloring flip | Two-endpoint injected failure restores exact Witness state with an endpoint-local journal; durable Matcher integration remains open |
+| [0037](0037-adjacency-edge-journal.md) | Journal built-in adjacency edits by touched edge, not full edge-set snapshots | Built-in Matcher graph transaction/certificate is local to edited endpoints; opaque custom-graph fallback and broader paper qualification remain |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -72,6 +73,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Treating native allocation bytes as whole-process memory | Live Python/allocator/VM measurements plus explicit operator launch policy (0022) | macOS large-cache spike reduced in scoped experiment; aggregate quotas and portable checkpoint allocation work remain separate |
 | Dense committed-partner first-write slot per vertex | Inline plus budgeted sparse journal index sized to touched vertices (0030) | Same coupled publication read; 4 MB less initial native allocation at one million vertices in one fixed trace; high-water batch capacity is retained |
 | Per-block `used` counter duplicating row degree | 24-byte blocks with occupancy derived for full blocks and row tails (0031) | 4 MB less native allocation per million degree-four vertices; exact audits/rollback retained; throughput requires fresh-process repeats |
+| Whole-edge-set rollback and mutation certificates on built-in Python graphs | Owner-bound touched-edge journal and local degree/count certificate (0037) | O(k) rollback history for k changed edges; custom graph fallback and other state-sized paper paths remain |
 
 ## What is not being abandoned
 

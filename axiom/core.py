@@ -940,13 +940,17 @@ class Matcher:
         """
         graph = self.graph
         mutate = graph.add_edge if added else graph.remove_edge
-        if isinstance(graph, Packed):
-            version, count = graph.version, graph.num_edges()
+        if isinstance(graph, Packed) or type(graph) is Adjacency:
+            version = graph.version if isinstance(graph, Packed) else 0
+            count = graph.num_edges()
             left, right = graph.degree(u), graph.degree(v)
             mutate(u, v)
             change = 1 if added else -1
             if (
-                graph.version != version + 1
+                (
+                    isinstance(graph, Packed)
+                    and graph.version != version + 1
+                )
                 or graph.num_edges() != count + change
                 or graph.degree(u) != left + change
                 or graph.degree(v) != right + change
@@ -989,6 +993,7 @@ class Matcher:
         managed = {id(graph): graph for graph in graph_objects if graph is not None}
         graph_snapshots: list[tuple[Graph, set[Edge]]] = []
         journals: list[tuple[Packed, int]] = []
+        adjlogs: list[tuple[Adjacency, int]] = []
         accountant = self.accountant
         accounting = None
         views = None
@@ -1007,10 +1012,13 @@ class Matcher:
             auxiliary = Auxiliary(self)
             clocks = Clocks(self)
             for graph in managed.values():
-                if isinstance(graph, Packed):
+                if isinstance(graph, Packed) or type(graph) is Adjacency:
                     token = graph.begin()
                     try:
-                        journals.append((graph, token))
+                        if isinstance(graph, Packed):
+                            journals.append((graph, token))
+                        else:
+                            adjlogs.append((graph, token))
                     except BaseException:
                         graph.rollback(token)
                         raise
@@ -1047,6 +1055,8 @@ class Matcher:
             clocks.validate()
             publish(journals)
             published = True
+            for graph, token in adjlogs:
+                graph.commit(token)
             accountant.commit(accounting)
             views.commit()
             classes.commit()
@@ -1063,6 +1073,8 @@ class Matcher:
             try:
                 for native, token in reversed(journals):
                     native.rollback(token)
+                for graph, token in reversed(adjlogs):
+                    graph.rollback(token)
                 if accounting is not None:
                     accountant.rollback(accounting)
                 if systems is not None:
