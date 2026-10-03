@@ -99,7 +99,10 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
 
 ## Active scope
 
-1. Broader repeated skew/arrival qualification on fresh installed-wheel runs,
+1. Paper qualification now includes a deterministic 360-update hot-hub churn
+   trace replayed twice with full Witness equality after every operation plus
+   matching/index/hierarchy certificates. Broader repeated skew/arrival
+   qualification on fresh installed-wheel runs,
    with exact-prefix queries, independent recovery and all losses retained.
 2. Continue paper-engine adversarial qualification and finish integrating
    coloring/fan/hierarchy operations into the durable production service.
@@ -138,7 +141,7 @@ refinement matching degrees avoid allocating n zero counters while preserving
 the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
 refinement cycle detection uses a strict U-decrease guard instead of copying
 U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
-Full-suite verification currently passes 1,278 tests. The
+Full-suite verification currently passes 1,279 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
@@ -177,5 +180,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,278 passing tests; CI and benchmark results must be attributed to their exact
+1,279 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

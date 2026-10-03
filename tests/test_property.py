@@ -6,7 +6,9 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from axiom import Matcher, partners
+from axiom.graph import Adjacency
 from axiom.matching import is_maximal_matching
+from axiom.witness import Witness
 
 
 def reference(graph: object, matching: set[tuple[int, int]]) -> bool:
@@ -121,3 +123,41 @@ def test_phase_boundaries_preserve_deferred_edge_state() -> None:
         assert set(matcher.multi.graph.edges()) == expected
         assert matcher.multi.check()
         assert matcher.maximal()
+
+
+def test_repeated_hot_hub_churn_preserves_exact_paper_state() -> None:
+    """Repeat a degree-skewed trace and compare every complete logical state."""
+    size = 32
+    initial = Adjacency(size)
+    for leaf in range(1, size):
+        initial.add_edge(0, leaf)
+
+    rng = random.Random(20261004)
+    active = set(initial.edges())
+    trace: list[tuple[str, int, int]] = []
+    for step in range(360):
+        if step % 5:
+            leaf = rng.randrange(1, size)
+            edge = (0, leaf)
+        else:
+            left, right = sorted(rng.sample(range(1, size), 2))
+            edge = (left, right)
+        if edge in active:
+            trace.append(("delete", *edge))
+            active.remove(edge)
+        else:
+            trace.append(("insert", *edge))
+            active.add(edge)
+
+    witness = Witness()
+    runs = [Matcher(size, mode="multilevel", graph=initial.copy()) for _ in range(2)]
+    assert witness.capture(runs[0]) == witness.capture(runs[1])
+
+    for operation, left, right in trace:
+        for matcher in runs:
+            getattr(matcher, operation)(left, right)
+            assert matcher.maximal()
+            assert is_maximal_matching(matcher.graph, matcher.matching())
+            assert matcher._Matcher__check_auxiliary_indexes()
+            assert matcher.multi is not None and matcher.multi.check()
+        assert witness.capture(runs[0]) == witness.capture(runs[1])
