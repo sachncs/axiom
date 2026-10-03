@@ -37,6 +37,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0028](0028-system-undo-journal.md) | Bounded System-root, shared-row and matching-cut undo | System objects and touched rows migrated; Hierarchy/auxiliary snapshots and durable integration remain active |
 | [0029](0029-hierarchy-root-journal.md) | Retain Hierarchy roots and journal deferred phase deletions | Hierarchy journal delivered; Matcher recursive copy subsequently removed; durable paper integration remains |
 | [0030](0030-sparse-committed-partner-index.md) | Size committed-partner indexes to active batch touches, not graph universe | Sparse journal index implemented; 8.1% initial native-memory reduction in one-million-vertex diagnostic; durable repeats active |
+| [0031](0031-derived-block-occupancy.md) | Derive live block occupancy from row degree instead of storing another word per block | 4 MB less native allocation in one-million-vertex degree-four diagnostics; one short Engine rate sample lower; repeated performance qualification pending |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -65,6 +66,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
 | Treating native allocation bytes as whole-process memory | Live Python/allocator/VM measurements plus explicit operator launch policy (0022) | macOS large-cache spike reduced in scoped experiment; aggregate quotas and portable checkpoint allocation work remain separate |
 | Dense committed-partner first-write slot per vertex | Inline plus budgeted sparse journal index sized to touched vertices (0030) | Same coupled publication read; 4 MB less initial native allocation at one million vertices in one fixed trace; high-water batch capacity is retained |
+| Per-block `used` counter duplicating row degree | 24-byte blocks with occupancy derived for full blocks and row tails (0031) | 4 MB less native allocation per million degree-four vertices; exact audits/rollback retained; throughput requires fresh-process repeats |
 
 ## What is not being abandoned
 

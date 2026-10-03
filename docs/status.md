@@ -93,5 +93,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,175 passing tests; CI and benchmark results must be attributed to their exact
+1,176 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

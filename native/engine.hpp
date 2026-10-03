@@ -233,7 +233,7 @@ class Engine {
     }
     uint32_t best = none;
     for (uint32_t b = storage.heads[u]; b != none; b = storage.blocks[b].next)
-      for (uint32_t i = 0; i < storage.blocks[b].used; ++i) {
+      for (uint32_t i = 0; i < storage.used(u, b); ++i) {
         uint32_t v = storage.blocks[b].items[i];
         if (partners[v] == none && v < best)
           best = v;
@@ -433,7 +433,7 @@ public:
       writeWord(target + cursor + 4, partners[u], 4);
       cursor += 8;
       for (uint32_t b = storage.heads[u]; b != none; b = storage.blocks[b].next)
-        for (uint32_t i = 0; i < storage.blocks[b].used; ++i) {
+        for (uint32_t i = 0; i < storage.used(u, b); ++i) {
           writeWord(target + cursor, storage.blocks[b].items[i], 4);
           cursor += 4;
         }
@@ -559,7 +559,7 @@ public:
       } else {
         for (uint32_t b = storage.heads[u]; b != none;
              b = storage.blocks[b].next)
-          for (uint32_t i = 0; i < storage.blocks[b].used; ++i)
+          for (uint32_t i = 0; i < storage.used(u, b); ++i)
             if (partners[storage.blocks[b].items[i]] == none)
               return false;
       }
@@ -593,7 +593,7 @@ public:
       uint32_t best = none;
       for (uint32_t b = candidate->heads[u]; b != none;
            b = candidate->blocks[b].next)
-        for (uint32_t i = 0; i < candidate->blocks[b].used; ++i) {
+        for (uint32_t i = 0; i < candidate->used(u, b); ++i) {
           uint32_t v = candidate->blocks[b].items[i];
           if (next[v] == none && v < best)
             best = v;
@@ -616,7 +616,7 @@ public:
       } else {
         for (uint32_t b = candidate->heads[u]; b != none;
              b = candidate->blocks[b].next)
-          for (uint32_t i = 0; i < candidate->blocks[b].used; ++i)
+          for (uint32_t i = 0; i < candidate->used(u, b); ++i)
             if (next[candidate->blocks[b].items[i]] == none)
               throw std::logic_error("engine ring maximality audit failed");
       }

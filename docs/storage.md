@@ -22,15 +22,17 @@ platform/CPython-version specific; this is not a universal pure-Python wheel.
 Vertices remain fixed dense IDs; insertion/deletion methods edit **edges**.
 Native `Packed` metadata uses three uint32 arrays and one byte per vertex (13
 bytes per vertex, excluding vector capacity and container objects). Adjacency
-uses reusable four-neighbor blocks of 28 bytes. In the production `Engine`,
+uses reusable four-neighbor blocks of 24 bytes; occupancy is derived from the
+row degree and tail-block position rather than stored redundantly in every
+block. In the production `Engine`,
 partners add 4 bytes per vertex and the hierarchical free-vertex bitmap about
 0.127 bytes per vertex. The published-partner first-write index is now sparse:
 it has eight inline entries and grows with vertices touched in an active batch,
 not with the graph universe. Its dynamic open-addressed capacity is budgeted,
 retained for reuse after large batches, and grows with old/new coexistence
 accounted. Thus a degree-four graph using roughly one adjacency block per vertex
-has an idle structural baseline near 45.13 bytes per vertex: about 45 GB
-(42.0 GiB) at one billion vertices, before allocator/capacity slack, active
+has an idle structural baseline near 41.13 bytes per vertex: about 41 GB
+(38.3 GiB) at one billion vertices, before allocator/capacity slack, active
 batch indexes/journals, SQLite, Python, or process overhead. The default 1 GiB
 graph budget cannot hold that representation. This is an order-of-magnitude
 estimate, not a billion-vertex capacity claim; uint32 block addresses

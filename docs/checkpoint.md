@@ -66,8 +66,8 @@ after repetitions of seed 599 at one million. Image/matching hashes are identica
 before/after and across repetitions, and every independent audit passes. This is
 limited primitive evidence, not a hardware-independent speedup or p99 SLA.
 
-Million-vertex native allocated capacity is 73,000,528 bytes in the live source
-and 45,114,324 in the restored candidate. Process peak RSS is 171.7–171.9 MB with
+The sampled source revision retained 73,000,528 native bytes and its restored
+candidate 45,114,324 bytes. Process peak RSS was 171.7–171.9 MB with
 both engines, image/repeated image and audits included. Source/candidate capacity
 is not total RSS; the durable owner is not yet using this to compact its live engine.
 

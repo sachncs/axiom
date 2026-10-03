@@ -44,6 +44,14 @@ addressing, measured total RSS, and a separate qualification program.
 
 ## Evidence
 
+Storage-layout update 2026-10-03: live four-neighbor blocks are now 24 bytes;
+the former `used` word was redundant because each non-tail block is full and
+tail occupancy follows the row degree. A fixed million-vertex degree-four
+storage trace now retains 37,000,264 native bytes, versus 41,000,264 before this
+change, with the independent exact audit passing. [ADR 0031](0031-derived-block-occupancy.md)
+records the invariant, adversarial coverage, and qualification limits. Earlier
+measurements below preserve their original 28-byte layout provenance.
+
 Commits `bf055d9` and `574628f` implement the backend and measurements; `08eb153`
 corrects installed-package test isolation. Three fresh-process million-vertex,
 two-million-edge ring runs retained 41,000,360 native bytes and peaked at

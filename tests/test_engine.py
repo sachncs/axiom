@@ -275,7 +275,7 @@ def test_shared_budget_rejects_partner_journal_before_any_graph_or_matching_edit
 
 def test_budget_failure_rolls_back_batch_and_reuses_capacity() -> None:
     metadata = Engine(16).memory()["allocated"]
-    engine = Engine(16, budget=metadata + 8 * 28 + 2 * 8 * 12)
+    engine = Engine(16, budget=metadata + 8 * 24 + 2 * 8 * 12)
     before = snapshot(engine)
     token = engine.begin()
     for vertex in range(1, 7):

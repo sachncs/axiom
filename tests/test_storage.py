@@ -216,7 +216,7 @@ def test_journal_rejects_stale_nested_and_foreign_thread_access() -> None:
 
 def test_journal_budget_failure_leaves_original_edge_and_can_rollback() -> None:
     metadata = Packed(4).memory()["metadata"]
-    graph = Packed(4, budget=metadata + 56)
+    graph = Packed(4, budget=metadata + 48)
     graph.add_edge(0, 1)
     token = graph.begin()
     with pytest.raises(MemoryError, match="journal"):
@@ -356,7 +356,7 @@ def test_high_degree_index_crossings_and_tombstone_rehashes() -> None:
 
 def test_budget_failure_is_atomic_and_freed_blocks_remain_usable() -> None:
     metadata = Packed(4).memory()["metadata"]
-    graph = Packed(4, budget=metadata + 2 * 28)
+    graph = Packed(4, budget=metadata + 2 * 24)
     graph.add_edge(0, 1)
     before = list(graph.edges()), graph.version, [graph.degree(v) for v in range(4)]
     with pytest.raises(MemoryError, match="budget"):
@@ -373,9 +373,41 @@ def test_budget_failure_is_atomic_and_freed_blocks_remain_usable() -> None:
     assert graph.check()
 
 
+def test_derived_block_occupancy_survives_tail_free_and_reuse() -> None:
+    graph = Packed(20)
+    for leaf in range(1, 10):
+        graph.add_edge(0, leaf)
+    assert graph.degree(0) == 9
+    assert graph.memory()["liveblocks"] == 12
+    assert graph.check()
+
+    for leaf in range(1, 6):
+        graph.remove_edge(0, leaf)
+        assert graph.check()
+        assert graph.degree(0) == 9 - leaf
+        expected = 9 - leaf + ((9 - leaf + 3) // 4)
+        assert graph.memory()["liveblocks"] == expected
+
+    for leaf in range(9, 5, -1):
+        graph.remove_edge(0, leaf)
+    before = graph.num_edges(), graph.version
+    graph.remove_edge(0, 5)
+    assert (graph.num_edges(), graph.version) == before
+    assert graph.degree(0) == graph.num_edges() == 0
+    assert graph.memory()["liveblocks"] == 0
+    assert graph.check()
+
+    for leaf in range(9, 0, -1):
+        graph.add_edge(0, leaf)
+    assert graph.degree(0) == 9
+    assert graph.memory()["liveblocks"] == 12
+    assert list(graph.neighbors(0)) == list(range(1, 10))
+    assert graph.check()
+
+
 def test_budget_failure_at_high_degree_promotion_preserves_both_rows() -> None:
     metadata = Packed(257).memory()["metadata"]
-    graph = Packed(257, budget=metadata + 384 * 28)
+    graph = Packed(257, budget=metadata + 384 * 24)
     for vertex in range(1, 128):
         graph.add_edge(0, vertex)
     before = list(graph.edges()), graph.version
@@ -429,7 +461,7 @@ def test_compaction_publishes_identical_contents_and_reclaims_native_capacity() 
 
 def test_compaction_respects_peak_budget_without_partial_publication() -> None:
     metadata = Packed(4).memory()["metadata"]
-    graph = Packed(4, budget=metadata + 56)
+    graph = Packed(4, budget=metadata + 48)
     graph.add_edge(0, 1)
     before = list(graph.edges()), graph.version, graph.memory()
     with pytest.raises(MemoryError, match="compaction peak"):

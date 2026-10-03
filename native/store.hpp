@@ -15,16 +15,16 @@ struct Block {
   uint32_t next = none;
   uint32_t previous = none;
   uint32_t items[4] = {};
-  uint32_t used = 0;
 };
-static_assert(sizeof(Block) == 28,
+static_assert(sizeof(Block) == 24,
               "block accounting must reflect its native layout");
 
 constexpr uint64_t vacant = std::numeric_limits<uint64_t>::max();
 constexpr uint64_t removed = vacant - 1;
 // Keep moderate rows on a bounded (<128-neighbor) scan. Indexing every row of
 // a degree-64 million-vertex ring would otherwise add 2 GiB of hash slots.
-// Large hubs still use the membership/location index; certificates are unchanged.
+// Large hubs still use the membership/location index; certificates are
+// unchanged.
 constexpr uint32_t threshold = 128;
 struct Slot {
   uint64_t key = vacant;
@@ -142,6 +142,10 @@ public:
            sizeof(Undo) * uint64_t(undo.capacity());
   }
 
+  uint32_t used(uint32_t u, uint32_t block) const noexcept {
+    return block == tails[u] ? (degrees[u] - 1) % 4 + 1 : 4;
+  }
+
   void healthy() const {
     if (poisoned)
       throw std::logic_error(
@@ -191,7 +195,7 @@ public:
     if (indexed[u])
       return index.find(key(u, v)) != nullptr;
     for (uint32_t b = heads[u]; b != none; b = blocks[b].next)
-      for (uint32_t i = 0; i < blocks[b].used; ++i)
+      for (uint32_t i = 0; i < used(u, b); ++i)
         if (blocks[b].items[i] == v)
           return true;
     return false;
@@ -259,7 +263,7 @@ public:
     if (indexed[u])
       return;
     for (uint32_t b = heads[u]; b != none; b = blocks[b].next)
-      for (uint32_t i = 0; i < blocks[b].used; ++i)
+      for (uint32_t i = 0; i < used(u, b); ++i)
         index.insert(key(u, blocks[b].items[i]), location(b, i));
     indexed[u] = 1;
   }
@@ -289,7 +293,8 @@ public:
   }
 
   void append(uint32_t u, uint32_t v) noexcept {
-    if (degrees[u] % 4 == 0) {
+    uint32_t offset = degrees[u] % 4;
+    if (!offset) {
       uint32_t b = acquire();
       blocks[b].previous = tails[u];
       if (tails[u] == none)
@@ -300,8 +305,8 @@ public:
     }
     Block &tail = blocks[tails[u]];
     if (indexed[u])
-      index.insert(key(u, v), location(tails[u], tail.used));
-    tail.items[tail.used++] = v;
+      index.insert(key(u, v), location(tails[u], offset));
+    tail.items[offset] = v;
     ++degrees[u];
   }
 
@@ -327,7 +332,7 @@ public:
 
   void erase(uint32_t u, uint32_t v) noexcept {
     uint32_t last = tails[u];
-    uint32_t replacement = blocks[last].items[blocks[last].used - 1];
+    uint32_t replacement = blocks[last].items[used(u, last) - 1];
     if (indexed[u]) {
       uint64_t target = index.find(key(u, v))->location;
       blocks[uint32_t(target >> 32)].items[uint32_t(target)] = replacement;
@@ -336,15 +341,14 @@ public:
       index.erase(key(u, v));
     } else {
       for (uint32_t b = heads[u]; b != none; b = blocks[b].next)
-        for (uint32_t i = 0; i < blocks[b].used; ++i)
+        for (uint32_t i = 0; i < used(u, b); ++i)
           if (blocks[b].items[i] == v) {
             blocks[b].items[i] = replacement;
             break;
           }
     }
-    --blocks[last].used;
     --degrees[u];
-    if (blocks[last].used == 0) {
+    if (degrees[u] % 4 == 0) {
       uint32_t previous = blocks[last].previous;
       if (previous == none)
         heads[u] = tails[u] = none;
@@ -352,6 +356,7 @@ public:
         blocks[previous].next = none;
         tails[u] = previous;
       }
+      blocks[last].previous = none;
       blocks[last].next = free;
       free = last;
       ++spare;
@@ -416,7 +421,7 @@ public:
     if (!indexed[u])
       return;
     for (uint32_t b = heads[u]; b != none; b = blocks[b].next)
-      for (uint32_t i = 0; i < blocks[b].used; ++i)
+      for (uint32_t i = 0; i < used(u, b); ++i)
         index.erase(key(u, blocks[b].items[i]));
     indexed[u] = 0;
   }
@@ -425,7 +430,7 @@ public:
     std::vector<uint32_t> result;
     result.reserve(degrees[u]);
     for (uint32_t b = heads[u]; b != none; b = blocks[b].next)
-      for (uint32_t i = 0; i < blocks[b].used; ++i)
+      for (uint32_t i = 0; i < used(u, b); ++i)
         result.push_back(blocks[b].items[i]);
     std::sort(result.begin(), result.end());
     return result;
@@ -442,15 +447,17 @@ public:
       uint32_t degree = 0, last = none;
       neighbors.clear();
       for (uint32_t b = heads[u]; b != none; b = blocks[b].next) {
-        if (b >= blocks.size() || ownership[b] || !blocks[b].used ||
-            blocks[b].used > 4)
+        if (b >= blocks.size() || ownership[b])
+          return false;
+        uint32_t occupied = used(u, b);
+        if (!occupied || occupied > 4)
           return false;
         ownership[b] = 1;
         if (blocks[b].previous != last)
           return false;
-        if (blocks[b].next != none && blocks[b].used != 4)
+        if (blocks[b].next != none && occupied != 4)
           return false;
-        for (uint32_t i = 0; i < blocks[b].used; ++i) {
+        for (uint32_t i = 0; i < occupied; ++i) {
           uint32_t v = blocks[b].items[i];
           if (v >= n || v == u || !has(v, u))
             return false;
@@ -461,7 +468,7 @@ public:
               return false;
           }
         }
-        degree += blocks[b].used;
+        degree += occupied;
         last = b;
       }
       if (degree != degrees[u] || last != tails[u])
@@ -478,7 +485,7 @@ public:
     }
     uint32_t unused = 0;
     for (uint32_t b = free; b != none; b = blocks[b].next) {
-      if (b >= blocks.size() || ownership[b] || blocks[b].used)
+      if (b >= blocks.size() || ownership[b] || blocks[b].previous != none)
         return false;
       ownership[b] = 1;
       ++unused;
@@ -506,7 +513,7 @@ public:
     result->reserve(live, true);
     for (uint32_t u = 0; u < n; ++u)
       for (uint32_t b = heads[u]; b != none; b = blocks[b].next)
-        for (uint32_t i = 0; i < blocks[b].used; ++i)
+        for (uint32_t i = 0; i < used(u, b); ++i)
           result->append(u, blocks[b].items[i]);
     result->count = count;
     result->version = version;

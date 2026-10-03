@@ -35,7 +35,7 @@ that later-delivered production components are absent.
 
 | Workstream | Delivered | Remaining evidence or engineering |
 | --- | --- | --- |
-| Compact storage and local transactions | Native blocked adjacency, bounded graph/partner undo, local certificates | Wider degree/churn envelopes and deployment sizing |
+| Compact storage and local transactions | 24-byte derived-occupancy blocks, sparse committed-partner journal index, bounded undo and local certificates | Wider degree/churn performance repeats and deployment sizing |
 | Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Deployment recovery objectives; hardware power-loss deferred by user for this version |
 | Concurrent clients and overload | Single-owner Service, locked admission/publication, bounded receipts, read reservation | Production transport/retry integration if required; broader sustained burst/skew qualification |
 | Million-vertex 10k durable updates/s | Independent 30-minute hot/full-ring soaks at 10.97k/11.00k/s with queries and exact recovery | Broader degree/growth/skew/burst runs and repeatability; all misses/drops/rejections remain explicit |
