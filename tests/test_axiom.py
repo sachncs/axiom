@@ -583,6 +583,26 @@ class TestBuild:
         assert system.check_lambda()
         assert system.check_L()
 
+    def test_build_keeps_determinism_for_unordered_custom_edge_iterators(self) -> None:
+        class Reversed(Adjacency):
+            def edges(self):
+                return iter(reversed(list(super().edges())))
+
+        ordered = Adjacency(8)
+        for edge in ((0, 5), (1, 2), (2, 6), (3, 7), (4, 5), (1, 7)):
+            ordered.add_edge(*edge)
+        unordered = Reversed(8)
+        for edge in ordered.edges():
+            unordered.add_edge(*edge)
+
+        expected = build(ordered, z=2)
+        actual = build(unordered, z=2)
+        assert actual.M == expected.M
+        assert actual.A == expected.A
+        assert actual.B == expected.B
+        assert actual.U == expected.U
+        assert actual.check()
+
 
 # ------------------------------------------------------------------
 # Dynamic maximal matching algorithm

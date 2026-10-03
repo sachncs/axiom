@@ -50,6 +50,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from axiom.graph import Adjacency
+from axiom.storage import Packed
 from axiom.types import Edge, Graph, Matching, Vertex, canonical
 from axiom.vertices import Vertices
 
@@ -820,7 +822,15 @@ def build(graph: Graph, z: int) -> System:
         "I" if graph.n <= Vertices.empty and array("I").itemsize >= 4 else "Q"
     )
     deg_M = array(degree_typecode, [0]) * graph.n
-    edges = sorted(graph.edges())
+    if type(graph) in (Adjacency, Packed):
+        # Both owned graph implementations stream rows in increasing vertex
+        # and neighbor order. Keep the sparse rebuild path streaming to avoid
+        # an O(m) Python edge-tuple/list copy and O(m log m) global sort.
+        edges = graph.edges()
+    else:
+        # Preserve deterministic construction for third-party Graph
+        # implementations whose edge iterator has no ordering guarantee.
+        edges = iter(sorted(graph.edges()))
     for u, v in edges:
         if deg_M[u] < z and deg_M[v] < z:
             e = canonical(u, v)

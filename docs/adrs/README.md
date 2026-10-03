@@ -48,6 +48,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0039](0039-sparse-empty-auxiliary-rows.md) | Keep empty H adjacency rows implicit instead of allocating one set per unmatched vertex | One 100k empty basic Matcher sample reduced traced retained/peak allocation by ~59%/~46%; repeatability and nonempty workloads remain |
 | [0040](0040-sparse-system-cache-rows.md) | Store only nonempty System lambda/L cache rows | One 100k empty basic Matcher sample reached 40.5 MB peak RSS and 7.9/19.0 MB traced retained/peak; nonempty and repeated workloads remain |
 | [0041](0041-compact-paper-system-vertices.md) | Use indexed integer arrays for dense U partitions and matching-degree counters | One-million-entry isolated allocations: 8 MB dense U and 4 MB degree counters versus ~74 MB each for Python set/dict; end-to-end paper qualification remains |
+| [0042](0042-stream-paper-builder-edges.md) | Stream ordered built-in graph edges into the paper greedy builder | One 200k-vertex path enumeration: 27.2 MB/0.276 s sorted materialization vs 432 traced bytes/0.019 s streaming; full rebuild qualification remains |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -82,6 +83,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | One retained empty auxiliary set per unmatched vertex | Sparse H rows with lazy target-set creation (0039) | One 100k empty Matcher sample: ~20.6 MiB less retained Python H-row state; broader workload repeats remain |
 | One cached empty list for every U/A vertex | Omit empty `System.lambda_lists`/`L_lists` rows; missing means empty (0040) | Row deltas create/remove entries transactionally; one 100k empty Matcher process peaks at ~40.5 MB RSS; residual U set dominates traced retained state |
 | Python hash table for dense U vertices and per-vertex matching degrees | Bounded dense `Vertices` indexes plus unsigned integer degree arrays (0041) | Isolated one-million-entry allocation falls from ~74 MB to 8 MB for full U and 4 MB for degrees; this is component evidence, not whole-Matcher RSS or paper throughput |
+| Global Python edge list and sort during built-in paper System construction | Consume deterministic `Adjacency`/`Packed` edge streams directly; retain sorted fallback for custom Graphs (0042) | 200k path enumeration reduced traced peak/time in one local component sample; full System rebuild behavior and scale still need qualification |
 
 ## What is not being abandoned
 

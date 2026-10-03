@@ -39,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dictionary. An isolated million-counter allocation fell from 73.9 MB to
   4.0 MB; this is component memory evidence, not end-to-end paper qualification.
   See [ADR 0041](docs/adrs/0041-compact-paper-system-vertices.md).
+- The paper System builder streams built-in `Adjacency`/`Packed` graph edges in
+  their guaranteed deterministic order instead of retaining and sorting a
+  global Python edge list. Custom graph iterators keep the sorted compatibility
+  path. A 200k-vertex path enumeration sample reduced traced peak from 27.2 MB
+  to 432 bytes; full rebuild performance remains unqualified. See
+  [ADR 0042](docs/adrs/0042-stream-paper-builder-edges.md).
 - 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.
