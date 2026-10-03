@@ -22,6 +22,7 @@ from axiom.paper_coloring import (
     Vizing,
 )
 from axiom.storage import Packed
+from axiom.types import Edge, Vertex
 from axiom.witness import Witness
 
 
@@ -2350,3 +2351,55 @@ def test_paper_fan_colorer_certifies_recursive_seed_output() -> None:
     for edge, color in coloring.items():
         certificate.assign(edge, color)
     certificate.validate()
+
+
+def test_sparse_pruning_input_validation_avoids_universe_and_edge_copies() -> None:
+    """Paper fan intake touches supplied endpoints, not every graph vertex/edge."""
+
+    class SparseGraph:
+        n = 1_000_000
+
+        def add_edge(self, left: Vertex, right: Vertex) -> None:
+            raise AssertionError("test graph is immutable")
+
+        def remove_edge(self, left: Vertex, right: Vertex) -> None:
+            raise AssertionError("test graph is immutable")
+
+        def has_edge(self, left: Vertex, right: Vertex) -> bool:
+            return (left, right) in {(2, 9), (4, 11)}
+
+        def degree(self, vertex: Vertex) -> int:
+            return int(vertex in {2, 9, 4, 11})
+
+        def neighbors(self, vertex: Vertex):
+            if vertex == 2:
+                return iter((9,))
+            if vertex == 9:
+                return iter((2,))
+            if vertex == 4:
+                return iter((11,))
+            if vertex == 11:
+                return iter((4,))
+            return iter(())
+
+        def edges(self):
+            raise AssertionError("pruning materialized the graph edge set")
+
+        def num_edges(self) -> int:
+            return 2
+
+    class SparsePartial(Partial):
+        def edges(self) -> set[Edge]:
+            raise AssertionError("pruning copied every colored edge")
+
+    graph = SparseGraph()
+    coloring = SparsePartial(graph, 4)
+
+    assert Pruning.seed(coloring, {(2, 9)}) == (Spoke((2, 9), 0),)
+    assert len(Construction.direct(coloring, {(2, 9)})) == 0
+    assert len(Construction.collect(coloring, set())) == 0
+    certificate = Spectrum.classify(coloring, set(), 2)
+    assert certificate.diagonal == frozenset()
+
+    with pytest.raises(ValueError, match="edges of the graph"):
+        Construction.direct(coloring, {(9, 2)})

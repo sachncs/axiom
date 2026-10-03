@@ -105,6 +105,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0096](0096-sparse-refinement-degrees.md) | Store refinement matching degrees sparsely when the chosen matching is small; retain packed counters otherwise | One-million-counter component: 4,000,164→904 B for four touched endpoints; full-refinement peak/time neutral, so no end-to-end gain claimed |
 | [0097](0097-monotone-refinement-progress.md) | Replace full U/A/M frozenset cycle keys with an exact scalar guard on strictly shrinking U | 20k-star refinement median 6.1% faster; four baseline/candidate Witness states equal; aggregate peak dominated by other state |
 | [0098](0098-compare-refinement-coloring-keys.md) | Compare the coloring key view directly with the selected matching instead of allocating two full edge sets | 100k-edge component: 8,389,040→112 B traced peak; median 2.45→0.90 ms; focused refinement regression forbids key iteration |
+| [0099](0099-sparse-paper-fan-intake.md) | Validate supplied pruning edges locally; size direct-fan indexes by touched endpoints, not the graph universe | 100k labels/one edge: preprocessing-shape traced peak 44,062,256→2,264 B; 198.459→0.018 ms; full pruning throughput not claimed |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

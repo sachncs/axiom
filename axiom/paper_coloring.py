@@ -1502,6 +1502,18 @@ class Pruning:
     vizing: type[Vizing] = Vizing
 
     @classmethod
+    def validate_edges(cls, coloring: Partial, edges: set[Edge]) -> None:
+        """Validate canonical supplied edges with local graph membership probes."""
+        for edge in edges:
+            if (
+                not isinstance(edge, tuple)
+                or len(edge) != 2
+                or edge != canonical(*edge)
+                or not coloring.graph.has_edge(*edge)
+            ):
+                raise ValueError("uncolorededges must be edges of the graph")
+
+    @classmethod
     def seed(cls, coloring: Partial, uncolorededges: set[Edge]) -> tuple[Spoke, ...]:
         """Construct the paper's initial separable collection of u-edges.
 
@@ -1510,10 +1522,8 @@ class Pruning:
         color without first solving another coloring problem.  The canonical
         endpoint is used as the center so the result is deterministic.
         """
-        graphedges = set(coloring.graph.edges())
-        if not uncolorededges <= graphedges:
-            raise ValueError("uncolorededges must be edges of the graph")
-        if uncolorededges & coloring.edges():
+        Pruning.validate_edges(coloring, uncolorededges)
+        if any(edge in coloring for edge in uncolorededges):
             raise ValueError("uncolorededges must not contain colored edges")
         usedvertices: set[Vertex] = set()
         seeded: list[Spoke] = []
@@ -2041,25 +2051,21 @@ class Construction:
         or invokes a different coloring algorithm.  The complete paper
         construction will extend this boundary with its fan-chain shifting step.
         """
-        graphedges = set(coloring.graph.edges())
-        if not uncolorededges <= graphedges:
-            raise ValueError("uncolorededges must be edges of the graph")
-        if uncolorededges & coloring.edges():
+        Pruning.validate_edges(coloring, uncolorededges)
+        if any(edge in coloring for edge in uncolorededges):
             raise ValueError("uncolorededges must not contain colored edges")
 
-        incident: dict[Vertex, list[Vertex]] = {
-            vertex: [] for vertex in range(coloring.graph.n)
-        }
+        incident: dict[Vertex, list[Vertex]] = {}
         for left, right in sorted(uncolorededges):
-            incident[left].append(right)
-            incident[right].append(left)
+            incident.setdefault(left, []).append(right)
+            incident.setdefault(right, []).append(left)
 
         palettes = {
-            vertex: set(coloring.missing(vertex)) for vertex in range(coloring.graph.n)
+            vertex: set(coloring.missing(vertex)) for vertex in incident
         }
         fans = Fans()
         usedspokes: set[Edge] = set()
-        for center in range(coloring.graph.n):
+        for center in sorted(incident):
             leaves = incident[center]
             for index, first in enumerate(leaves):
                 firstedge = canonical(center, first)
@@ -2155,19 +2161,13 @@ class Construction:
         it either builds a fan or certifiably extends a constant fraction of the
         supplied uncolored set.
         """
-        graphedges = set(coloring.graph.edges())
-        if not uncolorededges <= graphedges:
-            raise ValueError("uncolorededges must be edges of the graph")
-        if uncolorededges & coloring.edges():
-            raise ValueError("uncolorededges must not contain colored edges")
-
         if not uncolorededges:
             return Fans()
         minimumprogress = max(1, (len(uncolorededges) + 99) // 100)
         extendededges = 0
-        fans = cls.direct(coloring, set(uncolorededges))
+        fans = cls.direct(coloring, uncolorededges)
         fanedges = {edge for fan in fans for edge in fan.edges}
-        pending = sorted(set(uncolorededges) - fanedges)
+        pending = sorted(uncolorededges - fanedges)
         # ConUFans starts from a matching of uncolored edges.  Use its explicit
         # u-edge/Vizing-fan pruning phase whenever that precondition is available;
         # the general non-matching case remains in the separate local path below.
@@ -2265,17 +2265,21 @@ class Spectrum:
         if coloring.palette % eta:
             raise ValueError("palette must be divisible by eta")
 
-        graphedges = set(coloring.graph.edges())
-        normalized = {canonical(*edge) for edge in uncolorededges}
-        if normalized != uncolorededges:
-            raise ValueError("uncolorededges must contain canonical edges")
-        if not normalized <= graphedges:
-            raise ValueError("uncolorededges must be edges of the graph")
-        if normalized & coloring.edges():
-            raise ValueError("uncolorededges must not contain colored edges")
+        ordered = sorted(uncolorededges)
+        for edge in ordered:
+            if (
+                not isinstance(edge, tuple)
+                or len(edge) != 2
+                or edge != canonical(*edge)
+            ):
+                raise ValueError("uncolorededges must contain canonical edges")
+            if not coloring.graph.has_edge(*edge):
+                raise ValueError("uncolorededges must be edges of the graph")
+            if edge in coloring:
+                raise ValueError("uncolorededges must not contain colored edges")
 
         endpoints: dict[Vertex, Edge] = {}
-        for edge in sorted(normalized):
+        for edge in ordered:
             for vertex in edge:
                 if vertex in endpoints:
                     raise ValueError("uncolorededges must form a matching")
@@ -2291,7 +2295,7 @@ class Spectrum:
         counts = [[0 for ignored in range(eta)] for ignored in range(eta)]
         types: dict[Edge, frozenset[tuple[Color, Color]]] = {}
         diagonal: set[Edge] = set()
-        for edge in sorted(normalized):
+        for edge in ordered:
             leftmissing = coloring.missing(edge[0])
             rightmissing = coloring.missing(edge[1])
             if not leftmissing or not rightmissing:

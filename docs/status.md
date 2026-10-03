@@ -141,7 +141,7 @@ refinement matching degrees avoid allocating n zero counters while preserving
 the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
 refinement cycle detection uses a strict U-decrease guard instead of copying
 U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
-Full-suite verification currently passes 1,280 tests. The
+Full-suite verification currently passes 1,281 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
@@ -180,5 +180,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,280 passing tests; CI and benchmark results must be attributed to their exact
+1,281 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

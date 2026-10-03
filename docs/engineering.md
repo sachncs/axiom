@@ -1205,3 +1205,11 @@ selected matching rather than allocating two full edge sets for completeness
 validation. A 100k-edge component probe measured 8,389,040 to 112 bytes of
 traced comparison peak and 2.45 to 0.90 ms median; full-refinement performance
 is not inferred. See [ADR 0098](adrs/0098-compare-refinement-coloring-keys.md).
+
+Paper fan intake no longer materializes graph/colored-edge copies to validate a
+small supplied uncolored set. Direct fan construction stores incidence and
+palette state only for touched endpoints, and spectrum classification sorts
+once rather than retaining a normalized edge-set duplicate. At 100k labels and
+one edge, the old intake allocation shape used 44.06 MB traced peak versus
+2,264 bytes for a full direct call; this component comparison does not establish
+end-to-end pruning throughput. See [ADR 0099](adrs/0099-sparse-paper-fan-intake.md).
