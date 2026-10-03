@@ -97,6 +97,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dense full-hierarchy set comparisons now use one-byte-per-vertex scratch and
   sparse checks use membership certificates. A million-label region audit peak
   fell 57.9→1.0 MB while median time fell 86→47 ms. See [ADR 0054](docs/adrs/0054-bounded-hierarchy-audits.md).
+- Multilevel rebuilds now share the hierarchy-owned phase graph with
+  `Matcher.phase_graph`, avoiding a redundant 37 MB native clone in the
+  one-million-edge component probe while retaining alias/rollback tests. See
+  [ADR 0055](docs/adrs/0055-share-hierarchy-phase-graph-root.md).
 - 1,226 local tests pass after hierarchy audit certificates.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback

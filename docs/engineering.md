@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; graph snapshots, multi-source hierarchy union construction, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; required phase-base snapshots, multi-source hierarchy union construction, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -274,6 +274,16 @@ four-partition region difference, it fell from 57,935,496 to 1,000,977 bytes
 and median time from 86.2 to 47.4 ms. These are isolated probes, not full
 hierarchy rebuild or product qualification. See [ADR 0054](adrs/0054-bounded-hierarchy-audits.md)
 and its [raw record](../benchmarks/results/paper/hierarchy-audits.json).
+
+Multilevel rebuilds no longer make an additional full graph clone for
+`Matcher.phase_graph`. That field now retains the hierarchy-owned graph root,
+which is already transaction-journaled and is not otherwise read through the
+separate alias. A one-million-vertex/one-million-edge native ring clone costs
+37,000,264 bytes of additional native capacity (median 0.68 ms over seven
+isolated copies); avoiding it removes that duplicate retained graph per rebuilt
+multilevel Matcher. This does not remove required `phase_base_graph` snapshots
+or establish whole-rebuild memory bounds. Identity and injected-failure rollback
+tests cover the shared root. See [ADR 0055](adrs/0055-share-hierarchy-phase-graph-root.md).
 
 ## Implemented foundation, not product qualification
 

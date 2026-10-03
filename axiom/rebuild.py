@@ -426,7 +426,11 @@ class Multilevel:
                 "multilevel rebuild violated invariant I3; refusing to "
                 "continue with stale recursive state"
             )
-        matcher.phase_graph = snapshot(matcher.multi.graph)
+        # The hierarchy owns this phase graph and updates it in place. Retain
+        # its root instead of cloning every edge into an observational copy;
+        # Matcher transaction setup deduplicates graph identities before
+        # opening their journals.
+        matcher.phase_graph = matcher.multi.graph
         if parent_boundary:
             next_base_graph = snapshot(matcher.graph)
             next_base_system = build(next_base_graph, matcher.level_zs[0])

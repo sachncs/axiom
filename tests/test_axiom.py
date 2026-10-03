@@ -1655,9 +1655,10 @@ class TestMatcher:
         assert algo.inserted_incident_edges == before["inserted_incident"]
         assert algo.deleted_edges == before["deleted"]
         assert algo.phase_graph is not None
+        assert algo.multi is not None
+        assert algo.phase_graph is algo.multi.graph
         assert id(algo.phase_graph) == before["phase_graph_id"]
         assert set(algo.phase_graph.edges()) == before["phase_edges"]
-        assert algo.multi is not None
         assert id(algo.multi.graph) == before["hierarchy_graph_id"]
         assert set(algo.multi.graph.edges()) == before["hierarchy_edges"]
         assert [
@@ -2272,6 +2273,7 @@ class TestPerformance:
 
         assert algo.graph.has_edge(0, 1)
         assert algo.multi is not None
+        assert algo.phase_graph is algo.multi.graph
         assert not algo.multi.graph.has_edge(0, 1)
 
     def test_large_graph_multilevel(self) -> None:
