@@ -93,6 +93,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0084](0084-stream-parent-fan-selection.md) | Select projected fans from the authoritative member set without sorting the entire parent collection | 25k-fan/5%-selected projection: 26.73% faster and 4.05% lower traced peak; connected and full-engine qualification remain |
 | [0085](0085-reuse-projected-graph-for-degree-audit.md) | Reuse the isolated child graph for degree feasibility instead of a Python degree map and sorted edge copy | Connected 12k-fan projection: 28.56% faster and 5.69% lower traced peak; full-engine qualification remains |
 | [0086](0086-bound-refinement-cycle-snapshots.md) | Discard exact refinement cycle snapshots when the monotone U frontier shrinks | 2,048-vertex refinement: 11.68% lower traced peak with identical state; broader hierarchy qualification remains |
+| [0087](0087-derive-refinement-degree-state.md) | Omit the matching-degree array from exact cycle keys because it is fully derived from the selected matching | 2,048-vertex refinement: another 16.88% lower peak vs 0086 and 5.59% vs original; exact output retained |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

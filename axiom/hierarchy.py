@@ -901,17 +901,19 @@ def refine_hierarchy(
             frozenset[Vertex],
             frozenset[Vertex],
             frozenset[Edge],
-            tuple[tuple[Vertex, int], ...],
         ]
     ] = set()
     while changed:
         changed = False
+        # ``degree`` is exactly the degree of the chosen matching: it starts
+        # at zero and every chosen-edge insertion/removal updates both values
+        # together. The fixed graph and chosen set therefore determine it;
+        # retaining all n counters in every exact cycle key is redundant.
         state = (
             frozenset(new_u),
             frozenset(new_a),
             frozenset(new_b),
             frozenset(chosen),
-            tuple(enumerate(degree)),
         )
         if state in seen_states:
             raise RuntimeError(
