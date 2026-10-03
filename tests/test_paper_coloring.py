@@ -1995,16 +1995,62 @@ def test_sparsify_types_restores_state_on_batch_failure(
     coloring = Partial(graph, 100)
     colorsbefore = dict(coloring.items())
     fansbefore = tuple(fans)
+    coloringroots = (coloring.assignments, coloring.incident, coloring.index)
+    fanroots = (
+        fans.members,
+        fans.spokes,
+        fans.assignments,
+        fans.assigned,
+        fans.vertices,
+        fans.types,
+    )
+    originalmodify = Spectrum.modify
+    batches = 0
 
-    def fail_batch(*args: object, **kwargs: object) -> None:
+    def fail_batch(
+        strategy: type[Spectrum],
+        candidate: Partial,
+        collection: Fans,
+        batch: tuple[Fan, ...],
+        blocks: tuple[frozenset[int], ...],
+        pairindex: int,
+        parentjournal: ColorJournal | None = None,
+    ) -> None:
+        nonlocal batches
+        originalmodify(candidate, collection, batch, blocks, pairindex, parentjournal)
+        batches += 1
         raise RuntimeError("injected sparsification failure")
 
-    monkeypatch.setattr(Spectrum, "modify", fail_batch)
+    monkeypatch.setattr(Spectrum, "modify", classmethod(fail_batch))
     with pytest.raises(RuntimeError, match="injected sparsification failure"):
         Spectrum.sparsify(coloring, fans, 10)
 
+    assert batches == 1
     assert dict(coloring.items()) == colorsbefore
     assert tuple(fans) == fansbefore
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            coloringroots,
+            strict=True,
+        )
+    )
+    assert all(
+        current is original
+        for current, original in zip(
+            (
+                fans.members,
+                fans.spokes,
+                fans.assignments,
+                fans.assigned,
+                fans.vertices,
+                fans.types,
+            ),
+            fanroots,
+            strict=True,
+        )
+    )
     coloring.validate()
     fans.validate()
 

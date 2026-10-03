@@ -726,9 +726,8 @@ class Fans:
 
     def relabel(self, mapping: dict[Color, Color]) -> None:
         """Apply a global color permutation while preserving all indexes."""
-        current = tuple(self)
         replacement = type(self)()
-        for fan in current:
+        for fan in self.members:
             replacement.add(
                 Fan(
                     fan.center,
@@ -2435,12 +2434,13 @@ class Spectrum:
         batch: tuple[Fan, ...],
         blocks: tuple[frozenset[Color], ...],
         pairindex: int,
+        parentjournal: ColorJournal | None = None,
     ) -> None:
         """Apply one ``Modify-Types`` batch atomically."""
         coloring.validate()
         fans.validate()
         fans.compatible(coloring)
-        colorjournal = ColorJournal(coloring)
+        colorjournal = ColorJournal(coloring, parentjournal)
         fansbefore: set[Fan] | None = None
         affectedvertices: set[Vertex] = set()
         try:
@@ -2548,8 +2548,19 @@ class Spectrum:
         cls, coloring: Partial, fans: Fans, eta: int
     ) -> tuple[tuple[frozenset[Color], ...], Fans]:
         """Run ``Sparsify-Types`` atomically over the coloring and fan index."""
-        colorsbefore = dict(coloring.assignments)
-        fansbefore = tuple(fans)
+        fanroots = (
+            fans.members,
+            fans.spokes,
+            fans.assignments,
+            fans.assigned,
+            fans.vertices,
+            fans.types,
+        )
+        coloringroots = coloring.incident, coloring.index
+        colorjournal = ColorJournal(coloring)
+        relabeled = False
+        fansrelabeled = False
+        inverse: dict[Color, Color] = {}
         try:
             if not isinstance(eta, int) or isinstance(eta, bool) or eta < 10:
                 raise ValueError("eta must be an integer at least 10")
@@ -2558,7 +2569,7 @@ class Spectrum:
             coloring.validate()
             fans.validate()
             fans.compatible(coloring)
-            colorededges = coloring.edges()
+            coloredcount = len(coloring.assignments)
             initial = len(fans)
             if initial == 0:
                 raise ValueError("sparsify_types requires at least one u-fan")
@@ -2568,8 +2579,11 @@ class Spectrum:
                     counts[color] += 1
             order = sorted(counts, key=lambda color: (-counts[color], color))
             mapping = {old: new for new, old in enumerate(order)}
+            inverse = {new: old for old, new in mapping.items()}
             coloring.relabel(mapping)
+            relabeled = True
             fans.relabel(mapping)
+            fansrelabeled = True
             blocks, pairs = cls.blocks(coloring.palette, eta)
             for fan in tuple(fans):
                 try:
@@ -2654,7 +2668,7 @@ class Spectrum:
                 )
                 batch = tuple(sorted(goodbytype[batchkey], key=cls.order))
                 socialbefore = len(social)
-                cls.modify(coloring, fans, batch, blocks, pairindex)
+                cls.modify(coloring, fans, batch, blocks, pairindex, colorjournal)
                 social = {fan for fan in fans if cls.social(fan, blocks)}
                 if len(social) <= socialbefore:
                     raise RuntimeError("Sparsify-Types made no social-fan progress")
@@ -2671,8 +2685,8 @@ class Spectrum:
                 raise RuntimeError("Sparsify-Types returned a non-social u-fan")
             if any(len(group) > coloring.palette // eta for group in pairs):
                 raise RuntimeError("Sparsify-Types returned an oversized color group")
-            if coloring.edges() != colorededges:
-                raise RuntimeError("Sparsify-Types changed the set of colored edges")
+            if len(coloring.assignments) != coloredcount:
+                raise RuntimeError("Sparsify-Types changed the colored edge count")
             # Amplify terminates with U := U_hat.  Keep the caller's working
             # collection synchronized with the returned social collection so a
             # subsequent recursive step cannot accidentally process stale
@@ -2684,12 +2698,19 @@ class Spectrum:
             fans.compatible(coloring)
             return pairs, result
         except Exception:
-            coloring.assignments = colorsbefore
-            coloring.reindex()
-            for fan in tuple(fans):
-                fans.discard(fan)
-            for fan in fansbefore:
-                fans.add(fan)
+            colorjournal.rollback()
+            if relabeled:
+                coloring.relabel(inverse)
+                coloring.incident, coloring.index = coloringroots
+            if fansrelabeled:
+                (
+                    fans.members,
+                    fans.spokes,
+                    fans.assignments,
+                    fans.assigned,
+                    fans.vertices,
+                    fans.types,
+                ) = fanroots
             coloring.validate()
             fans.validate()
             fans.compatible(coloring)

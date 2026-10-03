@@ -1,0 +1,55 @@
+{
+  "benchmark": "spectrum-sparsify-bounded-transaction",
+  "date": "2026-10-03",
+  "baseline_revision": "d9c357d",
+  "candidate_revision": "working-tree-after-d9c357d",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 66000,
+    "fans": 2000,
+    "colored_edges": 30000,
+    "palette": 100,
+    "eta": 10,
+    "graph_shape": "disjoint colored matching plus independent fan spokes",
+    "operation": "complete Spectrum.sparsify"
+  },
+  "measurement": "Five alternating fresh-state runs; tracemalloc peak and elapsed time for full sparsify; graph/coloring setup and independent post-operation validation excluded",
+  "certificate": "Full coloring.validate, fan.validate, and fan/color compatibility passed after every successful run; exact rollback and root identity covered by injected post-Modify-Types failure test",
+  "baseline_peak_bytes": [
+    34831336,
+    34831264,
+    34831232,
+    34831208,
+    34831176
+  ],
+  "candidate_peak_bytes": [
+    31588384,
+    31588304,
+    31588264,
+    31588232,
+    31588192
+  ],
+  "baseline_seconds": [
+    0.3734013329958543,
+    0.3840797089942498,
+    0.3866370409959927,
+    0.3825172500073677,
+    0.3850345829996513
+  ],
+  "candidate_seconds": [
+    0.3904512910085032,
+    0.39448220799386036,
+    0.39971495799545664,
+    0.39685779200226534,
+    0.39715933401021175
+  ],
+  "median": {
+    "baseline_peak_bytes": 34831232,
+    "candidate_peak_bytes": 31588264,
+    "peak_reduction_percent": 9.31,
+    "baseline_seconds": 0.3840797089942498,
+    "candidate_seconds": 0.39685779200226534,
+    "elapsed_change_percent": 3.33
+  },
+  "limitations": "Synthetic disconnected fixture on one host; tracemalloc rather than process RSS; elapsed time regressed; no connected/skewed or whole Matcher/service qualification."
+}

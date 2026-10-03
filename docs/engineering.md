@@ -157,6 +157,17 @@ Invalid permutations and an edge removed during staged certification leave all
 coloring indexes and roots unchanged. See [ADR 0081](adrs/0081-in-place-color-relabel.md)
 and its [raw comparison](../benchmarks/results/paper/in-place-color-relabel.json).
 
+`Spectrum.sparsify` no longer copies all colored assignments or materializes a
+second full set of colored edge keys for its transaction. It composes the
+global color permutation with a first-write journal for later path edits;
+failure rolls those edits back, applies the inverse permutation, and restores
+the original coloring/fan index roots in constant additional root space. Fan
+relabel staging now iterates the immutable source membership directly without
+an extra sorted tuple. Five complete runs with 30,000 colored edges and 2,000
+fans reduced traced peak 9.31%; median elapsed time regressed 3.33%, so this is
+a memory improvement with a visible compute tradeoff. See [ADR 0082](adrs/0082-bounded-sparsify-transaction.md)
+and its [raw comparison](../benchmarks/results/paper/bounded-sparsify-transaction.json).
+
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores
 touched coloring cells without replacing container roots. A failure injected
