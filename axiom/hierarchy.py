@@ -890,7 +890,7 @@ def refine_hierarchy(
         # that used it as their last M-witness.  Repair them immediately.
         normalize_b_neighbors(vertex)
 
-    for vertex in sorted(tuple(new_u)):
+    for vertex in sorted(new_u):
         if degree[vertex] >= z_prime - h:
             promote(vertex)
 
@@ -919,7 +919,7 @@ def refine_hierarchy(
                 "continue with a non-terminating hierarchy construction"
             )
         seen_states.add(state)
-        for vertex in sorted(tuple(new_u)):
+        for vertex in sorted(new_u):
             need = z_prime - degree[vertex]
             if need <= 0:
                 promote(vertex)
@@ -993,6 +993,13 @@ def refine_hierarchy(
                     normalize_b(neighbor)
                 promote(vertex)
                 changed = True
+
+        # U only shrinks during refinement. A previously seen state contains
+        # its exact U membership, so no state from a larger U can ever recur
+        # after a promotion. Drop those full graph-sized snapshots as soon as
+        # the U frontier shrinks instead of retaining one copy per pass.
+        if len(new_u) < len(state[0]):
+            seen_states.clear()
 
     # ProcPromote keeps every B vertex attached to U through M.  A vertex
     # promoted to A may not subsequently acquire a U partner; normalize this

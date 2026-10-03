@@ -204,6 +204,21 @@ a single-host projection probe, not an end-to-end hierarchy/service qualificatio
 See [ADR 0085](adrs/0085-reuse-projected-graph-for-degree-audit.md) and its
 [raw comparison](../benchmarks/results/paper/project-degree-audit.json).
 
+Recursive hierarchy refinement still uses exact full-state snapshots to detect
+an actually repeated ProcProcess state; that check is important because several
+matching-repair branches can change the matching without consuming the current
+U vertex. However, U is monotone decreasing and can never be repopulated during
+one refinement. States recorded before U shrinks therefore cannot recur. The
+cycle detector now releases that obsolete history after each shrink while
+retaining exact equality checks for states on the current U frontier. On five
+alternating runs of the existing 2,048-vertex/4,096-edge witness-heavy fixture,
+the canonical hierarchy result was identical; median traced peak fell from
+2,252,959 to 1,989,807 bytes (11.68%) and median time from 419.95 to 410.62 ms
+(2.22%). This reduces retained cycle-history growth, not the O(n) snapshot
+needed to compare states on a stable frontier. See
+[ADR 0086](adrs/0086-bound-refinement-cycle-snapshots.md) and its
+[raw comparison](../benchmarks/results/paper/refinement-cycle-snapshots.json).
+
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores
 touched coloring cells without replacing container roots. A failure injected
