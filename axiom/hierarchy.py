@@ -959,14 +959,17 @@ def refine_hierarchy(
                     edge = canonical(vertex, neighbor)
                     if edge in chosen:
                         continue
-                    witnesses = sorted(
-                        old_edge
-                        for old_edge in chosen
-                        if neighbor in old_edge
-                        and (old_edge[0] in new_u or old_edge[1] in new_u)
+                    witness = next(
+                        (
+                            canonical(neighbor, partner)
+                            for partner in working_graph.neighbors(neighbor)
+                            if partner in new_u
+                            and canonical(neighbor, partner) in chosen
+                        ),
+                        None,
                     )
-                    if witnesses:
-                        b_candidates.append((neighbor, witnesses[0]))
+                    if witness is not None:
+                        b_candidates.append((neighbor, witness))
                 if len(b_candidates) < need:
                     raise RuntimeError(
                         "recursive refinement lost a B-to-U witness required "

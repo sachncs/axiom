@@ -1,0 +1,48 @@
+{
+  "comparison": "axiom/hierarchy.py at e92cd69 versus working-tree candidate",
+  "fixture": {
+    "components": "disjoint copies of the deterministic 8-vertex witness-swap graph from tests/test_axiom.py::TestHierarchy::test_refinement_repairs_b_neighbors_from_local_u_witnesses",
+    "refinement": "build_hierarchy(graph, [8]); refine_hierarchy(hierarchy, 4)",
+    "hierarchy_construction_measured": false,
+    "repeats": 3,
+    "measurement": "median elapsed time and maximum tracemalloc peak across repeats"
+  },
+  "results": [
+    {
+      "components": 64,
+      "vertices": 512,
+      "prior_seconds": 0.0886,
+      "candidate_seconds": 0.0823,
+      "prior_peak_bytes": 470395,
+      "candidate_peak_bytes": 469275,
+      "state_equal": true,
+      "hierarchy_check": true
+    },
+    {
+      "components": 256,
+      "vertices": 2048,
+      "prior_seconds": 0.8298,
+      "candidate_seconds": 0.8121,
+      "prior_peak_bytes": 2252903,
+      "candidate_peak_bytes": 2252975,
+      "state_equal": true,
+      "hierarchy_check": true
+    },
+    {
+      "components": 512,
+      "vertices": 4096,
+      "prior_seconds": 2.829,
+      "candidate_seconds": 2.7825,
+      "prior_peak_bytes": 4953343,
+      "candidate_peak_bytes": 4953423,
+      "state_equal": true,
+      "hierarchy_check": true
+    }
+  ],
+  "limitations": [
+    "One host and one witness-heavy graph family",
+    "tracemalloc peak is not process RSS",
+    "does not measure durable updates or production service behavior",
+    "does not qualify all hierarchy refinement bottlenecks"
+  ]
+}

@@ -2112,6 +2112,52 @@ class TestHierarchy:
         assert (0, 7) in set(refined.graph.edges())
         assert len(refined.deferred_deletions) <= len(deleted) * 4 // 8
 
+    def test_refinement_repairs_b_neighbors_from_local_u_witnesses(self) -> None:
+        """Repeated ProcProcess swaps use incident edges, preserving the matching."""
+        graph = Adjacency(8)
+        edges = [
+            (0, 2),
+            (0, 4),
+            (0, 5),
+            (0, 6),
+            (0, 7),
+            (1, 4),
+            (1, 5),
+            (1, 6),
+            (1, 7),
+            (2, 3),
+            (2, 5),
+            (2, 7),
+            (3, 4),
+            (3, 6),
+            (4, 7),
+            (5, 7),
+        ]
+        for edge in edges:
+            graph.add_edge(*edge)
+        original_edges = set(graph.edges())
+        hierarchy = build_hierarchy(graph, [8])
+
+        refined = refine_hierarchy(hierarchy, 4)
+
+        assert refined.check()
+        assert set(graph.edges()) == original_edges
+        assert refined.levels[-1].M == {
+            (0, 2),
+            (0, 4),
+            (0, 5),
+            (0, 7),
+            (1, 4),
+            (1, 5),
+            (1, 6),
+            (1, 7),
+            (2, 3),
+            (2, 5),
+            (2, 7),
+            (3, 4),
+            (4, 7),
+        }
+
     def test_refinement_counts_empty_color_classes_for_deleted_edge_bound(self) -> None:
         graph = Adjacency(16)
         for u in range(0, 16, 2):

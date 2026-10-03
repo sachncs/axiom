@@ -47,6 +47,17 @@ that later-delivered production components are absent.
 | Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H/color caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder and hierarchy projection edges, lazy `A ∪ B` traversal, direct saturated-partition membership, endpoint-local certificates, direct A-partition rematch membership, graph-backed hierarchy cuts, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; each child refinement's graph/System copy, parent-boundary rebases, multi-source A/N/R union construction, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
+Hierarchy refinement's `ProcProcess` witness lookup no longer scans every
+selected matching edge for each B-neighbor; it checks the candidate vertex's
+incident edges against the existing selected-edge set, without retaining a
+second matching index. A deterministic two-swap regression passes the full
+hierarchy certificate and confirms the source graph is unchanged. Three traced
+repeats over a disjoint-copy witness-heavy fixture show 1.6–7.1% lower median
+refinement time at 512–4,096 vertices with identical hierarchy state and no
+material allocation change. This is component-level, single-host evidence,
+not broader paper-engine qualification. See [ADR 0066](adrs/0066-local-refinement-witness-search.md)
+and its [raw record](../benchmarks/results/paper/refinement-witness-search.json).
+
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new
 work are recorded in ADR 0020; established APIs need compatibility planning
