@@ -600,6 +600,13 @@ class TestMatcher:
         assert algo.graph.has_edge(2, 7)
         assert algo.maximal()
 
+    @pytest.mark.parametrize("mode", ["basic", "multilevel"])
+    def test_empty_auxiliary_rows_are_not_materialized(self, mode: str) -> None:
+        algo = Matcher(128, mode=mode)
+        assert algo.H == {}
+        assert algo.H_reverse == {}
+        assert algo._Matcher__check_auxiliary_indexes()
+
     def test_basic_init(self) -> None:
         algo = Matcher(10, mode="basic")
         assert algo.n == 10

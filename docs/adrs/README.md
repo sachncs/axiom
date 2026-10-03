@@ -45,6 +45,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0036](0036-aggregate-fan-flip-rollback.md) | Couple endpoint fan deltas to the alternating-path coloring flip | Two-endpoint injected failure restores exact Witness state with an endpoint-local journal; durable Matcher integration remains open |
 | [0037](0037-adjacency-edge-journal.md) | Journal built-in adjacency edits by touched edge, not full edge-set snapshots | Built-in Matcher graph transaction/certificate is local to edited endpoints; opaque custom-graph fallback and broader paper qualification remain |
 | [0038](0038-default-packed-matcher-storage.md) | Default Matcher to bounded Packed storage; retain Adjacency as explicit reference | One-million-vertex empty-graph sample used about 9.5× lower process peak RSS; full Matcher/product resource qualification remains |
+| [0039](0039-sparse-empty-auxiliary-rows.md) | Keep empty H adjacency rows implicit instead of allocating one set per unmatched vertex | One 100k empty basic Matcher sample reduced traced retained/peak allocation by ~59%/~46%; repeatability and nonempty workloads remain |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -76,6 +77,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Per-block `used` counter duplicating row degree | 24-byte blocks with occupancy derived for full blocks and row tails (0031) | 4 MB less native allocation per million degree-four vertices; exact audits/rollback retained; throughput requires fresh-process repeats |
 | Whole-edge-set rollback and mutation certificates on built-in Python graphs | Owner-bound touched-edge journal and local degree/count certificate (0037) | O(k) rollback history for k changed edges; custom graph fallback and other state-sized paper paths remain |
 | One Python set allocated per vertex in default Matcher graph | Bounded `Packed` default with injectable `Adjacency` reference (0038) | One empty-graph RSS sample: ~251.1 MB vs ~26.3 MB at one million vertices; excludes matcher state and workload costs |
+| One retained empty auxiliary set per unmatched vertex | Sparse H rows with lazy target-set creation (0039) | One 100k empty Matcher sample: ~20.6 MiB less retained Python H-row state; broader workload repeats remain |
 
 ## What is not being abandoned
 

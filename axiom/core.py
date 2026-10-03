@@ -359,12 +359,15 @@ class Matcher:
         }
 
         for u in sorted(self.system.U):
-            neighbours = {
-                v
-                for v in self.system.lambda_lists.get(u, [])
-                if self.graph.has_edge(u, v)
-            }
-            if u not in self.matched_vertices:
+            if u in self.matched_vertices:
+                continue
+            neighbours = None
+            for v in self.system.lambda_lists.get(u, []):
+                if self.graph.has_edge(u, v):
+                    if neighbours is None:
+                        neighbours = set()
+                    neighbours.add(v)
+            if neighbours:
                 self.H[u] = neighbours
                 for v in neighbours:
                     self.H_reverse.setdefault(v, set()).add(u)
@@ -404,10 +407,11 @@ class Matcher:
                     for target in self.system.lambda_lists.get(vertex, [])
                     if self.graph.has_edge(vertex, target)
                 }
-                if self.auxiliary is None:
-                    self.H[vertex] = targets
-                else:
-                    self.auxiliary.assign(self.H, vertex, targets)
+                if targets:
+                    if self.auxiliary is None:
+                        self.H[vertex] = targets
+                    else:
+                        self.auxiliary.assign(self.H, vertex, targets)
                 for target in targets:
                     if self.auxiliary is None:
                         self.H_reverse.setdefault(target, set()).add(vertex)
@@ -538,11 +542,13 @@ class Matcher:
         for source in self.system.U:
             if source in self.matched_vertices:
                 continue
-            expected_h[source] = {
+            targets = {
                 target
                 for target in self.system.lambda_lists.get(source, [])
                 if self.graph.has_edge(source, target)
             }
+            if targets:
+                expected_h[source] = targets
         if self.H != expected_h:
             return False
 

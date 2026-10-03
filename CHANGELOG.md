@@ -23,8 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   vertex graph-only sample used about 9.5× less peak RSS with `Packed`; this is
   not an end-to-end Matcher scalability qualification. See
   [ADR 0038](docs/adrs/0038-default-packed-matcher-storage.md).
-- 1,199 local tests pass after compact Matcher defaults, adjacency-journal
-  integration and prior no-copy
+- Empty outgoing rows in the paper engine's directed H index are now implicit;
+  this removes one empty Python set per unmatched vertex. One 100k empty basic
+  Matcher trace reduced retained/peak traced allocations by about 59%/46%; this
+  is not broad workload qualification. See
+  [ADR 0039](docs/adrs/0039-sparse-empty-auxiliary-rows.md).
+- 1,201 local tests pass after sparse H rows, compact Matcher defaults,
+  adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
