@@ -1988,6 +1988,45 @@ class TestHierarchy:
 
         assert not hierarchy.check()
 
+    def test_hierarchy_check_scans_matching_edges_once_for_a_partition(self) -> None:
+        class CountedMatching(set):
+            def __init__(self, edges):
+                super().__init__(edges)
+                self.scans = 0
+
+            def __iter__(self):
+                self.scans += 1
+                return super().__iter__()
+
+        size = 64
+        graph = Adjacency(size)
+        for vertex in range(size):
+            graph.add_edge(vertex, (vertex + 1) % size)
+        a = Vertices(size, range(size))
+        b = Vertices(size)
+        u = Vertices(size)
+        matching = CountedMatching(
+            (vertex, vertex + 1) for vertex in range(0, size, 2)
+        )
+        system = System(graph=graph, z=1, A=a, B=b, U=u, M=matching)
+        system.index()
+        hierarchy = Hierarchy(
+            graph=graph,
+            k=1,
+            levels=[system],
+            A1=a,
+            A2=Vertices(size),
+            N1=b,
+            R1=u,
+            A_levels=[a],
+            N_levels=[b],
+            R_levels=[u],
+            L_levels=[{}],
+        )
+
+        assert hierarchy.check()
+        assert matching.scans < 10
+
     def test_hierarchy_check_detects_level_degree_corruption(self) -> None:
         graph = Adjacency(8)
         for u in range(8):
@@ -2297,7 +2336,7 @@ class TestHierarchy:
         with pytest.raises(ValueError, match="inserted edges must be absent"):
             refine_hierarchy(base, 1, inserted={(0, 1)})
 
-    def test_phase_sync_retains_deferred_deletions(self) -> None:
+    def test_phase_sync_retains_deferred_deletions(self, monkeypatch) -> None:
         phase_graph = Adjacency(4)
         phase_graph.add_edge(0, 1)
         hierarchy = build_hierarchy(phase_graph, [2, 1])
@@ -2305,9 +2344,43 @@ class TestHierarchy:
 
         live_graph = Adjacency(4)
         live_graph.add_edge(0, 1)
+        allowed_graphs = []
+        restrict = System.restrict
+
+        def record_restrict(system, allowed):
+            allowed_graphs.append(allowed)
+            restrict(system, allowed)
+
+        monkeypatch.setattr(System, "restrict", record_restrict)
         hierarchy.sync_graph(live_graph)
 
         assert hierarchy.graph.has_edge(2, 3)
+        assert len(allowed_graphs) == len(hierarchy.levels)
+        assert all(allowed is hierarchy.graph for allowed in allowed_graphs)
+        assert hierarchy.check()
+
+    def test_phase_sync_keeps_custom_graph_fallback(self) -> None:
+        class CustomGraph:
+            def __init__(self, graph):
+                self.graph = graph
+
+            def __getattr__(self, name):
+                return getattr(self.graph, name)
+
+            def edges(self):
+                return iter(reversed(list(self.graph.edges())))
+
+        phase_graph = Adjacency(4)
+        phase_graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(phase_graph, [2, 1])
+        live_graph = Adjacency(4)
+        live_graph.add_edge(0, 1)
+        live_graph.add_edge(2, 3)
+
+        hierarchy.sync_graph(CustomGraph(live_graph))
+
+        assert set(hierarchy.graph.edges()) == {(0, 1), (2, 3)}
+        assert hierarchy.check()
 
     def test_hierarchy_check_rejects_missing_deferred_phase_edges(self) -> None:
         graph = Adjacency(4)

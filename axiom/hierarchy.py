@@ -30,7 +30,7 @@ from __future__ import annotations
 from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from heapq import merge
-from itertools import chain, pairwise
+from itertools import chain, groupby, pairwise
 
 from axiom.graph import Adjacency, empty
 from axiom.hierarchies import Hierarchies
@@ -212,19 +212,26 @@ class Hierarchy:
             return
 
         phase_graph = empty(graph)
-        for left, right in self.deferred_deletions:
-            if canonical(left, right) not in excluded:
-                phase_graph.add_edge(left, right)
-        for left, right in graph.edges():
-            if canonical(left, right) not in excluded and not phase_graph.has_edge(
-                left, right
-            ):
-                phase_graph.add_edge(left, right)
+        if isinstance(graph, (Adjacency, Packed)):
+            deferred_edges = iter(
+                sorted(edge for edge in self.deferred_deletions if edge not in excluded)
+            )
+            live_edges = (edge for edge in graph.edges() if edge not in excluded)
+            for edge, _ in groupby(merge(deferred_edges, live_edges)):
+                phase_graph.add_edge(*edge)
+        else:
+            for left, right in self.deferred_deletions:
+                if canonical(left, right) not in excluded:
+                    phase_graph.add_edge(left, right)
+            for left, right in graph.edges():
+                if canonical(left, right) not in excluded and not phase_graph.has_edge(
+                    left, right
+                ):
+                    phase_graph.add_edge(left, right)
         self.graph = phase_graph
-        phase_edge_set = set(phase_graph.edges())
         for system in self.levels:
             system.graph = phase_graph
-            system.restrict(phase_edge_set)
+            system.restrict(phase_graph)
             system.index()
         self.L_levels = [
             lists(phase_graph, vertices, self.R_levels[index])
@@ -468,10 +475,9 @@ class Hierarchy:
         for index, a_vertices in enumerate(self.A_levels):
             lower = self.A_levels[: index + 1]
             for vertex in a_vertices:
-                for edge in system.M:
-                    if vertex not in edge:
+                for other in self.graph.neighbors(vertex):
+                    if canonical(vertex, other) not in system.M:
                         continue
-                    other = edge[1] if edge[0] == vertex else edge[0]
                     if not any(other in partition for partition in lower) and (
                         other not in self.N_levels[index]
                     ):

@@ -86,6 +86,18 @@ On a 50k-vertex/50k-edge `Packed` ring, the isolated copy stage fell from
 end-to-end rebuild speed claim. See [ADR 0069](adrs/0069-defer-full-rebuild-cache-index.md)
 and the [raw comparison](../benchmarks/results/paper/deferred-rebuild-index.json).
 
+Hierarchy phase synchronization now streams built-in graph edges, merges
+deferred edges deterministically, and passes the phase graph directly to
+matching restriction rather than retaining a Python set of every phase edge.
+A 50k-edge Packed cycle probe showed a 57.6% lower traced peak and 34.5% lower
+sync time with identical state; custom graph fallback remains. The independent
+hierarchy checker also no longer scans the full matching once per A vertex:
+its P2 certificate checks only incident graph edges. A valid 50k-vertex
+certificate completed in 142 ms; the prior nested scan exceeded a 90-second
+diagnostic and was stopped. These are focused component measurements, not
+whole-rebuild qualification. See [ADR 0070](adrs/0070-stream-hierarchy-phase-sync.md),
+[ADR 0071](adrs/0071-localize-hierarchy-p2-audit.md), and the linked raw records.
+
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new
 work are recorded in ADR 0020; established APIs need compatibility planning

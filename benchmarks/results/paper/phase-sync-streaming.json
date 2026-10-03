@@ -1,0 +1,32 @@
+{
+  "baseline_commit": "3b9928d",
+  "fixture": {
+    "graph": "Packed cycle",
+    "vertices": 50000,
+    "edges": 50000,
+    "matching_edges": 25000,
+    "hierarchy_levels": 1,
+    "repeats": 3,
+    "graph_construction_measured": false
+  },
+  "measurements": {
+    "elapsed": "median across three sync_graph calls",
+    "python_peak": "maximum tracemalloc peak across three calls",
+    "postcondition": "System.check passes after each call; exact phase graph and matching agree across baseline and candidate"
+  },
+  "baseline": {
+    "median_seconds": 0.6127465829922585,
+    "max_traced_peak_bytes": 18343280
+  },
+  "candidate": {
+    "median_seconds": 0.4009847919951426,
+    "max_traced_peak_bytes": 7770424
+  },
+  "state_equal": true,
+  "limitations": [
+    "single graph family and host",
+    "tracemalloc excludes native Packed graph capacity",
+    "not a complete rebuild or process RSS measurement",
+    "custom Graph implementations use the compatibility fallback"
+  ]
+}

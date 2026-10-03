@@ -1,0 +1,32 @@
+{
+  "baseline_commit": "f39b6c3",
+  "small_fixture": {
+    "graph": "Packed cycle",
+    "vertices": 1024,
+    "matching_edges": 512,
+    "repeats": 5,
+    "old_median_seconds": 0.015581250001559965,
+    "candidate_median_seconds": 0.0028601660014828667,
+    "old_valid": true,
+    "candidate_valid": true,
+    "same_result": true
+  },
+  "large_candidate": {
+    "graph": "Packed cycle",
+    "vertices": 50000,
+    "matching_edges": 25000,
+    "candidate_check_seconds": 0.14219541699276306,
+    "candidate_valid": true,
+    "baseline_observation": "did not complete within 90 seconds; diagnostic interrupted in per-A-vertex full-matching scan"
+  },
+  "complexity": {
+    "prior": "O(sum(|A_i|) * |M|)",
+    "candidate": "O(sum(degree(v) for v in A-level vertices)) plus O(1) matching tests"
+  },
+  "limitations": [
+    "single sparse regular graph family",
+    "large candidate only; baseline run was interrupted, not a completed timing",
+    "not an end-to-end update throughput result",
+    "valid Graph.neighbors and Graph.has_edge consistency is required"
+  ]
+}

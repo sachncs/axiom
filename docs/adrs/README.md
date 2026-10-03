@@ -76,6 +76,8 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0067](0067-reuse-child-refinement-partition-roots.md) | Reuse detached System roots and the immutable parent graph during child refinement; defer duplicate cache indexing | One-million-label duplicate-root peak 65.5 MB→80 B; skips a 37 MB Packed parent clone in the measured ring shape; full child-rebuild/RSS qualification remains open |
 | [0068](0068-share-refinement-update-sets.md) | Pass read-only insertion/deferred sets by reference and directly union deletion inputs | Same 180k-edge result; temporary union peak 21.0→12.6 MB (40% lower); end-to-end rebuild/RSS remains open |
 | [0069](0069-defer-full-rebuild-cache-index.md) | Defer indexes for detached full-rebuild Systems when recursive refinement immediately replaces them | Isolated 50k-ring copy stage 94.7→0.55 ms; full rebuild time/RSS qualification remains open |
+| [0070](0070-stream-hierarchy-phase-sync.md) | Stream phase graph construction and restrict matching against the graph instead of an O(m) Python edge set | 50k-ring sync: 18.3→7.8 MB traced peak and 0.613→0.401 s; broader boundary workloads open |
+| [0071](0071-localize-hierarchy-p2-audit.md) | Check matching P2 through incident graph edges instead of scanning all M for every A vertex | 1,024-cycle certificate 5.45× faster; 50k candidate valid in 142 ms; baseline exceeded 90 s diagnostic |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
