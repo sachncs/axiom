@@ -1,12 +1,14 @@
-"""Bounded single-owner durable batches for the explicitly selected native engine.
+"""Durable SQLite ownership for the paper Basic and Multilevel matchers.
 
-Legacy v1 replays a bounded history; explicitly enabled v2 checkpoints retire
-history atomically while retaining a declared retry window. Use a private local
-POSIX directory, not a network filesystem or independently writable database.
+The database stores a bounded, hash-chained operation history and the selected
+paper mode. Recovery replays that history through the same deterministic
+``Matcher`` implementation. There is deliberately no native-matcher database
+reader, compatibility mode, or state-image codec in this module.
 """
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -21,32 +23,34 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from axiom.engine import Engine
+from axiom.backup import copy as copy_backup
+from axiom.core import Matcher
+from axiom.storage import Packed
 
 
 class BusyError(RuntimeError):
-    """Reject admission while the sole owner is updating, querying, or recovering."""
+    """Reject an operation while the single durable owner is occupied."""
 
 
 class CapacityError(RuntimeError):
-    """Reject before mutation when the bounded history or batch is exhausted."""
+    """Reject work before mutation when a configured resource bound is reached."""
 
 
 class RecoveryError(RuntimeError):
-    """Refuse to serve an uncertified or incompatible persistent state."""
+    """Refuse to serve an unsupported or uncertified persistent database."""
 
 
 class UnavailableError(RuntimeError):
-    """Require close/recovery after uncertain persistence or publication."""
+    """Require close and deterministic recovery after uncertain persistence."""
 
 
 class ExpiredError(ValueError):
-    """Reject a retired sequence without guessing its outcome or mutating again."""
+    """Reject a sequence that is outside the retained operation history."""
 
 
 @dataclass(frozen=True)
 class Request:
-    """Identify one operation in a contiguous, single sequenced request stream."""
+    """One operation in a contiguous, single sequenced request stream."""
 
     sequence: int
     operation: Literal["insert", "delete"]
@@ -56,7 +60,7 @@ class Request:
 
 @dataclass(frozen=True)
 class Outcome:
-    """Return the original transition result and its logical mutation version."""
+    """A durable request result and the graph version it produced."""
 
     sequence: int
     changed: bool
@@ -65,7 +69,7 @@ class Outcome:
 
 @dataclass(frozen=True)
 class ReadSnapshot:
-    """Aligned immutable answers observed at one committed graph version."""
+    """Aligned partner and edge answers from one committed graph version."""
 
     version: int
     partners: tuple[int | None, ...]
@@ -74,7 +78,7 @@ class ReadSnapshot:
 
 @dataclass(frozen=True)
 class HistoryRecord:
-    """One retained immutable operation and its hash-chain digest."""
+    """One immutable hash-chained operation record."""
 
     sequence: int
     operation: Literal["insert", "delete"]
@@ -87,60 +91,30 @@ class HistoryRecord:
 
 @dataclass(frozen=True)
 class HistoryPage:
-    """A bounded contiguous durable history segment with verifiable boundaries."""
+    """A bounded, contiguous history page with a verifiable left boundary."""
 
-    retired_floor: int
     latest_sequence: int
     previous_digest: bytes
     records: tuple[HistoryRecord, ...]
     has_more: bool
 
 
-_MAX = (1 << 63) - 1
 MAX_READS = 4096
-_FORMAT = "axiom-native-sqlite-replay-v1"
-_CHECKPOINT_FORMAT = "axiom-native-sqlite-checkpoint-v2"
-_BACKEND = "incremental-minimum-free-neighbor-v1"
+MAX_OPERATIONS = 1_000_000
+MAX_BATCH = 4096
+# Start with moderate journal reuse, then split further only when a paper
+# component reports that its bounded undo journal is full. The Durable lock
+# and one SQLite transaction preserve caller-group atomicity across retries.
+PAPER_CHUNK = 8
+_FORMAT = "axiom-paper-sqlite-replay-v1"
+_BACKENDS = {"basic": "paper-basic-v1", "multilevel": "paper-multilevel-v1"}
 _RECORD = struct.Struct("<QBII?Q")
+_MAX = (1 << 63) - 1
 
 
-@dataclass(frozen=True)
-class _Checkpoint:
-    sequence: int
-    version: int
-    floor: int
-    floor_version: int
-    generation: int
-    anchor: bytes
-    tail: bytes
-    image: bytes
-    image_digest: bytes
-    digest: bytes
-
-
-def _checkpoint_digest(
-    metadata: str,
-    sequence: int,
-    version: int,
-    floor: int,
-    floor_version: int,
-    generation: int,
-    anchor: bytes,
-    tail: bytes,
-    image_digest: bytes,
-) -> bytes:
-    return hashlib.sha256(
-        metadata.encode()
-        + struct.pack("<QQQQQ", sequence, version, floor, floor_version, generation)
-        + anchor
-        + tail
-        + image_digest
-    ).digest()
-
-
-def _integer(value: object, minimum: int, maximum: int, name: str) -> int:
-    if type(value) is not int or not minimum <= value <= maximum:
-        raise ValueError(f"{name} must be an integer in [{minimum}, {maximum}]")
+def _integer(value: object, low: int, high: int, name: str) -> int:
+    if type(value) is not int or not low <= value <= high:
+        raise ValueError(f"{name} must be an integer in [{low}, {high}]")
     return value
 
 
@@ -148,24 +122,23 @@ def _digest(
     previous: bytes,
     sequence: int,
     adding: int,
-    u: int,
-    v: int,
+    left: int,
+    right: int,
     changed: bool,
     version: int,
 ) -> bytes:
-    return hashlib.sha256(
-        previous + _RECORD.pack(sequence, adding, u, v, changed, version)
-    ).digest()
+    record = _RECORD.pack(sequence, adding, left, right, changed, version)
+    return hashlib.sha256(previous + record).digest()
 
 
 class Durable:
-    """Publish certified batches only after SQLite FULL-WAL commit succeeds.
+    """Commit paper matcher batches to SQLite before acknowledging the caller.
 
-    No internal admission queue: concurrent calls fail fast with BusyError. New
-    sequences start at 1 and must be contiguous; retries must carry the identical
-    canonical payload. Every retained result, including no-ops, is durable.
-    Legacy v1 rejects at max_operations. Explicit v2 checkpoint mode bounds the
-    retained table instead and rejects expired retries, never replaying them anew.
+    Only ``basic`` and ``multilevel`` are valid modes. Each database records its
+    mode and complete bounded operation history. A mode mismatch, old database
+    format, malformed history, or nondeterministic replay fails closed. Updates
+    are private under a Matcher batch journal until the SQLite FULL-WAL commit;
+    reads serialize on the same owner lock and therefore observe committed state.
     """
 
     def __init__(
@@ -173,79 +146,72 @@ class Durable:
         path: str | Path,
         *,
         n: int | None = None,
-        width: int = 2,
+        mode: str = "basic",
+        width: int | None = None,
         budget: int = 1 << 30,
         max_batch: int | None = None,
         max_operations: int | None = None,
         max_database_bytes: int = 64 << 20,
-        checkpoint_interval: int | None = None,
-        retain_operations: int | None = None,
-        max_snapshot_bytes: int = 64 << 20,
     ) -> None:
-        """Create/recover a private local database with explicit bounded limits."""
+        """Open or create a mode-bound paper store under explicit hard limits."""
         if os.name != "posix":
-            raise ValueError("the durable owner lock currently requires POSIX")
+            raise ValueError("durable ownership currently requires POSIX locks")
+        if type(mode) is not str or mode not in _BACKENDS:
+            raise ValueError("mode must be 'basic' or 'multilevel'")
+        if width is not None:
+            _integer(width, 0, 0xFFFFFFFF, "width")
         _integer(budget, 1, _MAX, "budget")
-        if max_batch is not None:
-            _integer(max_batch, 1, 4096, "max_batch")
-        if max_operations is not None:
-            _integer(max_operations, 1, 1_000_000, "max_operations")
-        if checkpoint_interval is not None:
-            _integer(checkpoint_interval, 1, 1_000_000, "checkpoint_interval")
-        if retain_operations is not None:
-            _integer(retain_operations, 1, 1_000_000, "retain_operations")
-        _integer(max_snapshot_bytes, 40, 1 << 30, "max_snapshot_bytes")
-        _integer(max_database_bytes, 1 << 20, 1 << 30, "max_database_bytes")
-        _integer(width, 0, 0xFFFFFFFF, "width")
         if n is not None:
             _integer(n, 0, 0xFFFFFFFF, "n")
+        if max_batch is not None:
+            _integer(max_batch, 1, MAX_BATCH, "max_batch")
+        if max_operations is not None:
+            _integer(max_operations, 1, MAX_OPERATIONS, "max_operations")
+        _integer(max_database_bytes, 1 << 20, 1 << 30, "max_database_bytes")
+
         self._path = Path(path).absolute()
         if self._path.is_symlink() or not self._path.parent.is_dir():
-            raise ValueError(
-                "require a non-symlink file in an existing local directory"
-            )
-        self._lock = threading.Lock()
-        self._publication_lock = threading.RLock()
-        self._closed = False
-        self._failed = False
+            raise ValueError("require a non-symlink file in an existing directory")
+        self._mode = mode
+        self._budget = budget
+        self._requested_n = n
         self._requested_batch = max_batch
         self._requested_operations = max_operations
-        self._requested_interval = checkpoint_interval
-        self._requested_retention = retain_operations
         self._max_batch = 256 if max_batch is None else max_batch
-        self._max_operations = 65536 if max_operations is None else max_operations
-        self._interval = 0 if checkpoint_interval is None else checkpoint_interval
-        self._retention = 16384 if retain_operations is None else retain_operations
-        self._max_snapshot_bytes = max_snapshot_bytes
-        self._floor = self._checkpoint_sequence = self._generation = 0
-        self._floor_version = 0
-        self._budget = budget
+        self._max_operations = (
+            MAX_OPERATIONS if max_operations is None else max_operations
+        )
+        self._lock = threading.Lock()
         self._connection: sqlite3.Connection | None = None
         self._lock_fd = -1
+        self._closed = False
+        self._failed = False
         self._count = 0
+        self._version = 0
+        self._base_version = 0
+        self._n = 0
+        self._width = 0
         self._tail = bytes(32)
+        self._metadata = ""
+        self._matcher: Matcher
+
         try:
             self._acquire_owner()
             self._connection = sqlite3.connect(
-                self._path,
-                isolation_level=None,
-                timeout=0,
-                check_same_thread=False,
+                self._path, isolation_level=None, timeout=0, check_same_thread=False
             )
             self._configure(max_database_bytes)
             self._recover(n, width)
-            descriptor = os.open(self._path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            directory = os.open(self._path.parent, os.O_RDONLY | os.O_DIRECTORY)
             try:
-                os.fsync(descriptor)
+                os.fsync(directory)
             finally:
-                os.close(descriptor)
+                os.close(directory)
         except BaseException:
             self._release()
             raise
 
     def _acquire_owner(self) -> None:
-        import fcntl
-
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW
         self._lock_fd = os.open(str(self._path) + ".owner", flags, 0o600)
         try:
@@ -259,8 +225,8 @@ class Durable:
         return self._connection
 
     def _configure(self, maximum: int) -> None:
-        db = self._db()
-        if db.execute("PRAGMA journal_mode=WAL").fetchone() != ("wal",):
+        database = self._db()
+        if database.execute("PRAGMA journal_mode=WAL").fetchone() != ("wal",):
             raise RecoveryError("SQLite WAL mode is unavailable")
         for setting in (
             "synchronous=FULL",
@@ -272,339 +238,263 @@ class Durable:
             "mmap_size=0",
             "trusted_schema=OFF",
         ):
-            db.execute(f"PRAGMA {setting}")
+            database.execute(f"PRAGMA {setting}")
         for name, expected in (
             ("synchronous", 2),
             ("fullfsync", 1),
             ("checkpoint_fullfsync", 1),
             ("wal_autocheckpoint", 256),
         ):
-            if db.execute(f"PRAGMA {name}").fetchone() != (expected,):
+            if database.execute(f"PRAGMA {name}").fetchone() != (expected,):
                 raise RecoveryError(f"SQLite rejected required setting: {name}")
-        page_size = db.execute("PRAGMA page_size").fetchone()[0]
+        page_size = database.execute("PRAGMA page_size").fetchone()[0]
         pages = maximum // page_size
-        if db.execute(f"PRAGMA max_page_count={pages}").fetchone() != (pages,):
-            raise CapacityError("existing database exceeds the configured page limit")
-        if db.execute("PRAGMA quick_check").fetchone() != ("ok",):
+        if database.execute(f"PRAGMA max_page_count={pages}").fetchone() != (pages,):
+            raise CapacityError("database exceeds configured page limit")
+        if database.execute("PRAGMA quick_check").fetchone() != ("ok",):
             raise RecoveryError("SQLite structural integrity check failed")
 
-    def _recover(self, requested: int | None, width: int) -> None:
-        db = self._db()
-        tables = db.execute(
+    def _new_matcher(self, n: int, width: int) -> Matcher:
+        graph = Packed(n, budget=self._budget)
+        if width:
+            graph.ring(width)
+        return Matcher(n, mode=self._mode, graph=graph)
+
+    def _recover(self, requested: int | None, width: int | None) -> None:
+        database = self._db()
+        tables = database.execute(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         ).fetchall()
         if not tables:
             if requested is None:
                 raise ValueError("n is required to initialize an empty database")
-            if not self._interval and self._requested_retention is not None:
-                raise ValueError("retry retention requires checkpoint_interval")
+            initial_width = 2 if width is None else width
+            self._n, self._width = requested, initial_width
+            self._matcher = self._new_matcher(requested, initial_width)
+            assert isinstance(self._matcher.graph, Packed)
+            self._version = self._matcher.graph.version
+            self._base_version = self._version
             config = {
                 "format": _FORMAT,
-                "backend": _BACKEND,
+                "backend": _BACKENDS[self._mode],
+                "mode": self._mode,
                 "n": requested,
-                "width": width,
+                "width": initial_width,
+                "max_batch": self._max_batch,
+                "max_operations": self._max_operations,
             }
-            if self._interval:
-                config.update(
-                    format=_CHECKPOINT_FORMAT,
-                    checkpoint_interval=self._interval,
-                    retain_operations=self._retention,
-                    batch_limit=self._max_batch,
-                    history_limit=self._max_operations,
-                )
-                self._history_policy(config)
-            self._engine = Engine(requested, budget=self._budget)
-            if width:
-                self._engine.ring(width)
-            if self._interval:
-                self._image_admission(())
-            metadata = json.dumps(
-                config,
-                sort_keys=True,
-                separators=(",", ":"),
-            )
-            self._tail = hashlib.sha256(metadata.encode()).digest()
-            self._base_digest = self._tail
-            self._metadata = metadata
-            self._anchor = self._tail
-            self._floor_version = self._engine.version
-            db.execute("BEGIN IMMEDIATE")
+            self._metadata = json.dumps(config, sort_keys=True, separators=(",", ":"))
+            self._tail = hashlib.sha256(self._metadata.encode()).digest()
+            database.execute("BEGIN IMMEDIATE")
             try:
-                db.execute(
+                database.execute(
                     "CREATE TABLE control (id INTEGER PRIMARY KEY CHECK(id=1), "
                     "metadata TEXT NOT NULL, sequence INTEGER NOT NULL, "
-                    "version INTEGER NOT NULL, digest BLOB NOT NULL"
-                    + (
-                        ", generation INTEGER NOT NULL DEFAULT 0"
-                        if self._interval
-                        else ""
-                    )
-                    + ")"
+                    "version INTEGER NOT NULL, digest BLOB NOT NULL)"
                 )
-                db.execute(
+                database.execute(
                     "CREATE TABLE operations (sequence INTEGER PRIMARY KEY, "
                     "adding INTEGER NOT NULL, u INTEGER NOT NULL, v INTEGER NOT NULL, "
                     "changed INTEGER NOT NULL, version INTEGER NOT NULL, "
                     "digest BLOB NOT NULL)"
                 )
-                db.execute(
-                    "INSERT INTO control(id,metadata,sequence,version,digest) "
-                    "VALUES(1, ?, 0, ?, ?)",
-                    (metadata, self._engine.version, self._tail),
+                database.execute(
+                    "INSERT INTO control VALUES(1, ?, 0, ?, ?)",
+                    (self._metadata, self._version, self._tail),
                 )
-                if self._interval:
-                    db.execute(
-                        "CREATE TABLE checkpoints (id INTEGER PRIMARY KEY CHECK(id=1), "
-                        "sequence INTEGER NOT NULL, version INTEGER NOT NULL, "
-                        "floor INTEGER NOT NULL, floor_version INTEGER NOT NULL, "
-                        "generation INTEGER NOT NULL, anchor BLOB NOT NULL, "
-                        "tail BLOB NOT NULL, image BLOB NOT NULL, "
-                        "image_digest BLOB NOT NULL, digest BLOB NOT NULL)"
-                    )
-                db.execute("COMMIT")
+                database.execute("COMMIT")
             except BaseException:
-                if db.in_transaction:
-                    db.execute("ROLLBACK")
+                if database.in_transaction:
+                    database.execute("ROLLBACK")
                 raise
             return
-        if tables not in (
-            [("control",), ("operations",)],
-            [("checkpoints",), ("control",), ("operations",)],
-        ):
-            raise RecoveryError("unrecognized durable schema")
-        control = db.execute(
-            "SELECT metadata, sequence, version, digest FROM control WHERE id=1 "
-            "AND length(metadata)<=4096 AND length(digest)=32"
+
+        if tables != [("control",), ("operations",)]:
+            raise RecoveryError("unsupported database format; no compatibility reader")
+        row = database.execute(
+            "SELECT metadata,sequence,version,digest FROM control WHERE id=1"
         ).fetchone()
         if (
-            control is None
-            or db.execute("SELECT count(*) FROM control").fetchone()[0] != 1
+            row is None
+            or database.execute("SELECT count(*) FROM control").fetchone()[0] != 1
         ):
-            raise RecoveryError("invalid durable control record")
-        metadata, sequence, version, tail = control
+            raise RecoveryError("invalid durable control row")
+        metadata, sequence, version, tail = row
         try:
             config = json.loads(metadata)
+            if type(config) is dict and config.get("mode") != self._mode:
+                raise RecoveryError(
+                    f"stored matcher mode {config.get('mode')!r} does not match "
+                    f"requested mode {self._mode!r}"
+                )
             if (
-                not isinstance(config, dict)
-                or config.get("format") not in (_FORMAT, _CHECKPOINT_FORMAT)
-                or config["backend"] != _BACKEND
+                type(config) is not dict
+                or config.get("format") != _FORMAT
+                or config.get("mode") != self._mode
+                or config.get("backend") != _BACKENDS[self._mode]
+                or set(config)
+                != {
+                    "format",
+                    "backend",
+                    "mode",
+                    "n",
+                    "width",
+                    "max_batch",
+                    "max_operations",
+                }
             ):
-                raise ValueError("unsupported format/backend")
-            base_keys = {"format", "backend", "n", "width"}
-            if config["format"] == _CHECKPOINT_FORMAT:
-                if set(config) != base_keys | {
-                    "checkpoint_interval",
-                    "retain_operations",
-                    "batch_limit",
-                    "history_limit",
-                }:
-                    raise ValueError("invalid checkpoint format configuration")
-                if tables != [("checkpoints",), ("control",), ("operations",)]:
-                    raise ValueError("checkpoint table missing")
-                self._history_policy(config)
-            elif (
-                set(config) != base_keys
-                or len(tables) != 2
-                or self._requested_interval is not None
-                or self._requested_retention is not None
-            ):
-                raise ValueError("legacy format cannot silently enable checkpoints")
-            _integer(config["n"], 0, 0xFFFFFFFF, "stored n")
-            _integer(config["width"], 0, 0xFFFFFFFF, "stored width")
-            _integer(
-                sequence,
-                0,
-                _MAX if self._interval else self._max_operations,
-                "stored sequence",
+                raise ValueError("unsupported format or mode")
+            n = _integer(config["n"], 0, 0xFFFFFFFF, "stored n")
+            saved_width = _integer(config["width"], 0, 0xFFFFFFFF, "stored width")
+            saved_batch = _integer(config["max_batch"], 1, MAX_BATCH, "stored batch")
+            saved_limit = _integer(
+                config["max_operations"], 1, MAX_OPERATIONS, "stored operation limit"
             )
+            _integer(sequence, 0, saved_limit, "stored sequence")
             _integer(version, 0, _MAX, "stored version")
+            if requested is not None and requested != n:
+                raise ValueError("vertex universe differs from stored configuration")
+            if width is not None and width != saved_width:
+                raise ValueError("width differs from stored configuration")
+            if (
+                self._requested_batch is not None
+                and saved_batch != self._requested_batch
+            ):
+                raise ValueError("batch limit differs from stored configuration")
+            if (
+                self._requested_operations is not None
+                and saved_limit != self._requested_operations
+            ):
+                raise ValueError("operation limit differs from stored configuration")
         except (TypeError, ValueError, KeyError) as error:
             raise RecoveryError("invalid durable metadata") from error
-        if requested is not None and requested != config["n"]:
-            raise ValueError("requested vertex universe differs from durable state")
+
+        self._max_batch = saved_batch
+        self._max_operations = saved_limit
+        self._n, self._width = n, saved_width
         self._metadata = metadata
-        self._base_digest = hashlib.sha256(metadata.encode()).digest()
-        self._anchor = self._base_digest
-        checkpoint_tail = self._restore_checkpoint(config, sequence, version)
-        self._tail = self._anchor
-        self._count = self._floor
-        retained = db.execute("SELECT count(*) FROM operations").fetchone()[0]
-        if retained != sequence - self._floor or retained > self._max_operations:
-            raise RecoveryError("durable history count disagrees with control record")
-        previous_version = self._floor_version
-        for row in db.execute(
-            "SELECT sequence, adding, u, v, changed, version, digest "
+        self._matcher = self._new_matcher(n, saved_width)
+        assert isinstance(self._matcher.graph, Packed)
+        self._version = self._matcher.graph.version
+        self._base_version = self._version
+        expected_tail = hashlib.sha256(metadata.encode()).digest()
+        expected_version = self._version
+        expected_sequence = 0
+        rows = database.execute(
+            "SELECT sequence,adding,u,v,changed,version,digest "
             "FROM operations ORDER BY sequence"
-        ):
-            seq, adding, u, v, changed, recorded, digest = row
+        )
+        for row in rows:
+            seq, adding, left, right, changed, current, record_digest = row
             try:
-                _integer(seq, self._count + 1, self._count + 1, "operation sequence")
-                _integer(adding, 0, 1, "stored operation")
-                _integer(u, 0, self._engine.n - 1, "stored u")
-                _integer(v, u, self._engine.n - 1, "stored v")
-                _integer(changed, 0, 1, "stored transition")
-                _integer(recorded, 0, _MAX, "stored version")
-                if recorded != previous_version + changed:
-                    raise ValueError("operation version progression failed")
+                _integer(seq, expected_sequence + 1, expected_sequence + 1, "sequence")
+                _integer(adding, 0, 1, "operation")
+                _integer(left, 0, n - 1, "left vertex")
+                _integer(right, left, n - 1, "right vertex")
+                _integer(changed, 0, 1, "changed")
+                _integer(current, 0, _MAX, "version")
+                if current != expected_version + changed:
+                    raise ValueError("version progression disagrees")
                 expected = _digest(
-                    self._tail, seq, adding, u, v, bool(changed), recorded
+                    expected_tail, seq, adding, left, right, bool(changed), current
                 )
-                if digest != expected:
-                    raise ValueError("operation checksum mismatch")
-                if seq > self._checkpoint_sequence:
-                    actual = (
-                        self._engine.insert(u, v)
-                        if adding
-                        else self._engine.delete(u, v)
-                    )
-                    if actual != bool(changed) or self._engine.version != recorded:
-                        raise ValueError(
-                            "operation outcome disagrees with deterministic replay"
-                        )
-                elif seq == self._checkpoint_sequence and (
-                    expected != checkpoint_tail or recorded != self._engine.version
-                ):
-                    raise ValueError("checkpoint/cache boundary disagrees")
-                self._tail = expected
-                self._count += 1
-                previous_version = recorded
-            except (ValueError, TypeError, RuntimeError, struct.error) as error:
-                raise RecoveryError("invalid committed operation history") from error
+                if record_digest != expected:
+                    raise ValueError("operation checksum disagrees")
+                actual = self._transition(bool(adding), left, right)
+                if actual != bool(changed):
+                    raise ValueError("paper replay disagrees with committed outcome")
+            except (TypeError, ValueError, RuntimeError, struct.error) as error:
+                raise RecoveryError(
+                    "invalid committed paper operation history"
+                ) from error
+            expected_sequence, expected_version = seq, current
+            expected_tail = expected
+
         if (
-            self._count != sequence
-            or self._tail != tail
-            or self._engine.version != version
-            or not self._engine.check()
+            expected_sequence != sequence
+            or expected_version != version
+            or expected_tail != tail
+            or database.execute("SELECT count(*) FROM operations").fetchone()[0]
+            != sequence
+            or not self._audit()
         ):
-            raise RecoveryError("recovered graph/matching/control certificate failed")
+            raise RecoveryError("paper recovery disagrees with durable control state")
+        self._count, self._version, self._tail = sequence, version, tail
 
-    def _history_policy(self, config: dict[str, object]) -> None:
-        interval = _integer(
-            config["checkpoint_interval"], 1, 1_000_000, "checkpoint_interval"
-        )
-        retention = _integer(
-            config["retain_operations"], 1, 1_000_000, "retain_operations"
-        )
-        batch = _integer(config["batch_limit"], 1, 4096, "batch_limit")
-        capacity = _integer(config["history_limit"], 1, 1_000_000, "history_limit")
-        if retention < batch or interval + retention + batch > capacity:
-            raise ValueError(
-                "require batch <= retention and "
-                "interval+retention+batch <= history limit"
-            )
-        for supplied, stored in (
-            (self._requested_interval, interval),
-            (self._requested_retention, retention),
-            (self._requested_batch, batch),
-            (self._requested_operations, capacity),
-        ):
-            if supplied is not None and supplied != stored:
-                raise ValueError(
-                    "requested checkpoint policy differs from persisted policy"
-                )
-        self._interval, self._retention = interval, retention
-        self._max_batch, self._max_operations = batch, capacity
+    def _transition(self, adding: bool, left: int, right: int) -> bool:
+        existed = self._matcher.graph.has_edge(left, right)
+        if adding:
+            self._matcher.insert(left, right)
+            return left != right and not existed
+        self._matcher.delete(left, right)
+        return left != right and existed
 
-    def _restore_checkpoint(
-        self, config: dict[str, object], sequence: int, version: int
-    ) -> bytes:
-        db = self._db()
-        row = None
-        if self._interval:
-            self._generation = db.execute(
-                "SELECT generation FROM control WHERE id=1"
-            ).fetchone()[0]
-            _integer(self._generation, 0, _MAX, "checkpoint generation")
-            count = db.execute("SELECT count(*) FROM checkpoints").fetchone()[0]
-            if count != int(self._generation > 0):
-                raise RecoveryError("checkpoint generation/record count disagrees")
-            if self._generation:
-                row = db.execute(
-                    "SELECT sequence,version,floor,floor_version,generation,anchor,"
-                    "tail,image_digest,digest,length(image),typeof(image) "
-                    "FROM checkpoints WHERE id=1"
-                ).fetchone()
-                if row is None:
-                    raise RecoveryError("committed checkpoint disappeared")
-        if row is None:
-            n = _integer(config["n"], 0, 0xFFFFFFFF, "stored n")
-            width = _integer(config["width"], 0, 0xFFFFFFFF, "stored width")
-            self._engine = Engine(n, budget=self._budget)
-            if width:
-                self._engine.ring(width)
-            self._floor_version = self._engine.version
-            return self._base_digest
-        (
-            seq,
-            saved_version,
-            floor,
-            floor_version,
-            generation,
-            anchor,
-            tail,
-            image_digest,
-            digest,
-            size,
-            kind,
-        ) = row
+    def _restore_committed_matcher(self) -> None:
+        """Rebuild the private matcher after a multi-journal group aborts.
+
+        Durable callers and queued service reads cannot observe the owner's
+        matcher while its lock is held. Replaying the previously committed
+        prefix is therefore a safe failure-path alternative to retaining every
+        sub-batch undo journal until the outer SQLite transaction completes.
+        """
+        previous = self._matcher
+        candidate = self._new_matcher(self._n, self._width)
+        assert isinstance(candidate.graph, Packed)
+        self._matcher = candidate
+        expected_version = candidate.graph.version
+        expected_sequence = 0
+        expected_tail = hashlib.sha256(self._metadata.encode()).digest()
         try:
-            _integer(seq, 0, sequence, "checkpoint sequence")
-            _integer(saved_version, 0, version, "checkpoint version")
-            _integer(floor, 0, seq, "retired floor")
-            _integer(floor_version, 0, saved_version, "retired floor version")
-            _integer(
-                generation, self._generation, self._generation, "checkpoint generation"
+            rows = self._db().execute(
+                "SELECT sequence,adding,u,v,changed,version,digest "
+                "FROM operations ORDER BY sequence"
             )
-            _integer(size, 40, 1 << 30, "image size")
-            if kind != "blob" or any(
-                type(value) is not bytes or len(value) != 32
-                for value in (anchor, tail, image_digest, digest)
-            ):
-                raise ValueError("invalid checkpoint digest/image type")
-            if (
-                floor != max(0, seq - self._retention)
-                or sequence - seq >= self._interval + self._max_batch
-                or digest
-                != _checkpoint_digest(
-                    self._metadata,
-                    seq,
-                    saved_version,
-                    floor,
-                    floor_version,
-                    generation,
-                    anchor,
-                    tail,
-                    image_digest,
+            for row in rows:
+                sequence, adding, left, right, changed, version, digest = row
+                if (
+                    sequence != expected_sequence + 1
+                    or adding not in (0, 1)
+                    or changed not in (0, 1)
+                    or version != expected_version + changed
+                    or digest
+                    != _digest(
+                        expected_tail,
+                        sequence,
+                        adding,
+                        left,
+                        right,
+                        bool(changed),
+                        version,
+                    )
+                    or self._transition(bool(adding), left, right) != bool(changed)
+                ):
+                    raise RecoveryError("committed history failed rollback replay")
+                expected_sequence, expected_version, expected_tail = (
+                    sequence,
+                    version,
+                    digest,
                 )
-            ):
-                raise ValueError("checkpoint policy/certificate disagrees")
-            if size > self._max_snapshot_bytes:
-                raise MemoryError("checkpoint exceeds configured input byte limit")
-            retained = db.execute("SELECT count(*) FROM operations").fetchone()[0]
-            if retained != sequence - floor or retained > self._max_operations:
-                raise ValueError("checkpoint retained history count disagrees")
-            image = db.execute("SELECT image FROM checkpoints WHERE id=1").fetchone()[0]
-            if (
-                type(image) is not bytes
-                or len(image) != size
-                or hashlib.sha256(image).digest() != image_digest
-            ):
-                raise ValueError("checkpoint image checksum failed")
-            self._engine = Engine.restore(
-                image, budget=self._budget, max_bytes=self._max_snapshot_bytes
+            control = (
+                self._db()
+                .execute("SELECT sequence,version,digest FROM control WHERE id=1")
+                .fetchone()
             )
-            if self._engine.n != config["n"] or self._engine.version != saved_version:
-                raise ValueError("native checkpoint universe/version disagrees")
-        except (ValueError, TypeError, RuntimeError, struct.error) as error:
-            raise RecoveryError("invalid committed checkpoint") from error
-        self._floor, self._floor_version = floor, floor_version
-        self._checkpoint_sequence, self._anchor = seq, anchor
-        return bytes(tail)
+            if (
+                control != (expected_sequence, expected_version, expected_tail)
+                or expected_sequence != self._count
+                or expected_version != self._version
+                or expected_tail != self._tail
+                or not self._audit()
+            ):
+                raise RecoveryError("committed state failed rollback audit")
+        except BaseException:
+            self._matcher = previous
+            raise
 
     @contextmanager
     def _exclusive(self) -> Iterator[None]:
         if not self._lock.acquire(blocking=False):
-            raise BusyError("durable owner is busy; retry admission later")
+            raise BusyError("durable owner is busy; retry later")
         try:
             if self._closed or self._failed:
                 raise UnavailableError("store is closed or failed; close and recover")
@@ -613,9 +503,9 @@ class Durable:
             self._lock.release()
 
     def _validate(self, requests: Sequence[Request]) -> tuple[Request, ...]:
-        if type(requests) not in (tuple, list) or len(requests) > self._max_batch:
+        if type(requests) not in (list, tuple) or len(requests) > self._max_batch:
             raise CapacityError("require a list/tuple no larger than max_batch")
-        canonical: list[Request] = []
+        result: list[Request] = []
         for request in requests:
             if (
                 type(request) is not Request
@@ -624,9 +514,9 @@ class Durable:
             ):
                 raise ValueError("require typed insert/delete requests")
             _integer(request.sequence, 1, _MAX, "sequence")
-            _integer(request.u, 0, self._engine.n - 1, "u")
-            _integer(request.v, 0, self._engine.n - 1, "v")
-            canonical.append(
+            _integer(request.u, 0, self._matcher.n - 1, "u")
+            _integer(request.v, 0, self._matcher.n - 1, "v")
+            result.append(
                 Request(
                     request.sequence,
                     request.operation,
@@ -634,459 +524,261 @@ class Durable:
                     max(request.u, request.v),
                 )
             )
-        return tuple(canonical)
-
-    def _persist(self, rows: list[tuple[int, int, int, int, int, int, bytes]]) -> None:
-        db = self._db()
-        db.execute("BEGIN IMMEDIATE")
-        db.executemany("INSERT INTO operations VALUES(?, ?, ?, ?, ?, ?, ?)", rows)
-        last = rows[-1]
-        updated = db.execute(
-            "UPDATE control SET sequence=?, version=?, digest=? WHERE id=1",
-            (last[0], last[5], last[6]),
-        )
-        if updated.rowcount != 1:
-            raise RecoveryError("durable control record disappeared")
-        db.execute("COMMIT")
-
-    def _publish(self, token: int) -> None:
-        self._engine.commit(token)
-
-    def _image_admission(self, fresh: Sequence[Request]) -> None:
-        maximum = (self._max_snapshot_bytes - 40 - 8 * self._engine.n) // 8
-        edges = self._engine.num_edges()
-        if edges > maximum:
-            raise CapacityError("graph exceeds configured checkpoint image capacity")
-        if edges + sum(r.operation == "insert" for r in fresh) <= maximum:
-            return
-        # Only near the cap, simulate the bounded group's exact topology changes;
-        # duplicates/no-ops must not be rejected by an inaccurate upper bound.
-        states: dict[tuple[int, int], bool] = {}
-        for request in fresh:
-            key = (request.u, request.v)
-            if request.u == request.v:
-                continue
-            prior = states[key] if key in states else self._engine.has_edge(*key)
-            adding = request.operation == "insert"
-            if prior != adding:
-                edges += 1 if adding else -1
-                states[key] = adding
-            if edges > maximum:
-                raise CapacityError("group would exceed checkpoint image capacity")
-
-    def _checkpoint_record(self) -> _Checkpoint:
-        db = self._db()
-        control = db.execute(
-            "SELECT metadata,sequence,version,digest,generation FROM control WHERE id=1"
-        ).fetchone()
-        version = self._engine.version
-        if control != (
-            self._metadata,
-            self._count,
-            version,
-            self._tail,
-            self._generation,
-        ):
-            raise RecoveryError("checkpoint control disagrees with published owner")
-        floor = max(0, self._count - self._retention)
-        anchor, floor_version = self._anchor, self._floor_version
-        previous, recorded = self._anchor, self._floor_version
-        sequence = self._floor
-        for seq, adding, u, v, changed, current, digest in db.execute(
-            "SELECT sequence,adding,u,v,changed,version,digest "
-            "FROM operations ORDER BY sequence"
-        ):
-            try:
-                # Keep every strict type/range/version check, but avoid six
-                # Python helper calls per retained row at each checkpoint.
-                if (
-                    type(seq) is not int
-                    or seq != sequence + 1
-                    or type(adding) is not int
-                    or not 0 <= adding <= 1
-                    or type(u) is not int
-                    or not 0 <= u < self._engine.n
-                    or type(v) is not int
-                    or not u <= v < self._engine.n
-                    or type(changed) is not int
-                    or not 0 <= changed <= 1
-                    or type(current) is not int
-                    or current != recorded + changed
-                ):
-                    raise ValueError("invalid checkpoint operation fields")
-                expected = _digest(previous, seq, adding, u, v, bool(changed), current)
-                if digest != expected:
-                    raise ValueError("checkpoint operation checksum failed")
-            except (ValueError, TypeError, struct.error) as error:
-                raise RecoveryError("uncertified checkpoint history") from error
-            previous, recorded, sequence = expected, current, seq
-            if seq == floor:
-                anchor, floor_version = expected, current
-        if sequence != self._count or previous != self._tail or recorded != version:
-            raise RecoveryError("checkpoint history tail disagrees")
-        image = self._engine.snapshot(max_bytes=self._max_snapshot_bytes)
-        image_digest = hashlib.sha256(image).digest()
-        generation = self._generation + 1
-        digest = _checkpoint_digest(
-            self._metadata,
-            self._count,
-            version,
-            floor,
-            floor_version,
-            generation,
-            anchor,
-            self._tail,
-            image_digest,
-        )
-        return _Checkpoint(
-            self._count,
-            version,
-            floor,
-            floor_version,
-            generation,
-            anchor,
-            self._tail,
-            image,
-            image_digest,
-            digest,
-        )
-
-    def _persist_checkpoint(self, record: _Checkpoint) -> None:
-        db = self._db()
-        db.execute("BEGIN IMMEDIATE")
-        db.execute(
-            "INSERT OR REPLACE INTO checkpoints VALUES(1,?,?,?,?,?,?,?,?,?,?)",
-            (
-                record.sequence,
-                record.version,
-                record.floor,
-                record.floor_version,
-                record.generation,
-                record.anchor,
-                record.tail,
-                record.image,
-                record.image_digest,
-                record.digest,
-            ),
-        )
-        updated = db.execute(
-            "UPDATE control SET generation=? WHERE id=1 AND sequence=? AND version=? "
-            "AND digest=? AND generation=?",
-            (
-                record.generation,
-                record.sequence,
-                record.version,
-                record.tail,
-                self._generation,
-            ),
-        )
-        if updated.rowcount != 1:
-            raise RecoveryError("checkpoint control publication precondition failed")
-        db.execute("DELETE FROM operations WHERE sequence<=?", (record.floor,))
-        db.execute("COMMIT")
-
-    def _install_checkpoint(self, record: _Checkpoint) -> None:
-        self._checkpoint_sequence = record.sequence
-        self._floor, self._floor_version = record.floor, record.floor_version
-        self._anchor, self._generation = record.anchor, record.generation
-
-    def _checkpoint(self) -> dict[str, int]:
-        if not self._interval:
-            raise ValueError("checkpoint requires an explicitly enabled v2 store")
-        if self._generation == _MAX:
-            raise CapacityError("checkpoint generation exhausted")
-        persisting = False
-        try:
-            record = self._checkpoint_record()
-            result = {
-                "checkpoint_sequence": record.sequence,
-                "retired_floor": record.floor,
-                "retained_operations": record.sequence - record.floor,
-                "generation": record.generation,
-            }
-            persisting = True
-            self._persist_checkpoint(record)
-            self._install_checkpoint(record)
-            return result
-        except BaseException as error:
-            self._failed = (
-                persisting
-                or self._engine.poisoned
-                or not isinstance(error, MemoryError)
-            )
-            try:
-                if self._db().in_transaction:
-                    self._db().execute("ROLLBACK")
-            except BaseException:
-                self._failed = True
-            raise
-
-    def checkpoint(self) -> dict[str, int]:
-        """Atomically publish an audited image/retired floor and bound retry history.
-
-        This v2 maintenance transaction changes neither graph nor mutation version.
-        A persistence/publication exception disables the owner; recovery resolves it.
-        """
-        with self._exclusive():
-            return self._checkpoint()
-
-    def backup(
-        self, path: str | Path, *, max_bytes: int = 64 << 20, timeout: float = 30.0
-    ) -> dict[str, int | str]:
-        """Publish a bounded, self-contained snapshot at a fresh local path.
-
-        Backup failure does not mutate the source. Publication failure may leave
-        a complete destination; never overwrite it to retry. Restore independently
-        with Durable to audit graph/matching/history. The timeout is checked between
-        bounded SQLite steps, not an interrupt of filesystem I/O or a native audit.
-        """
-        from axiom.backup import copy
-
-        _integer(max_bytes, 1 << 20, 1 << 30, "max_bytes")
-        if type(timeout) not in (int, float) or not 0 < timeout <= 3600:
-            raise ValueError("backup timeout must be finite and in (0, 3600]")
-        destination = Path(path).absolute()
-        deadline = time.monotonic() + timeout
-        with self._exclusive():
-            with self._publication_lock:
-                try:
-                    verified = self._engine.check()
-                except BaseException:
-                    self._failed = True
-                    raise
-                if not verified:
-                    self._failed = True
-                    raise UnavailableError("source graph/matching certificate failed")
-                expected = (
-                    1,
-                    self._metadata,
-                    self._count,
-                    self._engine.version,
-                    self._tail,
-                ) + ((self._generation,) if self._interval else ())
-                try:
-                    control = (
-                        self._db()
-                        .execute("SELECT * FROM control WHERE id=1")
-                        .fetchone()
-                    )
-                except sqlite3.Error:
-                    self._failed = True
-                    raise
-                if control != expected:
-                    self._failed = True
-                    raise UnavailableError(
-                        "source durable control/publication disagrees"
-                    )
-            return copy(self._db(), self._path, destination, max_bytes, deadline)
-
-    def _retry(self, request: Request) -> Outcome:
-        if request.sequence <= self._floor:
-            raise ExpiredError("sequence is retired; it cannot be applied again")
-        try:
-            row = (
-                self._db()
-                .execute(
-                    "SELECT adding,u,v,changed,version,digest,"
-                    "(SELECT digest FROM operations WHERE sequence=?) "
-                    "FROM operations WHERE sequence=?",
-                    (request.sequence - 1, request.sequence),
-                )
-                .fetchone()
-            )
-            if row is None:
-                raise RecoveryError("retained durable outcome disappeared")
-            adding, u, v, changed, version, digest, previous = row
-            _integer(adding, 0, 1, "retry operation")
-            _integer(u, 0, self._engine.n - 1, "retry u")
-            _integer(v, u, self._engine.n - 1, "retry v")
-            _integer(changed, 0, 1, "retry transition")
-            _integer(version, 0, self._engine.version, "retry version")
-            previous = self._anchor if request.sequence == self._floor + 1 else previous
-            if (
-                type(previous) is not bytes
-                or len(previous) != 32
-                or digest
-                != _digest(
-                    previous,
-                    request.sequence,
-                    adding,
-                    u,
-                    v,
-                    bool(changed),
-                    version,
-                )
-            ):
-                raise RecoveryError("retained durable outcome checksum failed")
-        except (sqlite3.Error, RecoveryError, ValueError, TypeError, struct.error):
-            self._failed = True
-            raise
-        if (adding, u, v) != (int(request.operation == "insert"), request.u, request.v):
-            raise ValueError("retry payload differs from its durable operation")
-        return Outcome(request.sequence, bool(changed), version)
+        return tuple(result)
 
     def apply(self, requests: Sequence[Request]) -> tuple[Outcome, ...]:
-        """Durably apply one bounded atomic group; return only after publication.
-
-        A persistence/publication exception makes the owner unavailable, even if
-        in-memory rollback succeeds. Recovery and identical retries determine
-        whether a commit survived; exceptions are never success acknowledgments.
-        """
+        """Durably publish one contiguous bounded update group atomically."""
         with self._exclusive():
             requests = self._validate(requests)
             plans: dict[int, Request] = {}
             outcomes: dict[int, Outcome] = {}
             next_sequence = self._count + 1
             for request in requests:
-                if request.sequence in plans:
-                    if plans[request.sequence] != request:
-                        raise ValueError("conflicting payload for the same sequence")
-                elif request.sequence < next_sequence:
-                    plans[request.sequence] = request
+                previous = plans.get(request.sequence)
+                if previous is not None:
+                    if previous != request:
+                        raise ValueError("conflicting payload for duplicate sequence")
+                elif request.sequence <= self._count:
                     outcomes[request.sequence] = self._retry(request)
+                    plans[request.sequence] = request
                 elif request.sequence == next_sequence:
                     plans[request.sequence] = request
                     next_sequence += 1
                 else:
-                    raise ValueError("new request sequences must be contiguous")
-            fresh = tuple(r for seq, r in plans.items() if seq > self._count)
-            if self._interval and fresh:
-                self._image_admission(fresh)
-                if self._count - self._checkpoint_sequence >= self._interval:
-                    self._checkpoint()
-            if self._count - self._floor + len(fresh) > self._max_operations:
+                    raise ValueError("new operation sequences must be contiguous")
+
+            fresh = tuple(
+                request for seq, request in plans.items() if seq > self._count
+            )
+            if self._count + len(fresh) > self._max_operations:
                 raise CapacityError("bounded operation history is full")
             if not fresh:
-                return tuple(outcomes[r.sequence] for r in requests)
-            version = self._engine.version
-            if version + len(fresh) > _MAX:
-                raise CapacityError("durable mutation sequence exhausted")
-            rows = []
+                return tuple(outcomes[request.sequence] for request in requests)
+            if self._version + len(fresh) > _MAX:
+                raise CapacityError("graph version exhausted")
+
+            rows: list[tuple[int, int, int, int, int, int, bytes]] = []
             tail = self._tail
-            persisting = False
-            token = self._engine.begin()
-            try:
-                for request in fresh:
-                    adding = int(request.operation == "insert")
-                    changed = (
-                        self._engine.insert(request.u, request.v)
-                        if adding
-                        else self._engine.delete(request.u, request.v)
-                    )
-                    version += changed
-                    tail = _digest(
-                        tail,
-                        request.sequence,
-                        adding,
-                        request.u,
-                        request.v,
-                        changed,
-                        version,
-                    )
-                    rows.append(
-                        (
-                            request.sequence,
-                            adding,
-                            request.u,
-                            request.v,
-                            int(changed),
-                            version,
-                            tail,
-                        )
-                    )
-                    outcomes[request.sequence] = Outcome(
-                        request.sequence, changed, version
-                    )
-                result = tuple(outcomes[r.sequence] for r in requests)
-                persisting = True
+            version = self._version
+            persistence_started = False
+
+            def persist() -> None:
+                nonlocal persistence_started
+                persistence_started = True
                 self._persist(rows)
-                self._publish(token)
+
+            try:
+                chunk_size = PAPER_CHUNK
+                while True:
+                    rows.clear()
+                    tail = self._tail
+                    version = self._version
+                    for request in fresh:
+                        outcomes.pop(request.sequence, None)
+                    try:
+                        chunks = tuple(
+                            fresh[offset : offset + chunk_size]
+                            for offset in range(0, len(fresh), chunk_size)
+                        )
+                        for index, chunk in enumerate(chunks):
+                            final = index + 1 == len(chunks)
+                            with self._matcher.batch(
+                                max_operations=len(chunk),
+                                before_publish=persist if final else None,
+                            ):
+                                for request in chunk:
+                                    adding = int(request.operation == "insert")
+                                    changed = self._transition(
+                                        bool(adding), request.u, request.v
+                                    )
+                                    version += int(changed)
+                                    tail = _digest(
+                                        tail,
+                                        request.sequence,
+                                        adding,
+                                        request.u,
+                                        request.v,
+                                        changed,
+                                        version,
+                                    )
+                                    rows.append(
+                                        (
+                                            request.sequence,
+                                            adding,
+                                            request.u,
+                                            request.v,
+                                            int(changed),
+                                            version,
+                                            tail,
+                                        )
+                                    )
+                                    outcomes[request.sequence] = Outcome(
+                                        request.sequence, changed, version
+                                    )
+                        break
+                    except MemoryError as error:
+                        if chunk_size == 1 or "journal capacity exceeded" not in str(
+                            error
+                        ):
+                            raise
+                        self._restore_committed_matcher()
+                        chunk_size = max(1, chunk_size // 2)
                 self._count += len(fresh)
+                self._version = version
                 self._tail = tail
-                return result
+                return tuple(outcomes[request.sequence] for request in requests)
             except BaseException:
-                # Diagnostic allocation must never make a failed owner available.
-                self._failed = True
                 try:
-                    if self._engine.active:
-                        self._engine.rollback(token)
                     if self._db().in_transaction:
                         self._db().execute("ROLLBACK")
-                    self._failed = persisting or self._engine.poisoned
                 except BaseException:
-                    self._failed = True
+                    persistence_started = True
+                self._failed = persistence_started
+                if not persistence_started:
+                    try:
+                        self._restore_committed_matcher()
+                    except BaseException as recovery_error:
+                        self._failed = True
+                        raise UnavailableError(
+                            "aborted group could not restore committed paper state"
+                        ) from recovery_error
                 raise
 
-    @property
-    def _failed(self) -> bool:
-        return self._is_failed
+    def _persist(self, rows: list[tuple[int, int, int, int, int, int, bytes]]) -> None:
+        """Commit one operation page and control tail in a single SQLite txn."""
+        database = self._db()
+        database.execute("BEGIN IMMEDIATE")
+        try:
+            database.executemany(
+                "INSERT INTO operations VALUES(?, ?, ?, ?, ?, ?, ?)", rows
+            )
+            last = rows[-1]
+            changed = database.execute(
+                "UPDATE control SET sequence=?,version=?,digest=? "
+                "WHERE id=1 AND sequence=? AND version=? AND digest=?",
+                (
+                    last[0],
+                    last[5],
+                    last[6],
+                    self._count,
+                    self._version,
+                    self._tail,
+                ),
+            )
+            if changed.rowcount != 1:
+                raise RecoveryError("durable control precondition failed")
+            database.execute("COMMIT")
+        except BaseException:
+            if database.in_transaction:
+                database.execute("ROLLBACK")
+            raise
 
-    @_failed.setter
-    def _failed(self, value: bool) -> None:
-        with self._publication_lock:
-            self._is_failed = value
+    def _retry(self, request: Request) -> Outcome:
+        try:
+            row = (
+                self._db()
+                .execute(
+                    "SELECT adding,u,v,changed,version,digest "
+                    "FROM operations WHERE sequence=?",
+                    (request.sequence,),
+                )
+                .fetchone()
+            )
+            if row is None:
+                raise RecoveryError("durable outcome disappeared")
+            adding, left, right, changed, version, digest = row
+            if (adding, left, right) != (
+                int(request.operation == "insert"),
+                request.u,
+                request.v,
+            ):
+                raise ValueError("retry payload differs from committed operation")
+            previous = self._tail_before(request.sequence)
+            if digest != _digest(
+                previous, request.sequence, adding, left, right, bool(changed), version
+            ):
+                raise RecoveryError("retry outcome checksum failed")
+            return Outcome(request.sequence, bool(changed), version)
+        except (
+            sqlite3.Error,
+            RecoveryError,
+            ValueError,
+            TypeError,
+            struct.error,
+        ) as error:
+            if isinstance(error, ValueError) and "retry payload" in str(error):
+                raise
+            self._failed = True
+            raise RecoveryError("retained retry could not be verified") from error
 
-    @property
-    def _closed(self) -> bool:
-        return self._is_closed
-
-    @_closed.setter
-    def _closed(self, value: bool) -> None:
-        with self._publication_lock:
-            self._is_closed = value
-
-    def _committed_partner(self, vertex: int) -> tuple[int, int | None]:
-        # Native coupled reads retain the GIL, including across private writes.
-        # Availability transitions/close serialize against the entire read.
-        with self._publication_lock:
-            if self._closed or self._failed:
-                raise UnavailableError("store is closed or failed; close and recover")
-            return self._engine.committed_partner(vertex)
+    def _tail_before(self, sequence: int) -> bytes:
+        if sequence == 1:
+            return hashlib.sha256(self._metadata.encode()).digest()
+        row = (
+            self._db()
+            .execute("SELECT digest FROM operations WHERE sequence=?", (sequence - 1,))
+            .fetchone()
+        )
+        if row is None or type(row[0]) is not bytes or len(row[0]) != 32:
+            raise RecoveryError("retry history boundary is missing")
+        return row[0]
 
     def partner(self, vertex: int) -> tuple[int, int | None]:
-        """Read a partner and its coherent committed version without full copying."""
+        """Return the current committed graph version and partner."""
         with self._exclusive():
-            return self._engine.version, self._engine.partner(vertex)
+            _integer(vertex, 0, self._matcher.n - 1, "vertex")
+            return self._version, self._matcher.partner(vertex)
 
     def status(self) -> dict[str, int | str]:
-        """Read bounded committed counts, native memory and persistence settings."""
+        """Return bounded owner, graph, mode, and SQLite settings."""
         with self._exclusive():
             return {
-                "version": self._engine.version,
+                "version": self._version,
                 "sequence": self._count,
-                "vertices": self._engine.n,
-                "edges": self._engine.num_edges(),
-                "matching": self._engine.size(),
-                "native_bytes": self._engine.memory()["allocated"],
+                "vertices": self._matcher.n,
+                "edges": self._matcher.graph.num_edges(),
+                "matching": len(self._matcher.matched_edges),
+                "graph_bytes": self._matcher.graph.memory()["allocated"]
+                if isinstance(self._matcher.graph, Packed)
+                else 0,
+                "mode": self._mode,
                 "sqlite": sqlite3.sqlite_version,
                 "synchronous": "FULL",
                 "fullfsync": 1,
                 "max_operations": self._max_operations,
                 "max_batch": self._max_batch,
-                "checkpoint_interval": self._interval,
-                "retain_operations": self._retention
-                if self._interval
-                else self._max_operations,
-                "retired_floor": self._floor,
-                "checkpoint_sequence": self._checkpoint_sequence,
-                "checkpoint_generation": self._generation,
-                "retained_operations": self._count - self._floor,
+                "history_operations": self._count,
             }
 
     def page(
-        self,
-        start: int = 0,
-        limit: int = 1024,
-        version: int | None = None,
+        self, start: int = 0, limit: int = 1024, version: int | None = None
     ) -> tuple[int, list[tuple[int, int]], int | None]:
-        """Read a bounded matching page, rejecting stale continuation versions."""
+        """Return a version-checked matching page and next vertex cursor."""
         with self._exclusive():
-            return self._engine.page(start, limit, version)
+            _integer(start, 0, self._matcher.n, "start")
+            _integer(limit, 1, MAX_READS, "limit")
+            if version is not None and version != self._version:
+                raise RuntimeError("stale matching page version")
+            stop = min(self._matcher.n, start + MAX_READS)
+            matching: list[tuple[int, int]] = []
+            for left in range(start, stop):
+                right = self._matcher.partner(left)
+                if right is not None and left < right:
+                    matching.append((left, right))
+                    if len(matching) == limit:
+                        return (
+                            self._version,
+                            matching,
+                            left + 1 if left + 1 < self._matcher.n else None,
+                        )
+            return self._version, matching, stop if stop < self._matcher.n else None
 
     def has_edge(self, u: int, v: int) -> tuple[int, bool]:
-        """Read committed topology and its matching-compatible version."""
+        """Return edge membership with the committed logical version."""
         with self._exclusive():
-            return self._engine.version, self._engine.has_edge(u, v)
+            _integer(u, 0, self._matcher.n - 1, "u")
+            _integer(v, 0, self._matcher.n - 1, "v")
+            return self._version, self._matcher.graph.has_edge(u, v)
 
     def read_snapshot(
         self,
@@ -1095,199 +787,204 @@ class Durable:
         *,
         expected_version: int | None = None,
     ) -> ReadSnapshot:
-        """Read bounded partner and edge queries at one committed version.
-
-        At most 4096 total queries are accepted. A supplied expected version is
-        a stale-read guard, not a request for historical state. The immutable
-        result preserves duplicates and input ordering in both answer tuples.
-        """
+        """Read bounded partner and edge queries from one owner version."""
         if type(vertices) not in (list, tuple) or type(edges) not in (list, tuple):
             raise ValueError("vertices and edges must be lists or tuples")
         if len(vertices) + len(edges) > MAX_READS:
             raise CapacityError("read snapshot exceeds 4096 total queries")
-        if expected_version is not None:
-            _integer(expected_version, 0, _MAX, "expected_version")
-        for vertex in vertices:
-            _integer(vertex, 0, self._engine.n - 1, "vertex")
-        canonical_edges: list[tuple[int, int]] = []
-        for edge in edges:
-            if type(edge) not in (list, tuple) or len(edge) != 2:
-                raise ValueError("each edge query must be a pair")
-            u = _integer(edge[0], 0, self._engine.n - 1, "u")
-            v = _integer(edge[1], 0, self._engine.n - 1, "v")
-            canonical_edges.append((u, v))
         with self._exclusive():
-            version = self._engine.version
-            if expected_version is not None and expected_version != version:
-                raise RuntimeError("stale read snapshot version")
-            partners = tuple(self._engine.partner(vertex) for vertex in vertices)
-            has_edges = tuple(self._engine.has_edge(u, v) for u, v in canonical_edges)
-            return ReadSnapshot(version, partners, has_edges)
+            for vertex in vertices:
+                _integer(vertex, 0, self._matcher.n - 1, "vertex")
+            canonical_edges: list[tuple[int, int]] = []
+            for edge in edges:
+                if type(edge) not in (list, tuple) or len(edge) != 2:
+                    raise ValueError("each edge query must be a pair")
+                _integer(edge[0], 0, self._matcher.n - 1, "u")
+                _integer(edge[1], 0, self._matcher.n - 1, "v")
+                canonical_edges.append((edge[0], edge[1]))
+            if expected_version is not None:
+                _integer(expected_version, 0, _MAX, "expected_version")
+                if expected_version != self._version:
+                    raise RuntimeError("stale read snapshot version")
+            return ReadSnapshot(
+                self._version,
+                tuple(self._matcher.partner(vertex) for vertex in vertices),
+                tuple(self._matcher.graph.has_edge(u, v) for u, v in canonical_edges),
+            )
 
     def history(self, start: int | None = None, limit: int = 256) -> HistoryPage:
-        """Export one bounded, hash-linked page from the retained operation log.
-
-        Retired operations cannot be exported. Page boundaries carry the digest
-        of the preceding operation; clients can join pages without treating
-        retained history as a complete-from-genesis log. Corrupt retained rows
-        fail the owner closed. This exports operations, not old graph snapshots
-        or historical matching queries.
-        """
+        """Return a hash-verified contiguous page from retained full history."""
         _integer(limit, 1, MAX_READS, "limit")
-        if start is not None:
-            _integer(start, 1, _MAX, "start")
         with self._exclusive():
-            first = self._floor + 1 if start is None else start
-            if first <= self._floor:
-                raise ExpiredError("history before the retained floor is retired")
+            first = 1 if start is None else _integer(start, 1, _MAX, "start")
             if first > self._count + 1:
-                raise ValueError("history start is beyond the next operation")
-            if first == self._floor + 1:
-                boundary = self._anchor
-                previous_version = self._floor_version
-            else:
-                try:
-                    prior = (
-                        self._db()
-                        .execute(
-                            "SELECT version,digest FROM operations WHERE sequence=?",
-                            (first - 1,),
-                        )
-                        .fetchone()
-                    )
-                except sqlite3.Error as error:
-                    self._failed = True
-                    raise RecoveryError(
-                        "could not read history page boundary"
-                    ) from error
-                if prior is None:
-                    self._failed = True
-                    raise RecoveryError("history page boundary disappeared")
-                previous_version, boundary = prior
-            if (
-                type(previous_version) is not int
-                or not 0 <= previous_version <= self._engine.version
-                or type(boundary) is not bytes
-                or len(boundary) != 32
-            ):
-                self._failed = True
-                raise RecoveryError("history page boundary is invalid")
-            previous = boundary
-            try:
-                rows = (
-                    self._db()
-                    .execute(
-                        "SELECT sequence,adding,u,v,changed,version,digest "
-                        "FROM operations WHERE sequence>=? ORDER BY sequence LIMIT ?",
-                        (first, limit + 1),
-                    )
-                    .fetchall()
+                raise ValueError("history start is beyond next operation")
+            boundary = (
+                hashlib.sha256(self._metadata.encode()).digest()
+                if first == 1
+                else self._tail_before(first)
+            )
+            if first == self._count + 1:
+                return HistoryPage(self._count, boundary, (), False)
+            rows = (
+                self._db()
+                .execute(
+                    "SELECT sequence,adding,u,v,changed,version,digest FROM operations "
+                    "WHERE sequence>=? ORDER BY sequence LIMIT ?",
+                    (first, limit + 1),
                 )
-            except sqlite3.Error as error:
-                self._failed = True
-                raise RecoveryError("could not read retained history") from error
-            has_more = len(rows) > limit
+                .fetchall()
+            )
+            previous = boundary
             records: list[HistoryRecord] = []
             expected_sequence = first
-            for sequence, adding, u, v, changed, version, digest in rows[:limit]:
-                try:
-                    _integer(sequence, expected_sequence, expected_sequence, "sequence")
-                    _integer(adding, 0, 1, "operation")
-                    _integer(u, 0, self._engine.n - 1, "u")
-                    _integer(v, u, self._engine.n - 1, "v")
-                    _integer(changed, 0, 1, "changed")
-                    _integer(version, previous_version, _MAX, "version")
-                    if version != previous_version + changed:
-                        raise ValueError("history version progression is invalid")
-                    expected = _digest(
-                        previous, sequence, adding, u, v, bool(changed), version
+            previous_version = (
+                self._base_version
+                if first == 1
+                else self._version
+                if first > self._count
+                else 0
+            )
+            if first > 1:
+                prior = (
+                    self._db()
+                    .execute(
+                        "SELECT version FROM operations WHERE sequence=?", (first - 1,)
                     )
-                    if type(digest) is not bytes or digest != expected:
-                        raise ValueError("history digest is invalid")
-                except (ValueError, TypeError, struct.error) as error:
+                    .fetchone()
+                )
+                if prior is None:
+                    raise RecoveryError("history page boundary disappeared")
+                previous_version = prior[0]
+            for seq, adding, left, right, changed, current, digest in rows[:limit]:
+                if (
+                    seq != expected_sequence
+                    or current != previous_version + changed
+                    or digest
+                    != _digest(
+                        previous, seq, adding, left, right, bool(changed), current
+                    )
+                ):
                     self._failed = True
-                    raise RecoveryError(
-                        "retained history page is uncertified"
-                    ) from error
+                    raise RecoveryError("history page failed hash-chain validation")
                 records.append(
                     HistoryRecord(
-                        sequence,
+                        seq,
                         "insert" if adding else "delete",
-                        u,
-                        v,
+                        left,
+                        right,
                         bool(changed),
-                        version,
+                        current,
                         digest,
                     )
                 )
-                previous, previous_version = expected, version
+                previous, previous_version = digest, current
                 expected_sequence += 1
-            expected_count = min(limit, self._count - first + 1)
-            if len(records) != expected_count:
+            return HistoryPage(self._count, boundary, tuple(records), len(rows) > limit)
+
+    def checkpoint(self) -> dict[str, int]:
+        """Bound SQLite WAL maintenance without snapshotting paper algorithm state."""
+        with self._exclusive():
+            try:
+                busy, log_pages, checkpointed = (
+                    self._db().execute("PRAGMA wal_checkpoint(PASSIVE)").fetchone()
+                )
+                return {
+                    "busy": busy,
+                    "wal_pages": log_pages,
+                    "checkpointed_pages": checkpointed,
+                }
+            except sqlite3.Error as error:
                 self._failed = True
-                raise RecoveryError("retained history page has a sequence gap")
-            if (
-                records
-                and records[-1].sequence == self._count
-                and (previous != self._tail or previous_version != self._engine.version)
-            ):
+                raise RecoveryError("SQLite WAL maintenance failed") from error
+
+    def backup(
+        self, path: str | Path, *, max_bytes: int = 64 << 20, timeout: float = 30.0
+    ) -> dict[str, int | str]:
+        """Publish a bounded, self-contained copy of the committed database."""
+        _integer(max_bytes, 1 << 20, 1 << 30, "max_bytes")
+        if type(timeout) not in (int, float) or not 0 < timeout <= 3600:
+            raise ValueError("timeout must be finite and in (0, 3600]")
+        with self._exclusive():
+            if not self._audit():
                 self._failed = True
-                raise RecoveryError("retained history page disagrees with durable tail")
-            return HistoryPage(
-                self._floor,
-                self._count,
-                boundary,
-                tuple(records),
-                has_more,
+                raise UnavailableError("paper matcher audit failed before backup")
+            return copy_backup(
+                self._db(),
+                self._path,
+                Path(path).absolute(),
+                max_bytes,
+                time.monotonic() + timeout,
             )
 
     def check(self) -> bool:
-        """Run an explicit full native audit, not an ordinary-update scan."""
-        with self._exclusive(), self._publication_lock:
+        """Run a complete explicit graph/matching certificate audit."""
+        with self._exclusive():
             try:
-                verified = self._engine.check()
+                result = self._audit()
             except BaseException:
                 self._failed = True
                 raise
-            if not verified:
+            if not result:
                 self._failed = True
-            return verified
+            return result
+
+    def _audit(self) -> bool:
+        graph = self._matcher.graph
+        graph_check = getattr(graph, "check", None)
+        if callable(graph_check) and not graph_check():
+            return False
+        partners = self._matcher.partner_map
+        for left, right in self._matcher.matched_edges:
+            if (
+                left == right
+                or partners.get(left) != right
+                or partners.get(right) != left
+                or not self._matcher.graph.has_edge(left, right)
+            ):
+                return False
+        return (
+            len(partners) == 2 * len(self._matcher.matched_edges)
+            and self._matcher.maximal()
+        )
 
     def _release(self) -> None:
-        # Retain ownership if the database connection cannot be closed safely.
         self._closed = True
-        if self._connection is not None:
-            self._connection.close()
-        self._connection = None
-        if self._lock_fd >= 0:
-            os.close(self._lock_fd)
-            self._lock_fd = -1
-        if hasattr(self, "_engine"):
-            del self._engine
+        connection, self._connection = self._connection, None
+        try:
+            if connection is not None:
+                connection.close()
+        finally:
+            if self._lock_fd >= 0:
+                os.close(self._lock_fd)
+                self._lock_fd = -1
 
     def close(self) -> None:
-        """Close even a failed owner; never unlink its persistent lock file."""
+        """Release the SQLite connection and exclusive owner lock."""
         if not self._lock.acquire(blocking=False):
-            raise BusyError("cannot close an active owner")
+            raise BusyError("cannot close an active durable owner")
         try:
             self._release()
         finally:
             self._lock.release()
 
     def __enter__(self) -> Durable:
-        """Use an owner as a context manager."""
+        """Return this live owner for use in a with statement."""
         return self
 
     def __exit__(self, *args: object) -> None:
-        """Release database and process ownership on context exit."""
+        """Close the owner when leaving a with statement."""
         self.close()
 
     def __del__(self) -> None:
-        """Best-effort abandoned-owner cleanup; prefer explicit close/context use."""
-        if getattr(self, "_lock_fd", -1) >= 0:
-            try:
-                self._release()
-                warnings.warn("unclosed durable owner", ResourceWarning, stacklevel=2)
-            except BaseException:
-                # Destructors cannot safely report/resolve a close failure.
-                pass
+        """Best-effort release when explicit close was omitted."""
+        try:
+            if hasattr(self, "_lock") and not self._closed:
+                warnings.warn(
+                    "unclosed durable owner; releasing its process lock",
+                    ResourceWarning,
+                    stacklevel=2,
+                )
+                self.close()
+        except BaseException:
+            pass

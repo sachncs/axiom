@@ -1,588 +1,542 @@
-"""Durable publication, retry, recovery, and bounded-owner regression tests."""
+"""Durable paper-matcher replay, atomicity, and bounded-history tests."""
 
-import gc
 import hashlib
 import json
-import random
 import sqlite3
-import subprocess
-import sys
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
-from threading import Event
-from types import SimpleNamespace
 
 import pytest
 
+from axiom import core
+from axiom.core import Matcher
 from axiom.durable import (
-    BusyError,
+    PAPER_CHUNK,
     CapacityError,
     Durable,
-    ExpiredError,
-    HistoryPage,
-    HistoryRecord,
     Outcome,
-    ReadSnapshot,
     RecoveryError,
     Request,
     UnavailableError,
+    _digest,
 )
-from axiom.engine import Engine
+from axiom.witness import Witness
+
+MODES = ("basic", "multilevel")
 
 
-def snapshot(store: Durable) -> tuple:
+def state(store: Durable) -> tuple:
+    """Capture externally visible graph state independently of implementation."""
     status = store.status()
     vertices = status["vertices"]
-    assert isinstance(vertices, int)
     return (
-        status["version"],
+        status["mode"],
         status["sequence"],
+        status["version"],
         status["edges"],
         status["matching"],
-        tuple(store.partner(u) for u in range(vertices)),
+        tuple(store.partner(vertex) for vertex in range(vertices)),
         tuple(
-            (u, v)
-            for u in range(vertices)
-            for v in range(u + 1, vertices)
-            if store.has_edge(u, v)[1]
+            (left, right)
+            for left in range(vertices)
+            for right in range(left + 1, vertices)
+            if store.has_edge(left, right)[1]
         ),
     )
 
 
-def test_batch_acknowledgment_retries_and_exact_recovery(tmp_path: Path) -> None:
-    path = tmp_path / "graph.db"
-    requests = [
-        Request(1, "delete", 1, 0),
-        Request(2, "insert", 0, 4),
-        Request(3, "insert", 4, 0),
-        Request(4, "delete", 0, 0),
-    ]
-    with Durable(path, n=16) as store:
-        result = store.apply(requests)
-        assert result == (
-            Outcome(1, True, 2),
-            Outcome(2, True, 3),
-            Outcome(3, False, 3),
-            Outcome(4, False, 3),
-        )
-        assert store.apply(requests) == result
-        assert store.apply([requests[0], requests[0]]) == (result[0], result[0])
-        before = snapshot(store)
-        assert store.check()
-    with Durable(path) as store:
-        assert snapshot(store) == before and store.check()
-        assert store.apply(requests) == result
-        assert store.status()["synchronous"] == "FULL"
-        assert store.status()["fullfsync"] == 1
+def witness(store: Durable) -> bytes:
+    """Capture the exact in-memory paper state between transactions."""
+    return Witness().capture(store._matcher)
 
 
-def test_invalid_admission_is_atomic_and_subsequent_valid_use_works(
-    tmp_path: Path,
-) -> None:
-    with Durable(tmp_path / "graph.db", n=16, max_batch=4) as store:
-        before = snapshot(store)
-        for requests, error in (
-            ([Request(2, "insert", 0, 4)], ValueError),
-            ([Request(1, "insert", 0, 16)], ValueError),
-            ([Request(1, "insert", 0, 4), Request(1, "delete", 0, 4)], ValueError),
-            ([Request(1, "insert", 0, 4)] * 5, CapacityError),
-            ([Request(True, "insert", 0, 4)], ValueError),
-        ):
-            with pytest.raises(error):
-                store.apply(requests)
-            assert snapshot(store) == before
-        result = store.apply([Request(1, "insert", 0, 4)] * 2)
-        assert result == (Outcome(1, True, 2),) * 2
-        with pytest.raises(ValueError, match="differs"):
-            store.apply([Request(1, "delete", 0, 4)])
-        assert store.status()["sequence"] == 1
-
-
-def test_history_capacity_rejects_before_edit_and_preserves_retries(
-    tmp_path: Path,
-) -> None:
-    with Durable(tmp_path / "graph.db", n=16, max_operations=2) as store:
-        requests = [Request(1, "delete", 0, 1), Request(2, "insert", 0, 4)]
-        result = store.apply(requests)
-        before = snapshot(store)
-        with pytest.raises(CapacityError, match="history"):
-            store.apply([Request(3, "delete", 1, 2)])
-        assert snapshot(store) == before
-        assert store.apply(requests) == result
-
-
-def test_native_budget_failure_restores_entire_batch_without_durable_rows(
-    tmp_path: Path,
-) -> None:
-    metadata = Engine(16).memory()["allocated"]
-    with Durable(tmp_path / "graph.db", n=16, width=0, budget=metadata + 416) as store:
-        before = snapshot(store)
-        with pytest.raises(MemoryError):
-            store.apply([Request(i, "insert", 0, i) for i in range(1, 8)])
-        assert snapshot(store) == before and store.check()
-        assert store.apply([Request(1, "insert", 0, 15)]) == (Outcome(1, True, 1),)
-
-
-@pytest.mark.parametrize(
-    "stage", ["before_write", "after_partial_write", "after_commit", "after_publish"]
-)
-def test_persistence_or_publication_failure_is_fail_stop_and_retries_resolve(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    stage: str,
-) -> None:
-    path = tmp_path / "graph.db"
-    store = Durable(path, n=16)
-    original_persist, original_publish = store._persist, store._publish
-    request = Request(1, "delete", 0, 1)
-
-    def fail_persist(rows: list) -> None:
-        if stage == "after_partial_write":
-            db = store._db()
-            db.execute("BEGIN IMMEDIATE")
-            db.executemany("INSERT INTO operations VALUES(?,?,?,?,?,?,?)", rows)
-        elif stage == "after_commit":
-            original_persist(rows)
-        raise OSError("injected disk/barrier failure")
-
-    def fail_publish(token: int) -> None:
-        original_publish(token)
-        raise OSError("injected post-publication acknowledgment loss")
-
-    if stage == "after_publish":
-        monkeypatch.setattr(store, "_publish", fail_publish)
-    else:
-        monkeypatch.setattr(store, "_persist", fail_persist)
-    with pytest.raises(OSError):
-        store.apply([request])
-    for query in (
-        store.status,
-        store.check,
-        lambda: store.partner(0),
-        lambda: store.apply([request]),
-    ):
-        with pytest.raises(UnavailableError):
-            query()
-    store.close()
-    with Durable(path) as recovered:
-        committed = stage in ("after_commit", "after_publish")
-        assert recovered.status()["sequence"] == int(committed)
-        assert recovered.has_edge(0, 1)[1] == (not committed)
-        assert recovered.apply([request]) == (Outcome(1, True, 2),)
-        assert recovered.status()["sequence"] == 1 and recovered.check()
-
-
-def test_private_state_is_not_visible_and_concurrent_admission_is_bounded(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    prepared, release = Event(), Event()
-    with Durable(tmp_path / "graph.db", n=16) as store:
-        original = store._persist
-
-        def paused(rows: list) -> None:
-            prepared.set()
-            assert release.wait(5)
-            original(rows)
-
-        monkeypatch.setattr(store, "_persist", paused)
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(store.apply, [Request(1, "delete", 0, 1)])
-            assert prepared.wait(5)
-            try:
-                for operation in (
-                    store.status,
-                    store.close,
-                    lambda: store.partner(0),
-                    lambda: store.apply([Request(2, "insert", 0, 4)]),
-                ):
-                    with pytest.raises(BusyError):
-                        operation()
-            finally:
-                release.set()
-            assert future.result(timeout=5) == (Outcome(1, True, 2),)
-        assert store.partner(0)[0] == 2 and not store.has_edge(0, 1)[1]
-
-
-def test_read_snapshot_aligns_duplicates_and_rejects_stale_or_invalid_inputs(
-    tmp_path: Path,
-) -> None:
-    with Durable(tmp_path / "graph.db", n=16, width=0) as store:
-        store.apply([Request(1, "insert", 0, 1), Request(2, "insert", 2, 3)])
-        result = store.read_snapshot([0, 2, 0, 4], [(0, 1), (1, 0), (0, 4)])
-        assert result == ReadSnapshot(2, (1, 3, 1, None), (True, True, False))
-        with pytest.raises(RuntimeError, match="stale"):
-            store.read_snapshot([0], [(0, 1)], expected_version=1)
-        with pytest.raises(ValueError, match="expected_version"):
-            store.read_snapshot([], [], expected_version=True)
-        with pytest.raises(ValueError, match="vertex"):
-            store.read_snapshot([16], [])
-        with pytest.raises(ValueError, match="integer"):
-            store.read_snapshot([True], [])
-        with pytest.raises(ValueError, match="pair"):
-            store.read_snapshot([], [(0,)])  # type: ignore[list-item]
-        with pytest.raises(ValueError, match="u"):
-            store.read_snapshot([], [(0, 16)])
-        with pytest.raises(CapacityError, match="4096"):
-            store.read_snapshot(list(range(16)) * 256 + [0], [])
-        assert store.status()["version"] == 2 and store.check()
-
-
-def test_read_snapshot_holds_durable_owner_across_every_query(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    entered, release = Event(), Event()
-    with Durable(tmp_path / "graph.db", n=16, width=0) as store:
-        engine = store._engine
-
-        class PausingEngine:
-            n = engine.n
-
-            @property
-            def version(self) -> int:
-                return engine.version
-
-            def partner(self, vertex: int) -> int | None:
-                if vertex == 0:
-                    entered.set()
-                    assert release.wait(5)
-                return engine.partner(vertex)
-
-            def has_edge(self, u: int, v: int) -> bool:
-                return engine.has_edge(u, v)
-
-        monkeypatch.setattr(store, "_engine", PausingEngine())
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(store.read_snapshot, [0, 1], [(0, 1)])
-            assert entered.wait(5)
-            try:
-                with pytest.raises(BusyError):
-                    store.apply([Request(1, "insert", 0, 1)])
-            finally:
-                release.set()
-            assert future.result(timeout=5) == ReadSnapshot(0, (None, None), (False,))
-        monkeypatch.setattr(store, "_engine", engine)
-        assert store.apply([Request(1, "insert", 0, 1)])[0].version == 1
-
-
-def test_history_pages_are_contiguous_hash_linked_and_include_noops(
-    tmp_path: Path,
-) -> None:
-    path = tmp_path / "graph.db"
-    requests = [
+def requests() -> list[Request]:
+    return [
         Request(1, "insert", 0, 1),
-        Request(2, "insert", 0, 1),
-        Request(3, "delete", 0, 1),
-        Request(4, "insert", 0, 1),
+        Request(2, "insert", 2, 3),
+        Request(3, "delete", 1, 0),
+        Request(4, "insert", 0, 2),
+        Request(5, "delete", 7, 8),
     ]
-    with Durable(path, n=16, width=0) as store:
-        store.apply(requests)
-        first = store.history(limit=2)
-        second = store.history(start=3, limit=2)
-        assert first == HistoryPage(
-            0,
-            4,
-            first.previous_digest,
-            (
-                HistoryRecord(1, "insert", 0, 1, True, 1, first.records[0].digest),
-                HistoryRecord(2, "insert", 0, 1, False, 1, first.records[1].digest),
-            ),
-            True,
-        )
-        assert first.records[1].digest == second.previous_digest
-        assert tuple(record.sequence for record in second.records) == (3, 4)
-        assert tuple(record.version for record in second.records) == (2, 3)
-        assert not second.has_more
-        assert second.records[-1].digest == store._tail
-    with Durable(path) as recovered:
-        assert tuple(record.sequence for record in recovered.history().records) == (
-            1,
-            2,
-            3,
-            4,
-        )
 
 
-def test_history_respects_checkpoint_retention_and_rejects_corrupt_rows(
+def test_durable_defaults_to_basic_and_rejects_native_matching_mode(
     tmp_path: Path,
 ) -> None:
-    path = tmp_path / "graph.db"
-    with Durable(
-        path,
-        n=16,
-        width=0,
-        max_operations=8,
-        max_batch=2,
-        checkpoint_interval=2,
-        retain_operations=2,
-    ) as store:
-        for sequence in range(1, 6):
-            store.apply(
-                [Request(sequence, "insert" if sequence % 2 else "delete", 0, 1)]
-            )
-        page = store.history()
-        assert page.retired_floor == 2
-        assert tuple(record.sequence for record in page.records) == (3, 4, 5)
-        with pytest.raises(ExpiredError, match="retired"):
-            store.history(start=2)
-        assert store.history(start=6).records == ()
-        with pytest.raises(ValueError, match="beyond"):
-            store.history(start=7)
-
-    with Durable(path) as store:
-        connection = store._connection
-        assert connection is not None
-        connection.execute(
-            "UPDATE operations SET digest=? WHERE sequence=4", (bytes(32),)
-        )
-        with pytest.raises(RecoveryError, match="uncertified"):
-            store.history(start=3, limit=3)
-        with pytest.raises(UnavailableError):
-            store.status()
-
-
-def test_single_process_owner_and_lock_reuse(tmp_path: Path) -> None:
-    path = tmp_path / "graph.db"
-    with Durable(path, n=16), pytest.raises(BusyError):
-        Durable(path)
-    with Durable(path) as store:
+    path = tmp_path / "default.db"
+    with Durable(path, n=8, width=0) as store:
+        assert store.status()["mode"] == "basic"
         assert store.check()
-    with pytest.raises(ValueError, match="differs"):
-        Durable(path, n=17)
-    with Durable(path) as store:
-        assert store.check()
+    with pytest.raises(ValueError, match="basic.*multilevel"):
+        Durable(tmp_path / "native.db", n=8, mode="native")
 
 
-@pytest.mark.parametrize(
-    "corruption", ["checksum", "missing_tail", "outcome", "format", "control"]
-)
-def test_semantic_corruption_refuses_recovery(tmp_path: Path, corruption: str) -> None:
-    path = tmp_path / "graph.db"
-    with Durable(path, n=16) as store:
-        store.apply([Request(1, "delete", 0, 1), Request(2, "insert", 0, 4)])
-    with closing(sqlite3.connect(path)) as db, db:
-        if corruption == "checksum":
-            db.execute("UPDATE operations SET digest=zeroblob(32) WHERE sequence=1")
-        elif corruption == "missing_tail":
-            db.execute("DELETE FROM operations WHERE sequence=2")
-        elif corruption == "outcome":
-            db.execute("UPDATE operations SET changed=0 WHERE sequence=1")
-        elif corruption == "format":
-            metadata = json.loads(
-                db.execute("SELECT metadata FROM control").fetchone()[0]
-            )
-            metadata["backend"] = "unknown"
-            db.execute("UPDATE control SET metadata=?", (json.dumps(metadata),))
-        else:
-            db.execute("UPDATE control SET version=777")
-    with pytest.raises(RecoveryError):
-        Durable(path)
-
-
-@pytest.mark.parametrize("stage", ["before_commit", "after_commit", "after_publish"])
-def test_process_death_recovers_only_committed_history(
-    tmp_path: Path, stage: str
+@pytest.mark.parametrize("mode", MODES)
+def test_exact_witness_replay_after_restart_for_each_paper_mode(
+    tmp_path: Path, mode: str
 ) -> None:
-    path = tmp_path / "graph.db"
-    script = """
-import os, sys
-from axiom.durable import Durable, Request
-store=Durable(sys.argv[1], n=16)
-stage=sys.argv[2]
-persist, publish=store._persist, store._publish
-def crash_persist(rows):
-    if stage == 'before_commit':
-        db=store._db()
-        db.execute('BEGIN IMMEDIATE')
-        db.executemany('INSERT INTO operations VALUES(?,?,?,?,?,?,?)', rows)
-    else:
-        persist(rows)
-    os._exit(73)
-def crash_publish(token):
-    publish(token)
-    os._exit(73)
-if stage == 'after_publish':
-    store._publish=crash_publish
-else:
-    store._persist=crash_persist
-store.apply([Request(1,'delete',0,1), Request(2,'insert',0,4)])
-"""
-    process = subprocess.run(
-        [sys.executable, "-c", script, str(path), stage], timeout=15
-    )
-    assert process.returncode == 73
-    with Durable(path) as store:
-        committed = stage != "before_commit"
-        assert store.status()["sequence"] == (2 if committed else 0)
-        assert store.has_edge(0, 1)[1] == (not committed)
+    path = tmp_path / f"{mode}.db"
+    with Durable(path, n=16, width=0, mode=mode) as store:
+        result = store.apply(requests())
+        expected = state(store)
+        expected_witness = witness(store)
         assert store.check()
-        assert store.apply(
-            [Request(1, "delete", 0, 1), Request(2, "insert", 0, 4)]
-        ) == (
-            Outcome(1, True, 2),
-            Outcome(2, True, 3),
-        )
 
-
-def test_close_is_idempotent_and_closed_calls_reject(tmp_path: Path) -> None:
-    store = Durable(tmp_path / "graph.db", n=0, width=0)
-    assert store.page() == (0, [], None) and store.apply([]) == ()
-    store.close()
-    store.close()
-    assert not hasattr(store, "_engine")
-    with pytest.raises(UnavailableError):
-        store.status()
-
-
-def test_sqlite_page_limit_failure_recovers_last_acknowledged_batch(
-    tmp_path: Path,
-) -> None:
-    path = tmp_path / "full.db"
-    store = Durable(
-        path, n=4, width=0, max_database_bytes=1 << 20, max_operations=32768
-    )
-    last_sequence = 0
-    try:
-        for first in range(1, 32769, 256):
-            requests = [
-                Request(seq, "insert" if seq % 2 else "delete", 0, 1)
-                for seq in range(first, first + 256)
-            ]
-            try:
-                store.apply(requests)
-            except sqlite3.DatabaseError as error:
-                assert "full" in str(error).lower()
-                with pytest.raises(UnavailableError):
-                    store.status()
-                break
-            last_sequence = first + 255
-        else:
-            pytest.fail("expected a real SQLite page-limit/disk-full rejection")
-    finally:
-        store.close()
-    assert 0 < last_sequence < 32768
-    with Durable(path, max_database_bytes=1 << 20, max_operations=32768) as recovered:
-        assert recovered.status()["sequence"] == last_sequence
-        assert recovered.status()["version"] == last_sequence
-        assert recovered.status()["edges"] == recovered.status()["matching"] == 0
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == expected
+        assert witness(recovered) == expected_witness
+        assert recovered.apply(requests()) == result
         assert recovered.check()
 
 
-def test_mixed_batches_match_independent_python_reference_across_restarts(
-    tmp_path: Path,
+@pytest.mark.parametrize("mode", MODES)
+def test_history_pages_include_nonzero_genesis_graph_version(
+    tmp_path: Path, mode: str
 ) -> None:
-    from test_engine import Reference
-
-    path = tmp_path / "graph.db"
-    oracle = Reference(33)
-    rng = random.Random(813)
-    with Durable(path, n=33, width=0) as store:
-        for first in range(1, 801, 40):
-            requests, expected = [], []
-            for sequence in range(first, first + 40):
-                u, v = rng.randrange(33), rng.randrange(33)
-                adding = bool(rng.randrange(2))
-                changed = oracle.edit(u, v, adding)
-                requests.append(
-                    Request(sequence, "insert" if adding else "delete", u, v)
-                )
-                expected.append(Outcome(sequence, changed, oracle.version))
-            assert store.apply(requests) == tuple(expected)
-            assert store.check()
-        before = snapshot(store)
-    with Durable(path) as recovered:
-        assert snapshot(recovered) == before
-        assert recovered.status()["version"] == oracle.version
-        for u in range(33):
-            assert recovered.partner(u)[1] == oracle.partners.get(u)
-            for v in range(u + 1, 33):
-                assert recovered.has_edge(u, v)[1] == oracle.graph.has_edge(u, v)
+    path = tmp_path / f"history-{mode}.db"
+    with Durable(path, n=8, mode=mode) as store:
+        base_version = store.status()["version"]
+        outcome = store.apply([Request(1, "insert", 0, 4)])[0]
+        page = store.history()
+        assert page.records[0].version == outcome.version == base_version + 1
+        assert len(page.previous_digest) == 32
+    with Durable(path, mode=mode) as recovered:
+        assert recovered.history().records[0].version == outcome.version
 
 
-def test_checksum_valid_wrong_outcome_still_fails_deterministic_replay(
-    tmp_path: Path,
+@pytest.mark.parametrize("mode", MODES)
+def test_later_matcher_failure_rolls_back_whole_durable_batch_exactly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
-    from axiom.durable import _digest
+    path = tmp_path / f"{mode}.db"
+    store = Durable(path, n=20, width=0, mode=mode)
+    before = state(store)
+    before_witness = witness(store)
+    original = Matcher.insert
+    attempts = 0
 
-    path = tmp_path / "wrong-outcome.db"
-    with Durable(path, n=16) as store:
-        store.apply([Request(1, "delete", 0, 1), Request(2, "insert", 0, 4)])
-    with closing(sqlite3.connect(path)) as db, db:
-        metadata = db.execute("SELECT metadata FROM control").fetchone()[0]
-        tail = hashlib.sha256(metadata.encode()).digest()
-        rows = db.execute("SELECT * FROM operations ORDER BY sequence").fetchall()
-        for seq, adding, u, v, changed, version, _ in rows:
-            changed = 0 if seq == 1 else changed
-            version -= 1  # keep forged outcome/version progression internally coherent
-            tail = _digest(tail, seq, adding, u, v, bool(changed), version)
-            db.execute(
-                "UPDATE operations SET changed=?,version=?,digest=? WHERE sequence=?",
-                (changed, version, tail, seq),
-            )
-        db.execute("UPDATE control SET version=version-1,digest=?", (tail,))
-    with pytest.raises(RecoveryError, match="operation history") as error:
-        Durable(path)
-    assert "outcome disagrees" in str(error.value.__cause__)
+    def fail_second(matcher: Matcher, left: int, right: int) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 2:
+            raise RuntimeError("injected later paper update failure")
+        original(matcher, left, right)
 
-
-def test_failed_independent_audit_disables_owner(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    with Durable(tmp_path / "graph.db", n=16) as store:
-        monkeypatch.setattr(store, "_engine", SimpleNamespace(check=lambda: False))
-        assert store.check() is False
-        with pytest.raises(UnavailableError):
-            store.apply([Request(1, "delete", 0, 1)])
-
-
-def test_live_retry_corruption_never_becomes_a_success_acknowledgment(
-    tmp_path: Path,
-) -> None:
-    with Durable(tmp_path / "graph.db", n=16) as store:
-        request = Request(1, "delete", 0, 1)
-        assert store.apply([request]) == (Outcome(1, True, 2),)
-        store._db().execute("UPDATE operations SET changed=0 WHERE sequence=1")
-        with pytest.raises(RecoveryError, match="checksum"):
-            store.apply([request])
-        with pytest.raises(UnavailableError):
-            store.partner(0)
-
-
-def test_other_process_cannot_create_a_second_live_owner(tmp_path: Path) -> None:
-    path = tmp_path / "graph.db"
-    with Durable(path, n=16):
-        process = subprocess.run(
+    monkeypatch.setattr(Matcher, "insert", fail_second)
+    with pytest.raises(RuntimeError, match="later paper update"):
+        store.apply(
             [
-                sys.executable,
-                "-c",
-                "import sys; from axiom.durable import Durable, BusyError\n"
-                "try: Durable(sys.argv[1])\n"
-                "except BusyError: sys.exit(0)\n"
-                "sys.exit(99)",
-                str(path),
-            ],
-            timeout=10,
+                Request(1, "insert", 0, 1),
+                Request(2, "insert", 2, 3),
+                Request(3, "insert", 4, 5),
+            ]
         )
-        assert process.returncode == 0
+    assert attempts == 2
+    assert witness(store) == before_witness
+    assert state(store) == before
+    assert store.check()
+    store.close()
+    monkeypatch.undo()
+
+    with closing(sqlite3.connect(path)) as database:
+        assert database.execute("SELECT count(*) FROM operations").fetchone() == (0,)
+        assert database.execute("SELECT sequence,version FROM control").fetchone() == (
+            0,
+            0,
+        )
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == before
+        assert witness(recovered) == before_witness
+        assert recovered.check()
 
 
-def test_truncated_database_refuses_recovery(tmp_path: Path) -> None:
-    path = tmp_path / "broken.db"
-    with Durable(path, n=16) as store:
-        store.apply([Request(1, "delete", 0, 1)])
-    with path.open("r+b") as damaged:
-        damaged.truncate(200)
-    with pytest.raises((sqlite3.DatabaseError, RecoveryError)):
-        Durable(path)
+@pytest.mark.parametrize("mode", MODES)
+def test_failure_in_later_private_slice_restores_committed_matcher_exactly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    path = tmp_path / f"sliced-{mode}.db"
+    store = Durable(path, n=32, width=0, mode=mode, max_batch=24)
+    before = witness(store)
+    original = Matcher.insert
+    attempts = 0
+
+    def fail_after_first_private_slice(matcher: Matcher, left: int, right: int) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 10:
+            raise RuntimeError("injected later-slice failure")
+        original(matcher, left, right)
+
+    monkeypatch.setattr(Matcher, "insert", fail_after_first_private_slice)
+    batch = [
+        Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
+        for sequence in range(1, 13)
+    ]
+    with pytest.raises(RuntimeError, match="later-slice"):
+        store.apply(batch)
+
+    assert attempts == 10
+    assert witness(store) == before
+    assert store.status()["sequence"] == 0
+    assert store.check()
+    assert store.apply(batch) == tuple(
+        Outcome(sequence, True, sequence) for sequence in range(1, 13)
+    )
+    assert store.check()
+    committed = state(store)
+    committed_witness = witness(store)
+    store.close()
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == committed
+        assert witness(recovered) == committed_witness
+        assert recovered.check()
 
 
-def test_abandoned_owner_cleanup_does_not_leak_process_lock(tmp_path: Path) -> None:
-    path = tmp_path / "graph.db"
-    store = Durable(path, n=16)
-    with pytest.warns(ResourceWarning, match="unclosed durable owner"):
-        del store
-        gc.collect()
-    with Durable(path) as recovered:
+@pytest.mark.parametrize("mode", MODES)
+def test_large_durable_group_releases_paper_journal_after_each_update(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """A large durable group must not accumulate bounded paper undo cells."""
+    path = tmp_path / f"journal-window-{mode}.db"
+    store = Durable(path, n=64, width=0, mode=mode, max_batch=32)
+    original = Matcher.batch
+    journals = []
+
+    @contextmanager
+    def observe_batch(
+        matcher: Matcher,
+        max_operations: int = 256,
+        before_publish=None,
+    ):
+        with original(matcher, max_operations, before_publish):
+            journals.append(matcher.classes)
+            yield matcher
+
+    monkeypatch.setattr(Matcher, "batch", observe_batch)
+    batch = [
+        Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
+        for sequence in range(1, 25)
+    ]
+    outcomes = store.apply(batch)
+
+    assert len(outcomes) == len(batch)
+    assert len(journals) == (len(batch) + PAPER_CHUNK - 1) // PAPER_CHUNK
+    assert all(journal is not None for journal in journals)
+    assert len({id(journal) for journal in journals}) == len(journals)
+    assert store.status()["sequence"] == len(batch)
+    assert store.check()
+    store.close()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    path = tmp_path / f"journal-capacity-{mode}.db"
+    store = Durable(path, n=64, width=0, mode=mode, max_batch=32)
+    original = Matcher.batch
+    attempted = []
+    large_chunks = 0
+
+    @contextmanager
+    def constrain_batch(
+        matcher: Matcher,
+        max_operations: int = 256,
+        before_publish=None,
+    ):
+        nonlocal large_chunks
+        attempted.append(max_operations)
+        if max_operations > 2:
+            large_chunks += 1
+            if large_chunks == 2:
+                raise MemoryError("class journal capacity exceeded")
+        with original(matcher, max_operations, before_publish):
+            yield matcher
+
+    monkeypatch.setattr(Matcher, "batch", constrain_batch)
+    batch = [
+        Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
+        for sequence in range(1, 25)
+    ]
+    outcomes = store.apply(batch)
+
+    assert attempted[:3] == [PAPER_CHUNK, PAPER_CHUNK, PAPER_CHUNK // 2]
+    assert outcomes == tuple(
+        Outcome(sequence, True, sequence) for sequence in range(1, 25)
+    )
+    assert store.status()["sequence"] == len(batch)
+    assert store.check()
+    store.close()
+    monkeypatch.undo()
+    with Durable(path, mode=mode) as recovered:
+        assert recovered.status()["sequence"] == len(batch)
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_single_update_journal_exhaustion_is_atomic_and_retryable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    path = tmp_path / f"single-journal-capacity-{mode}.db"
+    store = Durable(path, n=16, width=0, mode=mode)
+    before = witness(store)
+    original = Matcher.batch
+
+    @contextmanager
+    def exhausted_batch(
+        matcher: Matcher,
+        max_operations: int = 256,
+        before_publish=None,
+    ):
+        raise MemoryError("class journal capacity exceeded")
+        yield matcher
+
+    monkeypatch.setattr(Matcher, "batch", exhausted_batch)
+    request = [Request(1, "insert", 0, 1)]
+    with pytest.raises(MemoryError, match="journal capacity exceeded"):
+        store.apply(request)
+    assert witness(store) == before
+    assert store.status()["sequence"] == 0
+    assert store.check()
+
+    monkeypatch.setattr(Matcher, "batch", original)
+    assert store.apply(request) == (Outcome(1, True, 1),)
+    assert store.check()
+    store.close()
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("failure", ["before_commit", "after_commit", "after_publish"])
+def test_sqlite_commit_and_graph_publication_fail_stop_then_reopen(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    failure: str,
+) -> None:
+    path = tmp_path / f"{mode}-{failure}.db"
+    store = Durable(path, n=16, width=0, mode=mode)
+    request = [Request(1, "insert", 0, 1), Request(2, "insert", 2, 3)]
+    persist = store._persist
+
+    if failure == "before_commit":
+
+        def fail_before(rows: list) -> None:
+            database = store._db()
+            database.execute("BEGIN IMMEDIATE")
+            database.executemany(
+                "INSERT INTO operations VALUES(?,?,?,?,?,?,?)", rows[:1]
+            )
+            raise OSError("injected SQLite pre-commit failure")
+
+        monkeypatch.setattr(store, "_persist", fail_before)
+    elif failure == "after_commit":
+
+        def fail_after(rows: list) -> None:
+            persist(rows)
+            raise OSError("injected lost commit acknowledgment")
+
+        monkeypatch.setattr(store, "_persist", fail_after)
+    else:
+        publish = core.publish
+        publications = 0
+
+        def fail_publication(journals: list) -> None:
+            nonlocal publications
+            publications += 1
+            publish(journals)
+            if publications == 1:
+                raise OSError("injected post-SQLite publication failure")
+
+        monkeypatch.setattr(core, "publish", fail_publication)
+
+    with pytest.raises((OSError, RuntimeError)):
+        store.apply(request)
+    for operation in (store.status, store.check, lambda: store.partner(0)):
+        with pytest.raises(UnavailableError):
+            operation()
+    store.close()
+    monkeypatch.undo()
+
+    committed = failure in ("after_commit", "after_publish")
+    with Durable(path, mode=mode) as recovered:
+        if committed:
+            assert recovered.status()["sequence"] == 2
+            assert recovered.has_edge(0, 1)[1]
+            assert recovered.has_edge(2, 3)[1]
+            assert recovered.apply(request) == (
+                Outcome(1, True, 1),
+                Outcome(2, True, 2),
+            )
+        else:
+            assert recovered.status()["sequence"] == 0
+            assert not recovered.has_edge(0, 1)[1]
+            assert not recovered.has_edge(2, 3)[1]
+            assert recovered.apply(request) == (
+                Outcome(1, True, 1),
+                Outcome(2, True, 2),
+            )
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_mode_identity_is_persisted_and_mismatch_is_rejected(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / "mode.db"
+    other = "multilevel" if mode == "basic" else "basic"
+    with Durable(path, n=12, width=0, mode=mode) as store:
+        store.apply([Request(1, "insert", 0, 1)])
+    with pytest.raises(RecoveryError, match="mode"):
+        Durable(path, mode=other)
+    with Durable(path, mode=mode) as recovered:
+        with closing(sqlite3.connect(path)) as database:
+            config = json.loads(
+                database.execute("SELECT metadata FROM control").fetchone()[0]
+            )
+        assert config["mode"] == mode
+        assert recovered.status()["mode"] == mode
+        assert recovered.check()
+
+
+def test_old_native_format_is_rejected_without_compatibility_reader(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "old.db"
+    with closing(sqlite3.connect(path)) as database:
+        database.execute(
+            "CREATE TABLE control (id INTEGER PRIMARY KEY, metadata TEXT, "
+            "sequence INTEGER, version INTEGER, digest BLOB)"
+        )
+        database.execute(
+            "CREATE TABLE operations (sequence INTEGER PRIMARY KEY, "
+            "adding INTEGER, u INTEGER, v INTEGER, changed INTEGER, "
+            "version INTEGER, digest BLOB)"
+        )
+        database.execute(
+            "CREATE TABLE checkpoints (sequence INTEGER PRIMARY KEY, image BLOB)"
+        )
+    with pytest.raises(RecoveryError, match="unsupported database format"):
+        Durable(path, n=8, mode="basic")
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_retry_hash_chain_noops_and_duplicate_sequences(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"{mode}.db"
+    batch = [
+        Request(1, "insert", 0, 1),
+        Request(2, "insert", 1, 0),
+        Request(3, "delete", 7, 8),
+    ]
+    with Durable(path, n=16, width=0, mode=mode) as store:
+        expected = store.apply(batch)
+        assert expected == (
+            Outcome(1, True, 1),
+            Outcome(2, False, 1),
+            Outcome(3, False, 1),
+        )
+        assert store.apply(batch) == expected
+        assert store.apply([batch[0], batch[0]]) == (expected[0], expected[0])
+        records = store.history(limit=2)
+        following = store.history(start=3, limit=2)
+        assert tuple(record.sequence for record in records.records) == (1, 2)
+        assert records.has_more
+        assert records.records[-1].digest == following.previous_digest
+        assert following.records[0].digest == store._tail
+        metadata = store._db().execute("SELECT metadata FROM control").fetchone()[0]
+        previous = hashlib.sha256(metadata.encode()).digest()
+        for record in (*records.records, *following.records):
+            previous = _digest(
+                previous,
+                record.sequence,
+                int(record.operation == "insert"),
+                record.u,
+                record.v,
+                record.changed,
+                record.version,
+            )
+            assert previous == record.digest
+        with pytest.raises(ValueError, match="differs"):
+            store.apply([Request(1, "delete", 0, 1)])
+        assert store.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_history_capacity_rejects_before_mutation_and_preserves_retry(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"{mode}.db"
+    with Durable(path, n=10, width=0, mode=mode, max_operations=2) as store:
+        batch = [Request(1, "insert", 0, 1), Request(2, "delete", 0, 1)]
+        outcome = store.apply(batch)
+        before = state(store)
+        with pytest.raises(CapacityError, match="history"):
+            store.apply([Request(3, "insert", 2, 3)])
+        assert state(store) == before
+        assert store.apply(batch) == outcome
+        assert store.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_invalid_batch_admission_has_no_partial_side_effects(
+    tmp_path: Path, mode: str
+) -> None:
+    with Durable(
+        tmp_path / f"{mode}.db", n=10, width=0, mode=mode, max_batch=3
+    ) as store:
+        before = witness(store)
+        invalid = (
+            [Request(2, "insert", 0, 1)],
+            [Request(1, "unknown", 0, 1)],  # type: ignore[arg-type]
+            [Request(1, "insert", 0, 10)],
+            [Request(1, "insert", True, 2)],  # type: ignore[arg-type]
+            [Request(1, "insert", 0, 1), Request(1, "delete", 0, 1)],
+            [Request(index, "insert", 0, 1) for index in range(1, 5)],
+        )
+        for batch in invalid:
+            with pytest.raises((ValueError, CapacityError)):
+                store.apply(batch)
+            assert witness(store) == before
+            assert store.status()["sequence"] == 0
+        assert store.apply([Request(1, "insert", 0, 1)])[0].changed
+        assert store.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_history_checksum_corruption_fails_closed_on_reopen(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"{mode}.db"
+    with Durable(path, n=8, mode=mode) as store:
+        store.apply([Request(1, "insert", 0, 1)])
+    with closing(sqlite3.connect(path)) as database, database:
+        database.execute("UPDATE operations SET digest=zeroblob(32)")
+    with pytest.raises(RecoveryError, match="operation history"):
+        Durable(path, mode=mode)
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_graph_and_matching_replay_is_deterministic_across_many_batches(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"{mode}.db"
+    stream = [
+        Request(
+            sequence,
+            "insert" if sequence % 3 else "delete",
+            sequence % 18,
+            (sequence * 7) % 18,
+        )
+        for sequence in range(1, 91)
+    ]
+    with Durable(path, n=18, width=0, mode=mode, max_batch=15) as store:
+        for start in range(0, len(stream), 15):
+            store.apply(stream[start : start + 15])
+            assert store.check()
+        expected_state = state(store)
+        expected_witness = witness(store)
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == expected_state
+        assert witness(recovered) == expected_witness
         assert recovered.check()

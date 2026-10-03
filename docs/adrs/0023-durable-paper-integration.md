@@ -1,13 +1,14 @@
 # 0023: Integrate paper algorithms into durable production
 
-Date: 2026-10-03. Status: required by user; **not implemented**.
+Date: 2026-10-03. Status: **implementation underway; independent qualification pending**.
 
 ## Context
 
-The user rejects a permanent split where only the native matcher is durable and
-the paper basic/multilevel engines are nondurable research destinations. Earlier
-approval of an independent native algorithm did not require abandoning the paper.
-The current SQLite formats and Service implementation select native Engine only.
+The user rejected a permanent split where only the native matcher is durable
+and the paper Basic/Multilevel algorithms are nondurable research destinations.
+The native matching implementation and its compatibility path are now removed
+from the product. Durable/Service select a paper mode; broad qualification is
+still required.
 
 ## Required direction
 
@@ -25,12 +26,9 @@ validation, publication, rollback and recovery. Persist algorithm identity and
 construction parameters. Opening a store with incompatible parameters must
 reject, never reinterpret its history. New production stores default to `basic`;
 selecting `multilevel` is explicit. Existing native-format stores must remain
-readable only under an explicit compatibility/migration policy, never silently
-open as Basic or Multilevel. The user has since rejected backward compatibility
-shims: do not retain a native matching backend, native database reader, or
-migration-only native service mode. Replace the old native durable format
-outright; old stores are unsupported and must be clearly rejected, not silently
-reinterpreted.
+read or migrate native-format stores. No native compatibility reader, matcher,
+or migration-only service mode remains. Old stores are unsupported and must fail
+closed with a direct format error, never silently open as Basic or Multilevel.
 
 Paper recovery must reproduce the exact accepted graph, matching,
 coloring/fans, hierarchy and accounting—not merely any valid matching with the
@@ -47,6 +45,22 @@ cover all coupled mutations and preserve aliases and graph/object identity. Keep
 differential snapshot checks until failure injection demonstrates equivalence.
 
 ## Verification gates
+
+The implementation records the selected paper mode in store metadata and
+persists each Durable request group in one SQLite transaction. To bound retained
+paper undo, Matcher updates start in private slices of at most eight operations
+under the exclusive Durable owner. A journal-capacity failure causes the owner
+to replay the committed prefix and retry the whole group with half-sized slices,
+down to one operation. Only after all slices pass does SQLite commit the
+complete group. No Durable or Service read can observe intermediate slices. If
+a later slice fails before persistence, the owner reconstructs the previously
+committed state by replaying and auditing its operation prefix. Both modes have
+tests for failures after an earlier slice, adaptive capacity retry, and exact
+graph/matching state across batch partitions and reopen. A single operation
+that exceeds a component's own hard journal cap still fails atomically. This does not
+remove all remaining graph-sized paper-state work or establish every storage,
+package, deployment, or workload qualification. The former native format is
+intentionally unsupported and fails closed; no compatibility shim remains.
 
 Implemented prerequisite: the bounded full-state `Witness` diagnostic compares
 paper replay prefixes and failure rollback, including aliases and redundant
@@ -70,12 +84,18 @@ Do not remove truthful current limitations from docs before implementation.
 
 ## Consequences
 
-This is a backend replacement, not a mode rename. Current `Durable`/`Service`
-are coupled to `Engine` transactions, checkpoint images, recovery, and queries;
-paper `Matcher` currently provides per-update rollback but not a durable
-multi-update transaction or a versioned exact checkpoint codec. The former
-native database format will not be carried forward; a format change must reject
-old stores with a direct unsupported-format error. Hardware power-loss and
+This is a backend replacement, not a mode rename. Multi-update atomicity and
+deterministic operation-log replay now share one Durable/Service boundary for
+both modes. Recovery remains linear in the configured operation-history limit;
+no compact paper-state codec or log compaction exists. A one-million-vertex,
+average-degree-four Basic smoke trace with 256-operation groups passed exact
+recovery at about 506 durable real updates/s and about 1.54 GB process peak RSS.
+A 128k Multilevel smoke trace passed exact recovery at about 49 updates/s,
+657 ms ack p99, and 322 MB process peak RSS. Both are short, non-repeatable
+smoke checks, and neither approaches the 10k/s target; they expose a major
+throughput and memory gap, especially for Multilevel. Remaining gates include
+repeatability/skew/adversarial testing, memory reduction, recovery-time limits,
+installed deployment checks, and sustained throughput. Hardware power-loss and
 billion-vertex qualification remain deferred. The paper’s complete theoretical
-bound is still not established. Shared production durability does not transfer
-a theorem or a 10k-throughput result between Basic and Multilevel.
+bound is still not established; no result transfers between Basic and
+Multilevel.
