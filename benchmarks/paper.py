@@ -243,6 +243,53 @@ class Reduction(Scenario):
         return super().verify(workload)
 
 
+class Flip(Scenario):
+    """Measure path-local alternating flips in a sparse coloring."""
+
+    def prepare(self, size: int) -> Workload:
+        """Place a four-edge colored path in the requested vertex universe."""
+        if size < 2:
+            raise ValueError("flip benchmark requires at least two vertices")
+        length = min(4, size - 1)
+        path = tuple(range(length + 1))
+        graph = Adjacency(size)
+        coloring = Partial(graph, 3)
+        for index in range(length):
+            edge = path[index], path[index + 1]
+            graph.add_edge(*edge)
+            coloring.assign(edge, 1 if index % 2 == 0 else 0)
+        return Workload(coloring, Fans(), set(), ())
+
+    def execute(self, workload: Workload) -> None:
+        """Flip forward and backward eight times to restore the input coloring."""
+        length = min(4, workload.coloring.graph.n - 1)
+        path = list(range(length + 1))
+        reverse = list(reversed(path))
+        reverse_beta, reverse_gamma = (1, 0) if length % 2 else (0, 1)
+        for _ in range(8):
+            workload.coloring.flip(path, 0, 1)
+            workload.coloring.flip(reverse, reverse_beta, reverse_gamma)
+
+
+class ReindexedFlip(Flip):
+    """Reference the former full-coloring reindex after every path flip."""
+
+    def execute(self, workload: Workload) -> None:
+        """Apply the same path recolorings, rebuilding all indexes each time."""
+        length = min(4, workload.coloring.graph.n - 1)
+        path = list(range(length + 1))
+        reverse = list(reversed(path))
+        for current in (path, reverse) * 8:
+            edges = []
+            for index in range(length):
+                left, right = current[index], current[index + 1]
+                edges.append((min(left, right), max(left, right)))
+            for edge in edges:
+                color = workload.coloring.assignments[edge]
+                workload.coloring.assignments[edge] = 0 if color == 1 else 1
+            workload.coloring.reindex()
+
+
 class Benchmark:
     """Command-line runner for the paper-coloring benchmark scenarios."""
 
@@ -253,7 +300,15 @@ class Benchmark:
         parser.add_argument("--repeats", type=int, default=7)
         parser.add_argument(
             "--scenario",
-            choices=["all", "pruning", "construction", "reduction", "complete"],
+            choices=[
+                "all",
+                "pruning",
+                "construction",
+                "reduction",
+                "complete",
+                "flip",
+                "flip-reindex",
+            ],
             default="all",
         )
         parser.add_argument(
@@ -264,11 +319,17 @@ class Benchmark:
         args = parser.parse_args(arguments)
         if args.repeats < 1 or any(size < 1 for size in args.sizes):
             parser.error("sizes and repeats must be positive")
+        if args.scenario in {"flip", "flip-reindex"} and any(
+            size < 2 for size in args.sizes
+        ):
+            parser.error("flip scenarios require at least two vertices")
         scenarios: dict[str, Scenario] = {
             "pruning": Collision(),
             "construction": Construction(),
             "reduction": Reduction(),
             "complete": Complete(args.family),
+            "flip": Flip(),
+            "flip-reindex": ReindexedFlip(),
         }
         selected = (
             scenarios.values() if args.scenario == "all" else [scenarios[args.scenario]]

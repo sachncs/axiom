@@ -24,6 +24,12 @@ Matcher attributes. Their rollback is checked independently during real fan
 collisions and chain routing. Exact fan indexes still matter: comparing only
 membership or the resulting complete coloring misses state corruption.
 
+Alternating `Partial.flip()` now updates only its path and endpoint indexes,
+rejecting endpoint color conflicts before mutation. A matching full-reindex
+reference benchmark records equal checksums, roughly 2,960× lower time, and far
+lower transient allocation for a short chain on a 50,000-vertex sparse coloring;
+this operation-level result does not qualify the paper matcher end to end.
+
 The oracle includes every instance field of the supported records. Unknown
 types and unexpected instance fields reject rather than disappear. Default
 strategies are stateless but their concrete identities are captured. Arbitrary
