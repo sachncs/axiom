@@ -9,14 +9,24 @@ from benchmarks.paper import (
     Collision,
     Complete,
     Construction,
+    Flip,
     Reduction,
+    ReindexedFlip,
     Scenario,
 )
 
 
 @pytest.mark.parametrize(
     "scenario",
-    [Collision(), Construction(), Reduction(), Complete("dense"), Complete("star")],
+    [
+        Collision(),
+        Construction(),
+        Reduction(),
+        Complete("dense"),
+        Complete("star"),
+        Flip(),
+        ReindexedFlip(),
+    ],
 )
 def test_benchmarks_certify_each_fresh_sample(scenario: Scenario) -> None:
     first = scenario.measure(3, 2)
@@ -38,16 +48,25 @@ def test_benchmark_cli_reports_reproducible_metadata(
 ) -> None:
     assert Benchmark().run(["--sizes", "2", "--repeats", "1"]) == 0
     result = json.loads(capsys.readouterr().out)
-    assert len(result["results"]) == 4
+    assert len(result["results"]) == 6
     assert {sample["scenario"] for sample in result["results"]} == {
         "Collision",
         "Construction",
         "Complete",
         "Reduction",
+        "Flip",
+        "ReindexedFlip",
     }
 
 
-@pytest.mark.parametrize("arguments", [["--sizes", "0"], ["--repeats", "0"]])
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--sizes", "0"],
+        ["--repeats", "0"],
+        ["--scenario", "flip", "--sizes", "1"],
+    ],
+)
 def test_benchmark_cli_rejects_invalid_workloads(arguments: list[str]) -> None:
     with pytest.raises(SystemExit) as error:
         Benchmark().run(arguments)

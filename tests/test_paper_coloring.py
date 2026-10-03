@@ -208,6 +208,59 @@ def test_fan_relabel_staging_failure_does_not_publish_partial_indexes(
     fans.validate()
 
 
+def test_fan_update_changes_only_the_target_fan_indexes() -> None:
+    fans = Fans()
+    original = Fan(0, 1, 2, 0, 1, 1)
+    unrelated = Fan(3, 4, 5, 2, 0, 0)
+    fans.add(original)
+    fans.add(unrelated)
+    roots = vars(fans).copy()
+
+    replacement = fans.update(original, 0, 2)
+
+    assert replacement == Fan(0, 1, 2, 2, 1, 1)
+    assert original not in fans.members and replacement in fans.members
+    assert unrelated in fans.members
+    assert all(vars(fans)[name] is value for name, value in roots.items())
+    fans.validate()
+
+
+def test_fan_update_staging_failure_restores_partial_reservations() -> None:
+    class FailingColors(set[int]):
+        def add(self, value: int) -> None:
+            raise RuntimeError("injected fan color-index allocation failure")
+
+    fans = Fans()
+    original = Fan(0, 1, 2, 0, 1, 1)
+    fans.add(original)
+    colors = fans.assigned[0]
+    fans.assigned[0] = FailingColors(colors)
+    snapshot = deepcopy(vars(fans))
+    roots = vars(fans).copy()
+
+    with pytest.raises(RuntimeError, match="injected fan color-index allocation"):
+        fans.update(original, 0, 2)
+
+    assert vars(fans) == snapshot
+    assert all(vars(fans)[name] is value for name, value in roots.items())
+    fans.assigned[0] = colors
+    fans.validate()
+
+
+def test_fan_update_drops_replacement_on_separability_collision() -> None:
+    fans = Fans()
+    original = Fan(0, 1, 2, 0, 1, 1)
+    blocker = Fan(3, 0, 4, 1, 2, 2)
+    fans.add(original)
+    fans.add(blocker)
+
+    assert fans.update(original, 0, 2) is None
+
+    assert original not in fans.members
+    assert blocker in fans.members
+    fans.validate()
+
+
 @pytest.mark.parametrize("size", [0, 1, 2, 5, 12, 33])
 @pytest.mark.parametrize("family", ["path", "cycle", "star", "clique", "bipartite"])
 def test_paper_certifies_graph_families(size: int, family: str) -> None:

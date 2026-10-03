@@ -567,15 +567,122 @@ class Fans:
         return None
 
     def update(self, fan: Fan, vertex: Vertex, color: Color) -> Fan | None:
-        """Update a fan after a path flip, dropping it if it is damaged."""
+        """Update one fan with preallocated local index deltas.
+
+        A structurally invalid replacement or a separability collision removes
+        the damaged fan, as required after a path flip. Unexpected failures
+        during allocation leave every original index cell unchanged.
+        """
         if fan not in self.members:
             return None
-        self.discard(fan)
         try:
             replacement = fan.replace(vertex, color)
-            self.add(replacement)
         except ValueError:
+            self.discard(fan)
             return None
+
+        if replacement == fan:
+            return fan
+        if replacement in self.members:
+            self.discard(fan)
+            return None
+
+        oldtype = fan.type
+        newtype = replacement.type
+        oldassignments = tuple(
+            (item, fan.color(item), (item, fan.color(item))) for item in fan.vertices
+        )
+        newassignments = tuple(
+            (item, replacement.color(item), (item, replacement.color(item)))
+            for item in replacement.vertices
+        )
+        assignedsets = tuple(self.assigned[item] for item in fan.vertices)
+        vertexsets = tuple(self.vertices[item] for item in fan.vertices)
+        typed = self.types[oldtype]
+        if (
+            not all(self.assignments[key] == fan for _, _, key in oldassignments)
+            or not all(color in values for values, (_, color, _) in zip(
+                assignedsets, oldassignments, strict=True
+            ))
+            or not all(fan in values for values in vertexsets)
+            or fan not in typed
+        ):
+            raise RuntimeError("fan indexes are inconsistent before update")
+
+        newtyped = self.types.get(newtype)
+        if newtyped is not None and replacement in newtyped:
+            self.discard(fan)
+            return None
+        for item, newcolor, newkey in newassignments:
+            owner = self.assignments.get(newkey)
+            if owner is not None and owner != fan:
+                self.discard(fan)
+                return None
+            if newcolor != fan.color(item) and newcolor in self.assigned[item]:
+                self.discard(fan)
+                return None
+            if replacement in self.vertices[item]:
+                raise RuntimeError("fan vertex index contains a stale replacement")
+
+        createdtype = newtyped is None
+        if createdtype:
+            newtyped = {replacement}
+        if newtyped is None:
+            raise RuntimeError("fan type reservation failed")
+        stages = [False] * 11
+        try:
+            self.members.add(replacement)
+            stages[0] = True
+            if createdtype:
+                self.types[newtype] = newtyped
+                stages[1] = True
+            else:
+                newtyped.add(replacement)
+                stages[1] = True
+            for index, ((item, oldcolor, oldkey), (_, newcolor, newkey)) in enumerate(
+                zip(oldassignments, newassignments, strict=True)
+            ):
+                if newkey != oldkey:
+                    self.assignments[newkey] = replacement
+                    stages[2 + index] = True
+                if newcolor != oldcolor:
+                    self.assigned[item].add(newcolor)
+                    stages[5 + index] = True
+                self.vertices[item].add(replacement)
+                stages[8 + index] = True
+        except BaseException:
+            for index, ((item, _, _), (_, _, newkey)) in enumerate(
+                zip(oldassignments, newassignments, strict=True)
+            ):
+                if stages[2 + index]:
+                    self.assignments.pop(newkey, None)
+                if stages[5 + index]:
+                    self.assigned[item].discard(newassignments[index][1])
+                if stages[8 + index]:
+                    self.vertices[item].discard(replacement)
+            if stages[1]:
+                if not createdtype:
+                    newtyped.discard(replacement)
+                else:
+                    self.types.pop(newtype, None)
+            if stages[0]:
+                self.members.discard(replacement)
+            raise
+
+        for (item, oldcolor, oldkey), (_, newcolor, newkey) in zip(
+            oldassignments, newassignments, strict=True
+        ):
+            if oldkey == newkey:
+                self.assignments[newkey] = replacement
+            else:
+                self.assignments.pop(oldkey)
+            if oldcolor != newcolor:
+                self.assigned[item].remove(oldcolor)
+            self.vertices[item].remove(fan)
+        typed.remove(fan)
+        if not typed:
+            self.types.pop(oldtype)
+        self.members.remove(fan)
         return replacement
 
     def flip(

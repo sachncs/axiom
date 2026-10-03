@@ -41,6 +41,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0032](0032-bitpacked-audit-ownership.md) | Bit-pack per-block ownership scratch in independent full audits | 8× less audit ownership-map payload; corruption and differential tests pass; peak RSS still workload-dependent |
 | [0033](0033-failure-atomic-fan-relabel.md) | Stage color-relabel fan indexes before publishing | Invalid maps and injected staging failures preserve all live fan indexes; broader paper mutation audit remains open |
 | [0034](0034-path-local-coloring-flips.md) | Apply alternating-path coloring flips with local index deltas | Equal checksums; 2,960× faster and 19,445× lower traced peak in one 50k sparse microbenchmark; improper endpoint failure is mutation-free |
+| [0035](0035-local-failure-atomic-fan-updates.md) | Reserve one fan's replacement indexes before dropping its old value | Constant-size update; injected mid-reservation failure restores exact indexes; multi-fan flip transaction remains open |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
