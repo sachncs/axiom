@@ -91,6 +91,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0077](0077-bounded-prune-rollback.md) | Capture only exposed fan spokes and newly added fans for PruneVFans rollback | 10k-fan/10k-color case: 2.59% lower traced temporary peak; broader rollback migration remains |
 | [0078](0078-journal-construct-coloring-changes.md) | Propagate first-write spoke/chain deltas through Pruning.construct instead of copying the full coloring map | 100k-vertex/50k-colored-edge stage: 6.06% lower traced peak; other snapshots remain |
 | [0084](0084-stream-parent-fan-selection.md) | Select projected fans from the authoritative member set without sorting the entire parent collection | 25k-fan/5%-selected projection: 26.73% faster and 4.05% lower traced peak; connected and full-engine qualification remain |
+| [0085](0085-reuse-projected-graph-for-degree-audit.md) | Reuse the isolated child graph for degree feasibility instead of a Python degree map and sorted edge copy | Connected 12k-fan projection: 28.56% faster and 5.69% lower traced peak; full-engine qualification remains |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

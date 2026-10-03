@@ -625,6 +625,26 @@ def test_project_does_not_sort_materialize_the_parent_fan_collection() -> None:
     childfans.validate()
 
 
+def test_project_rejects_infeasible_degree_without_mutating_parent_state() -> None:
+    graph = Adjacency(4)
+    for edge in ((0, 1), (0, 2), (0, 3)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 2)
+    coloring.assign((0, 3), 1)
+    fans = Fans()
+    fans.add(Fan(0, 1, 2, 0, 1, 1))
+    witness = Witness()
+    before = witness.capture((coloring, fans))
+
+    with pytest.raises(RuntimeError, match="maximum degree 3 exceeds palette size 2"):
+        Extension.project(coloring, fans, frozenset({0, 1}))
+
+    assert witness.capture((coloring, fans)) == before
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_project_subproblem_keeps_custom_graph_fallback() -> None:
     class Custom:
         def __init__(self, graph: Adjacency) -> None:

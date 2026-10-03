@@ -192,6 +192,18 @@ not connected-graph, process-RSS, or product throughput qualification. See
 [ADR 0084](adrs/0084-stream-parent-fan-selection.md) and its
 [raw comparison](../benchmarks/results/paper/project-fan-selection.json).
 
+The projection preflight also no longer keeps a Python degree dictionary or a
+sorted copy of the complete edge scope. It constructs the isolated child graph
+from the scope and reads the two endpoint degrees from that graph as each edge
+is inserted. Five runs on a connected chain of 12,000 fan gadgets, with 600
+selected fans, reduced median time from 123.41 ms to 88.17 ms (28.56%) and peak
+traced allocation from 23,049,984 to 21,739,072 bytes (5.69%). The infeasible
+degree check now occurs after local child-graph construction, but before any
+parent mutation; an exact Witness regression covers that failure. This remains
+a single-host projection probe, not an end-to-end hierarchy/service qualification.
+See [ADR 0085](adrs/0085-reuse-projected-graph-for-degree-audit.md) and its
+[raw comparison](../benchmarks/results/paper/project-degree-audit.json).
+
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores
 touched coloring cells without replacing container roots. A failure injected

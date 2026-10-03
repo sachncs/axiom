@@ -2745,16 +2745,6 @@ class Extension:
         ]
         for fan in selectedfans:
             edgescope.update(fan.edges)
-        degree: dict[Vertex, int] = {}
-        for left, right in edgescope:
-            degree[left] = degree.get(left, 0) + 1
-            degree[right] = degree.get(right, 0) + 1
-        maximumdegree = max(degree.values(), default=0)
-        if maximumdegree > len(ordered):
-            raise RuntimeError(
-                "Extend projected an infeasible subproblem: "
-                f"maximum degree {maximumdegree} exceeds palette size {len(ordered)}"
-            )
         # E_k is an actual edge-disjoint subproblem in ABB's Extend.  Give the
         # child its own graph snapshot so later path operations cannot
         # accidentally observe or mutate edges outside this color group.
@@ -2763,8 +2753,19 @@ class Extension:
             if isinstance(coloring.graph, Adjacency)
             else empty(coloring.graph)
         )
-        for edge in sorted(edgescope):
-            childgraph.add_edge(*edge)
+        maximumdegree = 0
+        for left, right in edgescope:
+            childgraph.add_edge(left, right)
+            maximumdegree = max(
+                maximumdegree,
+                childgraph.degree(left),
+                childgraph.degree(right),
+            )
+        if maximumdegree > len(ordered):
+            raise RuntimeError(
+                "Extend projected an infeasible subproblem: "
+                f"maximum degree {maximumdegree} exceeds palette size {len(ordered)}"
+            )
         child = Partial(childgraph, len(ordered))
         for edge in edgescope:
             if edge in coloring:

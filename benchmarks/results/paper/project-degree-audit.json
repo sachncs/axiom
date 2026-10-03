@@ -1,0 +1,34 @@
+{
+  "benchmark": "paper-extension-project-degree-audit",
+  "date": "2026-10-04",
+  "baseline_revision": "9490f59",
+  "candidate_revision": "working-tree-after-9490f59",
+  "fixture": {
+    "vertices": 36000,
+    "fan_gadgets": 12000,
+    "selected_fans": 600,
+    "selected_fraction": 0.05,
+    "colored_connector_edges": 11999,
+    "selected_fan_spokes": 1200,
+    "projected_edges": 13199,
+    "palette": 6,
+    "color_group_size": 3,
+    "topology": "connected chain through fan leaves and colored connectors",
+    "operation": "one Extension.project call"
+  },
+  "measurement": "Five alternating baseline/candidate runs; fixture creation excluded; tracemalloc peak and end-to-end projection elapsed time",
+  "baseline_peak_bytes": [23178416, 23049984, 23049968, 23049944, 23049992],
+  "candidate_peak_bytes": [21739104, 21739096, 21739072, 21739056, 21739040],
+  "baseline_seconds": [0.12564, 0.117433, 0.119225, 0.124561, 0.123413],
+  "candidate_seconds": [0.090341, 0.088174, 0.088913, 0.084711, 0.086908],
+  "median": {
+    "baseline_peak_bytes": 23049984,
+    "candidate_peak_bytes": 21739072,
+    "peak_reduction_percent": 5.69,
+    "baseline_seconds": 0.123413,
+    "candidate_seconds": 0.088174,
+    "elapsed_reduction_percent": 28.56
+  },
+  "certificate": "Both paths construct and validate a proper Packed child coloring and the same edge scope; dedicated test verifies exact parent coloring/fan Witness equality after infeasible-degree rejection.",
+  "limitations": "Synthetic connected fan chain on one host; tracemalloc excludes native allocation and RSS; not full hierarchy, durability, service throughput, or large-graph qualification."
+}
