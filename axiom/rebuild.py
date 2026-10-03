@@ -40,8 +40,8 @@ def snapshot(graph: Graph) -> Graph:
     return result
 
 
-def copy(system: System, graph: Graph) -> System:
-    """Copy a system state onto an isolated graph snapshot."""
+def copy(system: System, graph: Graph, *, indexed: bool = True) -> System:
+    """Copy a system onto a graph snapshot, optionally rebuilding its indexes."""
     copied = System(
         graph=graph,
         z=system.z,
@@ -50,7 +50,8 @@ def copy(system: System, graph: Graph) -> System:
         U=system.U.copy(),
         M=set(system.M),
     )
-    copied.index()
+    if indexed:
+        copied.index()
     return copied
 
 
@@ -334,15 +335,15 @@ class Multilevel:
             for left, right in deleted:
                 if not refine_graph.has_edge(left, right):
                     refine_graph.add_edge(left, right)
-            working_base_system = copy(base_system, refine_graph)
+            working_base_system = copy(base_system, refine_graph, indexed=False)
             matcher.multi = Hierarchy(
                 graph=refine_graph,
                 k=1,
                 levels=[working_base_system],
-                A_levels=[set(base_system.A)],
-                N_levels=[set(base_system.B)],
-                R_levels=[base_system.U.copy()],
-                L_levels=[dict(working_base_system.L_lists)],
+                A_levels=[working_base_system.A],
+                N_levels=[working_base_system.B],
+                R_levels=[working_base_system.U],
+                L_levels=[],
             )
             inserted = set(matcher.inserted_edges)
             for z in matcher.level_zs[1:]:

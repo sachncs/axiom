@@ -670,6 +670,29 @@ class TestBuild:
         copied.A.discard(0)
         assert 0 in system.A
 
+    def test_child_system_copy_can_defer_indexes_until_refinement(self, monkeypatch):
+        graph = Adjacency(8)
+        for left in range(8):
+            for right in range(left + 1, 8):
+                graph.add_edge(left, right)
+        system = build(graph, 4)
+        calls = []
+        index = System.index
+
+        def record_index(current):
+            calls.append(current)
+            index(current)
+
+        monkeypatch.setattr(System, "index", record_index)
+        copied = rebuild_module.copy(system, graph.copy(), indexed=False)
+
+        assert calls == []
+        assert copied.lambda_lists == {}
+        assert copied.L_lists == {}
+        copied.index()
+        assert calls == [copied]
+        assert copied.check()
+
     def test_hierarchy_region_retains_compact_dense_u(self) -> None:
         hierarchy = build_hierarchy(Adjacency(32), [2])
         assert type(hierarchy.R1) is Vertices
@@ -906,9 +929,9 @@ class TestMatcher:
             snapshotcalls.append((graph, result))
             return result
 
-        def recordcopy(system, graph):
-            copycalls.append((system, graph))
-            return copysystem(system, graph)
+        def recordcopy(system, graph, *, indexed=True):
+            copycalls.append((system, graph, indexed))
+            return copysystem(system, graph, indexed=indexed)
 
         monkeypatch.setattr(rebuild_module, "build", unexpected_base_rebuild)
         monkeypatch.setattr(rebuild_module, "snapshot", recordsnapshot)
@@ -919,6 +942,8 @@ class TestMatcher:
 
         assert algo.multi is not None
         assert algo.multi.check()
+        assert algo.multi.A_levels[0] is algo.multi.levels[0].A
+        assert algo.multi.N_levels[0] is algo.multi.levels[0].B
         assert algo.phase_base_graph is base_graph
         assert algo.phase_base_system is base_system
         assert set(base_graph.edges()) == base_edges
@@ -933,7 +958,7 @@ class TestMatcher:
         )
         assert len(snapshotcalls) == 1
         assert snapshotcalls[0][0] is base_graph
-        assert copycalls == [(base_system, snapshotcalls[0][1])]
+        assert copycalls == [(base_system, snapshotcalls[0][1], False)]
 
     def test_full_rebuild_reuses_its_phase_base_snapshot(self, monkeypatch):
         dense = Adjacency(16)

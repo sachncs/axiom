@@ -1,0 +1,26 @@
+{
+  "probe": "incremental hierarchy roots retained from an already detached System",
+  "labels": 1000000,
+  "partition_sizes": {
+    "A": 375000,
+    "B": 375000,
+    "U": 250000
+  },
+  "measurement": "tracemalloc current and peak bytes for constructing only the initial hierarchy partition roots; source partitions were allocated before tracing",
+  "prior": {
+    "operation": "set(A), set(B), U.copy()",
+    "current_bytes": 62547168,
+    "peak_bytes": 65547224
+  },
+  "candidate": {
+    "operation": "retain references to detached System A/B/U roots in the three hierarchy root lists",
+    "current_bytes": 80,
+    "peak_bytes": 80
+  },
+  "not_measured": [
+    "the required detached System partition/matching copy",
+    "graph snapshot allocation",
+    "cache construction during refinement",
+    "complete child rebuild or process RSS"
+  ]
+}
