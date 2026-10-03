@@ -108,6 +108,19 @@ This is component-level evidence only; allocation/RSS and broader graph-shape
 repeats remain open. See [ADR 0072](adrs/0072-localize-refinement-matching-scans.md)
 and its [raw record](../benchmarks/results/paper/refinement-local-matching.json).
 
+The final refinement boundary normalization also used to scan every chosen
+matching edge for each A/B vertex. Since every chosen edge belongs to the
+working phase graph, the same test now checks only incident graph neighbors;
+it retains the original A-to-B pass followed by B-to-A repair and only
+materializes vertices that actually move. On five alternating runs of the same
+2,048-vertex/4,096-edge fixture, canonical hierarchy state remained identical
+and median traced refinement time fell from 395.95 ms to 257.50 ms (34.97%).
+Peak traced allocation was unchanged within the median sample. This removes a
+partition-times-matching scan on this measured shape but remains component
+evidence, not broad or durable qualification. See
+[ADR 0088](adrs/0088-localize-refinement-boundary-normalization.md) and its
+[raw record](../benchmarks/results/paper/refinement-boundary-normalization.json).
+
 Fan batch ownership validation now checks the existing `Fans.members` set rather
 than rebuilding a set of every fan for every batch entry. The duplicate-fan
 check likewise no longer allocates a temporary singleton set. A deterministic

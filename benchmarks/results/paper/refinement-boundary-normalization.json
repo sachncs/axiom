@@ -1,0 +1,30 @@
+{
+  "benchmark": "hierarchy-refinement-boundary-normalization",
+  "date": "2026-10-04",
+  "baseline_revision": "d6259de",
+  "candidate_revision": "working-tree-after-d6259de",
+  "python": "3.14.8",
+  "fixture": {
+    "components": 256,
+    "vertices": 2048,
+    "edges": 4096,
+    "component_edges": [[0, 2], [0, 4], [0, 5], [0, 6], [0, 7], [1, 4], [1, 5], [1, 6], [1, 7], [2, 3], [2, 5], [2, 7], [3, 4], [3, 6], [4, 7], [5, 7]],
+    "initial_z": 8,
+    "refined_z": 4
+  },
+  "measurement": "Five alternating baseline/candidate runs; graph and base hierarchy construction excluded; refine_hierarchy elapsed time and tracemalloc peak; canonical hierarchy state compared after each run",
+  "baseline_seconds": [0.406639, 0.402329, 0.394785, 0.395489, 0.395951],
+  "candidate_seconds": [0.268622, 0.256975, 0.282599, 0.257363, 0.257496],
+  "baseline_peak_bytes": [1654655, 1654695, 1654079, 1653991, 1653895],
+  "candidate_peak_bytes": [1654775, 1654159, 1654079, 1653975, 1653895],
+  "median": {
+    "baseline_seconds": 0.395951,
+    "candidate_seconds": 0.257496,
+    "elapsed_reduction_percent": 34.97,
+    "baseline_peak_bytes": 1654079,
+    "candidate_peak_bytes": 1654079,
+    "peak_reduction_percent": 0.0
+  },
+  "certificate": "Canonical hierarchy state equal before/after across all levels, partitions, matching edges and cache rows; both refinements passed Hierarchy.check().",
+  "limitations": "Disconnected witness-heavy fixture on one host; traced Python memory not RSS; no connected/skewed, durable, full Matcher or production-service qualification."
+}

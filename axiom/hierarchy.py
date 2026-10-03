@@ -1006,19 +1006,29 @@ def refine_hierarchy(
     # ProcPromote keeps every B vertex attached to U through M.  A vertex
     # promoted to A may not subsequently acquire a U partner; normalize this
     # boundary explicitly before applying the B-to-A promotion.
-    for vertex in tuple(new_a):
+    move_to_b = [
+        vertex
+        for vertex in new_a
         if any(
-            vertex in edge and (edge[0] in new_u or edge[1] in new_u) for edge in chosen
-        ):
-            new_a.remove(vertex)
-            new_b.add(vertex)
+            neighbor in new_u and canonical(vertex, neighbor) in chosen
+            for neighbor in working_graph.neighbors(vertex)
+        )
+    ]
+    for vertex in move_to_b:
+        new_a.remove(vertex)
+        new_b.add(vertex)
 
-    for vertex in tuple(new_b):
+    move_to_a = [
+        vertex
+        for vertex in new_b
         if not any(
-            vertex in edge and (edge[0] in new_u or edge[1] in new_u) for edge in chosen
-        ):
-            new_b.remove(vertex)
-            new_a.add(vertex)
+            neighbor in new_u and canonical(vertex, neighbor) in chosen
+            for neighbor in working_graph.neighbors(vertex)
+        )
+    ]
+    for vertex in move_to_a:
+        new_b.remove(vertex)
+        new_a.add(vertex)
 
     # All retained levels describe the same refined phase graph.  Preserve
     # their level-specific M/partition state, but refresh the graph reference
