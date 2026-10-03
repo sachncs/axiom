@@ -2403,13 +2403,13 @@ class Spectrum:
         coloring.validate()
         fans.validate()
         fans.compatible(coloring)
-        colorsbefore = dict(coloring.assignments)
-        fansbefore = tuple(fans)
+        colorjournal = ColorJournal(coloring)
+        fansbefore: set[Fan] | None = None
+        affectedvertices: set[Vertex] = set()
         try:
             coloring.validate()
             fans.validate()
             fans.compatible(coloring)
-            colorededges = coloring.edges()
             if not batch:
                 raise ValueError("Modify-Types requires a non-empty fan batch")
             if any(fan not in fans.members for fan in batch):
@@ -2433,6 +2433,24 @@ class Spectrum:
             fanpaths: dict[Fan, tuple[tuple[tuple[Vertex, ...], Color, Color], ...]] = {
                 fan: cls.paths(coloring, fan, blocks, pairindex) for fan in batch
             }
+            for fan in batch:
+                affectedvertices.update(fan.vertices)
+            changededges: set[Edge] = set()
+            for paths in fanpaths.values():
+                for path, _, _ in paths:
+                    changededges.update(
+                        canonical(left, right) for left, right in pairwise(path)
+                    )
+                    if path:
+                        affectedvertices.add(path[0])
+                        affectedvertices.add(path[-1])
+            colorjournal.capture(changededges)
+            fansbefore = {
+                member
+                for vertex in affectedvertices
+                for member in fans.vertices.get(vertex, ())
+            }
+            coloredcount = len(coloring.assignments)
             for fan in batch:
                 # Keep selected fans out of the index while their three paths are
                 # being flipped; otherwise endpoint repair can create an intermediate
@@ -2477,15 +2495,12 @@ class Spectrum:
             coloring.validate()
             fans.validate()
             fans.compatible(coloring)
-            if coloring.edges() != colorededges:
+            if len(coloring.assignments) != coloredcount:
                 raise RuntimeError("Modify-Types changed the set of colored edges")
         except Exception:
-            coloring.assignments = colorsbefore
-            coloring.reindex()
-            for fan in tuple(fans):
-                fans.discard(fan)
-            for fan in fansbefore:
-                fans.add(fan)
+            colorjournal.rollback()
+            if fansbefore is not None:
+                Vizing.restore(fans, fansbefore, affectedvertices)
             coloring.validate()
             fans.validate()
             fans.compatible(coloring)

@@ -1,0 +1,29 @@
+{
+  "benchmark": "modify-types-local-rollback",
+  "date": "2026-10-03",
+  "baseline_revision": "ccc8b67",
+  "candidate_revision": "working-tree-after-ccc8b67",
+  "python": "3.14.8",
+  "fixture": {
+    "unrelated_fans": 10000,
+    "unrelated_colored_edges": 10000,
+    "vertices": 50007,
+    "graph_edges": 30006,
+    "operation": "Spectrum.modify for one nontrivial fan and three alternating paths"
+  },
+  "measurement": "Modify-Types elapsed time and tracemalloc peak; setup and independent end-state validation excluded; gc.collect before each run; alternating baseline/candidate order",
+  "certificate": "coloring, fan indexes, and full fan/color compatibility audits passed after each run",
+  "baseline_seconds": [0.7964174580120016, 0.8006872080004541, 0.8346733340003993],
+  "candidate_seconds": [0.8071022079966497, 0.8117286670021713, 0.8158365830022376],
+  "baseline_peak_bytes": [20519936, 20519888, 20519888],
+  "candidate_peak_bytes": [19621992, 19621984, 19621976],
+  "median": {
+    "baseline_seconds": 0.8006872080004541,
+    "candidate_seconds": 0.8117286670021713,
+    "elapsed_change_percent": 1.38,
+    "baseline_peak_bytes": 20519888,
+    "candidate_peak_bytes": 19621984,
+    "peak_reduction_percent": 4.38
+  },
+  "limitations": "Single-host synthetic disconnected fixture, three repeats; full validation cost remains; no whole Matcher or adversarial connected-graph qualification."
+}

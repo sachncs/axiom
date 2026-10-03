@@ -1698,6 +1698,92 @@ def test_modify_types_restores_state_on_explicit_failure() -> None:
     fans.validate()
 
 
+def test_modify_types_rolls_back_only_path_coloring_and_affected_fans(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(10)
+    for edge in (
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (3, 4),
+        (2, 5),
+        (5, 6),
+        (7, 8),
+        (7, 9),
+    ):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 100)
+    for edge, color in (
+        ((1, 3), 5),
+        ((3, 4), 10),
+        ((2, 5), 5),
+        ((5, 6), 10),
+    ):
+        coloring.assign(edge, color)
+    fans = Fans()
+    fan = Fan(0, 1, 2, 0, 10, 10)
+    sentinel = Fan(7, 8, 9, 0, 10, 10)
+    fans.add(fan)
+    fans.add(sentinel)
+    blocks, ignored = Spectrum.blocks(100, 10)
+    assignments = dict(coloring.items())
+    coloringroots = (coloring.assignments, coloring.incident, coloring.index)
+    fanroots = (
+        fans.members,
+        fans.spokes,
+        fans.assignments,
+        fans.assigned,
+        fans.vertices,
+        fans.types,
+    )
+    originaladd = fans.add
+    failed = False
+
+    def fail_after_replacement(fan: Fan) -> None:
+        nonlocal failed
+        originaladd(fan)
+        if fan.vertices == (0, 1, 2) and fan.type == frozenset({0, 5}):
+            failed = True
+            raise RuntimeError("injected post-replacement Modify-Types failure")
+
+    monkeypatch.setattr(fans, "add", fail_after_replacement)
+
+    with pytest.raises(RuntimeError, match="post-replacement Modify-Types failure"):
+        Spectrum.modify(coloring, fans, (fan,), blocks, 0)
+
+    assert failed
+    assert dict(coloring.items()) == assignments
+    assert fans.members == {fan, sentinel}
+    assert fans.find(7, 0) is sentinel
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            coloringroots,
+            strict=True,
+        )
+    )
+    assert all(
+        current is original
+        for current, original in zip(
+            (
+                fans.members,
+                fans.spokes,
+                fans.assignments,
+                fans.assigned,
+                fans.vertices,
+                fans.types,
+            ),
+            fanroots,
+            strict=True,
+        )
+    )
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_sparsify_types_socializes_a_full_deterministic_batch() -> None:
     fan_count = 100
     graph = Adjacency(3 * fan_count)

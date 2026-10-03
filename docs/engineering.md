@@ -119,6 +119,16 @@ snapshots and remaining fan-repair scans still need migration and qualification.
 See [ADR 0073](adrs/0073-indexed-fan-membership-checks.md) and its
 [raw record](../benchmarks/results/paper/fan-batch-membership.json).
 
+`Spectrum.modify` now journals only alternating-path coloring cells and fans at
+the selected fan vertices/path endpoints. A forced post-replacement failure
+proves exact coloring and fan rollback while retaining unrelated fan state and
+all public index roots. Three traced runs on a fixture with 10,000 unrelated
+fans and 10,000 unrelated colored edges reduced temporary peak by 4.38%; median
+elapsed time regressed 1.38%, so this is a memory result, not a throughput
+claim. Full entry/exit audits and global stale-fan cleanup remain. See
+[ADR 0079](adrs/0079-bounded-modify-types-rollback.md) and its
+[raw comparison](../benchmarks/results/paper/modify-types-local-rollback.json).
+
 Color-Small now records pre-activation types and repairs compatibility only for
 fans incident to the alternating path and activated spokes, using the existing
 vertex-to-fan index. A counted-iteration regression prevents a full fan scan per
