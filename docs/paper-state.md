@@ -125,3 +125,10 @@ path, exercise adversarial boundaries, and add typed recovery,
 persisted algorithm/configuration, bounded checkpoint/history, SQLite failure,
 commit/publication/ack sequencing, concurrent service admission and installed
 per-mode qualification remain required under [ADR 0023](adrs/0023-durable-paper-integration.md).
+
+The standalone paper `System.switch` primitive no longer snapshots its complete
+matching/degree inputs or recomputes all degrees after an alternating route. It
+retains path-edge and endpoint-degree before-images, with injected edge-write
+and degree-write rollback tests plus randomized differential comparison. It has
+no current internal caller, so its allocation gain does not yet reduce active
+Matcher hierarchy cost. See [ADR 0095](adrs/0095-path-local-switch-undo.md).

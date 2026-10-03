@@ -1,0 +1,31 @@
+{
+  "benchmark": "paper-system-switch-failed-search-snapshot-removal",
+  "date": "2026-10-04",
+  "baseline_revision": "a425baf",
+  "candidate_revision": "working-tree-after-a425baf",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 20000,
+    "matching_edges": 19998,
+    "components": "disjoint saturated six-cycles",
+    "source_neighbors": [0],
+    "z": 2,
+    "route_exists": false,
+    "storage": "Packed"
+  },
+  "measurement": "Three alternating system.switch runs; graph, matching and degree map constructed outside tracemalloc; wall time and traced peak",
+  "baseline_seconds": [0.000371, 0.000254, 0.000205],
+  "candidate_seconds": [0.000016, 0.000011, 0.000008],
+  "baseline_peak_bytes": [1640040, 1639912, 1639936],
+  "candidate_peak_bytes": [1208, 1232, 1232],
+  "median": {
+    "baseline_seconds": 0.000254,
+    "candidate_seconds": 0.000011,
+    "elapsed_reduction_percent": 95.67,
+    "baseline_peak_bytes": 1639936,
+    "candidate_peak_bytes": 1232,
+    "peak_reduction_percent": 99.925
+  },
+  "certificate": "Both versions returned false with matching and degree state unchanged; 1,000 randomized differential cases also had identical result/state.",
+  "limitations": "Failed-search path only; no successful-route latency distribution, RSS, end-to-end caller, or durable service qualification. system.switch currently has no in-repository callsites."
+}

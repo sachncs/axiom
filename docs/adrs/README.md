@@ -101,6 +101,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0092](0092-sparse-paper-partition-components.md) | Discover Euler components from edge endpoints rather than materializing/scanning the full vertex universe | 2,048 labels/3 edges: partition 28.23→0.288 ms and traced peak 192,360→3,264 bytes; final global bound scans remain |
 | [0093](0093-local-paper-partition-degree-audits.md) | Certify partition degree bounds over non-isolated component vertices, which are the only possible violations | 2,048 labels/3 edges: another 41.6% lower median partition time; exact edge partition preserved; no extra memory claim |
 | [0094](0094-adaptive-paper-maximum-degree.md) | Find maximum degree by streaming edge endpoints on sparse graphs and retain a universe scan for denser graphs | 100k labels/3 edges: max-degree probe 3.760→0.302 ms; same result, +128 B median traced scratch |
+| [0095](0095-path-local-switch-undo.md) | Replace System.switch full M/degree snapshots and recount with path-local before-images and degree deltas | 20k vertices/19,998 M edges, failed search: 1.64 MB→1.23 KB traced peak and 95.7% lower median time; 1,000 differential cases equal |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

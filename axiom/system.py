@@ -586,8 +586,6 @@ def switch(
     saturated_b = [b for b in b_neighbors if deg_M[b] >= z]
 
     for b_start in saturated_b:
-        saved_M = set(M)
-        saved_deg = dict(deg_M)
         # ``parent`` maps (vertex, parity) to its predecessor.  We seed
         # the search at ``b_start`` with parity 0 -- the hypothetical
         # edge ``(u, b_start)`` is not yet in M, so we arrived there via
@@ -651,49 +649,52 @@ def switch(
         # Strip parity: we only need vertex order for the flip.
         vertices = [v for v, _ in path]
 
-        # Step 1: add the missing edge (u, b_start) to M.  ``b_start``
-        # was saturated before this; the subsequent flips will recover
-        # one slot by re-routing that capacity.
         e_ub = canonical(u, b_start)
-        M.add(e_ub)
-        deg_M[u] += 1
-        deg_M[b_start] += 1
-
-        # Step 2: flip alternating edges along the path.  At a parity-0
-        # state the next edge is an existing M-edge and must leave M; at a
-        # parity-1 state the next edge is a non-M edge and must enter M.
+        changes = {e_ub: True}
         for i in range(len(vertices) - 1):
             e = canonical(vertices[i], vertices[i + 1])
             _, p = path[i]
-            if p == 0:
-                M.discard(e)
-                deg_M[vertices[i]] -= 1
-                deg_M[vertices[i + 1]] -= 1
-            else:
-                M.add(e)
-                deg_M[vertices[i]] += 1
-                deg_M[vertices[i + 1]] += 1
+            changes[e] = p != 0
 
-        # Recompute the counters from the committed edge set.  The path
-        # representation can contain a repeated endpoint when the host graph
-        # has multiple alternating routes; deriving the counters from M
-        # keeps the invariant authoritative and prevents stale increments.
-        for vertex in deg_M:
-            deg_M[vertex] = 0
-        for left, right in M:
-            deg_M[left] += 1
-            deg_M[right] += 1
+        before_edges = {edge: edge in M for edge in changes}
+        deltas: dict[Vertex, int] = {}
+        for edge, present in changes.items():
+            if before_edges[edge] == present:
+                continue
+            delta = 1 if present else -1
+            deltas[edge[0]] = deltas.get(edge[0], 0) + delta
+            deltas[edge[1]] = deltas.get(edge[1], 0) + delta
 
-        if any(degree > z for degree in deg_M.values()) or any(
-            deg_M[vertex] != z
-            for vertex, degree in saved_deg.items()
-            if degree == z and vertex != u
+        before_degrees = {vertex: deg_M[vertex] for vertex in deltas}
+        after_degrees = {
+            vertex: before_degrees[vertex] + delta
+            for vertex, delta in deltas.items()
+        }
+        if any(degree > z for degree in after_degrees.values()) or any(
+            before_degrees[vertex] == z and vertex != u and degree != z
+            for vertex, degree in after_degrees.items()
         ):
-            M.clear()
-            M.update(saved_M)
-            deg_M.clear()
-            deg_M.update(saved_deg)
             continue
+
+        try:
+            for edge, present in changes.items():
+                if before_edges[edge] == present:
+                    continue
+                if present:
+                    M.add(edge)
+                else:
+                    M.discard(edge)
+            for vertex, degree in after_degrees.items():
+                deg_M[vertex] = degree
+        except Exception:
+            for edge, present in before_edges.items():
+                if present:
+                    M.add(edge)
+                else:
+                    M.discard(edge)
+            for vertex, degree in before_degrees.items():
+                deg_M[vertex] = degree
+            raise
 
         return True
 

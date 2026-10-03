@@ -1177,3 +1177,11 @@ probe: stream edge endpoints when `2m < n`, otherwise scan `n` vertices. On a
 100k-label/3-edge component probe this cut median time 92% with 128 bytes more
 traced scratch. Complete recursive seed qualification remains open; see
 [ADR 0094](adrs/0094-adaptive-paper-maximum-degree.md).
+
+The public `System.switch` primitive now records only path-edge membership and
+endpoint-degree before-images, applies local degree deltas, and rolls back
+injected partial writes without copying/recounting all of M. A 20k-vertex
+failed-search probe reduced traced peak 99.925%; 1,000 random differential
+cases matched the previous result/state. Repository search finds no internal
+callers, so this component improvement is not end-to-end hierarchy evidence.
+See [ADR 0095](adrs/0095-path-local-switch-undo.md).

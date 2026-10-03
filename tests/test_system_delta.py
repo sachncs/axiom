@@ -7,7 +7,7 @@ from axiom.graph import Adjacency
 from axiom.hierarchy import build_hierarchy as hierarchy
 from axiom.hierarchy import update
 from axiom.storage import Packed
-from axiom.system import System
+from axiom.system import System, switch
 from axiom.systems import Systems
 from axiom.vertices import Vertices
 from axiom.witness import Witness
@@ -37,6 +37,107 @@ def test_saturated_partition_scan_does_not_build_union():
 
     assert tuple(system.saturated()) == (0, 1, 2)
     assert system.check_bound()
+
+
+def test_unreachable_switch_path_does_not_snapshot_matching(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(7)
+    edges = ((0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (1, 6))
+    for edge in edges:
+        graph.add_edge(*edge)
+    # The surviving matching is a 2-regular cycle over B; every reachable
+    # alternating state is saturated and no nonmatching B edge reaches slack.
+    matching = {(1, 2), (1, 6), (2, 3), (3, 4), (4, 5), (5, 6)}
+    degree = {0: 0, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2}
+    beforematching = matching.copy()
+    beforedegree = degree.copy()
+
+    def reject_snapshot(value):
+        raise AssertionError("unreachable switch copied graph-sized matching state")
+
+    monkeypatch.setattr("axiom.system.set", reject_snapshot, raising=False)
+
+    assert not switch(graph, matching, degree, 2, 0, [1])
+    assert matching == beforematching
+    assert degree == beforedegree
+
+
+def switchcase(matchingtype=set):
+    graph = Adjacency(7)
+    edges = ((0, 1), (1, 2), (1, 4), (2, 3), (2, 5), (4, 6))
+    for edge in edges:
+        graph.add_edge(*edge)
+    matching = matchingtype({(1, 2), (1, 4), (2, 5), (4, 6)})
+    degree = {0: 0, 1: 2, 2: 2, 3: 0, 4: 2, 5: 1, 6: 1}
+    return graph, matching, degree
+
+
+def test_switch_success_uses_path_sized_state_and_preserves_degree_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph, matching, degree = switchcase()
+
+    def reject_snapshot(value):
+        raise AssertionError("switch copied graph-sized matching state")
+
+    monkeypatch.setattr("axiom.system.set", reject_snapshot, raising=False)
+    monkeypatch.setattr("axiom.system.dict", reject_snapshot, raising=False)
+
+    assert switch(graph, matching, degree, 2, 0, [1])
+    assert matching == {(1, 4), (2, 5), (4, 6), (0, 1), (2, 3)}
+    assert degree == {0: 1, 1: 2, 2: 2, 3: 1, 4: 2, 5: 1, 6: 1}
+
+
+def test_switch_mid_commit_failure_restores_exact_local_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingSet(set):
+        additions = 0
+
+        def add(self, edge):
+            self.additions += 1
+            if self.additions == 2:
+                raise RuntimeError("injected switch add failure")
+            super().add(edge)
+
+    graph, matching, degree = switchcase(FailingSet)
+    beforematching = matching.copy()
+    beforedegree = degree.copy()
+
+    def reject_snapshot(value):
+        raise AssertionError("switch copied graph-sized matching state")
+
+    monkeypatch.setattr("axiom.system.set", reject_snapshot, raising=False)
+    monkeypatch.setattr("axiom.system.dict", reject_snapshot, raising=False)
+
+    with pytest.raises(RuntimeError, match="injected switch add failure"):
+        switch(graph, matching, degree, 2, 0, [1])
+
+    assert matching == beforematching
+    assert degree == beforedegree
+
+
+def test_switch_degree_commit_failure_restores_exact_local_state() -> None:
+    class FailingDict(dict):
+        writes = 0
+
+        def __setitem__(self, vertex, value):
+            self.writes += 1
+            if self.writes == 2:
+                raise RuntimeError("injected switch degree failure")
+            super().__setitem__(vertex, value)
+
+    graph, matching, initialdegree = switchcase()
+    degree = FailingDict(initialdegree)
+    beforematching = matching.copy()
+    beforedegree = degree.copy()
+
+    with pytest.raises(RuntimeError, match="injected switch degree failure"):
+        switch(graph, matching, degree, 2, 0, [1])
+
+    assert matching == beforematching
+    assert degree == beforedegree
 
 
 def test_dense_system_partitions_use_compact_set_semantics():
