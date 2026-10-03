@@ -119,6 +119,15 @@ Paper migration prerequisite: a bounded full-state comparison oracle now covers
 both modes/storage backends, replay prefixes, post-rebuild rollback and fan
 failure indexes. [State inventory](paper-state.md) records what is and is not
 compared. This is not a durable codec or a completed journal migration.
+Recent hierarchy work keeps these checks enabled while reducing redundant
+state: child rebuilds reuse immutable parent graph/partition roots when safe,
+defer cache indexing until refinement, borrow read-only update sets, and retain
+a restore fallback for missing deleted edges. Phase synchronization streams
+built-in graph edges and cuts matchings against the resulting graph; the P2
+certificate now examines incident edges instead of rescanning the full matching
+per A vertex. Full-suite verification currently passes 1,249 tests. The
+component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
+do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
 failed absent-edge deletions restore exact counters. Uncertain publication cleanup
 or rollback fail-stops the Matcher rather than exposing uncertified query state.
