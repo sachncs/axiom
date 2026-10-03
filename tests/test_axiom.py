@@ -996,6 +996,71 @@ class TestMatcher:
         assert algo.phase_base_system.check()
         assert algo.multi is not None and algo.multi.check()
 
+    def test_child_parent_boundary_reuses_synchronized_phase_graph(self, monkeypatch):
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        assert len(algo.level_zs) > 1
+        assert algo.multi is not None
+        assert algo.phase_base_graph is not None
+
+        removed = next(iter(algo.graph.edges()))
+        algo.graph.remove_edge(*removed)
+        algo.deleted_edges.add(removed)
+        algo.update_count = 1
+        algo.level_phase_updates = [0, *([1] * (len(algo.level_zs) - 1))]
+
+        snapshots = []
+        original_snapshot = rebuild_module.snapshot
+
+        def recordsnapshot(graph):
+            result = original_snapshot(graph)
+            snapshots.append((graph, result))
+            return result
+
+        monkeypatch.setattr(rebuild_module, "snapshot", recordsnapshot)
+        algo.policy.rebuild(algo)
+
+        assert algo.multi is not None and algo.multi.check()
+        assert snapshots == []
+        assert algo.phase_graph is algo.multi.graph
+        assert algo.phase_base_graph is algo.multi.graph
+        assert algo.phase_base_graph is not algo.graph
+        assert set(algo.phase_base_graph.edges()) == set(algo.graph.edges())
+        assert algo.phase_base_system is not None
+        assert algo.phase_base_system.graph is algo.phase_base_graph
+        assert algo.phase_base_system.check()
+        assert algo.maximal()
+
+        phase_root = algo.phase_graph
+        base_root = algo.phase_base_graph
+        hierarchy_root = algo.multi
+        base_system_root = algo.phase_base_system
+        live_edges = set(algo.graph.edges())
+        phase_edges = set(phase_root.edges())
+        matching = algo.matching()
+        algo.phase_length = 1
+
+        def failcolor(graph: object, delta: int) -> dict[tuple[int, int], int]:
+            raise RuntimeError("injected post-boundary refinement failure")
+
+        algo.colorer.color = failcolor  # type: ignore[assignment]
+        with pytest.raises(RuntimeError, match="post-boundary refinement failure"):
+            algo.delete(*next(iter(live_edges)))
+
+        assert algo.phase_graph is phase_root
+        assert algo.phase_base_graph is base_root
+        assert algo.phase_graph is algo.phase_base_graph
+        assert algo.multi is hierarchy_root
+        assert algo.phase_base_system is base_system_root
+        assert set(algo.graph.edges()) == live_edges
+        assert set(phase_root.edges()) == phase_edges
+        assert algo.matching() == matching
+        assert hierarchy_root.check()
+        assert base_system_root.check()
+
     def test_removed_mode_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="basic.*multilevel"):
             Matcher(10, mode="tiered")
@@ -2005,9 +2070,7 @@ class TestHierarchy:
         a = Vertices(size, range(size))
         b = Vertices(size)
         u = Vertices(size)
-        matching = CountedMatching(
-            (vertex, vertex + 1) for vertex in range(0, size, 2)
-        )
+        matching = CountedMatching((vertex, vertex + 1) for vertex in range(0, size, 2))
         system = System(graph=graph, z=1, A=a, B=b, U=u, M=matching)
         system.index()
         hierarchy = Hierarchy(

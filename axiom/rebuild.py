@@ -454,7 +454,11 @@ class Multilevel:
         # opening their journals.
         matcher.phase_graph = matcher.multi.graph
         if parent_boundary and child_rebuild:
-            next_base_graph = snapshot(matcher.graph)
+            # At a parent boundary ``sync_graph`` has just materialized the
+            # exact current live topology as the hierarchy's detached phase
+            # graph. Reuse that root as the next immutable phase base instead
+            # of cloning the same |E|-sized graph a second time.
+            next_base_graph = matcher.multi.graph
             next_base_system = build(next_base_graph, matcher.level_zs[0])
         else:
             # A full rebuild already captured this exact live topology before
