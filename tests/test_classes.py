@@ -46,7 +46,7 @@ def test_first_write_restores_seed_sharing_list_slots_and_external_set_aliases()
     matcher.matchings[0] = {(8, 9)}
     matcher.seed_matching = {(10, 11)}
     journal.remove(matcher.seed_matching, (10, 11))
-    assert len(journal.entries) == 3
+    assert len(journal.entries) == 2
     journal.rollback()
     assert matcher.matchings is original and matcher.seed_matching is shared
     assert original == [shared, other, shared]
@@ -124,6 +124,32 @@ def test_class_capacity_rejects_before_mutating_the_next_cell_and_permits_retry(
     journal.remove(matcher.seed_matching, (2, 3))
     journal.commit()
     assert matcher.seed_matching == set() and matcher.classes is None
+
+
+def test_class_delete_journals_only_membership_cells_and_rolls_back_exactly():
+    matcher = populated()
+    edge = (0, 1)
+    seed = {edge, (2, 3)}
+    classes = [{edge}, *(set() for _ in range(100))]
+    matcher.matchings = classes
+    matcher.seed_matching = seed
+    before = Witness().capture(matcher)
+    roots = matcher.matchings
+    journal = Classes(matcher, capacity=len(classes) + 4)
+
+    journal.remove(seed, edge)
+    for matching in matcher.matchings:
+        journal.remove(matching, edge)
+
+    assert len(journal.entries) == 2
+    assert edge not in seed and edge not in classes[0]
+    journal.rollback()
+
+    assert matcher.matchings is roots
+    assert matcher.seed_matching is seed
+    assert edge in seed and edge in classes[0]
+    assert all(edge not in matching for matching in classes[1:])
+    assert Witness().capture(matcher) == before
 
 
 @pytest.mark.parametrize("location", ["system", "matching", "nested", "list"])

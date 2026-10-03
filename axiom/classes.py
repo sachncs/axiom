@@ -114,12 +114,17 @@ class Classes:
         """Retain an original membership before removal; candidates are private."""
         self.check()
         address = id(matching)
-        if address in self.sets:
+        # A delete is broadcast to every color class, but an edge belongs to
+        # only a small subset of those classes.  Recording absent memberships
+        # spends journal capacity without protecting a mutation: ``discard``
+        # leaves those sets unchanged.  This fan-out made a single valid delete
+        # fail on large colorings despite touching very little retained state.
+        if address in self.sets and edge in matching:
             key = (address, edge)
             if key not in self.entries:
                 if len(self.sets) + len(self.entries) >= self.capacity:
                     raise MemoryError("class journal capacity exceeded")
-                self.entries[key] = edge in matching
+                self.entries[key] = True
         matching.discard(edge)
 
     def validate(self) -> None:
