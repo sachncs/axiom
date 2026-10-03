@@ -75,6 +75,10 @@ records this partial migration, not durable paper integration.
 Basic/multilevel now share System endpoint-cache deltas and avoid temporary
 partition unions for point membership. [ADR 0027](adrs/0027-system-cache-deltas.md)
 defines the new mutation boundary; it is not yet System/Hierarchy undo.
+System roots, touched endpoint rows and old matching-set cuts now use bounded
+first-write undo with identity-preserving snapshot memoization. Shared hierarchy
+rows use one undo record. Hierarchy/auxiliary snapshots and typed durable recovery
+remain. [ADR 0028](adrs/0028-system-undo-journal.md) records the verified boundary.
 
 ## Deferred by explicit user direction
 
@@ -88,5 +92,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,090 passing tests; CI and benchmark results must be attributed to their exact
+1,147 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

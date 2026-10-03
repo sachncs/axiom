@@ -83,8 +83,14 @@ inventory, global alias admission and remaining migration boundary.
 Basic and multilevel now share `System.update` for endpoint-cache edits, using
 sorted binary-search row deltas and no temporary partition union for point
 membership. [ADR 0027](adrs/0027-system-cache-deltas.md) records its preconditions
-and journal boundary. These rows still rely on Matcher snapshots for rollback;
-System/Hierarchy identities have not yet been journal-migrated.
+and mutation boundary. Basic and multilevel updates now retain the original
+System objects, root references, touched cache rows and deleted M edges in a
+bounded owner-bound journal. Aliases shared with hierarchy row indexes use the
+same first-write record. Failed updates restore System and row identities before
+the remaining hierarchy/Matcher snapshot rollback. [ADR 0028](adrs/0028-system-undo-journal.md)
+documents admission, capacity and failure semantics. Hierarchy partitions/indexes,
+deferred overlays, auxiliary maps and clocks still use snapshots; admission and
+certificates remain state-sized, and Python undo is not allocation-free.
 
 Existing paper rollback restores logical state but replaces many other Python objects
 from snapshots. The tests do **not** claim preservation of every pre-failure

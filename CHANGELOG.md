@@ -21,11 +21,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed version/partner queries, bounded maintenance and local ownership.
 - Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
   explicit offer-loss accounting, long-run recovery evidence and Linux hard
-  allocation/disk-exhaustion drills. 1,090 local tests pass at this milestone.
+  allocation/disk-exhaustion drills. 1,147 local tests pass at this milestone.
 - Architecture decision records and operations guidance explaining production
   alternatives to whole-state copying and the limits of current guarantees.
 
 ### Fixed
+
+- System objects now retain their original root references through failures.
+  Bounded first-write cells restore aliased Lambda/L rows and deleted matching
+  edges; incremental basic/multilevel cache paths share this owner-bound journal.
+  System alias memoization avoids copying its original cache rows. Remaining
+  Hierarchy/auxiliary snapshots and state-sized admission/certificates remain;
+  this is not yet durable paper integration.
+
+- Basic/multilevel installed-wheel diagnostics after System journaling preserve
+  identical certificates and every full-state update prefix; measurements and
+  qualifications are recorded in `benchmarks/results/paper/systems.json`. These
+  small nondurable runs are not production throughput claims.
 
 - Basic/multilevel share class-owned System endpoint-cache deltas. Sorted rows
   use binary-search insert/remove rather than whole-row sorting; point-membership

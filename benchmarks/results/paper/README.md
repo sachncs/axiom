@@ -93,3 +93,23 @@ from the declared runner revision, and compare the resulting JSON outputs.
 See [ADR 0027](../../../docs/adrs/0027-system-cache-deltas.md). The shared delta
 boundary still relies on snapshots for System/Hierarchy undo; it is not their
 journal migration, an exact recovery codec, or a durable Service implementation.
+
+## System root and row journal
+
+[systems.json](systems.json) captures isolated installed-wheel comparisons of
+`d0d4953` and the uncommitted System journal wheel (SHA-256 recorded there) on
+one fixed 512-vertex, average-degree-four churn trace. Both modes perform the
+same 64 insertions and 64 deletions, have identical repair counters and
+certificates, and use three timed repeats. Basic measured 608.90 to 797.18
+updates/s; multilevel measured 205.11 to 244.62 updates/s. Transient traced
+memory moved from 704,256 to 582,832 bytes (basic) and 1,433,616 to 1,203,568
+bytes (multilevel). RSS moved slightly upward for basic and downward for
+multilevel; this is too small and host-specific to support a general RSS claim.
+The sample is diagnostic, not durable-service or million-vertex qualification.
+
+Independent 128-vertex, 256-update runs hash the full Witness state at all 257
+prefixes. The baseline and candidate hashes match in each mode; maximality and
+hierarchy certificates are checked after every update. Basic has one phase and
+ten subphase rebuilds; multilevel has three phases and 24 subphases. The runner
+uses normalized `None` values only for the two new idle undo-handle fields so
+the old and new Witness schemas compare the same logical state.

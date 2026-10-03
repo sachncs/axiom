@@ -1,0 +1,74 @@
+{
+  "status": "diagnostic_only_not_durable_qualification",
+  "runner": {
+    "revision": "aaafdf9",
+    "path": "/private/tmp/axiom-matching.cAMQ04/runner/benchmarks/performance.py",
+    "sha256": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767"
+  },
+  "comparison": {
+    "baseline": "d0d4953",
+    "candidate": "uncommitted source, clean installed wheel",
+    "wheel": "/private/tmp/axiom-systems-release.rYLC2O/wheel/axiom_matching-0.6.0.dev0-cp314-cp314-macosx_26_0_arm64.whl",
+    "wheelsha256": "e0ba13654accba4e0e67033a028230e01c3aa54e9468cb5a41c720b956d250fa",
+    "hardware": "same host, sequential isolated Python 3.14 interpreters",
+    "allocator": "MallocLargeCache=0",
+    "workload": {
+      "vertices": 512,
+      "family": "sparse",
+      "average_degree": 4,
+      "workload": "churn",
+      "seed": 7,
+      "updates": 128,
+      "inserts": 64,
+      "deletes": 64,
+      "timed_repeats": 3
+    }
+  },
+  "modes": {
+    "basic": {
+      "baseline_updates_per_second": 608.900171,
+      "candidate_updates_per_second": 797.184941,
+      "baseline_transient_traced_bytes": 704256,
+      "candidate_transient_traced_bytes": 582832,
+      "baseline_peak_rss_bytes": 34521088,
+      "candidate_peak_rss_bytes": 34766848,
+      "ordinary_update_p99_ns": [2010375, 1606917],
+      "maximality_query_p99_ns": [49958, 49333],
+      "certificate_sha256": "54dedc3e78ce368dfcec199824b88171700b072124f8bd8ee0270f765713fcb9",
+      "repair_counters": {
+        "phase_rebuilds": 0,
+        "subphase_rebuilds": 2,
+        "rematch_u_scans": 19,
+        "rematch_b_scans": 0,
+        "rematch_a_scans": 0
+      },
+      "full_state_prefixes": 257,
+      "prefix_sha256": "2240db393c159b0410315223fe07de98be6b65bc274ab62c931fc33b0f281b90",
+      "phase_rebuilds_in_prefix_run": 1,
+      "subphase_rebuilds_in_prefix_run": 10
+    },
+    "multilevel": {
+      "baseline_updates_per_second": 205.110729,
+      "candidate_updates_per_second": 244.621765,
+      "baseline_transient_traced_bytes": 1433616,
+      "candidate_transient_traced_bytes": 1203568,
+      "baseline_peak_rss_bytes": 38715392,
+      "candidate_peak_rss_bytes": 37781504,
+      "ordinary_update_p99_ns": [6924667, 4717000],
+      "maximality_query_p99_ns": [49375, 48958],
+      "certificate_sha256": "54dedc3e78ce368dfcec199824b88171700b072124f8bd8ee0270f765713fcb9",
+      "repair_counters": {
+        "phase_rebuilds": 0,
+        "subphase_rebuilds": 5,
+        "rematch_u_scans": 19,
+        "rematch_b_scans": 0,
+        "rematch_a_scans": 0
+      },
+      "full_state_prefixes": 257,
+      "prefix_sha256": "313786dc8a69ce1f37533a87845a26de9a0460f2befe4973801afc3a53b70ed4",
+      "phase_rebuilds_in_prefix_run": 3,
+      "subphase_rebuilds_in_prefix_run": 24
+    }
+  },
+  "note": "Individual sample, query, memory, counter, and full JSON files remained in /private/tmp/axiom-systems-release.rYLC2O during qualification. The committed summary records their exact compared metrics and hashes."
+}

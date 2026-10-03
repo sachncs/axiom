@@ -41,8 +41,8 @@ that later-delivered production components are absent.
 | Million-vertex 10k durable updates/s | Independent 30-minute hot/full-ring soaks at 10.97k/11.00k/s with queries and exact recovery | Broader degree/growth/skew/burst runs and repeatability; all misses/drops/rejections remain explicit |
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
-| Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Paper-state deepcopy/journal migration and incremental hierarchy validation, separately certified |
-| Paper undo migration | Accounting, live matching views, color classes and seed use first-write undo with retained identity | System/index/hierarchy containers and clocks still use snapshots; durable paper integration remains active |
+| Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Hierarchy/auxiliary snapshot migration, incremental hierarchy validation and durable service integration, separately certified |
+| Paper undo migration | Accounting, live matching views, color classes/seed and System roots/touched rows use bounded first-write undo with retained identity | Hierarchy partitions/indexes, auxiliary maps and clocks still use snapshots; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
