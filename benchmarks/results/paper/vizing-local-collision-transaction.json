@@ -1,0 +1,22 @@
+{
+  "benchmark": "vizing-local-collision-transaction",
+  "date": "2026-10-03",
+  "baseline_revision": "0a49558",
+  "candidate_revision": "working-tree-after-0a49558",
+  "python": "3.14.8",
+  "fixture": {
+    "collision_vertices": 8,
+    "unrelated_fans": 4000,
+    "unrelated_colored_edges": 4000,
+    "vertices": 20008,
+    "edges": 12005,
+    "palette": 3,
+    "operation": "Vizing.resolve on a deterministic same-direction chain collision"
+  },
+  "measurement": "Vizing.resolve wall time only; graph, coloring, fan collection, and chains constructed before timing; full validation after timing; gc.collect before each timed call; alternating baseline/candidate order; no tracemalloc",
+  "certificate": "resolve returned (true, 2); coloring, fan-index, and full fan/color compatibility validation succeeded for every run",
+  "baseline_seconds": [0.008984040992800146, 0.008882333000656217, 0.008726917003514245, 0.009127541998168454, 0.009423124996828847, 0.009158458997262642, 0.00931866600876674],
+  "candidate_seconds": [0.0001230830093845725, 0.00007104099495336413, 0.00006912500248290598, 0.00007158299558795989, 0.00009225000394508243, 0.00007687500328756869, 0.00007591700705233961],
+  "median_seconds": {"baseline": 0.009127541998168454, "candidate": 0.00007591700705233961, "speedup": 120.23},
+  "limitations": "Single-host synthetic collision with unrelated state; seven repeats; no peak-memory measurement; not full Pruning/Matcher throughput or adversarial connected-graph qualification."
+}

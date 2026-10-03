@@ -81,6 +81,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0072](0072-localize-refinement-matching-scans.md) | Traverse local projected-graph neighbors for refinement matching predicates and repairs | 2,048-vertex witness-heavy refinement 2.41× faster; broader shape and allocation qualification open |
 | [0073](0073-indexed-fan-membership-checks.md) | Use the authoritative Fans member set instead of rebuilding it for ownership checks | 400-fan Modify-Types batch 4.62× faster; full paper-engine and allocation qualification remain open |
 | [0074](0074-local-color-small-fan-repair.md) | Repair and revalidate only fans incident to Color-Small's changed path/spokes | 400-fan Color-Small 21.82× faster; other global repairs and full snapshots remain |
+| [0075](0075-bounded-vizing-collision-rollback.md) | Journal only chain/spoke colors and fan entries touched by Vizing collision resolution | 20k-vertex local collision 120.23× faster; other paper snapshots remain |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

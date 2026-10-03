@@ -971,7 +971,9 @@ class Fans:
         if rebuilttypes != self.types:
             raise AssertionError("u-fan type index is stale")
 
-    def compatible(self, coloring: Partial) -> None:
+    def compatible(
+        self, coloring: Partial, vertices: Iterable[Vertex] | None = None
+    ) -> None:
         """Validate fan spokes and assigned colors against ``coloring``.
 
         ``validate`` checks only the collection's own indexes.  The ABB
@@ -980,7 +982,20 @@ class Fans:
         check explicit prevents a stale or hand-built fan collection from
         entering an atomic path-modification operation.
         """
-        for fan in self:
+        candidates: Iterable[Fan]
+        if vertices is None:
+            candidates = self
+        else:
+            affectedfans = {
+                fan
+                for vertex in vertices
+                for fan in self.vertices.get(vertex, ())
+            }
+            candidates = sorted(
+                affectedfans,
+                key=lambda fan: (fan.center, fan.first, fan.second),
+            )
+        for fan in candidates:
             if any(not coloring.graph.has_edge(*edge) for edge in fan.edges):
                 raise AssertionError(f"u-fan spoke is outside the graph: {fan}")
             if any(edge in coloring for edge in fan.edges):
@@ -1126,9 +1141,21 @@ class Vizing:
         raise ValueError(f"vertex {vertex} is not an endpoint of edge {edge}")
 
     @classmethod
-    def restore(cls, fans: Fans, snapshot: tuple[Fan, ...]) -> None:
-        """Restore a fan collection after a failed transactional collision."""
-        for fan in tuple(fans):
+    def restore(
+        cls,
+        fans: Fans,
+        snapshot: Iterable[Fan],
+        vertices: Iterable[Vertex] | None = None,
+    ) -> None:
+        """Restore a fan collection globally or within a proven local region."""
+        current: set[Fan]
+        if vertices is None:
+            current = set(fans.members)
+        else:
+            current = set()
+            for vertex in vertices:
+                current.update(fans.vertices.get(vertex, ()))
+        for fan in current:
             fans.discard(fan)
         for fan in snapshot:
             fans.add(fan)
@@ -1270,8 +1297,20 @@ class Vizing:
         )
         firstindex = firstpositions[shared]
         secondindex = secondpositions[shared]
-        colorsbefore = dict(coloring.assignments)
-        fansbefore = tuple(fans)
+        affectededges = set(firstedges) | set(secondedges)
+        for chain in collision:
+            affectededges.update(
+                canonical(chain.spoke.center, leaf) for leaf in chain.leaves
+            )
+        affectedvertices = {vertex for edge in affectededges for vertex in edge}
+        colorsbefore = {
+            edge: coloring.assignments.get(edge) for edge in affectededges
+        }
+        fansbefore = {
+            fan
+            for vertex in affectedvertices
+            for fan in fans.vertices.get(vertex, ())
+        }
         alpha = first.spoke.alpha
         try:
             samedirection = (
@@ -1306,7 +1345,7 @@ class Vizing:
                 if firstpredecessor in coloring or secondpredecessor in coloring:
                     raise RuntimeError("same-direction shift recolored a predecessor")
                 fans.add(created)
-                fans.compatible(coloring)
+                fans.compatible(coloring, affectedvertices)
                 return True, 2
 
             coloring.unassign(shared)
@@ -1328,9 +1367,8 @@ class Vizing:
                 raise RuntimeError("opposite-direction shift recolored the shared edge")
             return True, 2
         except (RuntimeError, ValueError, KeyError, AssertionError):
-            coloring.assignments = colorsbefore
-            coloring.reindex()
-            cls.restore(fans, fansbefore)
+            coloring.replace(colorsbefore)
+            cls.restore(fans, fansbefore, affectedvertices)
             return False, 0
 
     @classmethod

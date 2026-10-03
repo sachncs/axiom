@@ -1066,6 +1066,15 @@ def test_vizing_collision_failure_restores_color_and_every_fan_index(
     first = Chain(Spoke((2, 3), 1), (3,), (0, 1), (0,))
     second = Chain(Spoke((4, 5), 1), (5,), (1, 0), (0,))
     before = Witness().capture((coloring, fans))
+    coloringroots = (coloring.assignments, coloring.incident, coloring.index)
+    fanroots = (
+        fans.members,
+        fans.spokes,
+        fans.assignments,
+        fans.assigned,
+        fans.vertices,
+        fans.types,
+    )
     activate = Vizing.activate
     calls = 0
 
@@ -1085,6 +1094,29 @@ def test_vizing_collision_failure_restores_color_and_every_fan_index(
     assert fans.assigned[6] == {1}
     assert fans.vertices[6] == {sentinel}
     assert fans.types[sentinel.type] == {sentinel}
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            coloringroots,
+            strict=True,
+        )
+    )
+    assert all(
+        current is original
+        for current, original in zip(
+            (
+                fans.members,
+                fans.spokes,
+                fans.assignments,
+                fans.assigned,
+                fans.vertices,
+                fans.types,
+            ),
+            fanroots,
+            strict=True,
+        )
+    )
     coloring.validate()
     fans.validate()
 
@@ -1137,6 +1169,73 @@ def test_same_direction_collision_shifts_both_spokes_and_adds_compatible_fan():
     fans.compatible(coloring)
     coloring.validate()
     fans.validate()
+
+
+def test_vizing_collision_rolls_back_only_touched_state_after_fan_add_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(11)
+    for edge in ((0, 1), (1, 2), (1, 3), (4, 5), (6, 7), (8, 9), (8, 10)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 2)
+    coloring.assign((1, 3), 0)
+    fans = Fans()
+    sentinel = Fan(8, 9, 10, 0, 1, 1)
+    fans.add(sentinel)
+    first = Chain(Spoke((4, 5), 0), (5,), (0, 1, 2), (1,))
+    second = Chain(Spoke((6, 7), 0), (7,), (3, 1, 2), (1,))
+    expected = Fan(1, 0, 3, 2, 0, 0)
+    coloringroots = (coloring.assignments, coloring.incident, coloring.index)
+    fanroots = (
+        fans.members,
+        fans.spokes,
+        fans.assignments,
+        fans.assigned,
+        fans.vertices,
+        fans.types,
+    )
+    assignments = dict(coloring.items())
+    originaladd = fans.add
+
+    def fail_after_add(fan: Fan) -> None:
+        originaladd(fan)
+        if fan == expected:
+            raise RuntimeError("injected post-add collision failure")
+
+    monkeypatch.setattr(fans, "add", fail_after_add)
+
+    assert Vizing.resolve(coloring, fans, (first, second)) == (False, 0)
+
+    assert dict(coloring.items()) == assignments
+    assert fans.members == {sentinel}
+    assert fans.find(8, 0) is sentinel
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            coloringroots,
+            strict=True,
+        )
+    )
+    assert all(
+        current is original
+        for current, original in zip(
+            (
+                fans.members,
+                fans.spokes,
+                fans.assignments,
+                fans.assigned,
+                fans.vertices,
+                fans.types,
+            ),
+            fanroots,
+            strict=True,
+        )
+    )
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
 
 
 def test_paper_vizing_activation_handles_trivial_fan() -> None:

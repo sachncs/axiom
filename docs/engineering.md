@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse coloring incidence rows, compact `Packed` color-group projection snapshots, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, endpoint-local aggregate rollback, bounded Vizing/fan color transactions, local hierarchy refinement scans, indexed fan ownership checks, and local Color-Small repair | Broader repeatability/adversarial/resource qualification, global repairs outside Color-Small, snapshot migration, and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H/color caches, compact dense A/B/U and hierarchy partitions/counters, shared derived roots, streamed hierarchy projections, child parent-graph reuse with missing-edge fallback, read-only update-set sharing, local refinement witnesses, streamed phase synchronization, graph-backed matching cuts, and local P2 certificates | Sparse A/B remain Python sets; opaque custom graphs retain materializing fallbacks; each child refinement still detaches a System; parent-boundary rebases, multi-source A/N/R construction, some admission/certificate work and phase-boundary audits remain state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H/color caches, compact dense A/B/U and hierarchy partitions/counters, shared derived roots, streamed hierarchy projections, child parent-graph reuse with missing-edge fallback, read-only update-set sharing, local refinement witnesses, streamed phase synchronization, graph-backed matching cuts, local P2 certificates, and bounded Vizing collision rollback | Sparse A/B remain Python sets; opaque custom graphs retain materializing fallbacks; each child refinement still detaches a System; parent-boundary rebases, multi-source A/N/R construction, remaining fan/pruning snapshots, some admission/certificate work and phase-boundary audits remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Hierarchy refinement's `ProcProcess` witness lookup no longer scans every
@@ -129,6 +129,17 @@ connected adversarial fans, peak memory, or whole Matcher throughput. Other fan
 repair callsites and whole-coloring/fan rollback snapshots remain open. See
 [ADR 0074](adrs/0074-local-color-small-fan-repair.md) and its
 [raw record](../benchmarks/results/paper/color-small-local-repair.json).
+
+Vizing chain-collision resolution now captures only path/spoke colors and fans
+incident to the collision region, uses local compatibility checks, and restores
+touched coloring cells without replacing container roots. A failure injected
+after publishing the new fan restores exact contents and preserves an unrelated
+fan. With 4,000 unrelated fans and 4,000 unrelated colored edges, seven runs
+measured median collision resolution at 9.13 ms before and 0.076 ms after
+(120.23×), followed by full independent checks. This is a synthetic local
+operation result, not a full pruning or Matcher rate; other paper transaction
+snapshots remain state-sized. See [ADR 0075](adrs/0075-bounded-vizing-collision-rollback.md)
+and its [raw record](../benchmarks/results/paper/vizing-local-collision-transaction.json).
 
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new
