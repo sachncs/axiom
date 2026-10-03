@@ -19,6 +19,7 @@ from axiom.durable import (
     MAX_READS,
     BusyError,
     Durable,
+    HistoryPage,
     Outcome,
     ReadSnapshot,
     Request,
@@ -448,6 +449,15 @@ class Service:
                 saved_vertices, saved_edges, expected_version=expected_version
             )
         )
+
+    def history(
+        self, start: int | None = None, limit: int = 256
+    ) -> Receipt[HistoryPage]:
+        """Queue one bounded page of retained, verifiable durable operations."""
+        if start is not None:
+            _integer(start, 1, _MAX, "start")
+        _integer(limit, 1, MAX_READS, "limit")
+        return self._read(lambda owner: owner.history(start, limit))
 
     def page(
         self, start: int = 0, limit: int = 1024, version: int | None = None

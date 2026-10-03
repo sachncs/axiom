@@ -126,6 +126,12 @@ Concurrent client calls and receipt waiters are supported on GIL-enabled CPython
 free-threaded engine builds explicitly reject. One worker owns mutation. Separate
 query calls are not a snapshot: compare their versions when combining them. Use
 one bounded `read_snapshot()` call for a coherent set of partner and edge reads.
+`history(start, limit)` exports at most 4096 contiguous retained operation
+records per call, including no-op outcomes, versions and hash-chain digests.
+Each page includes its preceding digest so adjacent pages can be linked and
+verified. The checkpoint retention floor is explicit; expired ranges raise
+`ExpiredError`, and this API never recreates retired history. It is an export
+surface, not an arbitrary historical graph query or import/replay endpoint.
 [ADR 0012](adrs/0012-committed-partner-reads.md) records synchronization and the
 additional budgeted 4 bytes/vertex. Native checkpoints/full audits block the GIL;
 SQLite I/O blocks the worker but not published partner reads. Receipt timing separates

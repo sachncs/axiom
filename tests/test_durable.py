@@ -19,6 +19,9 @@ from axiom.durable import (
     BusyError,
     CapacityError,
     Durable,
+    ExpiredError,
+    HistoryPage,
+    HistoryRecord,
     Outcome,
     ReadSnapshot,
     RecoveryError,
@@ -262,6 +265,82 @@ def test_read_snapshot_holds_durable_owner_across_every_query(
             assert future.result(timeout=5) == ReadSnapshot(0, (None, None), (False,))
         monkeypatch.setattr(store, "_engine", engine)
         assert store.apply([Request(1, "insert", 0, 1)])[0].version == 1
+
+
+def test_history_pages_are_contiguous_hash_linked_and_include_noops(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "graph.db"
+    requests = [
+        Request(1, "insert", 0, 1),
+        Request(2, "insert", 0, 1),
+        Request(3, "delete", 0, 1),
+        Request(4, "insert", 0, 1),
+    ]
+    with Durable(path, n=16, width=0) as store:
+        store.apply(requests)
+        first = store.history(limit=2)
+        second = store.history(start=3, limit=2)
+        assert first == HistoryPage(
+            0,
+            4,
+            first.previous_digest,
+            (
+                HistoryRecord(1, "insert", 0, 1, True, 1, first.records[0].digest),
+                HistoryRecord(2, "insert", 0, 1, False, 1, first.records[1].digest),
+            ),
+            True,
+        )
+        assert first.records[1].digest == second.previous_digest
+        assert tuple(record.sequence for record in second.records) == (3, 4)
+        assert tuple(record.version for record in second.records) == (2, 3)
+        assert not second.has_more
+        assert second.records[-1].digest == store._tail
+    with Durable(path) as recovered:
+        assert tuple(record.sequence for record in recovered.history().records) == (
+            1,
+            2,
+            3,
+            4,
+        )
+
+
+def test_history_respects_checkpoint_retention_and_rejects_corrupt_rows(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "graph.db"
+    with Durable(
+        path,
+        n=16,
+        width=0,
+        max_operations=8,
+        max_batch=2,
+        checkpoint_interval=2,
+        retain_operations=2,
+    ) as store:
+        for sequence in range(1, 6):
+            store.apply(
+                [Request(sequence, "insert" if sequence % 2 else "delete", 0, 1)]
+            )
+        page = store.history()
+        assert page.retired_floor == 2
+        assert tuple(record.sequence for record in page.records) == (3, 4, 5)
+        with pytest.raises(ExpiredError, match="retired"):
+            store.history(start=2)
+        assert store.history(start=6).records == ()
+        with pytest.raises(ValueError, match="beyond"):
+            store.history(start=7)
+
+    with Durable(path) as store:
+        connection = store._connection
+        assert connection is not None
+        connection.execute(
+            "UPDATE operations SET digest=? WHERE sequence=4", (bytes(32),)
+        )
+        with pytest.raises(RecoveryError, match="uncertified"):
+            store.history(start=3, limit=3)
+        with pytest.raises(UnavailableError):
+            store.status()
 
 
 def test_single_process_owner_and_lock_reuse(tmp_path: Path) -> None:

@@ -72,6 +72,30 @@ class ReadSnapshot:
     has_edges: tuple[bool, ...]
 
 
+@dataclass(frozen=True)
+class HistoryRecord:
+    """One retained immutable operation and its hash-chain digest."""
+
+    sequence: int
+    operation: Literal["insert", "delete"]
+    u: int
+    v: int
+    changed: bool
+    version: int
+    digest: bytes
+
+
+@dataclass(frozen=True)
+class HistoryPage:
+    """A bounded contiguous durable history segment with verifiable boundaries."""
+
+    retired_floor: int
+    latest_sequence: int
+    previous_digest: bytes
+    records: tuple[HistoryRecord, ...]
+    has_more: bool
+
+
 _MAX = (1 << 63) - 1
 MAX_READS = 4096
 _FORMAT = "axiom-native-sqlite-replay-v1"
@@ -1099,6 +1123,123 @@ class Durable:
             partners = tuple(self._engine.partner(vertex) for vertex in vertices)
             has_edges = tuple(self._engine.has_edge(u, v) for u, v in canonical_edges)
             return ReadSnapshot(version, partners, has_edges)
+
+    def history(self, start: int | None = None, limit: int = 256) -> HistoryPage:
+        """Export one bounded, hash-linked page from the retained operation log.
+
+        Retired operations cannot be exported. Page boundaries carry the digest
+        of the preceding operation; clients can join pages without treating
+        retained history as a complete-from-genesis log. Corrupt retained rows
+        fail the owner closed. This exports operations, not old graph snapshots
+        or historical matching queries.
+        """
+        _integer(limit, 1, MAX_READS, "limit")
+        if start is not None:
+            _integer(start, 1, _MAX, "start")
+        with self._exclusive():
+            first = self._floor + 1 if start is None else start
+            if first <= self._floor:
+                raise ExpiredError("history before the retained floor is retired")
+            if first > self._count + 1:
+                raise ValueError("history start is beyond the next operation")
+            if first == self._floor + 1:
+                boundary = self._anchor
+                previous_version = self._floor_version
+            else:
+                try:
+                    prior = (
+                        self._db()
+                        .execute(
+                            "SELECT version,digest FROM operations WHERE sequence=?",
+                            (first - 1,),
+                        )
+                        .fetchone()
+                    )
+                except sqlite3.Error as error:
+                    self._failed = True
+                    raise RecoveryError(
+                        "could not read history page boundary"
+                    ) from error
+                if prior is None:
+                    self._failed = True
+                    raise RecoveryError("history page boundary disappeared")
+                previous_version, boundary = prior
+            if (
+                type(previous_version) is not int
+                or not 0 <= previous_version <= self._engine.version
+                or type(boundary) is not bytes
+                or len(boundary) != 32
+            ):
+                self._failed = True
+                raise RecoveryError("history page boundary is invalid")
+            previous = boundary
+            try:
+                rows = (
+                    self._db()
+                    .execute(
+                        "SELECT sequence,adding,u,v,changed,version,digest "
+                        "FROM operations WHERE sequence>=? ORDER BY sequence LIMIT ?",
+                        (first, limit + 1),
+                    )
+                    .fetchall()
+                )
+            except sqlite3.Error as error:
+                self._failed = True
+                raise RecoveryError("could not read retained history") from error
+            has_more = len(rows) > limit
+            records: list[HistoryRecord] = []
+            expected_sequence = first
+            for sequence, adding, u, v, changed, version, digest in rows[:limit]:
+                try:
+                    _integer(sequence, expected_sequence, expected_sequence, "sequence")
+                    _integer(adding, 0, 1, "operation")
+                    _integer(u, 0, self._engine.n - 1, "u")
+                    _integer(v, u, self._engine.n - 1, "v")
+                    _integer(changed, 0, 1, "changed")
+                    _integer(version, previous_version, _MAX, "version")
+                    if version != previous_version + changed:
+                        raise ValueError("history version progression is invalid")
+                    expected = _digest(
+                        previous, sequence, adding, u, v, bool(changed), version
+                    )
+                    if type(digest) is not bytes or digest != expected:
+                        raise ValueError("history digest is invalid")
+                except (ValueError, TypeError, struct.error) as error:
+                    self._failed = True
+                    raise RecoveryError(
+                        "retained history page is uncertified"
+                    ) from error
+                records.append(
+                    HistoryRecord(
+                        sequence,
+                        "insert" if adding else "delete",
+                        u,
+                        v,
+                        bool(changed),
+                        version,
+                        digest,
+                    )
+                )
+                previous, previous_version = expected, version
+                expected_sequence += 1
+            expected_count = min(limit, self._count - first + 1)
+            if len(records) != expected_count:
+                self._failed = True
+                raise RecoveryError("retained history page has a sequence gap")
+            if (
+                records
+                and records[-1].sequence == self._count
+                and (previous != self._tail or previous_version != self._engine.version)
+            ):
+                self._failed = True
+                raise RecoveryError("retained history page disagrees with durable tail")
+            return HistoryPage(
+                self._floor,
+                self._count,
+                boundary,
+                tuple(records),
+                has_more,
+            )
 
     def check(self) -> bool:
         """Run an explicit full native audit, not an ordinary-update scan."""

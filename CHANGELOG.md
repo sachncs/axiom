@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   edge-membership answers from one committed version, with stale-version and
   concurrency/failure coverage. It is a serialized query group, not historical
   MVCC. See [service contract](docs/service.md#version-coherent-multi-query-reads).
+- `Durable.history()` and `Service.history()` expose bounded retained operation
+  pages, including no-op outcomes, versions, chain digests and the checkpoint
+  retirement floor. Corrupt pages fail closed; retired history is not invented.
+  Import/replay verification and historical graph queries remain future work.
 - Paper fan collection replacement swaps indexed roots instead of sorting and
   discarding a complete tuple; nested rollback preserves exact index identities.
   A multilevel parent boundary reuses the synchronized phase graph rather than

@@ -13,7 +13,7 @@ const items = [
   ["Not done", "First-class bipartite API", "No typed partitions or same-side edge rejection contract exists."],
   ["Not done", "Event subscriptions", "Versioned change delivery, bounded subscriber queues and backpressure semantics are absent."],
   ["Partial", "Observability", "Service admission/group counters and benchmark histograms exist. Stable metrics/exporter, storage/recovery health and alert contracts remain."],
-  ["Partial", "Deterministic replay and historical debugging", "Durable operation history, checksums and recovery exist. Public replay/export and historical query APIs remain."],
+  ["Partial", "Deterministic replay and historical debugging", "Durable/Service history exports bounded retained operations with versions and chained digests; recovery replays and verifies state. Public import/replay verification and historical graph queries remain."],
   ["Not done", "Match explanations", "There is no version-linked explanation of partner changes or algorithm repair evidence."],
   ["Partial", "Cross-platform packaging", "CI/release matrices define 20 CPython wheels across five platform targets; hosted evidence is pending. Windows verifies native/paper APIs only because POSIX Durable/Service are unsupported there. Windows ARM64 and musllinux are excluded."],
   ["Not done", "Network transport", "Service is local and threaded; authenticated HTTP/gRPC transport and end-to-end network semantics are absent."],

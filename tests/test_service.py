@@ -15,6 +15,7 @@ from axiom.durable import (
     CapacityError,
     Durable,
     ExpiredError,
+    HistoryPage,
     Outcome,
     ReadSnapshot,
     Request,
@@ -312,6 +313,27 @@ def test_read_snapshot_owner_failure_fails_queued_work_and_recovers(
             1, (1, 0), (True,)
         )
         assert recovered.check()
+
+
+def test_history_is_a_bounded_owner_query_and_rejects_invalid_admission(
+    tmp_path: Path,
+) -> None:
+    with create(tmp_path / "graph.db", batch_wait_ms=0) as service:
+        invalid = service.metrics()["accepted"]
+        for start, limit in ((0, 1), (None, 0), (None, 4097), (True, 1)):
+            with pytest.raises(ValueError):
+                service.history(start, limit)
+        assert service.metrics()["accepted"] == invalid
+        assert service.submit(Request(1, "insert", 0, 1)).result(5).version == 1
+        assert service.submit(Request(2, "insert", 0, 1)).result(5).version == 1
+        page = service.history(limit=1).result(5)
+        assert isinstance(page, HistoryPage)
+        assert page.latest_sequence == 2
+        assert page.has_more
+        assert page.records[0].sequence == 1 and page.records[0].changed
+        second = service.history(start=2, limit=2).result(5)
+        assert second.previous_digest == page.records[0].digest
+        assert second.records[0].sequence == 2 and not second.records[0].changed
 
 
 def test_default_read_reservation_preserves_queries_under_full_update_admission(
