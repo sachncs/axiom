@@ -969,17 +969,26 @@ class TestMatcher:
         algo.update_count = 1
 
         snapshotcalls = []
+        copycalls = []
         snapshotgraph = rebuild_module.snapshot
+        copysystem = rebuild_module.copy
 
         def recordsnapshot(graph):
             result = snapshotgraph(graph)
             snapshotcalls.append((graph, result))
             return result
 
+        def recordcopy(system, graph, *, indexed=True):
+            copycalls.append((system, graph, indexed))
+            return copysystem(system, graph, indexed=indexed)
+
         monkeypatch.setattr(rebuild_module, "snapshot", recordsnapshot)
+        monkeypatch.setattr(rebuild_module, "copy", recordcopy)
         algo.policy.rebuild(algo)
 
+        assert len(algo.level_zs) > 1
         assert len(snapshotcalls) == 1
+        assert copycalls == [(algo.phase_base_system, algo.phase_base_graph, False)]
         assert snapshotcalls[0][0] is algo.graph
         assert algo.phase_base_graph is snapshotcalls[0][1]
         assert algo.phase_base_system is not None

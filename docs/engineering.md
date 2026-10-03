@@ -78,6 +78,14 @@ unchanged. An isolated 180,000-edge union reduced traced peak from 21.0 MB to
 12.6 MB with the same result. See [ADR 0068](adrs/0068-share-refinement-update-sets.md)
 and its [raw probe](../benchmarks/results/paper/refinement-update-sets.json).
 
+Multilevel full rebuilds also skip indexing the detached level-one System when
+recursive refinement will immediately rebuild its cache rows on the projected
+graph. One-level schedules retain eager indexing and their full certificate.
+On a 50k-vertex/50k-edge `Packed` ring, the isolated copy stage fell from
+94.7 ms to 0.55 ms; this shifts required indexing to refinement and is not an
+end-to-end rebuild speed claim. See [ADR 0069](adrs/0069-defer-full-rebuild-cache-index.md)
+and the [raw comparison](../benchmarks/results/paper/deferred-rebuild-index.json).
+
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new
 work are recorded in ADR 0020; established APIs need compatibility planning

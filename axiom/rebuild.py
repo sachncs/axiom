@@ -372,7 +372,14 @@ class Multilevel:
             # prior partition and matching state.
             phase_base_graph = snapshot(matcher.graph)
             phase_base_system = build(phase_base_graph, matcher.level_zs[0])
-            working_system = copy(phase_base_system, phase_base_graph)
+            # A recursive level immediately rebuilds these caches on its
+            # projected graph. Preserve eager indexing only when the
+            # hierarchy has no refinement step.
+            working_system = copy(
+                phase_base_system,
+                phase_base_graph,
+                indexed=len(matcher.level_zs) == 1,
+            )
             matcher.multi = build_hierarchy(
                 phase_base_graph,
                 matcher.level_zs,

@@ -1,0 +1,24 @@
+{
+  "probe": "System copy stage on a Packed ring",
+  "vertices": 50000,
+  "edges": 50000,
+  "repeats": 5,
+  "measurement": "median copy-only elapsed time; maximum tracemalloc peak; copied Systems independently pass System.check after any deferred index is built",
+  "eager_index": {
+    "operation": "copy(system, graph, indexed=True)",
+    "median_seconds": 0.09466533300292213,
+    "max_peak_bytes": 2499848
+  },
+  "deferred_index": {
+    "operation": "copy(system, graph, indexed=False), then index before validation",
+    "median_copy_only_seconds": 0.0005485000001499429,
+    "max_copy_peak_bytes": 2498696
+  },
+  "same_checked_state": true,
+  "limitations": [
+    "copy-stage measurement only; not end-to-end hierarchy build timing",
+    "the full hierarchy still performs required indexing on its projected graph",
+    "tracemalloc is not process RSS",
+    "one graph shape and one host"
+  ]
+}
