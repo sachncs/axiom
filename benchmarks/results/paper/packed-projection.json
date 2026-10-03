@@ -1,0 +1,43 @@
+{
+  "status": "isolated paper projection backend comparison",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "configuration": {
+    "vertices": 1000000,
+    "source_edges": 2,
+    "colored_edges": 2,
+    "palette": 2,
+    "repeats": 1,
+    "measurement": "tracemalloc peak plus Packed native memory; source graph built before tracing"
+  },
+  "baseline": {
+    "commit": "a28cc51",
+    "child_backend": "Adjacency",
+    "elapsed_seconds": 1.0287,
+    "python_peak_bytes": 224457760,
+    "native_allocated_bytes": 0,
+    "projection_allocated_bytes": 224457760
+  },
+  "candidate": {
+    "source": "axiom/paper_coloring.py",
+    "source_sha256": "2c30747b0de56088bd31d168f7451ae50f56a999da176ee55e9d59c56805d9cc",
+    "test_sha256": "49b9d7623f537f535af68fab84f1ffca57424cebd09a54faae95897066e06dcb",
+    "child_backend": "Packed",
+    "elapsed_seconds": 0.0009,
+    "python_peak_bytes": 8784,
+    "native_allocated_bytes": 13000456,
+    "native_budget_bytes": 1073741824,
+    "live_blocks": 4,
+    "projection_allocated_bytes_approximate": 13009240,
+    "reduction_percent_approximate": 94.2
+  },
+  "limits": [
+    "One host and one sample; elapsed time is under tracemalloc and is diagnostic only.",
+    "The pre-existing source graph is outside the traced allocation interval.",
+    "Native budget is a cap, not allocated or resident memory; native allocation and RSS are reported separately.",
+    "This is not recursive extension throughput, durability, end-to-end process RSS, or billion-vertex qualification."
+  ]
+}

@@ -48,6 +48,14 @@ primarily the copied reference `Adjacency` vertex rows, so this is substantial
 but incomplete storage work. See [ADR 0061](adrs/0061-sparse-paper-color-incidence.md)
 and the [raw measurement](../benchmarks/results/paper/sparse-color-incidence.json).
 
+Recursive color-group projections now create their isolated graph in `Packed`
+storage when the caller uses reference `Adjacency`; existing `Packed` budgets
+are preserved. On the same one-million-vertex/two-edge probe, projection
+allocation fell from 224.5 MB Python traced to about 13.01 MB combined Python and
+native allocation. This remains an isolated diagnostic; extension-level resource
+qualification is open. See [ADR 0062](adrs/0062-compact-paper-projection-graphs.md)
+and the [raw comparison](../benchmarks/results/paper/packed-projection.json).
+
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),
 [hub](../benchmarks/results/independent/hub-steady-million.json),

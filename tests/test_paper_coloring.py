@@ -20,6 +20,7 @@ from axiom.paper_coloring import (
     Spoke,
     Vizing,
 )
+from axiom.storage import Packed
 from axiom.witness import Witness
 
 
@@ -511,9 +512,45 @@ def test_project_subproblem_isolates_the_recursive_edge_scope() -> None:
     )
 
     assert scope == {(0, 1), (0, 2), (3, 4)}
+    assert isinstance(child.graph, Packed)
     assert set(child.graph.edges()) == scope
     assert set(child.graph.edges()) != set(graph.edges())
     assert tuple(childfans) == tuple(fans)
+
+
+def test_project_subproblem_preserves_packed_budget() -> None:
+    graph = Packed(6, budget=1 << 20)
+    graph.add_edge(0, 1)
+    graph.add_edge(3, 4)
+    coloring = Partial(graph, 2)
+    coloring.assign((0, 1), 0)
+    coloring.assign((3, 4), 1)
+
+    child, _, scope, _ = Extension.project(coloring, Fans(), frozenset({0, 1}))
+
+    assert isinstance(child.graph, Packed)
+    assert child.graph.memory()["budget"] == graph.memory()["budget"]
+    assert set(child.graph.edges()) == scope
+
+
+def test_project_subproblem_keeps_custom_graph_fallback() -> None:
+    class Custom:
+        def __init__(self, graph: Adjacency) -> None:
+            self.graph = graph
+
+        def __getattr__(self, name: str):
+            return getattr(self.graph, name)
+
+    backing = Adjacency(4)
+    backing.add_edge(0, 1)
+    graph = Custom(backing)
+    coloring = Partial(graph, 2)
+    coloring.assign((0, 1), 1)
+
+    child, _, scope, _ = Extension.project(coloring, Fans(), frozenset({1}))
+
+    assert isinstance(child.graph, Adjacency)
+    assert set(child.graph.edges()) == scope == {(0, 1)}
 
 
 def test_partial_coloring_flip_preserves_properness(

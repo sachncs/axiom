@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from itertools import pairwise
 from types import MappingProxyType
 
-from axiom.graph import empty
+from axiom.graph import Adjacency, empty
+from axiom.storage import Packed
 from axiom.types import Color, Edge, Graph, Vertex, canonical
 
 
@@ -2461,7 +2462,11 @@ class Extension:
         # E_k is an actual edge-disjoint subproblem in ABB's Extend.  Give the
         # child its own graph snapshot so later path operations cannot
         # accidentally observe or mutate edges outside this color group.
-        childgraph = empty(coloring.graph)
+        childgraph = (
+            Packed(coloring.graph.n)
+            if isinstance(coloring.graph, Adjacency)
+            else empty(coloring.graph)
+        )
         for edge in sorted(edgescope):
             childgraph.add_edge(*edge)
         child = Partial(childgraph, len(ordered))

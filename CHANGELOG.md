@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   residual is primarily the O(n) Python `Adjacency` child graph, and this is not
   end-to-end qualification. See [ADR 0061](docs/adrs/0061-sparse-paper-color-incidence.md)
   and its [raw record](benchmarks/results/paper/sparse-color-incidence.json).
+- Recursive paper color-group snapshots now use compact `Packed` storage for
+  `Adjacency` inputs, while preserving an existing `Packed` budget and opaque
+  graph fallback. The same million-vertex/two-edge projection used about 13.01
+  MB combined Python/native allocation instead of 224.5 MB of empty Python
+  adjacency rows. Resource/extension qualification remains open; see
+  [ADR 0062](docs/adrs/0062-compact-paper-projection-graphs.md) and the
+  [raw comparison](benchmarks/results/paper/packed-projection.json).
 
 - Matcher update transactions now contain no recursive `deepcopy`: shallow root
   references combine with bounded undo for indexes and phase-clock cells. Failure

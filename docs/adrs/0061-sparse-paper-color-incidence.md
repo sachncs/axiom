@@ -65,7 +65,7 @@ claim follows.
 
 ## Follow-up
 
-Measure and address the O(vertices) empty-row allocation of reference `Adjacency`
-subgraphs, especially recursive color-group projection. Re-run the same probe on
-`Packed`, then repeat adversarial paper workloads and exact rollback tests before
-making any end-to-end scale claim.
+The reference `Adjacency` child-row allocation in recursive color-group
+projection is addressed by [ADR 0062](0062-compact-paper-projection-graphs.md).
+Continue with recursive extension resource limits and adversarial workloads;
+this local probe still does not establish end-to-end scale.
