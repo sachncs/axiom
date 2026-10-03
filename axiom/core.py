@@ -104,9 +104,10 @@ class Matcher:
     Args:
         n: Number of vertices (fixed for the lifetime of the instance).
         mode: Either ``"basic"`` or ``"multilevel"``.
-        graph: Optional graph implementation (defaults to ``Adjacency``).
+        graph: Optional graph implementation (defaults to bounded ``Packed``).
         colorer: Optional edge colorer.  The default is ``Vizing`` for
             ``basic`` and the paper fan colorer for ``multilevel``.
+        budget: Native storage budget when ``graph`` is omitted.
 
     Raises:
         ValueError: If ``n`` is negative or ``mode`` is unknown.
@@ -127,6 +128,7 @@ class Matcher:
         mode: str = "basic",
         graph: Graph | None = None,
         colorer: Colorer | None = None,
+        budget: int = 1 << 30,
     ) -> None:
         """Initialize the selected matching mode and its graph and rebuild state."""
         if not isinstance(n, int) or isinstance(n, bool):
@@ -151,7 +153,7 @@ class Matcher:
         self.n = n
         self.failed = False
         self.mode = mode
-        self.graph = graph if graph is not None else Adjacency(n)
+        self.graph = graph if graph is not None else Packed(n, budget=budget)
         self.__validate_graph(self.graph, n)
         self.colorer = (
             colorer

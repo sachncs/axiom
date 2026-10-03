@@ -2,8 +2,10 @@
 
 This is a measured improvement plan with an initial native-storage implementation,
 not a claim that the full scalability or durability roadmap has been delivered.
-Production matching semantics remain unchanged. The default backend is still the
-Python reference; native graphs are explicitly selected by callers.
+Production matching semantics remain unchanged. `Matcher` now defaults to bounded
+native `Packed` graph storage; the Python `Adjacency` reference remains explicitly
+available to callers. The separately durable native matching service remains a
+different algorithm and is not substituted for paper modes.
 
 The accepted production target is now **10,000 real edge updates/s at 1,000,000
 vertices and average degree 4**, including durable acknowledgments and coherent

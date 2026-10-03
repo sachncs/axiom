@@ -18,7 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whole-edge-set snapshots from its ordinary rollback path. Custom graph fallbacks,
   phase snapshots, state-sized certificates elsewhere, and durable paper modes
   remain open; see [ADR 0037](docs/adrs/0037-adjacency-edge-journal.md).
-- 1,198 local tests pass after adjacency-journal integration and prior no-copy
+- `Matcher` now defaults to budgeted `Packed` graph storage; pass
+  `graph=Adjacency(n)` for the Python reference backend. An empty one-million-
+  vertex graph-only sample used about 9.5× less peak RSS with `Packed`; this is
+  not an end-to-end Matcher scalability qualification. See
+  [ADR 0038](docs/adrs/0038-default-packed-matcher-storage.md).
+- 1,199 local tests pass after compact Matcher defaults, adjacency-journal
+  integration and prior no-copy
   transaction/collision-routing regressions.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback

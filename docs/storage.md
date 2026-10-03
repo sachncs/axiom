@@ -1,10 +1,15 @@
 # Compact native storage
 
-`Packed` is an explicitly selected storage backend, not a replacement dynamic
-matching algorithm or a durable graph service:
+`Matcher` defaults to bounded `Packed` graph storage. This reduces graph-layer
+memory; it does not change the paper matching algorithm or make `Matcher`
+durable. `Adjacency` remains available as an explicit Python reference backend.
 
 ```python
 from axiom import Matcher, Packed
+from axiom.graph import Adjacency
+
+matcher = Matcher(128, mode="multilevel", budget=64 * 1024 * 1024)
+reference = Matcher(128, graph=Adjacency(128), mode="basic")
 
 graph = Packed(128, budget=64 * 1024 * 1024)
 graph.ring(2)

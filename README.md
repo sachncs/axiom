@@ -144,6 +144,7 @@ The following examples use the separate, nondurable paper/research API.
 
 ```python
 from axiom import Matcher
+from axiom.graph import Adjacency
 
 # Initialise on 100 vertices in basic mode
 algo = Matcher(n=100, mode="basic")
@@ -255,9 +256,12 @@ from axiom import Matcher
 algo = Matcher(
     n=100,
     mode="basic",  # or "multilevel"
-    graph=None,  # default Adjacency(100)
+    graph=None,  # default Packed(100, budget=1 GiB)
     colorer=None,  # optional basic-mode colorer; fixed Paper for multilevel
+    budget=1 << 30,  # per-graph Packed allocation limit
 )
+
+# Use graph=Adjacency(100) explicitly for the Python reference backend.
 
 algo.insert(u, v)  # insert edge (u, v)
 algo.delete(u, v)  # delete edge (u, v)

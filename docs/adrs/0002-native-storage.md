@@ -12,7 +12,8 @@ Static CSR is compact but does not alone support efficient arbitrary edge edits.
 
 ## Decision
 
-Keep `Adjacency` as a reference/caller backend. Add explicitly selected `Packed`:
+Keep `Adjacency` as an explicit reference/caller backend. `Matcher` now defaults
+to bounded `Packed` storage:
 native dense metadata, reusable four-neighbor blocks, low-degree row scans, and a
 high-degree membership/location index. Reserve arena/index/journal growth before
 changing either endpoint. Preserve sorted deterministic neighbor iteration and

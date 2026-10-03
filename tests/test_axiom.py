@@ -26,6 +26,7 @@ from axiom.parallel import compare, run_parallel, worker
 from axiom.rebuild import Basic, Multilevel
 from axiom.simulation import random_updates
 from axiom.simulation import replay as replay
+from axiom.storage import Packed
 from axiom.system import System, build
 from axiom.types import canonical
 from axiom.visualize import visualize_adjacency, visualize_matching, visualize_system
@@ -590,6 +591,14 @@ class TestBuild:
 
 class TestMatcher:
     """End-to-end tests for :class:`axiom.core.Matcher`."""
+
+    def test_default_graph_uses_bounded_packed_storage(self) -> None:
+        algo = Matcher(12, mode="basic", budget=1 << 20)
+        assert isinstance(algo.graph, Packed)
+        assert algo.graph.memory()["budget"] == 1 << 20
+        algo.insert(2, 7)
+        assert algo.graph.has_edge(2, 7)
+        assert algo.maximal()
 
     def test_basic_init(self) -> None:
         algo = Matcher(10, mode="basic")
@@ -1489,7 +1498,7 @@ class TestMatcher:
         assert algo.update_count == before["update_count"]
 
     def test_local_adjacency_update_does_not_scan_all_edges(self) -> None:
-        algo = Matcher(64, mode="basic")
+        algo = Matcher(64, mode="basic", graph=Adjacency(64))
         for vertex in range(0, 40, 2):
             algo.insert(vertex, vertex + 1)
         algo.phase_length = 10_000
