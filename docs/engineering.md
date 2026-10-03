@@ -251,6 +251,18 @@ This is a partition-shape diagnostic, not an end-to-end hierarchy memory result.
 See [ADR 0052](adrs/0052-share-derived-hierarchy-partitions.md) and its
 [raw record](../benchmarks/results/paper/hierarchy-partition-aliases.json).
 
+Recursive hierarchy refinement now shallow-carries immutable prior A-level
+roots instead of expanding every level to a Python set. Dense A-level rows use
+indexed `Vertices` storage at 1/4 universe density; sparse rows remain sets.
+The first A/N/R rows share the base System's A/B/U roots, the finest N row
+shares its System B root, and the final R row shares finest U. `A2` builds a
+compact union when multiple dense upper rows contribute, while retaining the
+single-root alias from ADR 0052. An isolated 500,000-member partition that the
+old refinement copied to a Python set allocated 35,224,208 traced bytes; root
+reuse allocated 64 bytes. This is partition-copy evidence, not end-to-end peak
+RSS or multi-level throughput qualification. See [ADR 0053](adrs/0053-compact-hierarchy-levels.md)
+and its [raw record](../benchmarks/results/paper/hierarchy-levels.json).
+
 ## Implemented foundation, not product qualification
 
 The installed Linux resource drill now passes at one million vertices under a

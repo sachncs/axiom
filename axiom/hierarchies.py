@@ -68,19 +68,34 @@ class Hierarchies:
             type(level) is not System for level in root.levels
         ):
             raise TypeError("hierarchy levels require plain System records")
-        for name in ("A1", "A2", "N1", "deferred_deletions"):
-            if type(getattr(root, name)) is not set:
-                raise TypeError("hierarchy partitions require plain sets")
+        for name in ("A1", "A2", "N1"):
+            partition = getattr(root, name)
+            if type(partition) not in (set, Vertices):
+                raise TypeError("hierarchy partitions require bounded set storage")
+            if type(partition) is Vertices and partition.n != root.graph.n:
+                raise ValueError("hierarchy partition universe differs")
+        if type(root.deferred_deletions) is not set:
+            raise TypeError("deferred deletions require a plain set")
         if type(root.R1) not in (set, Vertices):
             raise TypeError("hierarchy R partition requires a set or Vertices")
-        for name in ("A_levels", "N_levels"):
-            values = getattr(root, name)
-            if type(values) is not list or any(
-                type(value) is not set for value in values
-            ):
-                raise TypeError(
-                    "hierarchy level partitions require plain lists and sets"
-                )
+        values = root.A_levels
+        if type(values) is not list or any(
+            type(value) not in (set, Vertices) for value in values
+        ):
+            raise TypeError("hierarchy A-levels require bounded set storage")
+        if any(
+            type(value) is Vertices and value.n != root.graph.n for value in values
+        ):
+            raise ValueError("hierarchy A-level universe differs")
+        if type(root.N_levels) is not list or any(
+            type(value) not in (set, Vertices) for value in root.N_levels
+        ):
+            raise TypeError("hierarchy N-levels require bounded set storage")
+        if any(
+            type(value) is Vertices and value.n != root.graph.n
+            for value in root.N_levels
+        ):
+            raise ValueError("hierarchy N-level universe differs")
         if type(root.R_levels) is not list or any(
             type(value) not in (set, Vertices) for value in root.R_levels
         ):

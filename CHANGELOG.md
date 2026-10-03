@@ -90,7 +90,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Built hierarchies share A1/N1 roots and avoid a sole-upper-level A2 copy; a
   500k-member isolated duplicate measured 16.8 MB. Multiple-source A2 remains an
   independent union. See [ADR 0052](docs/adrs/0052-share-derived-hierarchy-partitions.md).
-- 1,225 local tests pass after hierarchy-root alias coverage.
+- Dense hierarchy A-levels now use compact partitions, prior immutable level
+  roots are reused during refinement, and base/finest partition roots are shared
+  with their Systems. A 500k-member refinement copy previously cost 35.2 MB.
+  See [ADR 0053](docs/adrs/0053-compact-hierarchy-levels.md).
+- 1,225 local tests pass after compact hierarchy-level integration.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references

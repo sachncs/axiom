@@ -1,0 +1,35 @@
+{
+  "status": "isolated_hierarchy_partition_copy_diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "candidate_sources": {
+    "axiom/hierarchy.py": "2806d418c44694dce4ec047d9b57138047598e625e141cc6dc09f53bcb55163a",
+    "axiom/hierarchies.py": "5208a69506a8b9d4e8cccc93715cfbeea1b6875157bfe9695f90341ab207acd8",
+    "tests/test_hierarchies.py": "d661446b625716296a2784523cbecf1672d9d1204902a55bba1364f8dc9340cf"
+  },
+  "configuration": {
+    "universe_vertices": 1000000,
+    "partition_members": 500000,
+    "partition_storage": "Vertices",
+    "repeats": 1,
+    "measurement": "tracemalloc copy peak after source root construction"
+  },
+  "previous_refinement": {
+    "operation": "set(existing_vertices_root)",
+    "retained_bytes": 32769208,
+    "peak_bytes": 35224208
+  },
+  "root_reuse": {
+    "operation": "reuse existing immutable level root in new level list",
+    "retained_bytes": 64,
+    "peak_bytes": 64
+  },
+  "limits": [
+    "Measures one inherited partition copy, not total hierarchy construction or phase-update memory.",
+    "A2 still materializes a union when multiple upper levels contribute; N-level density is not optimized.",
+    "One-host allocation diagnostic; not durable, million-vertex end-to-end, or billion-vertex qualification."
+  ]
+}

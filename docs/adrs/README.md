@@ -59,6 +59,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0050](0050-lazy-saturated-partition-scan.md) | Traverse A/B without materializing their union | One-million-member isolated scan: 50,331,864-byte union peak versus 632–1,432-byte lazy traversal peak; 95 tests cover System/cache integration |
 | [0051](0051-compact-dense-system-partitions.md) | Store dense System A/B partitions in indexed arrays, retaining Python sets for sparse partitions | Isolated one-million-label retained partition allocation: 65.5 MB sets vs 12.2 MB compact (81.4% lower); copy/build and matcher regressions pass |
 | [0052](0052-share-derived-hierarchy-partitions.md) | Share A1/N1 with their first level roots and reuse a sole upper A partition for A2 | Isolated 500k-member A2 duplicate costs 16.8 MB; root alias uses under 1 KB; multi-source union remains independent |
+| [0053](0053-compact-hierarchy-levels.md) | Compact dense A-levels and reuse immutable level/System partition roots during refinement | Isolated 500k-member `set(Vertices)` refinement copy: 35.2 MB peak; shared root: 64 bytes; full hierarchy validity and shared-root tests |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

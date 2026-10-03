@@ -27,9 +27,9 @@ References:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Container
+from collections.abc import Callable, Container, Iterable
 from dataclasses import dataclass, field
-from itertools import pairwise
+from itertools import chain, pairwise
 
 from axiom.graph import empty
 from axiom.hierarchies import Hierarchies
@@ -60,18 +60,28 @@ class Hierarchy:
     graph: Graph
     k: int
     levels: list[System] = field(default_factory=list)
-    A1: set[Vertex] = field(default_factory=set)
-    A2: set[Vertex] = field(default_factory=set)
-    N1: set[Vertex] = field(default_factory=set)
+    A1: set[Vertex] | Vertices = field(default_factory=set)
+    A2: set[Vertex] | Vertices = field(default_factory=set)
+    N1: set[Vertex] | Vertices = field(default_factory=set)
     R1: set[Vertex] | Vertices = field(default_factory=set)
-    A_levels: list[set[Vertex]] = field(default_factory=list)
-    N_levels: list[set[Vertex]] = field(default_factory=list)
+    A_levels: list[set[Vertex] | Vertices] = field(default_factory=list)
+    N_levels: list[set[Vertex] | Vertices] = field(default_factory=list)
     R_levels: list[set[Vertex] | Vertices] = field(default_factory=list)
     L_levels: list[dict[Vertex, list[Vertex]]] = field(default_factory=list)
     deferred_deletions: set[Edge] = field(default_factory=set)
     journal: Hierarchies | None = field(
         default_factory=lambda: None, init=False, repr=False, compare=False
     )
+
+    def __post_init__(self) -> None:
+        """Compact dense A-level rows while retaining sparse set storage."""
+        if self.graph.n == 0:
+            return
+        for index, partition in enumerate(self.A_levels):
+            if type(partition) is set and len(partition) * 4 >= self.graph.n:
+                self.A_levels[index] = Vertices(
+                    self.graph.n, partition, ordered=False
+                )
 
     def __setattr__(self, name: str, value: object) -> None:
         """Keep an active hierarchy transaction handle bound to its owner."""
@@ -562,11 +572,15 @@ def build_hierarchy(
     active_colorer = require(colorer)
     first = build_z_system(graph, level_zs[0])
     system = first
-    hierarchy = Hierarchy(graph=system.graph, k=1, levels=[system])
-    hierarchy.A_levels = [set(system.A)]
-    hierarchy.N_levels = [set(system.B)]
-    hierarchy.R_levels = [system.U.copy()]
-    hierarchy.L_levels = [dict(system.L_lists)]
+    hierarchy = Hierarchy(
+        graph=system.graph,
+        k=1,
+        levels=[system],
+        A_levels=[system.A],
+        N_levels=[system.B],
+        R_levels=[system.U],
+        L_levels=[dict(system.L_lists)],
+    )
     hierarchy.A1 = hierarchy.A_levels[0]
     hierarchy.A2 = set()
     hierarchy.N1 = hierarchy.N_levels[0]
@@ -696,10 +710,9 @@ def refine_hierarchy(
         degree[u] += 1
         degree[v] += 1
 
-    old_a = set(previous.A)
-    old_b = set(previous.B)
+    old_s = previous.A | previous.B
     old_u = previous.U.copy()
-    levels = [set(level) for level in hierarchy.A_levels]
+    levels = list(hierarchy.A_levels)
     # The base construction already removes U-U matching edges.  Keep this
     # defensive normalization for explicitly supplied/custom hierarchies;
     # U vertices have no lower matching-degree requirement.
@@ -708,12 +721,11 @@ def refine_hierarchy(
             chosen.remove(edge)
             degree[edge[0]] -= 1
             degree[edge[1]] -= 1
-    old_s = old_a | old_b
     new_a: set[Vertex] = set()
     new_b: set[Vertex] = set()
-    new_u = old_u.copy()
-    settled = set(old_s)
-    for vertex in sorted(old_b):
+    new_u = old_u
+    settled = old_s
+    for vertex in sorted(previous.B):
         # Step 1 of the paper's construction keeps S and U fixed and
         # partitions the previous B according to the selected matching:
         # vertices whose selected M-neighbours all remain in S become the
@@ -883,24 +895,40 @@ def refine_hierarchy(
         level.restrict(working_edge_set)
         level.index()
 
+    stored_a: set[Vertex] | Vertices = new_a
+    if hierarchy.graph.n and len(new_a) * 4 >= hierarchy.graph.n:
+        stored_a = Vertices(hierarchy.graph.n, new_a, ordered=False)
+    levelvalues = [*levels, stored_a]
+    levelsize = sum(len(partition) for partition in levelvalues)
+    combined_a: set[Vertex] | Vertices
+    if hierarchy.graph.n and levelsize * 8 >= hierarchy.graph.n:
+        combined_a = Vertices(
+            hierarchy.graph.n,
+            chain.from_iterable(levelvalues),
+            ordered=False,
+        )
+    else:
+        combined_a = set().union(*levelvalues)
+
     new_system = System(
         graph=working_graph,
         z=z_prime,
-        A=set().union(*levels, new_a),
+        A=combined_a,
         B=new_b,
         U=new_u,
         M=chosen,
     )
     new_system.index()
 
-    all_a_levels = [*levels, new_a]
-    all_n_levels = [*hierarchy.N_levels, new_b]
-    all_b = set(new_b)
+    all_a_levels = levelvalues
+    all_n_levels = [*hierarchy.N_levels, new_system.B]
+    all_b = new_system.B
     all_u = new_u
     all_r_levels: list[set[Vertex] | Vertices] = [
         (set().union(*all_a_levels[index + 1 :]) | all_b | all_u) - all_n_levels[index]
-        for index in range(len(all_a_levels))
+        for index in range(len(all_a_levels) - 1)
     ]
+    all_r_levels.append(new_system.U)
     inherited_lists = [
         lists(working_graph, vertices, all_r_levels[index])
         for index, vertices in enumerate(all_a_levels)
@@ -916,7 +944,7 @@ def refine_hierarchy(
         deferred_deletions=deferred_deleted,
     )
     next_hierarchy.A1 = next_hierarchy.A_levels[0]
-    upper = (level for level in next_hierarchy.A_levels[1:] if level)
+    upper = (partition for partition in next_hierarchy.A_levels[1:] if partition)
     first = next(upper, None)
     second = next(upper, None)
     if first is None:
@@ -924,11 +952,20 @@ def refine_hierarchy(
     elif second is None:
         next_hierarchy.A2 = first
     else:
-        combined = set(first)
-        combined.update(second)
-        for partition in upper:
-            combined.update(partition)
-        next_hierarchy.A2 = combined
+        upperlevels = [first, second, *upper]
+        upper_size = sum(len(partition) for partition in upperlevels)
+        if hierarchy.graph.n and upper_size * 8 >= hierarchy.graph.n:
+            next_hierarchy.A2 = Vertices(
+                hierarchy.graph.n,
+                chain.from_iterable(upperlevels),
+                ordered=False,
+            )
+        else:
+            combined = set(first)
+            combined.update(second)
+            for partition in upperlevels[2:]:
+                combined.update(partition)
+            next_hierarchy.A2 = combined
     next_hierarchy.N1 = next_hierarchy.N_levels[0]
     next_hierarchy.R1 = next_hierarchy.R_levels[0]
     if not next_hierarchy.check():
@@ -952,7 +989,7 @@ def neighbors(vertex: Vertex, edges: set[Edge]) -> list[Vertex]:
 
 
 def lists(
-    graph: Graph, vertices: set[Vertex], region: Container[Vertex]
+    graph: Graph, vertices: Iterable[Vertex], region: Container[Vertex]
 ) -> dict[Vertex, list[Vertex]]:
     """Index each supplied vertex's sorted neighbors in the requested region."""
     return {
