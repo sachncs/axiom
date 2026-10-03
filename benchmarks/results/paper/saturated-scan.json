@@ -1,0 +1,37 @@
+{
+  "status": "isolated_temporary_allocation_diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "candidate_sources": {
+    "axiom/system.py": "5837b892240116b9ecec457862c0c1a37175dc37330e09d5e295a78aa518ae27",
+    "axiom/core.py": "9f69f47a3c92454ef6980a866510a49efacb5fc19940361bf4a8a989cf2aa6df",
+    "axiom/auxiliary.py": "864ba1bb404f77914e5e2346f03c7e00cbbda7f828ccbd2076efde78e8ba0d2e",
+    "tests/test_system_delta.py": "611bf0dc300db5543391a4292c441c5fbde4fd07e69055886a58ef18a7739237"
+  },
+  "configuration": {
+    "universe_vertices": 1000000,
+    "A_vertices": 500000,
+    "B_vertices": 500000,
+    "U_vertices": 0,
+    "set_construction_outside_tracemalloc": true,
+    "traversal_repeats": 5,
+    "members_yielded_per_repeat": 1000000
+  },
+  "union": {
+    "operation": "System.S (A | B)",
+    "peak_traced_bytes": [50331864, 50331864, 50331864, 50331864, 50331864]
+  },
+  "lazy": {
+    "operation": "sum(1 for vertex in System.saturated())",
+    "peak_traced_bytes": [632, 1432, 632, 664, 664]
+  },
+  "limits": [
+    "This isolates one transient Python set allocation; it does not measure end-to-end Matcher RSS, update latency or retained partition storage.",
+    "A and B remain Python sets; their retained memory is unchanged.",
+    "The public S property remains a set-producing compatibility API.",
+    "Full production durability, million-vertex paper updates and billion-vertex support are not qualified by this probe."
+  ]
+}

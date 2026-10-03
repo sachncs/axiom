@@ -273,7 +273,10 @@ class Auxiliary:
             )
 
         for vertex in self.affected:
-            expected_s_hat = vertex in system.S and vertex not in owner.matched_vertices
+            expected_s_hat = (
+                (vertex in system.A or vertex in system.B)
+                and vertex not in owner.matched_vertices
+            )
             if (vertex in owner.S_hat) != expected_s_hat:
                 return False
 
@@ -371,7 +374,9 @@ class Auxiliary:
             )
         system = owner.system
         expected_s_hat = {
-            vertex for vertex in system.S if vertex not in owner.matched_vertices
+            vertex
+            for vertex in system.saturated()
+            if vertex not in owner.matched_vertices
         }
         if owner.S_hat != expected_s_hat:
             return False

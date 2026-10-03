@@ -123,6 +123,16 @@ class System:
         r"""Return :math:`S = A \cup B`, the set of saturated vertices."""
         return self.A | self.B
 
+    def saturated(self) -> Iterator[Vertex]:
+        r"""Yield saturated vertices without allocating the :math:`A \cup B` set.
+
+        Internal scans use this iterator when they only need traversal. The
+        public ``S`` property remains a set for callers that require membership,
+        mutation, or a detached snapshot.
+        """
+        yield from self.A
+        yield from self.B
+
     @property
     def V(self) -> set[Vertex]:
         """Return the full vertex set of the host graph."""
@@ -178,7 +188,7 @@ class System:
         Complexity:
             :math:`O(n + m)` -- one pass over the adjacency lists.
         """
-        for v in self.S:
+        for v in self.saturated():
             if self.degree(v) != self.z:
                 return False
         for u in self.U:

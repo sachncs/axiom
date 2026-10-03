@@ -355,7 +355,9 @@ class Matcher:
             return
 
         self.S_hat = {
-            vertex for vertex in self.system.S if vertex not in self.matched_vertices
+            vertex
+            for vertex in self.system.saturated()
+            if vertex not in self.matched_vertices
         }
 
         for u in sorted(self.system.U):
@@ -723,7 +725,7 @@ class Matcher:
             matched_in_seed.add(v)
 
         augmented = 0
-        for s in sorted(self.system.S):
+        for s in sorted(self.system.saturated()):
             if s not in matched_in_seed:
                 if augment(
                     self.seed_matching,

@@ -28,6 +28,16 @@ def indexed(backend=Packed):
     return system
 
 
+def test_saturated_partition_scan_does_not_build_union():
+    """Traversal and degree certification must not allocate a temporary set."""
+    system = System(Adjacency(4), 0, A={0, 1}, B={2}, U={3})
+    system.A = Union(system.A)
+    system.B = Union(system.B)
+
+    assert tuple(system.saturated()) == (0, 1, 2)
+    assert system.check_bound()
+
+
 @pytest.mark.parametrize("backend", [Adjacency, Packed])
 @pytest.mark.parametrize("edge", [(0, 3), (1, 2), (3, 4), (0, 1), (0, 2)])
 def test_delta_matches_full_index_and_retains_unaffected_rows(backend, edge):

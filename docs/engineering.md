@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy, maximality, auxiliary-index and System cache-row certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense partitions/counters and hierarchy `R` copies, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local hierarchy/maximality/auxiliary/System-row certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; materialized `A/B` sets, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -220,6 +220,15 @@ unchanged sampled memory. This is one-host diagnostic evidence, not a general
 latency or durability guarantee. Durable paper integration and state-sized
 snapshot/admission work remain open. See [ADR 0049](adrs/0049-local-matching-deletion.md)
 and its [raw record](../benchmarks/results/paper/deletion-cleanup.json).
+
+System traversal paths that only need to visit saturated vertices now use a
+lazy `A`-then-`B` iterator instead of materializing `A | B`. The public `S`
+set property remains unchanged for compatibility. In an isolated one-million-
+member allocation probe, peak temporary traced allocation fell from 50,331,864
+bytes for the union to 632–1,432 bytes for traversal. This measures temporary
+allocation only: retained `A` and `B` are still Python sets, and the probe is
+not end-to-end Matcher RSS or update-rate evidence. See [ADR 0050](adrs/0050-lazy-saturated-partition-scan.md)
+and its [raw record](../benchmarks/results/paper/saturated-scan.json).
 
 ## Implemented foundation, not product qualification
 

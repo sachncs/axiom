@@ -80,7 +80,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deleted edge can become stale in an owner-controlled graph mutation. The same
   8,192-vertex trace rose from 610.30 to 1,103.56 updates/s with the final
   matching certificate unchanged. Memory was unchanged. See [ADR 0049](docs/adrs/0049-local-matching-deletion.md).
-- 1,221 local tests pass after the incremental deletion cleanup regression.
+- 1,222 local tests pass after the incremental partition-traversal regression.
+- Internal saturated-vertex traversals no longer allocate a full `A | B` set;
+  the public set property is preserved. A one-million-member isolated probe
+  measured a 50.3 MB union peak versus at most 1.4 KB during lazy traversal.
+  See [ADR 0050](docs/adrs/0050-lazy-saturated-partition-scan.md).
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references
