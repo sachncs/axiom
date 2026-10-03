@@ -135,6 +135,25 @@ def test_partial_replace_cycles_colors_and_rolls_back_failed_certification(
     } == before
 
 
+def test_partial_coloring_incidence_rows_scale_with_touched_vertices() -> None:
+    graph = Adjacency(100_000)
+    graph.add_edge(10, 11)
+    coloring = Partial(graph, 3)
+
+    assert coloring.incident == {}
+    assert coloring.available(99_999, 0)
+    assert coloring.incident == {}
+
+    coloring.assign((10, 11), 2)
+    assert coloring.incident == {10: {2}, 11: {2}}
+    coloring.validate()
+
+    coloring.unassign((10, 11))
+    assert coloring.incident == {}
+    coloring.reindex()
+    coloring.validate()
+
+
 def test_pruning_restores_every_index_after_a_later_collision_failure() -> None:
     coloring, pending = Cases.collisions(3)
     graph = coloring.graph

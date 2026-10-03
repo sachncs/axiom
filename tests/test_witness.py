@@ -216,5 +216,5 @@ def test_fan_and_coloring_redundant_indexes_are_included():
     assert witness.capture((coloring, fans)) != before
     fans.types[fan.type].add(fan)
     assert witness.capture((coloring, fans)) == before
-    coloring.incident[0].add(1)
+    coloring.incident[0] = {1}
     assert witness.capture((coloring, fans)) != before

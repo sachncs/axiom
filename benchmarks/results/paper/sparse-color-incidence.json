@@ -1,0 +1,46 @@
+{
+  "status": "isolated paper projection storage diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "configuration": {
+    "vertices": 1000000,
+    "source_edges": 2,
+    "colored_edges": 2,
+    "palette": 2,
+    "repeats": 1,
+    "measurement": "tracemalloc peak and elapsed time; graph prepared before tracing"
+  },
+  "baseline": {
+    "commit": "5bd55ab",
+    "scenario": "construct source Partial, assign two disjoint colors, then Extension.project",
+    "elapsed_seconds": 5.224,
+    "peak_bytes": 878257592,
+    "source_incident_rows": 1000000,
+    "projected_degree_rows": 1000000
+  },
+  "candidate": {
+    "source": "axiom/paper_coloring.py",
+    "source_sha256": "6a3263fa67b9030ed9eeda202690e9fb2f6ade2db9b957878bfd11df8f5fba59",
+    "test_sha256": "e6b87d905f42a0a3f5e5bb1306dc6a6fcbfb02634abd19688e028fca5ec49084",
+    "scenario": "same graph and operation with sparse incidence and endpoint-only degree counts",
+    "elapsed_seconds": 1.0287,
+    "peak_bytes": 224457760,
+    "source_incident_rows": 4,
+    "child_incident_rows": 4,
+    "projected_degree_rows": 4
+  },
+  "partial_constructor_sample": {
+    "vertices": 1000000,
+    "incident_rows": 0,
+    "elapsed_seconds": 0.000012,
+    "peak_bytes": 656
+  },
+  "limits": [
+    "One host, one sample, tracemalloc-instrumented; timing is diagnostic only.",
+    "The projected child still uses reference Adjacency, allocating an empty row for each vertex.",
+    "This is not end-to-end Matcher throughput, process RSS, durability, or billion-vertex qualification."
+  ]
+}

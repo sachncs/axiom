@@ -67,6 +67,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0058](0058-reuse-level-one-system-build.md) | Clone the retained level-one System into the hierarchy instead of running the full level-one builder twice | Isolated 8,192-vertex System stage improved 35%; 512-vertex full hierarchy was within noise, so no end-to-end speed claim |
 | [0059](0059-local-paper-coloring-transactions.md) | Update Vizing/fan coloring indexes by touched edges with immediate local certificates and exact rollback | Profiled hierarchy call count/time fell on deterministic probes; full fan/coloring audits remain at boundaries; broader qualification open |
 | [0060](0060-avoid-rematch-partition-copies.md) | Check A-partition membership directly during rematching instead of copying the full basic partition or multilevel union | 500k-member isolated copy: 35.2 MB/0.162 s; 100k direct lookups: 1.1 KB/0.021 s; paper-engine qualification remains open |
+| [0061](0061-sparse-paper-color-incidence.md) | Retain coloring-index rows only for colored endpoints and count projected degree only at scoped endpoints | Million-vertex/two-edge projection peak: 878.3→224.5 MB; residual is primarily reference Adjacency child rows; end-to-end qualification remains open |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

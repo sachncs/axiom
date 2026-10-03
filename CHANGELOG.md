@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   regressions prove neither path iterates those roots; an isolated 500k-member
   copy used 35.2 MB versus 1.1 KB for 100k direct checks. This is not end-to-end
   paper performance evidence. See [ADR 0060](docs/adrs/0060-avoid-rematch-partition-copies.md).
+- Paper coloring incidence indexes and recursive projection degree counts now
+  allocate rows only for touched endpoints. A million-vertex/two-edge projection
+  diagnostic fell from 878.3 MB/5.22 s to 224.5 MB/1.03 s traced peak/time; the
+  residual is primarily the O(n) Python `Adjacency` child graph, and this is not
+  end-to-end qualification. See [ADR 0061](docs/adrs/0061-sparse-paper-color-incidence.md)
+  and its [raw record](benchmarks/results/paper/sparse-color-incidence.json).
 
 - Matcher update transactions now contain no recursive `deepcopy`: shallow root
   references combine with bounded undo for indexes and phase-clock cells. Failure

@@ -40,6 +40,14 @@ instead of constructing a Python set copy or union for each repair. The isolated
 for 100k direct membership checks. End-to-end paper update qualification remains
 open; see [ADR 0060](adrs/0060-avoid-rematch-partition-copies.md).
 
+Paper coloring now stores incidence sets only for endpoints with colored edges;
+isolated vertices no longer allocate empty color sets during construction,
+reindex, or full validation. The million-vertex/two-edge projection probe fell
+from 878.3 MB to 224.5 MB peak traced allocation. The remaining footprint is
+primarily the copied reference `Adjacency` vertex rows, so this is substantial
+but incomplete storage work. See [ADR 0061](adrs/0061-sparse-paper-color-incidence.md)
+and the [raw measurement](../benchmarks/results/paper/sparse-color-incidence.json).
+
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),
 [hub](../benchmarks/results/independent/hub-steady-million.json),

@@ -192,22 +192,18 @@ class Partial:
         self.graph = graph
         self.palette = palette
         self.assignments: dict[Edge, Color] = {}
-        self.incident: dict[Vertex, set[Color]] = {
-            vertex: set() for vertex in range(graph.n)
-        }
+        self.incident: dict[Vertex, set[Color]] = {}
         self.index: dict[tuple[Vertex, Color], Edge] = {}
 
     def reindex(self) -> None:
-        """Rebuild the per-vertex color index after an atomic bulk edit."""
-        incident: dict[Vertex, set[Color]] = {
-            vertex: set() for vertex in range(self.graph.n)
-        }
+        """Rebuild sparse per-vertex color rows after an atomic bulk edit."""
+        incident: dict[Vertex, set[Color]] = {}
         edgebycolor: dict[tuple[Vertex, Color], Edge] = {}
         for (left, right), color in self.assignments.items():
             if (left, color) in edgebycolor or (right, color) in edgebycolor:
                 raise AssertionError("partial coloring has duplicate incident colors")
-            incident[left].add(color)
-            incident[right].add(color)
+            incident.setdefault(left, set()).add(color)
+            incident.setdefault(right, set()).add(color)
             edgebycolor[(left, color)] = (left, right)
             edgebycolor[(right, color)] = (left, right)
         self.incident = incident
@@ -226,14 +222,14 @@ class Partial:
                 if any(
                     self.index.get((vertex, used)) == edge
                     for vertex in edge
-                    for used in self.incident[vertex]
+                    for used in self.incident.get(vertex, ())
                 ):
                     raise AssertionError("uncolored edge remains in the local index")
                 continue
             if (
                 not self.graph.has_edge(*edge)
                 or not 0 <= color < self.palette
-                or any(color not in self.incident[vertex] for vertex in edge)
+                or any(color not in self.incident.get(vertex, ()) for vertex in edge)
                 or any(self.index.get((vertex, color)) != edge for vertex in edge)
             ):
                 raise AssertionError(
@@ -250,7 +246,7 @@ class Partial:
                 if color in expected:
                     raise AssertionError(f"improper coloring at vertex {vertex}")
                 expected[color] = edge
-            if set(expected) != self.incident[vertex] or any(
+            if set(expected) != self.incident.get(vertex, set()) or any(
                 self.index.get((vertex, color)) != edge
                 for color, edge in expected.items()
             ):
@@ -281,7 +277,7 @@ class Partial:
                 continue
             if (
                 any(self.index.get((vertex, old)) != edge for vertex in edge)
-                or any(old not in self.incident[vertex] for vertex in edge)
+                or any(old not in self.incident.get(vertex, ()) for vertex in edge)
             ):
                 raise RuntimeError("partial-coloring old index is inconsistent")
             for vertex in edge:
@@ -300,7 +296,7 @@ class Partial:
             for vertex in edge:
                 colors = proposed.setdefault(vertex, set())
                 if color in colors or (
-                    color in self.incident[vertex]
+                    color in self.incident.get(vertex, ())
                     and color not in released.get(vertex, set())
                 ):
                     raise ValueError(f"replacement would conflict at vertex {vertex}")
@@ -325,7 +321,10 @@ class Partial:
                 for vertex in edge:
                     key = vertex, old
                     self.index.pop(key)
-                    self.incident[vertex].remove(old)
+                    colors = self.incident[vertex]
+                    colors.remove(old)
+                    if not colors:
+                        self.incident.pop(vertex)
 
             for edge, color in normalized.items():
                 if color is None:
@@ -333,7 +332,7 @@ class Partial:
                 self.assignments[edge] = color
                 for vertex in edge:
                     key = vertex, color
-                    self.incident[vertex].add(color)
+                    self.incident.setdefault(vertex, set()).add(color)
                     self.index[key] = edge
             self.certify(normalized)
         except BaseException:
@@ -344,13 +343,17 @@ class Partial:
                 if owner in affected:
                     self.index.pop((vertex, color))
                 if (vertex, color) not in self.index:
-                    self.incident[vertex].discard(color)
+                    row = self.incident.get(vertex)
+                    if row is not None:
+                        row.discard(color)
+                        if not row:
+                            self.incident.pop(vertex)
             for edge, color in before.items():
                 if color is None:
                     continue
                 self.assignments[edge] = color
                 for vertex in edge:
-                    self.incident[vertex].add(color)
+                    self.incident.setdefault(vertex, set()).add(color)
                     self.index[(vertex, color)] = edge
             raise
 
@@ -383,8 +386,9 @@ class Partial:
 
     def missing(self, vertex: Vertex) -> list[Color]:
         """Return the vertex's missing palette colors in ascending order."""
+        used = self.incident.get(vertex, ())
         return [
-            color for color in range(self.palette) if color not in self.incident[vertex]
+            color for color in range(self.palette) if color not in used
         ]
 
     def available(self, vertex: Vertex, color: Color) -> bool:
@@ -395,30 +399,31 @@ class Partial:
             or not 0 <= color < self.palette
         ):
             return False
-        return color not in self.incident[vertex]
+        return color not in self.incident.get(vertex, ())
 
     def vacancy(self, vertex: Vertex) -> Color:
         """Return the smallest available color, or fail explicitly."""
+        used = self.incident.get(vertex, ())
         for color in range(self.palette):
-            if color not in self.incident[vertex]:
+            if color not in used:
                 return color
         raise RuntimeError(f"vertex {vertex} has no missing color")
 
     def validate(self) -> None:
         """Validate that every stored edge color is proper and in range."""
-        seen: dict[Vertex, set[Color]] = {
-            vertex: set() for vertex in range(self.graph.n)
-        }
+        seen: dict[Vertex, set[Color]] = {}
         for edge, color in self.assignments.items():
             if not self.graph.has_edge(*edge):
                 raise AssertionError(f"colored edge is outside graph: {edge}")
             if not 0 <= color < self.palette:
                 raise AssertionError(f"color is outside palette: {edge}={color}")
             left, right = edge
-            if color in seen[left] or color in seen[right]:
+            leftcolors = seen.setdefault(left, set())
+            rightcolors = seen.setdefault(right, set())
+            if color in leftcolors or color in rightcolors:
                 raise AssertionError(f"improper coloring at edge {edge}")
-            seen[left].add(color)
-            seen[right].add(color)
+            leftcolors.add(color)
+            rightcolors.add(color)
         if seen != self.incident:
             raise AssertionError("partial-coloring incident-color index is stale")
         rebuiltedges: dict[tuple[Vertex, Color], Edge] = {}
@@ -448,8 +453,8 @@ class Partial:
         if color not in self.missing(edge[0]) or color not in self.missing(edge[1]):
             raise ValueError(f"color {color} is unavailable on edge {edge}")
         self.assignments[edge] = color
-        self.incident[edge[0]].add(color)
-        self.incident[edge[1]].add(color)
+        self.incident.setdefault(edge[0], set()).add(color)
+        self.incident.setdefault(edge[1], set()).add(color)
         self.index[(edge[0], color)] = edge
         self.index[(edge[1], color)] = edge
 
@@ -473,8 +478,11 @@ class Partial:
             old = self.assignments.pop(edge)
         except KeyError as error:
             raise ValueError(f"edge is not colored: {edge}") from error
-        self.incident[edge[0]].remove(old)
-        self.incident[edge[1]].remove(old)
+        for vertex in edge:
+            colors = self.incident[vertex]
+            colors.remove(old)
+            if not colors:
+                self.incident.pop(vertex)
         self.index.pop((edge[0], old), None)
         self.index.pop((edge[1], old), None)
         return old
@@ -2440,10 +2448,10 @@ class Extension:
         selectedfans = [fan for fan in fans if fan.type <= colorgroup]
         for fan in selectedfans:
             edgescope.update(fan.edges)
-        degree: dict[Vertex, int] = {vertex: 0 for vertex in range(coloring.graph.n)}
+        degree: dict[Vertex, int] = {}
         for left, right in edgescope:
-            degree[left] += 1
-            degree[right] += 1
+            degree[left] = degree.get(left, 0) + 1
+            degree[right] = degree.get(right, 0) + 1
         maximumdegree = max(degree.values(), default=0)
         if maximumdegree > len(ordered):
             raise RuntimeError(
