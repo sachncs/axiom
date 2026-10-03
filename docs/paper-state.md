@@ -32,7 +32,10 @@ this operation-level result does not qualify the paper matcher end to end.
 Single-fan replacement now preallocates its local type, assignment, and
 incidence entries before removing the old value. Injected mid-reservation
 failure restores exact roots and entries. A failure spanning multiple fan
-updates in `Fans.flip()` still needs one aggregate transaction.
+updates in `Fans.flip()` now uses a path-endpoint-sized reverse journal; an
+injected second-endpoint failure restores exact coloring/fan Witness state.
+Rollback failure remains fail-stop, and Matcher-wide durable integration is not
+implemented.
 
 The oracle includes every instance field of the supported records. Unknown
 types and unexpected instance fields reject rather than disappear. Default

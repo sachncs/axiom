@@ -692,20 +692,74 @@ class Fans:
         beta: Color,
         gamma: Color,
     ) -> None:
-        """Flip a path and repair fan assignments at both path endpoints."""
-        coloring.flip(path, beta, gamma)
+        """Flip coloring and endpoint fans as one local rollback unit."""
         if not path:
+            coloring.flip(path, beta, gamma)
             return
-        for endpoint in {path[0], path[-1]}:
-            for fan in self.at(endpoint):
-                assigned = fan.color(endpoint)
-                if assigned not in {beta, gamma}:
-                    continue
-                self.update(
-                    fan,
-                    endpoint,
-                    gamma if assigned == beta else beta,
-                )
+        endpoints = (path[0],) if path[0] == path[-1] else (path[0], path[-1])
+        affected = sum(len(self.at(endpoint)) for endpoint in endpoints)
+        oldfans: list[Fan | None] = [None] * affected
+        newfans: list[Fan | None] = [None] * affected
+        vertices = [0] * affected
+        oldcolors = [0] * affected
+        position = 0
+        colorchanged = False
+        inversepath = list(reversed(path)) if len(path) > 1 else []
+        if inversepath:
+            lastedge = canonical(path[-2], path[-1])
+            oldlast = coloring.assignments.get(lastedge)
+            if oldlast not in {beta, gamma}:
+                raise RuntimeError("path endpoint color is inconsistent")
+            inversebeta = oldlast
+            inversegamma = beta if oldlast == gamma else gamma
+        else:
+            inversebeta = beta
+            inversegamma = gamma
+
+        try:
+            coloring.flip(path, beta, gamma)
+            colorchanged = bool(inversepath)
+            for endpoint in endpoints:
+                for fan in self.at(endpoint):
+                    assigned = fan.color(endpoint)
+                    if assigned not in {beta, gamma}:
+                        continue
+                    replacementcolor = gamma if assigned == beta else beta
+                    replacement = self.update(fan, endpoint, replacementcolor)
+                    if replacement is None:
+                        if fan not in self.members:
+                            oldfans[position] = fan
+                            vertices[position] = endpoint
+                            oldcolors[position] = assigned
+                            position += 1
+                    elif replacement != fan:
+                        oldfans[position] = fan
+                        newfans[position] = replacement
+                        vertices[position] = endpoint
+                        oldcolors[position] = assigned
+                        position += 1
+        except BaseException:
+            try:
+                for index in range(position - 1, -1, -1):
+                    original = oldfans[index]
+                    replacement = newfans[index]
+                    if original is None:
+                        raise RuntimeError("fan rollback record is missing")
+                    if replacement is None:
+                        self.add(original)
+                    else:
+                        restored = self.update(
+                            replacement, vertices[index], oldcolors[index]
+                        )
+                        if restored != original:
+                            raise RuntimeError("fan rollback did not restore its value")
+                if colorchanged:
+                    coloring.flip(inversepath, inversebeta, inversegamma)
+            except BaseException as failure:
+                raise RuntimeError(
+                    "fan/color flip rollback failed; discard paper state"
+                ) from failure
+            raise
 
     def find(self, vertex: Vertex, color: Color) -> Fan | None:
         """Return the fan assigning this color at the vertex, or None."""

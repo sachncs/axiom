@@ -261,6 +261,42 @@ def test_fan_update_drops_replacement_on_separability_collision() -> None:
     fans.validate()
 
 
+def test_fan_flip_rolls_back_coloring_and_prior_endpoint_updates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(6)
+    for edge in ((0, 1), (0, 2), (0, 3), (1, 4), (1, 5)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 1)
+    fans = Fans()
+    fans.add(Fan(0, 2, 3, 0, 1, 1))
+    fans.add(Fan(1, 4, 5, 0, 2, 2))
+    fans.compatible(coloring)
+    before = Witness().capture((coloring, fans))
+    update = Fans.update
+    calls = 0
+
+    def fail_on_second_update(
+        collection: Fans, fan: Fan, vertex: int, color: int
+    ) -> Fan | None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("injected second-endpoint update failure")
+        return update(collection, fan, vertex, color)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(Fans, "update", fail_on_second_update)
+        with pytest.raises(RuntimeError, match="second-endpoint update failure"):
+            fans.flip(coloring, [0, 1], 0, 1)
+
+    assert Witness().capture((coloring, fans)) == before
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 @pytest.mark.parametrize("size", [0, 1, 2, 5, 12, 33])
 @pytest.mark.parametrize("family", ["path", "cycle", "star", "clique", "bipartite"])
 def test_paper_certifies_graph_families(size: int, family: str) -> None:
