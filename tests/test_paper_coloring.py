@@ -681,6 +681,73 @@ def test_fan_repair_checks_only_fans_at_changed_vertices() -> None:
     fans.validate()
 
 
+def test_fan_local_certificate_detects_corrupt_touched_assignment() -> None:
+    fans = Fans()
+    fan = Fan(0, 1, 2, 0, 1, 1)
+    fans.add(fan)
+    fans.assignments[(0, 0)] = Fan(3, 4, 5, 2, 3, 3)
+
+    with pytest.raises(AssertionError, match="u-fan index certificate"):
+        fans.certify((0,))
+
+
+def test_pruning_blocked_mapping_combines_fan_and_active_center_colors() -> None:
+    fans = Fans()
+    fan = Fan(0, 1, 2, 0, 1, 1)
+    fans.add(fan)
+
+    blocked = Pruning.blocked(fans, (Spoke((3, 4), 2),))
+
+    assert blocked[0] == {0}
+    assert blocked[1] == {1}
+    assert blocked[2] == {1}
+    assert blocked[3] == {2}
+    assert dict(blocked) == {0: {0}, 1: {1}, 2: {1}, 3: {2}}
+
+
+def test_pruning_reduce_uses_local_audits_between_full_boundaries() -> None:
+    class CountedFans(Fans):
+        def __init__(self) -> None:
+            super().__init__()
+            self.iterations = 0
+            self.validations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return super().__iter__()
+
+        def validate(self) -> None:
+            self.validations += 1
+            super().validate()
+
+    fan_count = 24
+    update_count = 8
+    edge_start = 3 * fan_count
+    graph = Adjacency(edge_start + 2 * update_count)
+    fans = CountedFans()
+    for index in range(fan_count):
+        center = 3 * index
+        graph.add_edge(center, center + 1)
+        graph.add_edge(center, center + 2)
+        fans.add(Fan(center, center + 1, center + 2, 0, 1, 1))
+    uedges = []
+    for index in range(update_count):
+        edge = (edge_start + 2 * index, edge_start + 2 * index + 1)
+        graph.add_edge(*edge)
+        uedges.append(Spoke(edge, 0))
+    coloring = Partial(graph, 3)
+
+    extended = Pruning.reduce(coloring, fans, tuple(uedges))
+
+    assert extended == update_count
+    assert all(item.edge in coloring for item in uedges)
+    assert fans.iterations == 2
+    assert fans.validations == 2
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_color_small_activates_deterministic_common_type() -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)

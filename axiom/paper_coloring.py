@@ -971,6 +971,33 @@ class Fans:
         if rebuilttypes != self.types:
             raise AssertionError("u-fan type index is stale")
 
+    def certify(self, vertices: Iterable[Vertex]) -> None:
+        """Audit fan indexes at vertices in a proven mutation region."""
+        for vertex in set(vertices):
+            members = self.vertices.get(vertex, set())
+            colors = self.assigned.get(vertex, set())
+            if len(members) != len(colors):
+                raise AssertionError(f"u-fan vertex index is stale at {vertex}")
+            seen: set[Color] = set()
+            for fan in members:
+                color = fan.color(vertex)
+                if (
+                    fan not in self.members
+                    or fan not in self.types.get(fan.type, ())
+                    or color in seen
+                    or color not in colors
+                    or self.assignments.get((vertex, color)) != fan
+                    or any(edge not in self.spokes for edge in fan.edges)
+                ):
+                    raise AssertionError(f"u-fan index certificate failed at {vertex}")
+                seen.add(color)
+            if seen != colors:
+                raise AssertionError(f"u-fan color row is stale at {vertex}")
+            for color in colors:
+                owner = self.assignments.get((vertex, color))
+                if owner not in members or owner.color(vertex) != color:
+                    raise AssertionError(f"u-fan assignment is stale at {vertex}")
+
     def compatible(
         self, coloring: Partial, vertices: Iterable[Vertex] | None = None
     ) -> None:
@@ -1033,6 +1060,36 @@ class Fans:
         return len(damaged)
 
 
+class BlockedColors(Mapping[Vertex, set[Color]]):
+    """Read fan and active-u-edge blocked colors without a whole-fan copy."""
+
+    def __init__(self, fans: Fans, centers: Mapping[Vertex, set[Color]]) -> None:
+        """Retain the fan color index and the active-center delta map."""
+        self.fans = fans
+        self.centers = centers
+
+    def __getitem__(self, vertex: Vertex) -> set[Color]:
+        """Return blocked colors at one vertex, or raise when none are indexed."""
+        fancolors = self.fans.assigned.get(vertex)
+        centercolors = self.centers.get(vertex)
+        if fancolors is None and centercolors is None:
+            raise KeyError(vertex)
+        return set(fancolors or ()) | set(centercolors or ())
+
+    def __iter__(self) -> Iterator[Vertex]:
+        """Iterate the union of fan-index and active-center vertices."""
+        yield from self.fans.assigned
+        yield from (
+            vertex for vertex in self.centers if vertex not in self.fans.assigned
+        )
+
+    def __len__(self) -> int:
+        """Return the number of distinct vertices with blocked colors."""
+        return len(self.fans.assigned) + sum(
+            vertex not in self.fans.assigned for vertex in self.centers
+        )
+
+
 class Vizing:
     """Deterministic paper vizing strategy."""
 
@@ -1043,6 +1100,7 @@ class Vizing:
         center: Vertex,
         first: Vertex,
         blocked: Mapping[Vertex, set[Color]] | None = None,
+        fans: Fans | None = None,
     ) -> tuple[list[Vertex], list[Color]]:
         """Construct the paper's deterministic ``VizingF`` sequence."""
         leaves = [first]
@@ -1051,7 +1109,9 @@ class Vizing:
             """Return the first missing color outside the blocked fan assignments."""
             unavailable = set() if blocked is None else blocked.get(vertex, set())
             for color in coloring.missing(vertex):
-                if color not in unavailable:
+                if color not in unavailable and (
+                    fans is None or color not in fans.assigned.get(vertex, ())
+                ):
                     return color
             raise RuntimeError(
                 f"U-avoiding Vizing fan has no available leaf color: vertex={vertex}"
@@ -1085,9 +1145,12 @@ class Vizing:
         coloring: Partial,
         spoke: Spoke,
         blocked: Mapping[Vertex, set[Color]] | None = None,
+        fans: Fans | None = None,
     ) -> Chain:
         """Build the paper's Vizing fan and its maximal chain for one u-edge."""
-        leaves, colors = cls.fan(coloring, spoke.center, spoke.leaf, blocked)
+        leaves, colors = cls.fan(
+            coloring, spoke.center, spoke.leaf, blocked, fans
+        )
         leavestuple = tuple(leaves)
         colorstuple = tuple(colors)
         terminal = colorstuple[-1]
@@ -1486,15 +1549,14 @@ class Pruning:
         )
 
     @classmethod
-    def blocked(cls, fans: Fans, uedges: tuple[Spoke, ...]) -> dict[Vertex, set[Color]]:
-        """Build the ``C_U`` blocked-color index for a pruning pass."""
+    def blocked(
+        cls, fans: Fans, uedges: tuple[Spoke, ...]
+    ) -> BlockedColors:
+        """Read fan colors lazily and index only active u-edge centers."""
         blocked: dict[Vertex, set[Color]] = {}
-        for fan in fans:
-            for vertex in fan.vertices:
-                blocked.setdefault(vertex, set()).add(fan.color(vertex))
         for item in uedges:
             blocked.setdefault(item.center, set()).add(item.alpha)
-        return blocked
+        return BlockedColors(fans, blocked)
 
     @classmethod
     def prune(
@@ -1629,6 +1691,9 @@ class Pruning:
         Collision resolution is transactional and never substitutes a different
         coloring algorithm when its paper preconditions are not met.
         """
+        coloring.validate()
+        fans.validate()
+        fans.compatible(coloring)
         extended = 0
         active = cls.renew(coloring, uedges)
         while active:
@@ -1643,12 +1708,17 @@ class Pruning:
             alpha = min(item.alpha for item in active)
             group = tuple(item for item in active if item.alpha == alpha)
             blocked = cls.blocked(fans, group)
-            chains = tuple(cls.vizing.build(coloring, item, blocked) for item in group)
+            chains = tuple(
+                cls.vizing.build(coloring, item, blocked) for item in group
+            )
             event = cls.vizing.explore(chains)
             if event.terminal is not None:
                 selectedchains: tuple[Chain, ...] = (event.terminal,)
             elif event.collision is not None:
-                resolved, added = cls.vizing.resolve(coloring, fans, event.collision)
+                collisionchains = event.collision
+                resolved, added = cls.vizing.resolve(
+                    coloring, fans, collisionchains
+                )
                 if resolved:
                     active = [
                         item
@@ -1656,10 +1726,23 @@ class Pruning:
                         if item not in {chain.spoke for chain in event.collision}
                     ]
                     extended += added
-                    fans.repair(coloring)
-                    coloring.validate()
-                    fans.validate()
-                    fans.compatible(coloring)
+                    collisionedges = {
+                        edge
+                        for chain in collisionchains
+                        for edge in chain.edges
+                    }
+                    for chain in collisionchains:
+                        collisionedges.update(
+                            canonical(chain.spoke.center, leaf)
+                            for leaf in chain.leaves
+                        )
+                    changedvertices = {
+                        vertex for edge in collisionedges for vertex in edge
+                    }
+                    fans.repair(coloring, changedvertices)
+                    coloring.certify(collisionedges)
+                    fans.certify(changedvertices)
+                    fans.compatible(coloring, changedvertices)
                     continue
                 raise RuntimeError(
                     "ReduceUEdges could not apply the paper chain-collision "
@@ -1667,17 +1750,28 @@ class Pruning:
                 )
             else:
                 raise RuntimeError("chain exploration returned an empty event")
+            changededges: set[Edge] = set()
             for chain in selectedchains:
                 item = chain.spoke
                 if item not in active or item.edge in coloring:
                     continue
                 cls.vizing.activate(coloring, chain)
+                changededges.update(chain.edges)
+                changededges.update(
+                    canonical(chain.spoke.center, leaf) for leaf in chain.leaves
+                )
                 active.remove(item)
                 extended += 1
-            fans.repair(coloring)
-            coloring.validate()
-            fans.validate()
-            fans.compatible(coloring)
+            changedvertices = {
+                vertex for edge in changededges for vertex in edge
+            }
+            fans.repair(coloring, changedvertices)
+            coloring.certify(changededges)
+            fans.certify(changedvertices)
+            fans.compatible(coloring, changedvertices)
+        coloring.validate()
+        fans.validate()
+        fans.compatible(coloring)
         return extended
 
     @classmethod

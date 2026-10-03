@@ -1,0 +1,20 @@
+{
+  "benchmark": "pruning-local-certificates",
+  "date": "2026-10-03",
+  "baseline_revision": "892ae41",
+  "candidate_revision": "working-tree-after-892ae41",
+  "python": "3.14.8",
+  "fixture": {
+    "unrelated_fans": 4000,
+    "active_edges": 100,
+    "vertices": 12208,
+    "graph_edges": 8100,
+    "operation": "Pruning.reduce over 100 independent isolated uncolored edges"
+  },
+  "measurement": "Pruning.reduce elapsed time only; graph, fans, and u-edge sequence constructed before timing; gc.collect before each timed call; alternating baseline/candidate order; no tracemalloc",
+  "certificate": "all 100 edges extended; coloring and full fan-index/compatibility checks succeeded after every run",
+  "baseline_seconds": [2.7149103749979986, 2.719632541993633, 2.7398165830090875, 2.729919666002388, 2.759387166996021],
+  "candidate_seconds": [0.04779287500423379, 0.047998041001847014, 0.04822416701063048, 0.04813620800268836, 0.04794041700370144],
+  "median_seconds": {"baseline": 2.729919666002388, "candidate": 0.047998041001847014, "speedup": 56.876},
+  "limitations": "Single-host synthetic disconnected workload, five repeats; no memory-peak measurement; not connected/skewed graph or end-to-end Matcher qualification."
+}
