@@ -63,7 +63,17 @@ class Outcome:
     version: int
 
 
+@dataclass(frozen=True)
+class ReadSnapshot:
+    """Aligned immutable answers observed at one committed graph version."""
+
+    version: int
+    partners: tuple[int | None, ...]
+    has_edges: tuple[bool, ...]
+
+
 _MAX = (1 << 63) - 1
+MAX_READS = 4096
 _FORMAT = "axiom-native-sqlite-replay-v1"
 _CHECKPOINT_FORMAT = "axiom-native-sqlite-checkpoint-v2"
 _BACKEND = "incremental-minimum-free-neighbor-v1"
@@ -1053,6 +1063,42 @@ class Durable:
         """Read committed topology and its matching-compatible version."""
         with self._exclusive():
             return self._engine.version, self._engine.has_edge(u, v)
+
+    def read_snapshot(
+        self,
+        vertices: Sequence[int],
+        edges: Sequence[tuple[int, int]],
+        *,
+        expected_version: int | None = None,
+    ) -> ReadSnapshot:
+        """Read bounded partner and edge queries at one committed version.
+
+        At most 4096 total queries are accepted. A supplied expected version is
+        a stale-read guard, not a request for historical state. The immutable
+        result preserves duplicates and input ordering in both answer tuples.
+        """
+        if type(vertices) not in (list, tuple) or type(edges) not in (list, tuple):
+            raise ValueError("vertices and edges must be lists or tuples")
+        if len(vertices) + len(edges) > MAX_READS:
+            raise CapacityError("read snapshot exceeds 4096 total queries")
+        if expected_version is not None:
+            _integer(expected_version, 0, _MAX, "expected_version")
+        for vertex in vertices:
+            _integer(vertex, 0, self._engine.n - 1, "vertex")
+        canonical_edges: list[tuple[int, int]] = []
+        for edge in edges:
+            if type(edge) not in (list, tuple) or len(edge) != 2:
+                raise ValueError("each edge query must be a pair")
+            u = _integer(edge[0], 0, self._engine.n - 1, "u")
+            v = _integer(edge[1], 0, self._engine.n - 1, "v")
+            canonical_edges.append((u, v))
+        with self._exclusive():
+            version = self._engine.version
+            if expected_version is not None and expected_version != version:
+                raise RuntimeError("stale read snapshot version")
+            partners = tuple(self._engine.partner(vertex) for vertex in vertices)
+            has_edges = tuple(self._engine.has_edge(u, v) for u, v in canonical_edges)
+            return ReadSnapshot(version, partners, has_edges)
 
     def check(self) -> bool:
         """Run an explicit full native audit, not an ordinary-update scan."""

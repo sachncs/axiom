@@ -9,7 +9,7 @@ const items = [
   ["Not done", "Durable external vertex IDs", "Public graph labels are dense integers. Persistent UUID/string mapping and lifecycle semantics are absent."],
   ["Not done", "Dynamic vertex lifecycle", "The vertex universe is fixed at construction; durable add/remove semantics are absent."],
   ["Partial", "Atomic batch updates", "Native Service has a bounded atomic submit_batch API with exact retry and rollback tests. Installed-release and workload qualification remain."],
-  ["Not done", "Atomic multi-query read snapshots", "Individual reads are versioned, but there is no multi-query snapshot API yet."],
+  ["Implemented, bounded", "Atomic multi-query read snapshots", "Service.read_snapshot returns immutable partner and edge-membership answers under one committed version with a 4096-query cap, stale-version rejection and serialized owner execution. This is not long-lived MVCC or historical topology retention."],
   ["Not done", "First-class bipartite API", "No typed partitions or same-side edge rejection contract exists."],
   ["Not done", "Event subscriptions", "Versioned change delivery, bounded subscriber queues and backpressure semantics are absent."],
   ["Partial", "Observability", "Service admission/group counters and benchmark histograms exist. Stable metrics/exporter, storage/recovery health and alert contracts remain."],
@@ -22,7 +22,7 @@ const items = [
 ] as const;
 ---
 <DocLayout title="Product roadmap" eyebrow="17 requirements · evidence first" description="A requirement-by-requirement view of what exists, what is only partially qualified, and what still needs engineering." next={{ label: "Read research status", href: "/research/" }}>
-  <div class="doc-callout"><p><strong>Current boundary:</strong> durable production uses the native matching engine. Paper <code>basic</code> and <code>multilevel</code> are research modes and are not durable or production-qualified. The 10k/s result is not yet a sustained qualification. Hardware power-loss and billion-vertex qualification are explicitly deferred/unsupported.</p></div>
+  <div class="doc-callout"><p><strong>Current boundary:</strong> durable production uses the native matching engine. Paper <code>basic</code> and <code>multilevel</code> are research modes and are not durable or production-qualified. The 10k-offer profile remains below target; a 12k-offer, 60-second source-checkout run exceeded 10k delivered updates/s but had 5.4% producer misses and is not a full production qualification. Hardware power-loss and billion-vertex qualification are explicitly deferred/unsupported.</p></div>
   <p>“Partial” means only the evidence stated exists; it does not imply the full requirement is met. Native engine results do not qualify paper modes.</p>
   <table class="doc-table">
     <thead><tr><th>#</th><th>Status</th><th>Requirement</th><th>Evidence and remaining work</th></tr></thead>

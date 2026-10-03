@@ -16,9 +16,11 @@ from pathlib import Path
 from typing import Generic, TypeVar, cast
 
 from axiom.durable import (
+    MAX_READS,
     BusyError,
     Durable,
     Outcome,
+    ReadSnapshot,
     Request,
     UnavailableError,
 )
@@ -415,6 +417,37 @@ class Service:
         _integer(u, 0, self._vertices - 1, "u")
         _integer(v, 0, self._vertices - 1, "v")
         return self._read(lambda owner: owner.has_edge(u, v))
+
+    def read_snapshot(
+        self,
+        vertices: Sequence[int],
+        edges: Sequence[tuple[int, int]],
+        *,
+        expected_version: int | None = None,
+    ) -> Receipt[ReadSnapshot]:
+        """Queue aligned partner/edge reads as one serialized owner operation."""
+        if type(vertices) not in (list, tuple) or type(edges) not in (list, tuple):
+            raise ValueError("vertices and edges must be lists or tuples")
+        if len(vertices) + len(edges) > MAX_READS:
+            raise ValueError("read snapshot exceeds 4096 total queries")
+        if expected_version is not None:
+            _integer(expected_version, 0, _MAX, "expected_version")
+        for vertex in vertices:
+            _integer(vertex, 0, self._vertices - 1, "vertex")
+        for edge in edges:
+            if type(edge) not in (list, tuple) or len(edge) != 2:
+                raise ValueError("each edge query must be a pair")
+            _integer(edge[0], 0, self._vertices - 1, "u")
+            _integer(edge[1], 0, self._vertices - 1, "v")
+        saved_vertices, saved_edges = (
+            tuple(vertices),
+            tuple((edge[0], edge[1]) for edge in edges),
+        )
+        return self._read(
+            lambda owner: owner.read_snapshot(
+                saved_vertices, saved_edges, expected_version=expected_version
+            )
+        )
 
     def page(
         self, start: int = 0, limit: int = 1024, version: int | None = None

@@ -16,6 +16,7 @@ from axiom.durable import (
     Durable,
     ExpiredError,
     Outcome,
+    ReadSnapshot,
     Request,
     UnavailableError,
 )
@@ -224,6 +225,93 @@ def test_partner_reads_published_state_during_owner_sync_without_queueing(
         work.result(5)
         assert service.partner(0).result(0) == ((1, 1) if maintenance else (2, None))
         assert service.check().result(5)
+
+
+def test_read_snapshot_is_one_queue_operation_and_copies_bounded_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with create(tmp_path / "graph.db", batch_wait_ms=0) as service:
+        entered, release = threading.Event(), threading.Event()
+        original = service._owner._persist
+
+        def paused(rows: list) -> None:
+            entered.set()
+            assert release.wait(5)
+            original(rows)
+
+        monkeypatch.setattr(service._owner, "_persist", paused)
+        first = service.submit(Request(1, "insert", 0, 1))
+        assert entered.wait(5)
+        vertices = [0, 1, 0]
+        edges = [(0, 1), (1, 0), (0, 2)]
+        snapshot = service.read_snapshot(vertices, edges, expected_version=1)
+        vertices[:] = [2]
+        edges[:] = [(2, 3)]
+        second = service.submit(Request(2, "delete", 0, 1))
+        try:
+            assert not snapshot.done()
+        finally:
+            release.set()
+        assert first.result(5) == Outcome(1, True, 1)
+        assert snapshot.result(5) == ReadSnapshot(1, (1, 0, 1), (True, True, False))
+        assert second.result(5) == Outcome(2, True, 2)
+        assert service.read_snapshot([0], [(0, 1)]).result(5) == ReadSnapshot(
+            2, (None,), (False,)
+        )
+        with pytest.raises(RuntimeError, match="stale"):
+            service.read_snapshot([], [], expected_version=1).result(5)
+        assert service.metrics()["state"] == "open"
+
+
+def test_read_snapshot_invalid_bounds_reject_before_service_admission(
+    tmp_path: Path,
+) -> None:
+    with create(tmp_path / "graph.db") as service:
+        accepted = service.metrics()["accepted"]
+        for vertices, edges, version in (
+            ([33], [], None),
+            ([True], [], None),
+            ([], [(0, 33)], None),
+            ([], [(0,)], None),
+            ([], [], True),
+            (list(range(33)) * 125, [], None),
+        ):
+            with pytest.raises(ValueError):
+                service.read_snapshot(vertices, edges, expected_version=version)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="lists or tuples"):
+            service.read_snapshot(iter([0]), [])  # type: ignore[arg-type]
+        assert service.metrics()["accepted"] == accepted
+        assert service.read_snapshot([], []).result(5) == ReadSnapshot(0, (), ())
+
+
+def test_read_snapshot_owner_failure_fails_queued_work_and_recovers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "graph.db"
+    with create(path, batch_wait_ms=0) as service:
+        assert service.submit(Request(1, "insert", 0, 1)).result(5).version == 1
+        entered, release = threading.Event(), threading.Event()
+
+        def fail_snapshot(*args: object, **kwargs: object) -> ReadSnapshot:
+            entered.set()
+            assert release.wait(5)
+            raise OSError("injected owner storage/read failure")
+
+        monkeypatch.setattr(service._owner, "read_snapshot", fail_snapshot)
+        failed = service.read_snapshot([0], [(0, 1)])
+        assert entered.wait(5)
+        queued = service.status()
+        release.set()
+        with pytest.raises(OSError, match="storage/read"):
+            failed.result(5)
+        with pytest.raises(UnavailableError):
+            queued.result(5)
+        assert service.metrics()["state"] == "failed"
+    with Durable(path) as recovered:
+        assert recovered.read_snapshot([0, 1], [(0, 1)]) == ReadSnapshot(
+            1, (1, 0), (True,)
+        )
+        assert recovered.check()
 
 
 def test_default_read_reservation_preserves_queries_under_full_update_admission(

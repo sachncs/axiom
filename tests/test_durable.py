@@ -20,6 +20,7 @@ from axiom.durable import (
     CapacityError,
     Durable,
     Outcome,
+    ReadSnapshot,
     RecoveryError,
     Request,
     UnavailableError,
@@ -199,6 +200,68 @@ def test_private_state_is_not_visible_and_concurrent_admission_is_bounded(
                 release.set()
             assert future.result(timeout=5) == (Outcome(1, True, 2),)
         assert store.partner(0)[0] == 2 and not store.has_edge(0, 1)[1]
+
+
+def test_read_snapshot_aligns_duplicates_and_rejects_stale_or_invalid_inputs(
+    tmp_path: Path,
+) -> None:
+    with Durable(tmp_path / "graph.db", n=16, width=0) as store:
+        store.apply([Request(1, "insert", 0, 1), Request(2, "insert", 2, 3)])
+        result = store.read_snapshot([0, 2, 0, 4], [(0, 1), (1, 0), (0, 4)])
+        assert result == ReadSnapshot(2, (1, 3, 1, None), (True, True, False))
+        with pytest.raises(RuntimeError, match="stale"):
+            store.read_snapshot([0], [(0, 1)], expected_version=1)
+        with pytest.raises(ValueError, match="expected_version"):
+            store.read_snapshot([], [], expected_version=True)
+        with pytest.raises(ValueError, match="vertex"):
+            store.read_snapshot([16], [])
+        with pytest.raises(ValueError, match="integer"):
+            store.read_snapshot([True], [])
+        with pytest.raises(ValueError, match="pair"):
+            store.read_snapshot([], [(0,)])  # type: ignore[list-item]
+        with pytest.raises(ValueError, match="u"):
+            store.read_snapshot([], [(0, 16)])
+        with pytest.raises(CapacityError, match="4096"):
+            store.read_snapshot(list(range(16)) * 256 + [0], [])
+        assert store.status()["version"] == 2 and store.check()
+
+
+def test_read_snapshot_holds_durable_owner_across_every_query(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entered, release = Event(), Event()
+    with Durable(tmp_path / "graph.db", n=16, width=0) as store:
+        engine = store._engine
+
+        class PausingEngine:
+            n = engine.n
+
+            @property
+            def version(self) -> int:
+                return engine.version
+
+            def partner(self, vertex: int) -> int | None:
+                if vertex == 0:
+                    entered.set()
+                    assert release.wait(5)
+                return engine.partner(vertex)
+
+            def has_edge(self, u: int, v: int) -> bool:
+                return engine.has_edge(u, v)
+
+        monkeypatch.setattr(store, "_engine", PausingEngine())
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(store.read_snapshot, [0, 1], [(0, 1)])
+            assert entered.wait(5)
+            try:
+                with pytest.raises(BusyError):
+                    store.apply([Request(1, "insert", 0, 1)])
+            finally:
+                release.set()
+            assert future.result(timeout=5) == ReadSnapshot(0, (None, None), (False,))
+        monkeypatch.setattr(store, "_engine", engine)
+        assert store.apply([Request(1, "insert", 0, 1)])[0].version == 1
 
 
 def test_single_process_owner_and_lock_reuse(tmp_path: Path) -> None:

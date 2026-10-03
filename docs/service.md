@@ -56,8 +56,24 @@ After restart, exact retries are available only while their outcomes remain in
 the retained history. A timeout still does not cancel the admitted batch.
 
 Atomicity is within the batch, not across other preceding/following requests.
-Queries observe committed publications and must compare returned versions as
-described below; `submit_batch()` does not provide a multi-query read snapshot.
+
+## Version-coherent multi-query reads
+
+Use `read_snapshot()` when related partner and edge-membership queries must all
+observe one committed publication:
+
+```python
+snapshot = graph.read_snapshot([0, 4, 8], [(0, 4), (4, 8)]).result(timeout=5)
+assert len(snapshot.partners) == 3
+assert len(snapshot.has_edges) == 2
+```
+
+The immutable `ReadSnapshot` carries a single `version` and preserves query
+order and duplicates in the aligned result tuples. At most 4096 combined
+queries are accepted per snapshot; queries run as one serialized owner action
+between update groups. `expected_version=version` can reject if committed state
+has moved; it does not request historical state. This is bounded but is not a
+long-lived MVCC snapshot, and does not retain old graph versions.
 
 ## Admission and acknowledgment
 
@@ -107,8 +123,9 @@ self-contained snapshot without overwriting existing files; see
 `next_admission_sequence` is **not** the durable sequence; `status().result()`
 reports the committed one. Assembly wait is not a maximum acknowledgment SLA.
 Concurrent client calls and receipt waiters are supported on GIL-enabled CPython;
-free-threaded engine builds explicitly reject. One worker owns mutation. There is
-no cross-call snapshot: compare returned versions when combining queries.
+free-threaded engine builds explicitly reject. One worker owns mutation. Separate
+query calls are not a snapshot: compare their versions when combining them. Use
+one bounded `read_snapshot()` call for a coherent set of partner and edge reads.
 [ADR 0012](adrs/0012-committed-partner-reads.md) records synchronization and the
 additional budgeted 4 bytes/vertex. Native checkpoints/full audits block the GIL;
 SQLite I/O blocks the worker but not published partner reads. Receipt timing separates

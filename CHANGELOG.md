@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   FULL-WAL transaction, with contiguous sequence IDs, exact pending/historical
   retry rules, one commit boundary and atomic failure recovery. Ordinary
   `submit()` grouping is unchanged. See [service contract](docs/service.md#atomic-explicit-batches).
+- `Service.read_snapshot()` now returns bounded, immutable partner and
+  edge-membership answers from one committed version, with stale-version and
+  concurrency/failure coverage. It is a serialized query group, not historical
+  MVCC. See [service contract](docs/service.md#version-coherent-multi-query-reads).
 - Paper fan collection replacement swaps indexed roots instead of sorting and
   discarding a complete tuple; nested rollback preserves exact index identities.
   A multilevel parent boundary reuses the synchronized phase graph rather than
