@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U partitions and counters, hierarchy `R` copies, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; graph snapshots, multi-source hierarchy unions, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -240,6 +240,16 @@ retained partition allocation of 12.2 MB versus 65.5 MB for two Python sets
 to overlap, so the builder path avoids first constructing those dense sets. The
 probe is not whole-Matcher RSS or billion-vertex qualification. See [ADR 0051](adrs/0051-compact-dense-system-partitions.md)
 and its [raw record](../benchmarks/results/paper/partition-storage.json).
+
+Built hierarchies no longer retain separate copies for `A1`/`N1` when those
+values are exactly `A_levels[0]`/`N_levels[0]`. When only one upper A-level is
+nonempty, `A2` references that root instead of copying its entire hash table;
+multiple nonempty levels still produce the required independent union. In a
+one-million-label isolated case, the 500,000-member duplicate `A2` set cost
+16,778,056 traced bytes, while selecting the existing root allocated 904 bytes.
+This is a partition-shape diagnostic, not an end-to-end hierarchy memory result.
+See [ADR 0052](adrs/0052-share-derived-hierarchy-partitions.md) and its
+[raw record](../benchmarks/results/paper/hierarchy-partition-aliases.json).
 
 ## Implemented foundation, not product qualification
 

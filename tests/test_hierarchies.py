@@ -1,5 +1,6 @@
 """Identity-preserving transaction tests for recursive hierarchy roots."""
 
+import random
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -7,7 +8,7 @@ import pytest
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchies import Hierarchies
-from axiom.hierarchy import Hierarchy
+from axiom.hierarchy import Hierarchy, build_hierarchy
 from axiom.storage import Packed
 from axiom.witness import Witness
 
@@ -17,6 +18,36 @@ def populated():
     for vertex in range(16):
         graph.add_edge(vertex, (vertex + 1) % 16)
     return Matcher(16, graph=graph, mode="multilevel")
+
+
+def test_derived_hierarchy_partitions_share_exact_roots_when_possible():
+    """Avoid copies of A1/N1 and a single upper A partition."""
+    graphs = []
+    ring = Adjacency(64)
+    for vertex in range(64):
+        ring.add_edge(vertex, (vertex + 1) % 64)
+        ring.add_edge(vertex, (vertex + 7) % 64)
+    graphs.append(ring)
+
+    source = random.Random(0)
+    varied = Adjacency(32)
+    for left in range(32):
+        for right in range(left + 1, 32):
+            if source.random() < 0.08:
+                varied.add_edge(left, right)
+    graphs.append(varied)
+
+    for graph in graphs:
+        hierarchy = build_hierarchy(graph, [8, 4, 2])
+        assert hierarchy.check()
+        assert hierarchy.A1 is hierarchy.A_levels[0]
+        assert hierarchy.N1 is hierarchy.N_levels[0]
+        upper = [level for level in hierarchy.A_levels[1:] if level]
+        assert hierarchy.A2 == set().union(*upper)
+        if len(upper) == 1:
+            assert hierarchy.A2 is upper[0]
+        else:
+            assert all(hierarchy.A2 is not level for level in upper)
 
 
 def test_hierarchy_transactions_run_without_recursive_deepcopy(monkeypatch):

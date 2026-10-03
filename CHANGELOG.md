@@ -87,7 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dense A/B partitions now use compact indexed storage, while sparse ones remain
   Python sets; phase copies preserve compact roots. Isolated retained partition
   allocation fell 81.4% at one million labels. See [ADR 0051](docs/adrs/0051-compact-dense-system-partitions.md).
-- 1,224 local tests pass after the dense partition storage regression.
+- Built hierarchies share A1/N1 roots and avoid a sole-upper-level A2 copy; a
+  500k-member isolated duplicate measured 16.8 MB. Multiple-source A2 remains an
+  independent union. See [ADR 0052](docs/adrs/0052-share-derived-hierarchy-partitions.md).
+- 1,225 local tests pass after hierarchy-root alias coverage.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references

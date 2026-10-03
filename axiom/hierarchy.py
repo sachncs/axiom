@@ -567,9 +567,9 @@ def build_hierarchy(
     hierarchy.N_levels = [set(system.B)]
     hierarchy.R_levels = [system.U.copy()]
     hierarchy.L_levels = [dict(system.L_lists)]
-    hierarchy.A1 = set(system.A)
+    hierarchy.A1 = hierarchy.A_levels[0]
     hierarchy.A2 = set()
-    hierarchy.N1 = set(system.B)
+    hierarchy.N1 = hierarchy.N_levels[0]
     hierarchy.R1 = hierarchy.R_levels[0]
     for z in level_zs[1:]:
         hierarchy = refine_hierarchy(hierarchy, z, colorer=active_colorer)
@@ -915,9 +915,21 @@ def refine_hierarchy(
         L_levels=inherited_lists,
         deferred_deletions=deferred_deleted,
     )
-    next_hierarchy.A1 = set(next_hierarchy.A_levels[0])
-    next_hierarchy.A2 = set().union(*next_hierarchy.A_levels[1:])
-    next_hierarchy.N1 = set(next_hierarchy.N_levels[0])
+    next_hierarchy.A1 = next_hierarchy.A_levels[0]
+    upper = (level for level in next_hierarchy.A_levels[1:] if level)
+    first = next(upper, None)
+    second = next(upper, None)
+    if first is None:
+        next_hierarchy.A2 = set()
+    elif second is None:
+        next_hierarchy.A2 = first
+    else:
+        combined = set(first)
+        combined.update(second)
+        for partition in upper:
+            combined.update(partition)
+        next_hierarchy.A2 = combined
+    next_hierarchy.N1 = next_hierarchy.N_levels[0]
     next_hierarchy.R1 = next_hierarchy.R_levels[0]
     if not next_hierarchy.check():
         raise RuntimeError(

@@ -1,0 +1,31 @@
+{
+  "status": "isolated_redundant_partition_allocation_diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "candidate_sources": {
+    "axiom/hierarchy.py": "8876fcc0b9929243749aacbbd6aca80bbbb54899f196fef6cd102fd0210304db",
+    "tests/test_hierarchies.py": "0f3d980c12045afb8013820f05e0cdd3705da8842491840f87b70566e13add06"
+  },
+  "configuration": {
+    "universe_vertices": 1000000,
+    "nonempty_upper_a_levels": 1,
+    "upper_a_members": 500000,
+    "repeats": 1
+  },
+  "independent_copy": {
+    "operation": "set().union(*upper_a_levels)",
+    "peak_traced_bytes": 16778056
+  },
+  "root_alias": {
+    "operation": "select sole nonempty upper A-level",
+    "peak_traced_bytes": 904
+  },
+  "limits": [
+    "This measures one derived partition allocation, not complete Hierarchy or Matcher memory.",
+    "When multiple upper A-levels are nonempty, the exact A2 union remains independently materialized.",
+    "The result is not update-rate, durable, or billion-vertex qualification."
+  ]
+}
