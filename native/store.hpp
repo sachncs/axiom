@@ -102,6 +102,41 @@ struct Undo {
   bool added, indexedU, indexedV;
 };
 
+class BlockOwners {
+  uint64_t count;
+  std::vector<uint64_t> words;
+
+public:
+  explicit BlockOwners(uint64_t size)
+      : count(size), words(static_cast<size_t>((size + 63) / 64), 0) {}
+
+  bool claim(uint32_t block) noexcept {
+    if (block >= count)
+      return false;
+    uint64_t mask = uint64_t(1) << (block % 64);
+    uint64_t &word = words[block / 64];
+    if (word & mask)
+      return false;
+    word |= mask;
+    return true;
+  }
+
+  bool complete() const noexcept {
+    for (uint64_t index = 0; index < words.size(); ++index) {
+      uint64_t expected = ~uint64_t(0);
+      if (index + 1 == words.size() && count % 64)
+        expected = (uint64_t(1) << (count % 64)) - 1;
+      if (words[index] != expected)
+        return false;
+    }
+    return true;
+  }
+
+  uint64_t bytes() const noexcept {
+    return uint64_t(words.capacity()) * sizeof(uint64_t);
+  }
+};
+
 class Store {
 public:
   uint32_t n;
@@ -439,7 +474,7 @@ public:
   bool check() const {
     if (poisoned)
       return false;
-    std::vector<uint8_t> ownership(blocks.size(), 0);
+    BlockOwners ownership(blocks.size());
     uint64_t entries = 0;
     uint64_t indexedEntries = 0;
     std::vector<uint32_t> neighbors;
@@ -447,12 +482,11 @@ public:
       uint32_t degree = 0, last = none;
       neighbors.clear();
       for (uint32_t b = heads[u]; b != none; b = blocks[b].next) {
-        if (b >= blocks.size() || ownership[b])
+        if (b >= blocks.size() || !ownership.claim(b))
           return false;
         uint32_t occupied = used(u, b);
         if (!occupied || occupied > 4)
           return false;
-        ownership[b] = 1;
         if (blocks[b].previous != last)
           return false;
         if (blocks[b].next != none && occupied != 4)
@@ -485,9 +519,9 @@ public:
     }
     uint32_t unused = 0;
     for (uint32_t b = free; b != none; b = blocks[b].next) {
-      if (b >= blocks.size() || ownership[b] || blocks[b].previous != none)
+      if (b >= blocks.size() || !ownership.claim(b) ||
+          blocks[b].previous != none)
         return false;
-      ownership[b] = 1;
       ++unused;
     }
     uint64_t occupied = 0, tombstones = 0;
@@ -498,7 +532,7 @@ public:
     return unused == spare && entries == 2 * count && allocated() <= budget &&
            occupied == index.count && tombstones == index.tombstones &&
            indexedEntries == index.count &&
-           std::find(ownership.begin(), ownership.end(), 0) == ownership.end();
+           ownership.complete();
   }
 
   std::unique_ptr<Store> compact() const {

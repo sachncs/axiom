@@ -29,8 +29,32 @@ void audit(const axiom::Store &graph, const std::set<Edge> &reference) {
   }
 }
 
+void ownerAudit() {
+  axiom::BlockOwners empty(0);
+  require(empty.complete() && empty.bytes() == 0 && !empty.claim(0),
+          "empty ownership map differs");
+  axiom::BlockOwners owners(130);
+  for (uint32_t block = 0; block < 130; ++block)
+    require(owners.claim(block), "ownership bit was not initially clear");
+  require(!owners.claim(0) && !owners.claim(64) && !owners.claim(130),
+          "duplicate or out-of-range block ownership was accepted");
+  require(owners.complete() && owners.bytes() >= 24 && owners.bytes() % 8 == 0,
+          "ownership bitmap tail mask or byte accounting differs");
+  axiom::BlockOwners missing(130);
+  for (uint32_t block = 0; block < 129; ++block)
+    missing.claim(block);
+  require(!missing.complete(), "unowned block passed bitmap audit");
+  axiom::Store duplicate(4, 1 << 20);
+  duplicate.add(0, 1);
+  duplicate.heads[2] = duplicate.heads[0];
+  duplicate.tails[2] = duplicate.tails[0];
+  duplicate.degrees[2] = 1;
+  require(!duplicate.check(), "shared block ownership passed storage audit");
+}
+
 int main() {
   try {
+    ownerAudit();
     // Cross the degree-128 index boundary and require exact row-index rollback.
     axiom::Store boundary(257, 1 << 20);
     for (uint32_t vertex = 1; vertex < 128; ++vertex)

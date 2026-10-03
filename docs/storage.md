@@ -58,6 +58,13 @@ buffers. Python wrappers/results, allocator overhead, iterator/audit scratch,
 reference matcher state, and independently created graph copies are additional.
 Allocation failure occurs before either endpoint's logical edge mutation.
 
+The full independent store audit tracks ownership of each adjacency block with
+one bit rather than one byte. Its bitmap payload is `ceil(block_count / 64) * 8`
+bytes (plus vector allocation overhead), preserving duplicate/unowned-block
+detection while reducing this audit-only scratch by 8×. This scratch is still
+outside `memory()` and the per-graph retained-allocation budget; it contributes
+to process peak memory while `check()` is running.
+
 `compact()` builds a bounded candidate before publishing it. If coexistence would
 exceed the budget, it fails without changing graph contents/version. It preserves
 existing logical iterators and transaction-token sequencing. `ring(width)` is an
