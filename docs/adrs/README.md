@@ -73,7 +73,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0064](0064-stream-hierarchy-projections.md) | Stream ordered native graph edges and merge sorted insertions directly into isolated Packed hierarchy projections | 100k vertices/200k edges: Python peak 36.4 MB→448 B, same 4.45 MB native output, traced time 0.444→0.146 s; full-refinement qualification open |
 | [0065](0065-avoid-saturated-partition-union.md) | Query inherited A/B roots and promoted destination partitions directly instead of materializing a mutable `A ∪ B` set | 1m-member union peak 87.2 MB; direct membership was 3.1× slower in an isolated query probe; full-refinement tradeoff qualification open |
 | [0066](0066-local-refinement-witness-search.md) | Search incident graph rows for B-to-U matching witnesses instead of rescanning all chosen matching edges | Fixed witness-heavy refinement traces are 1.6–7.1% faster with identical certified state; broad adversarial qualification remains open |
-| [0067](0067-reuse-child-refinement-partition-roots.md) | Reuse the detached System's A/B/U roots and defer its redundant pre-refinement cache indexing | One-million-label isolated duplicate-root peak 65.5 MB→80 B; full child-rebuild/RSS qualification remains open |
+| [0067](0067-reuse-child-refinement-partition-roots.md) | Reuse detached System roots and the immutable parent graph during child refinement; defer duplicate cache indexing | One-million-label duplicate-root peak 65.5 MB→80 B; skips a 37 MB Packed parent clone in the measured ring shape; full child-rebuild/RSS qualification remains open |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

@@ -331,8 +331,13 @@ class Multilevel:
             deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
             phase_base_graph = old_graph
             phase_base_system = base_system
-            refine_graph = snapshot(old_graph)
-            for left, right in deleted:
+            # Refinement reads its hierarchy graph and emits a detached
+            # projected graph. Reuse the immutable parent root when all
+            # deleted edges already belong to it; only roots that need
+            # restored edges require a working graph copy.
+            missing = [edge for edge in deleted if not old_graph.has_edge(*edge)]
+            refine_graph = old_graph if not missing else snapshot(old_graph)
+            for left, right in missing:
                 if not refine_graph.has_edge(left, right):
                     refine_graph.add_edge(left, right)
             working_base_system = copy(base_system, refine_graph, indexed=False)

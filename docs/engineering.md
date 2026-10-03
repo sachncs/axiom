@@ -59,11 +59,14 @@ not broader paper-engine qualification. See [ADR 0066](adrs/0066-local-refinemen
 and its [raw record](../benchmarks/results/paper/refinement-witness-search.json).
 
 Child multilevel rebuilds now use the detached working System's A/B/U roots
-directly instead of materializing a second set of hierarchy roots. They also
-defer cache indexing until refinement, which immediately rebuilds those rows
-for its output graph. An isolated one-million-label partition probe reduced
-the duplicate-root traced peak from 65.5 MB to 80 bytes; the required detached
-System and graph copies remain. This is not a complete rebuild or RSS result.
+directly instead of materializing a second set of hierarchy roots. When all
+deleted edges are in the immutable parent graph, refinement now reads that
+root directly rather than cloning it; missing-edge recovery retains the
+previous snapshot-and-restore fallback. Cache indexing is deferred until
+refinement rebuilds rows for its output graph. An isolated one-million-label
+partition probe reduced the duplicate-root traced peak from 65.5 MB to 80
+bytes. This is not a complete rebuild or RSS result; the detached System and
+projection allocations remain.
 See [ADR 0067](adrs/0067-reuse-child-refinement-partition-roots.md) and its
 [raw probe](../benchmarks/results/paper/child-refinement-roots.json).
 

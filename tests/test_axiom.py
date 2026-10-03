@@ -956,9 +956,8 @@ class TestMatcher:
                 strict=True,
             )
         )
-        assert len(snapshotcalls) == 1
-        assert snapshotcalls[0][0] is base_graph
-        assert copycalls == [(base_system, snapshotcalls[0][1], False)]
+        assert snapshotcalls == []
+        assert copycalls == [(base_system, base_graph, False)]
 
     def test_full_rebuild_reuses_its_phase_base_snapshot(self, monkeypatch):
         dense = Adjacency(16)
@@ -1840,6 +1839,41 @@ class TestMatcher:
         )
         assert basesystem.check()
         assert algo.multi.check()
+
+    def test_child_rebuild_restores_a_missing_deleted_edge(self, monkeypatch):
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        assert algo.phase_base_graph is not None
+        assert algo.phase_base_system is not None
+        basegraph = algo.phase_base_graph
+        basesystem = algo.phase_base_system
+        edge = next(edge for edge in basegraph.edges() if edge not in basesystem.M)
+        basegraph.remove_edge(*edge)
+        basesystem.index()
+        assert basesystem.check()
+        snapshotcalls = []
+        snapshotgraph = rebuild_module.snapshot
+
+        def recordsnapshot(graph):
+            result = snapshotgraph(graph)
+            snapshotcalls.append((graph, result))
+            return result
+
+        monkeypatch.setattr(rebuild_module, "snapshot", recordsnapshot)
+        algo.phase_length = 1
+
+        algo.delete(*edge)
+
+        assert len(snapshotcalls) == 1
+        assert snapshotcalls[0][0] is basegraph
+        assert snapshotcalls[0][1].has_edge(*edge)
+        assert algo.phase_base_graph is basegraph
+        assert algo.phase_base_system is basesystem
+        assert not basegraph.has_edge(*edge)
+        assert algo.multi is not None and algo.multi.check()
 
 
 # ------------------------------------------------------------------
