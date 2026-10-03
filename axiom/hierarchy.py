@@ -849,7 +849,8 @@ def refine_hierarchy(
         # new A_{h+1}; the rest remain in B.
         if all(
             neighbor in previous.A or neighbor in previous.B
-            for neighbor in neighbors(vertex, chosen)
+            for neighbor in working_graph.neighbors(vertex)
+            if canonical(vertex, neighbor) in chosen
         ):
             new_a.add(vertex)
         else:
@@ -858,18 +859,17 @@ def refine_hierarchy(
     def normalize_b(vertex: Vertex) -> None:
         """Move a B vertex without an unsettled chosen partner into A."""
         if vertex in new_b and not any(
-            vertex in edge and (edge[0] in new_u or edge[1] in new_u) for edge in chosen
+            partner in new_u and canonical(vertex, partner) in chosen
+            for partner in working_graph.neighbors(vertex)
         ):
             new_b.remove(vertex)
             new_a.add(vertex)
 
     def normalize_b_neighbors(vertex: Vertex) -> None:
         """Normalize B vertices whose witness relation can change at this vertex."""
-        for edge in tuple(chosen):
-            if vertex not in edge:
-                continue
-            other = edge[1] if edge[0] == vertex else edge[0]
-            normalize_b(other)
+        for other in working_graph.neighbors(vertex):
+            if canonical(vertex, other) in chosen:
+                normalize_b(other)
 
     def promote(vertex: Vertex) -> None:
         """Move a U vertex into A or B and repair its neighbors' partitions."""
@@ -880,7 +880,8 @@ def refine_hierarchy(
         # the settled region, without a universe-sized union snapshot.
         if degree[vertex] >= z_prime - h and all(
             neighbor in previous.A or neighbor in new_a or neighbor in new_b
-            for neighbor in neighbors(vertex, chosen)
+            for neighbor in working_graph.neighbors(vertex)
+            if canonical(vertex, neighbor) in chosen
         ):
             new_a.add(vertex)
         else:
