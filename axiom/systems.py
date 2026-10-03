@@ -11,6 +11,7 @@ from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
 from axiom.types import Edge, Vertex
+from axiom.vertices import Vertices
 
 if TYPE_CHECKING:
     from axiom.core import Matcher
@@ -67,7 +68,10 @@ class Systems:
                 "journal",
             }:
                 raise TypeError("unsupported System fields")
-            if any(type(attributes[name]) is not set for name in ("A", "B", "U", "M")):
+            if (
+                any(type(attributes[name]) is not set for name in ("A", "B", "M"))
+                or type(attributes["U"]) not in (set, Vertices)
+            ):
                 raise TypeError("System partitions require plain sets")
             for name in ("lambda_lists", "L_lists"):
                 container = attributes[name]
@@ -202,8 +206,8 @@ class Systems:
             }:
                 raise TypeError("unsupported System candidate fields")
             if any(
-                type(getattr(system, name)) is not set for name in ("A", "B", "U", "M")
-            ):
+                type(getattr(system, name)) is not set for name in ("A", "B", "M")
+            ) or type(system.U) not in (set, Vertices):
                 raise TypeError("System candidate requires plain sets")
             for container in (system.lambda_lists, system.L_lists):
                 if type(container) is not dict or any(

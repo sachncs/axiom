@@ -25,6 +25,7 @@ from axiom.paper_coloring import Fan, Fans, Paper, Partial
 from axiom.rebuild import Basic, Multilevel
 from axiom.storage import Packed
 from axiom.system import System
+from axiom.vertices import Vertices
 
 
 class Witness:
@@ -86,6 +87,7 @@ class Witness:
             ]
         ),
         Adjacency: frozenset({"n", "adj", "edge_count", "journal", "token"}),
+        Vertices: frozenset({"n", "positions", "members", "size"}),
         System: frozenset(field.name for field in fields(System)),
         Hierarchy: frozenset(field.name for field in fields(Hierarchy)),
         Ledger: frozenset(field.name for field in fields(Ledger)),
@@ -198,6 +200,10 @@ class Witness:
                 [name, self.encode(attributes[name], depth + 1)]
                 for name in sorted(attributes)
             ]
+        elif kind is Vertices:
+            if not value.check():
+                raise ValueError("invalid compact vertex partition")
+            content = self.encode({"n": value.n, "members": list(value)}, depth + 1)
         else:
             attributes = vars(value)
             if attributes.keys() != self.schema[kind]:

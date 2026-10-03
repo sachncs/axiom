@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from axiom.types import Edge, Graph, Matching, Vertex, canonical
+from axiom.vertices import Vertices
 
 if TYPE_CHECKING:
     from axiom.systems import Systems
@@ -89,13 +90,22 @@ class System:
     z: int
     A: set[Vertex] = field(default_factory=set)
     B: set[Vertex] = field(default_factory=set)
-    U: set[Vertex] = field(default_factory=set)
+    U: set[Vertex] | Vertices = field(default_factory=set)
     M: set[Edge] = field(default_factory=set)
     lambda_lists: dict[Vertex, list[Vertex]] = field(default_factory=dict)
     L_lists: dict[Vertex, list[Vertex]] = field(default_factory=dict)
     journal: Systems | None = field(
         default_factory=lambda: None, init=False, repr=False, compare=False
     )
+
+    def __post_init__(self) -> None:
+        """Compact dense U partitions while retaining ordinary sparse sets."""
+        if (
+            type(self.U) is set
+            and self.graph.n > 0
+            and len(self.U) * 12 >= self.graph.n
+        ):
+            self.U = Vertices(self.graph.n, self.U)
 
     @property
     def S(self) -> set[Vertex]:
@@ -199,10 +209,33 @@ class System:
 
     def check_partition(self) -> bool:
         """Check that ``A``, ``B``, and ``U`` partition the graph vertices."""
-        vertices = set(range(self.graph.n))
-        return (
-            not (self.A & self.B or self.A & self.U or self.B & self.U)
-            and self.A | self.B | self.U == vertices
+        if len(self.A) + len(self.B) + len(self.U) != self.graph.n:
+            return False
+        if type(self.U) is Vertices:
+            for vertex in self.A:
+                if (
+                    type(vertex) is not int
+                    or not 0 <= vertex < self.graph.n
+                    or vertex in self.B
+                    or vertex in self.U
+                ):
+                    return False
+            for vertex in self.B:
+                if (
+                    type(vertex) is not int
+                    or not 0 <= vertex < self.graph.n
+                    or vertex in self.U
+                ):
+                    return False
+            return True
+        groups = (self.A, self.B, self.U)
+        for group in groups:
+            for vertex in group:
+                if type(vertex) is not int or not 0 <= vertex < self.graph.n:
+                    return False
+        return not (
+            any(vertex in self.B or vertex in self.U for vertex in self.A)
+            or any(vertex in self.U for vertex in self.B)
         )
 
     def check_u(self) -> bool:
@@ -276,7 +309,7 @@ class System:
         """
         if (
             type(self.lambda_lists) is not dict
-            or not self.lambda_lists.keys() <= self.U
+            or any(vertex not in self.U for vertex in self.lambda_lists)
             or any(
                 type(row) is not list or not row
                 for row in self.lambda_lists.values()
@@ -305,7 +338,7 @@ class System:
         """
         if (
             type(self.L_lists) is not dict
-            or not self.L_lists.keys() <= self.A
+            or any(vertex not in self.A for vertex in self.L_lists)
             or any(type(row) is not list or not row for row in self.L_lists.values())
         ):
             return False
@@ -795,7 +828,12 @@ def build(graph: Graph, z: int) -> System:
     # the capped greedy pass, while deg_M below is updated to describe the
     # actual matching retained by the system.
     S = {v for v in range(graph.n) if deg_M[v] == z}
-    U_set = {v for v in range(graph.n) if deg_M[v] < z}
+    ucount = sum(1 for v in range(graph.n) if deg_M[v] < z)
+    U_set: set[Vertex] | Vertices
+    if graph.n and ucount * 12 >= graph.n:
+        U_set = Vertices(graph.n, (v for v in range(graph.n) if deg_M[v] < z))
+    else:
+        U_set = {v for v in range(graph.n) if deg_M[v] < z}
     removed_u_u = {edge for edge in M if edge[0] in U_set and edge[1] in U_set}
     for u, v in removed_u_u:
         M.remove((u, v))
