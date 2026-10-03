@@ -978,6 +978,90 @@ def test_prune_vizing_fans_rolls_back_coloring_and_fans_on_failed_precondition(
     fans.validate()
 
 
+def test_prune_rolls_back_touched_spokes_and_added_fan_without_root_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(11)
+    for edge in (
+        (0, 1),
+        (0, 4),
+        (1, 5),
+        (2, 3),
+        (2, 4),
+        (3, 6),
+        (3, 7),
+        (8, 9),
+        (8, 10),
+    ):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    for edge, color in (
+        ((0, 4), 1),
+        ((1, 5), 0),
+        ((2, 4), 2),
+        ((3, 6), 0),
+        ((3, 7), 1),
+    ):
+        coloring.assign(edge, color)
+    fans = Fans()
+    sentinel = Fan(8, 9, 10, 0, 1, 1)
+    fans.add(sentinel)
+    assignments = dict(coloring.items())
+    coloringroots = (coloring.assignments, coloring.incident, coloring.index)
+    fanroots = (
+        fans.members,
+        fans.spokes,
+        fans.assignments,
+        fans.assigned,
+        fans.vertices,
+        fans.types,
+    )
+    originaladd = fans.add
+
+    def fail_after_add(fan: Fan) -> None:
+        originaladd(fan)
+        raise RuntimeError("injected post-add pruning failure")
+
+    monkeypatch.setattr(fans, "add", fail_after_add)
+
+    with pytest.raises(RuntimeError, match="injected post-add pruning failure"):
+        Pruning.prune(
+            coloring,
+            fans,
+            (Spoke((0, 1), 0), Spoke((2, 3), 0)),
+        )
+
+    assert dict(coloring.items()) == assignments
+    assert fans.members == {sentinel}
+    assert fans.find(8, 0) is sentinel
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            coloringroots,
+            strict=True,
+        )
+    )
+    assert all(
+        current is original
+        for current, original in zip(
+            (
+                fans.members,
+                fans.spokes,
+                fans.assignments,
+                fans.assigned,
+                fans.vertices,
+                fans.types,
+            ),
+            fanroots,
+            strict=True,
+        )
+    )
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_vizing_chain_exploration_detects_oriented_collisions() -> None:
     first = Chain(
         Spoke((0, 1), 0),

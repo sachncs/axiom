@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse coloring incidence rows, compact `Packed` color-group projection snapshots, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, endpoint-local aggregate rollback, bounded Vizing/fan color transactions, local hierarchy refinement scans, indexed fan ownership checks, local Color-Small repair, and local Pruning.reduce certificates | Broader repeatability/adversarial/resource qualification, global repairs outside scoped paths, snapshot migration, and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H/color caches, compact dense A/B/U and hierarchy partitions/counters, shared derived roots, streamed hierarchy projections, child parent-graph reuse with missing-edge fallback, read-only update-set sharing, local refinement witnesses, streamed phase synchronization, graph-backed matching cuts, local P2 certificates, and bounded Vizing collision rollback | Sparse A/B remain Python sets; opaque custom graphs retain materializing fallbacks; each child refinement still detaches a System; parent-boundary rebases, multi-source A/N/R construction, remaining fan/pruning snapshots, some admission/certificate work and phase-boundary audits remain state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H/color caches, compact dense A/B/U and hierarchy partitions/counters, shared derived roots, streamed hierarchy projections, child parent-graph reuse with missing-edge fallback, read-only update-set sharing, local refinement witnesses, streamed phase synchronization, graph-backed matching cuts, local P2 certificates, bounded Vizing collision rollback, and bounded PruneVFans rollback | Sparse A/B remain Python sets; opaque custom graphs retain materializing fallbacks; each child refinement still detaches a System; parent-boundary rebases, multi-source A/N/R construction, other fan/pruning snapshots, some admission/certificate work and phase-boundary audits remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Hierarchy refinement's `ProcProcess` witness lookup no longer scans every
@@ -151,6 +151,16 @@ not enumerate the whole fan collection. This disconnected stress fixture does
 not establish connected/skewed or end-to-end performance. Other pruning callers
 and state-sized rollback snapshots remain open. See [ADR 0076](adrs/0076-local-pruning-certificates.md)
 and its [raw record](../benchmarks/results/paper/pruning-local-certificates.json).
+
+`Pruning.prune` no longer copies the whole coloring assignment map or fan
+collection for rollback. A reusable `ColorJournal` records first-write spoke
+colors, while an invocation-local fan log tracks only newly added fans. An
+injected post-add failure restores exact values, preserves both outer roots, and
+retains an unrelated compatible fan. On a 50k-vertex/10k-fan component fixture,
+traced transient peak fell 2.59%; elapsed time fell 3.45%, a small diagnostic
+not claimed as a throughput improvement. Other fan/pruning operations still
+have state-sized snapshots. See [ADR 0077](adrs/0077-bounded-prune-rollback.md)
+and its [raw record](../benchmarks/results/paper/prune-bounded-rollback.json).
 
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new

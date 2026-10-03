@@ -609,6 +609,26 @@ class Partial:
             self.incident[vertex].remove(oldcolor)
 
 
+class ColorJournal:
+    """Retain first-write before-images for a bounded Partial coloring region."""
+
+    def __init__(self, coloring: Partial) -> None:
+        """Bind the journal to one coloring owner for a single operation."""
+        self.coloring = coloring
+        self.before: dict[Edge, Color | None] = {}
+
+    def capture(self, edges: Iterable[Edge]) -> None:
+        """Capture each edge's original color once, including uncolored edges."""
+        for edge in edges:
+            edge = canonical(*edge)
+            if edge not in self.before:
+                self.before[edge] = self.coloring.assignments.get(edge)
+
+    def rollback(self) -> None:
+        """Restore captured coloring cells through the local owner certificate."""
+        self.coloring.replace(self.before)
+
+
 class Fans:
     """Deterministic collection enforcing the paper's separability invariant."""
 
@@ -1366,9 +1386,8 @@ class Vizing:
                 canonical(chain.spoke.center, leaf) for leaf in chain.leaves
             )
         affectedvertices = {vertex for edge in affectededges for vertex in edge}
-        colorsbefore = {
-            edge: coloring.assignments.get(edge) for edge in affectededges
-        }
+        colorjournal = ColorJournal(coloring)
+        colorjournal.capture(affectededges)
         fansbefore = {
             fan
             for vertex in affectedvertices
@@ -1430,7 +1449,7 @@ class Vizing:
                 raise RuntimeError("opposite-direction shift recolored the shared edge")
             return True, 2
         except (RuntimeError, ValueError, KeyError, AssertionError):
-            coloring.replace(colorsbefore)
+            colorjournal.rollback()
             cls.restore(fans, fansbefore, affectedvertices)
             return False, 0
 
@@ -1566,8 +1585,8 @@ class Pruning:
         uedges: tuple[Spoke, ...],
     ) -> tuple[Spoke, ...]:
         """Run pruning atomically, including the caller-owned fan collection."""
-        colorsbefore = dict(coloring.assignments)
-        fansbefore = tuple(fans)
+        colorjournal = ColorJournal(coloring)
+        createdfans: list[Fan] = []
         try:
             if not uedges:
                 return ()
@@ -1617,6 +1636,9 @@ class Pruning:
                 existingiscurrentleaf = existing.center in leaves
 
                 if currentisexistingleaf:
+                    colorjournal.capture(
+                        canonical(existing.center, leaf) for leaf in existingleaves
+                    )
                     cls.expose(coloring, existing.center, existingleaves, item.center)
                     exposed = canonical(existing.center, item.center)
                     if not coloring.available(
@@ -1632,6 +1654,9 @@ class Pruning:
                     continue
 
                 if existingiscurrentleaf:
+                    colorjournal.capture(
+                        canonical(item.center, leaf) for leaf in leaves
+                    )
                     cls.expose(coloring, item.center, leaves, existing.center)
                     exposed = canonical(item.center, existing.center)
                     if not coloring.available(
@@ -1649,6 +1674,12 @@ class Pruning:
                 # The first shared vertex is a leaf of both fans.  Rotating both fans
                 # exposes the two spokes used by the paper's new u-fan.
                 shared = collision
+                colorjournal.capture(
+                    canonical(item.center, leaf) for leaf in leaves
+                )
+                colorjournal.capture(
+                    canonical(existing.center, leaf) for leaf in existingleaves
+                )
                 cls.expose(coloring, item.center, leaves, shared)
                 cls.expose(coloring, existing.center, existingleaves, shared)
                 if not coloring.available(item.center, alpha) or not coloring.available(
@@ -1657,6 +1688,7 @@ class Pruning:
                     raise RuntimeError("PruneVFans lost alpha at a u-fan leaf")
                 beta = cls.choose(coloring, fans, shared, {alpha})
                 created = Fan(shared, item.center, existing.center, beta, alpha, alpha)
+                createdfans.append(created)
                 fans.add(created)
                 active.pop(existingindex)
                 pending = [entry[0] for entry in active] + pending
@@ -1669,9 +1701,9 @@ class Pruning:
             fans.compatible(coloring)
             return tuple(refreshed)
         except Exception:
-            coloring.assignments = colorsbefore
-            coloring.reindex()
-            cls.vizing.restore(fans, fansbefore)
+            colorjournal.rollback()
+            for fan in reversed(createdfans):
+                fans.discard(fan)
             coloring.validate()
             fans.validate()
             raise

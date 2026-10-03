@@ -1,0 +1,29 @@
+{
+  "benchmark": "prune-bounded-rollback",
+  "date": "2026-10-03",
+  "baseline_revision": "87655c1",
+  "candidate_revision": "working-tree-after-87655c1",
+  "python": "3.14.8",
+  "fixture": {
+    "unrelated_fans": 10000,
+    "unrelated_colored_edges": 10000,
+    "vertices": 50008,
+    "graph_edges": 40007,
+    "operation": "Pruning.prune on a collision fixture that rotates spokes and creates one fan"
+  },
+  "measurement": "Pruning.prune elapsed time and tracemalloc peak; setup and independent end-state validation excluded; gc.collect before each run; alternating baseline/candidate order",
+  "certificate": "coloring, fan indexes, and compatibility validated after each operation; injected post-add failure restores captured values and container roots",
+  "baseline_seconds": [0.19079999999667052, 0.18946170900017023, 0.18913795799016953],
+  "candidate_seconds": [0.1829308750020573, 0.1831850000016857, 0.1781733749958221],
+  "baseline_peak_bytes": [19994200, 19994184, 19994168],
+  "candidate_peak_bytes": [19476080, 19476056, 19476032],
+  "median": {
+    "baseline_seconds": 0.18946170900017023,
+    "candidate_seconds": 0.1829308750020573,
+    "elapsed_reduction_percent": 3.45,
+    "baseline_peak_bytes": 19994184,
+    "candidate_peak_bytes": 19476056,
+    "peak_reduction_percent": 2.59
+  },
+  "limitations": "Single-host synthetic disconnected fixture, three repeats; timing difference is small; component memory reduction only, not total RSS or broader paper-engine qualification."
+}
