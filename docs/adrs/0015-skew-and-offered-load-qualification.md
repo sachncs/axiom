@@ -135,3 +135,55 @@ responses out of 100000 scheduled arrivals. Ack p99 upper bound is 84.8 ms.
 At 100k scheduled/s, gross delivery reaches 32468/s but hundreds of thousands
 of updates and 4689 queries reject; this is bounded saturation, not handling the
 offered workload. [Raw counts and limitations](../../benchmarks/results/overload/README.md).
+
+### Deterministic power-law Service offered-load profile
+
+`benchmarks/overload.py --workload power-law` adds a paced real-edge workload.
+With a fixed seed it constructs a bounded degree-skewed ring-plus-spokes graph,
+bootstraps permanent and toggleable edges through `Service`, then chooses timed
+edge toggles from a bounded Zipf-weighted selection wheel (exponent 1.2). The
+pool size is configurable from 1–8192 per edge set; at most twice that count is
+inserted during separately reported setup. Every admitted timed operation flips
+one known-present/known-absent chord, so acknowledgments must be real changes.
+Busy and producer-missed offers do not advance the edge state, sequence, or update
+trace hash.
+
+Run with `--vertices N --rate R --seconds S --query-rate Q --seed K
+--skew-edges E`. Output separates bootstrap from timed offers; reconciles admitted,
+Busy and producer-missed update and query counts; reports update, offered-to-ack,
+queue, execution and query latency histograms; and records the update trace,
+topology-plus-partner state digest and maximum degree. Queries select the hot hub
+population; their returned versions must be monotone and fall between the durable
+bootstrap prefix and the currently admitted prefix. Following shutdown, a fresh
+`Durable` reopen checks exact sequence, complete expected topology, proper maximal
+matching, and equality with the live full-partner digest.
+
+The new tests validate seeded generator identity, degree skew, rejection-safe
+state transitions, CLI options, all offer/loss reconciliations and final recovery.
+They establish that the profile is executable and internally auditable, not that
+a million-vertex offered-load SLA passes. Query answers are not replay-checked
+against every historical version, and this does not complete repeatability,
+adversarial, soak, resource-limit, independent-load-generator or power-loss
+qualification.
+
+### Short million-vertex power-law samples
+
+Four 10-second source-checkout runs were then executed on macOS 26.7.1 ARM64,
+CPython 3.14.8 and SQLite 3.53.4, using seed 599, 1,000 query offers/s, a
+degree-four million-vertex ring, 2,048 bootstrap chords and 16 weighted hubs.
+All runs passed exact final recovery and proper/maximal matching audits. The
+10k-offer repeats delivered 9,538–9,549 real updates/s; the 12k-offer repeats
+delivered 11,146–11,151/s. Busy and producer-missed offers were fully reconciled.
+Successful query p99 upper bounds were 0.5–0.6 ms. Ack p99 upper bounds were
+81.3–84.9 ms at 10k offers and 150.6–152.2 ms at 12k offers. Observed process
+peak RSS was 220.5–220.8 MB and measured maximum degree 564–569.
+
+Matching digests agreed across the four runs. Update-trace and graph-state
+digests differed because admission losses changed each accepted prefix, rather
+than because the seed changed. The 10k offered case misses the real-rate target;
+12k offered exceeds 10k in these short local samples but includes Busy and missed
+offers and higher ack tails. Treat this only as a repeatability/calibration
+probe: it is not an installed-wheel run, sustained SLA, independent producer,
+per-version historical-query replay, hard RSS limit or deployment qualification.
+See the [recorded results and provenance limits](../../benchmarks/results/overload/power-law-million.json)
+and [overload results index](../../benchmarks/results/overload/README.md).

@@ -1,13 +1,17 @@
 """Offered arrivals cannot count missed/rejected work as delivered updates."""
 
+import json
+import subprocess
+import sys
 import threading
+from pathlib import Path
 
 import pytest
 
 from axiom.durable import Durable
 from axiom.service import Service
 from benchmarks import overload
-from benchmarks.overload import Burst, Schedule, measure
+from benchmarks.overload import Burst, PowerLaw, Schedule, measure
 
 
 def test_schedule_reports_missed_slots_without_unbounded_catch_up(monkeypatch):
@@ -133,6 +137,119 @@ def test_offered_load_counts_all_outcomes_and_audits_exact_recovery(tmp_path):
     assert result["independent_exact_audit_and_recovery_passed"]
 
 
+def test_power_law_offered_workload_accounts_for_real_mutations_and_recovery(tmp_path):
+    result = measure(
+        tmp_path / "power-law.db",
+        128,
+        100,
+        1,
+        query_rate=20,
+        queue_capacity=32,
+        workload="power-law",
+        seed=71,
+        skew_edges=32,
+    )
+    assert result["workload"] == "power-law" and result["seed"] == 71
+    assert result["power_law_exponent"] == 1.2
+    assert result["bootstrap_updates"] == 64
+    assert result["final_status"]["sequence"] == (
+        result["bootstrap_updates"] + result["real_acknowledged_updates"]
+    )
+    assert result["real_acknowledged_updates"] > 0
+    assert (
+        result["real_insertions"] + result["real_deletions"]
+        == result["real_acknowledged_updates"]
+    )
+    assert (
+        result["acknowledged_latency"]["count"] == result["real_acknowledged_updates"]
+    )
+    assert (
+        result["partner_queries"]
+        + result["busy_query_offers"]
+        + result["producer_missed_query_slots"]
+        == result["planned_query_offers"]
+    )
+    assert (
+        result["real_acknowledged_updates"]
+        + result["busy_update_offers"]
+        + result["producer_missed_update_slots"]
+        == result["planned_update_offers"]
+    )
+    assert len(result["update_trace_digest"]) == 64
+    assert result["independent_exact_audit_and_recovery_passed"]
+
+
+def test_power_law_generator_is_seed_deterministic_and_degree_skewed():
+    first, second = PowerLaw(256, 128, 599), PowerLaw(256, 128, 599)
+    assert first.bootstrap() == second.bootstrap()
+    assert first.wheel == second.wheel
+    degrees = [4] * 256
+    for u, v in first.bootstrap():
+        degrees[u] += 1
+        degrees[v] += 1
+    assert max(degrees) > 10 * min(degrees[16:])
+    actions = [first.request(index, index + 257) for index in range(100)]
+    other_actions = [second.request(index, index + 257) for index in range(100)]
+    assert actions == other_actions
+    for (request, cell), (other, other_cell) in zip(
+        actions, other_actions, strict=True
+    ):
+        first.commit(request, cell)
+        second.commit(other, other_cell)
+    assert first.digest.hexdigest() == second.digest.hexdigest()
+    assert first.extras() == second.extras()
+
+
+def test_power_law_rejected_offer_does_not_advance_toggle_or_trace():
+    traffic = PowerLaw(128, 32, 599)
+    before = traffic.digest.hexdigest()
+    first, cell = traffic.request(0, 65)
+    retry, same_cell = traffic.request(0, 65)
+    assert first == retry and cell == same_cell
+    assert traffic.active[cell]
+    assert traffic.digest.hexdigest() == before
+    traffic.commit(first, cell)
+    assert not traffic.active[cell]
+    assert traffic.digest.hexdigest() != before
+
+
+def test_power_law_cli_exposes_bounded_options_and_emits_audited_json(tmp_path):
+    database = tmp_path / "power-law-cli.db"
+    runner = Path(__file__).resolve().parents[1] / "benchmarks" / "overload.py"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(runner),
+            "--database",
+            str(database),
+            "--vertices",
+            "128",
+            "--rate",
+            "100",
+            "--seconds",
+            "1",
+            "--query-rate",
+            "10",
+            "--queue-capacity",
+            "32",
+            "--workload",
+            "power-law",
+            "--seed",
+            "71",
+            "--skew-edges",
+            "16",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    result = json.loads(completed.stdout)
+    assert result["workload"] == "power-law"
+    assert result["independent_exact_audit_and_recovery_passed"]
+    assert len(result["graph_state_digest"]) == 64
+
+
 def test_blocked_durability_forces_busy_without_dropping_or_resequencing_accepted_work(
     tmp_path, monkeypatch
 ):
@@ -182,6 +299,10 @@ def test_blocked_durability_forces_busy_without_dropping_or_resequencing_accepte
         {"queue_capacity": 1},
         {"seconds": True},
         {"seconds": 1.5},
+        {"workload": "unknown"},
+        {"workload": "power-law", "vertices": 32},
+        {"workload": "power-law", "skew_edges": 0},
+        {"workload": "power-law", "skew_edges": 8192, "vertices": 64},
     ],
 )
 def test_invalid_offered_envelope_never_creates_store(tmp_path, options):

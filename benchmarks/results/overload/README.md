@@ -69,6 +69,32 @@ checkpoint-sensitive and the shared-GIL producer is not an independent network
 generator. Do not label either gross overload throughput or zero query Busy as
 full qualification. [ADR 0017](../../../docs/adrs/0017-read-admission-reservation.md).
 
+## Seeded million-vertex power-law workload
+
+`power-law-million.json` records four ten-second runs of the new deterministic
+power-law harness from the source checkout (CPython 3.14.8, macOS 26.7.1 ARM64,
+SQLite 3.53.4; dirty tree at source commit 6afd6b4). Each run starts from a
+one-million-vertex degree-four ring, bootstraps 2,048 chords across 16 weighted
+hubs, sends 1,000 paced partner queries/s, and independently recovers/audits the
+complete matching and exact final topology. Peak RSS was 220.5–220.8 MB; maximum
+degree ranged 564–569.
+
+| Offered updates/s | Repeats | Real updates/s incl. drain | Busy offers | Producer misses | Ack p99 upper | Query p99 upper |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10,000 | 2 | 9,538–9,549 | 1,467–1,470 | 2,979–3,052 | 81.3–84.9 ms | 0.5–0.6 ms |
+| 12,000 | 2 | 11,146–11,151 | 3,178–3,189 | 5,239–5,290 | 150.6–152.2 ms | 0.5–0.6 ms |
+
+All four runs reconciled every scheduled offer, had zero Busy query offers, and
+passed final exact recovery/certification. The same seed produced the same
+matching digest, while update-trace/topology digests differed because scheduling
+loss and Busy outcomes changed the accepted prefix. At 10,000 offered/s this
+workload misses the real 10k/s target. At 12,000 offered/s it exceeded 11k real
+changes/s in these short samples, with materially higher acknowledgment tails.
+This is source-checkout paced evidence only—not an installed-wheel repeat, soak,
+independent load generator, full historical-query replay, or deployment gate.
+Do not generalize the short 12k sample into a sustained production guarantee.
+See [ADR 0015](../../../docs/adrs/0015-skew-and-offered-load-qualification.md).
+
 ## Inline checkpoint field-validation stage
 
 `inline-million-10000.json`: installed production `e24ae58`, frozen runner
