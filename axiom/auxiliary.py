@@ -233,8 +233,7 @@ class Auxiliary:
         """
         self.check()
         if self.owner.system is not self.system or any(
-            getattr(self.owner, name) is not value
-            for name, value in self.roots.items()
+            getattr(self.owner, name) is not value for name, value in self.roots.items()
         ):
             return self.complete(self.owner)
 
@@ -274,9 +273,8 @@ class Auxiliary:
 
         for vertex in self.affected:
             expected_s_hat = (
-                (vertex in system.A or vertex in system.B)
-                and vertex not in owner.matched_vertices
-            )
+                vertex in system.A or vertex in system.B
+            ) and vertex not in owner.matched_vertices
             if (vertex in owner.S_hat) != expected_s_hat:
                 return False
 

@@ -382,11 +382,22 @@ def test_fan_clear_swaps_roots_and_nested_rollback_restores_exact_state() -> Non
     fans.journal = inner
     fans.clear()
     assert not fans
-    assert all(not getattr(fans, name) for name in (
-        "members", "spokes", "assignments", "assigned", "vertices", "types"
-    ))
-    assert all(vars(fans)[name] is not value for name, value in roots.items()
-               if name != "journal")
+    assert all(
+        not getattr(fans, name)
+        for name in (
+            "members",
+            "spokes",
+            "assignments",
+            "assigned",
+            "vertices",
+            "types",
+        )
+    )
+    assert all(
+        vars(fans)[name] is not value
+        for name, value in roots.items()
+        if name != "journal"
+    )
     fans.add(replacement)
     inner.commit()
     outer.rollback()
@@ -877,9 +888,7 @@ def test_path_local_flip_handles_path_parity_and_orientation(
 
     coloring.flip(path, 0, 1)
 
-    result = [
-        coloring[(path[index], path[index + 1])] for index in range(edge_count)
-    ]
+    result = [coloring[(path[index], path[index + 1])] for index in range(edge_count)]
     assert result == [1 - color for color in originals]
     coloring.validate()
 
@@ -1554,9 +1563,7 @@ def test_built_vizing_chains_resolve_a_real_shared_alternating_edge():
         ((5, 11), 0),
     ):
         coloring.assign(edge, color)
-    chains = tuple(
-        Vizing.build(coloring, Spoke(edge, 0)) for edge in ((0, 6), (3, 7))
-    )
+    chains = tuple(Vizing.build(coloring, Spoke(edge, 0)) for edge in ((0, 6), (3, 7)))
     event = Vizing.explore(chains)
     assert event.terminal is None and event.collision is not None
     assert set(chains[0].edges) & set(chains[1].edges) == {

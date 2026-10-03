@@ -137,10 +137,7 @@ class Vertices:
         if len(self.positions) != self.n:
             return False
         for position, value in enumerate(self.members):
-            if (
-                not 0 <= value < self.n
-                or self.positions[value] != position
-            ):
+            if not 0 <= value < self.n or self.positions[value] != position:
                 return False
         return sum(value != self.empty for value in self.positions) == self.size
 

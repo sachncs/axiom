@@ -276,9 +276,8 @@ class Partial:
                 if edge in self.assignments:
                     raise AssertionError("partial coloring contains a null color")
                 continue
-            if (
-                any(self.index.get((vertex, old)) != edge for vertex in edge)
-                or any(old not in self.incident.get(vertex, ()) for vertex in edge)
+            if any(self.index.get((vertex, old)) != edge for vertex in edge) or any(
+                old not in self.incident.get(vertex, ()) for vertex in edge
             ):
                 raise RuntimeError("partial-coloring old index is inconsistent")
             for vertex in edge:
@@ -410,9 +409,7 @@ class Partial:
     def missing(self, vertex: Vertex) -> list[Color]:
         """Return the vertex's missing palette colors in ascending order."""
         used = self.incident.get(vertex, ())
-        return [
-            color for color in range(self.palette) if color not in used
-        ]
+        return [color for color in range(self.palette) if color not in used]
 
     def available(self, vertex: Vertex, color: Color) -> bool:
         """Return whether ``color`` is available at ``vertex`` in O(1)."""
@@ -634,9 +631,7 @@ class Partial:
 class ColorJournal:
     """Retain first-write before-images for a bounded Partial coloring region."""
 
-    def __init__(
-        self, coloring: Partial, parent: ColorJournal | None = None
-    ) -> None:
+    def __init__(self, coloring: Partial, parent: ColorJournal | None = None) -> None:
         """Bind a local before-image to its owner and optional enclosing journal."""
         self.coloring = coloring
         self.parent = parent
@@ -823,9 +818,12 @@ class Fans:
         typed = self.types[oldtype]
         if (
             not all(self.assignments[key] == fan for _, _, key in oldassignments)
-            or not all(color in values for values, (_, color, _) in zip(
-                assignedsets, oldassignments, strict=True
-            ))
+            or not all(
+                color in values
+                for values, (_, color, _) in zip(
+                    assignedsets, oldassignments, strict=True
+                )
+            )
             or not all(fan in values for values in vertexsets)
             or fan not in typed
         ):
@@ -1089,9 +1087,7 @@ class Fans:
             candidates = self
         else:
             affectedfans = {
-                fan
-                for vertex in vertices
-                for fan in self.vertices.get(vertex, ())
+                fan for vertex in vertices for fan in self.vertices.get(vertex, ())
             }
             candidates = sorted(
                 affectedfans,
@@ -1146,14 +1142,17 @@ class FanJournal:
         self.parent = parent
         self.before: dict[Fan, bool] = {}
         self.order: list[Fan] = []
-        self.roots: tuple[
-            set[Fan],
-            set[Edge],
-            dict[tuple[Vertex, Color], Fan],
-            dict[Vertex, set[Color]],
-            dict[Vertex, set[Fan]],
-            dict[frozenset[Color], set[Fan]],
-        ] | None = None
+        self.roots: (
+            tuple[
+                set[Fan],
+                set[Edge],
+                dict[tuple[Vertex, Color], Fan],
+                dict[Vertex, set[Color]],
+                dict[Vertex, set[Fan]],
+                dict[frozenset[Color], set[Fan]],
+            ]
+            | None
+        ) = None
 
     def capture(self, fan: Fan, present: bool) -> None:
         """Retain a fan's pre-transaction membership on its first mutation."""
@@ -1295,9 +1294,7 @@ class Vizing:
         fans: Fans | None = None,
     ) -> Chain:
         """Build the paper's Vizing fan and its maximal chain for one u-edge."""
-        leaves, colors = cls.fan(
-            coloring, spoke.center, spoke.leaf, blocked, fans
-        )
+        leaves, colors = cls.fan(coloring, spoke.center, spoke.leaf, blocked, fans)
         leavestuple = tuple(leaves)
         colorstuple = tuple(colors)
         terminal = colorstuple[-1]
@@ -1385,9 +1382,7 @@ class Vizing:
             raise RuntimeError("Vizing chain is missing its fan leaf-color sequence")
         terminal = colors[-1]
         alpha = chain.spoke.alpha
-        pathedges = [
-            canonical(left, right) for left, right in pairwise(chain.path)
-        ]
+        pathedges = [canonical(left, right) for left, right in pairwise(chain.path)]
         spokeedges = [canonical(center, leaf) for leaf in leaves]
         affected = dict.fromkeys((*pathedges, *spokeedges))
         before = {
@@ -1427,9 +1422,7 @@ class Vizing:
                 rotationcolors = colors[: repeated + 1]
             changes = {
                 canonical(center, leaf): color
-                for leaf, color in zip(
-                    rotationleaves, rotationcolors, strict=True
-                )
+                for leaf, color in zip(rotationleaves, rotationcolors, strict=True)
             }
             coloring.replace(changes)
             if edge not in coloring:
@@ -1516,9 +1509,7 @@ class Vizing:
         colorjournal = ColorJournal(coloring)
         colorjournal.capture(affectededges)
         fansbefore = {
-            fan
-            for vertex in affectedvertices
-            for fan in fans.vertices.get(vertex, ())
+            fan for vertex in affectedvertices for fan in fans.vertices.get(vertex, ())
         }
         alpha = first.spoke.alpha
         try:
@@ -1705,9 +1696,7 @@ class Pruning:
         )
 
     @classmethod
-    def blocked(
-        cls, fans: Fans, uedges: tuple[Spoke, ...]
-    ) -> BlockedColors:
+    def blocked(cls, fans: Fans, uedges: tuple[Spoke, ...]) -> BlockedColors:
         """Read fan colors lazily and index only active u-edge centers."""
         blocked: dict[Vertex, set[Color]] = {}
         for item in uedges:
@@ -1813,9 +1802,7 @@ class Pruning:
                 # The first shared vertex is a leaf of both fans.  Rotating both fans
                 # exposes the two spokes used by the paper's new u-fan.
                 shared = collision
-                colorjournal.capture(
-                    canonical(item.center, leaf) for leaf in leaves
-                )
+                colorjournal.capture(canonical(item.center, leaf) for leaf in leaves)
                 colorjournal.capture(
                     canonical(existing.center, leaf) for leaf in existingleaves
                 )
@@ -1881,9 +1868,7 @@ class Pruning:
             alpha = min(item.alpha for item in active)
             group = tuple(item for item in active if item.alpha == alpha)
             blocked = cls.blocked(fans, group)
-            chains = tuple(
-                cls.vizing.build(coloring, item, blocked) for item in group
-            )
+            chains = tuple(cls.vizing.build(coloring, item, blocked) for item in group)
             event = cls.vizing.explore(chains)
             if event.terminal is not None:
                 selectedchains: tuple[Chain, ...] = (event.terminal,)
@@ -1893,12 +1878,9 @@ class Pruning:
                     for chain in collisionchains:
                         journal.capture(chain.edges)
                         journal.capture(
-                            canonical(chain.spoke.center, leaf)
-                            for leaf in chain.leaves
+                            canonical(chain.spoke.center, leaf) for leaf in chain.leaves
                         )
-                resolved, added = cls.vizing.resolve(
-                    coloring, fans, collisionchains
-                )
+                resolved, added = cls.vizing.resolve(coloring, fans, collisionchains)
                 if resolved:
                     active = [
                         item
@@ -1907,14 +1889,11 @@ class Pruning:
                     ]
                     extended += added
                     collisionedges = {
-                        edge
-                        for chain in collisionchains
-                        for edge in chain.edges
+                        edge for chain in collisionchains for edge in chain.edges
                     }
                     for chain in collisionchains:
                         collisionedges.update(
-                            canonical(chain.spoke.center, leaf)
-                            for leaf in chain.leaves
+                            canonical(chain.spoke.center, leaf) for leaf in chain.leaves
                         )
                     changedvertices = {
                         vertex for edge in collisionedges for vertex in edge
@@ -1947,9 +1926,7 @@ class Pruning:
                 )
                 active.remove(item)
                 extended += 1
-            changedvertices = {
-                vertex for edge in changededges for vertex in edge
-            }
+            changedvertices = {vertex for edge in changededges for vertex in edge}
             fans.repair(coloring, changedvertices)
             coloring.certify(changededges)
             fans.certify(changedvertices)
@@ -2051,10 +2028,7 @@ class Construction:
                 if journal is not None:
                     journal.capture(
                         (
-                            *(
-                                canonical(left, right)
-                                for left, right in pairwise(path)
-                            ),
+                            *(canonical(left, right) for left, right in pairwise(path)),
                             canonical(fan.center, leaf),
                         )
                     )
@@ -2065,9 +2039,7 @@ class Construction:
                     for vertex in affectedvertices
                     for member in fans.vertices.get(vertex, ())
                 }
-                typesbefore = {
-                    member.vertices: member.type for member in affectedfans
-                }
+                typesbefore = {member.vertices: member.type for member in affectedfans}
                 # Remove the activated fan before flipping.  Otherwise
                 # ``flip_path`` may replace its endpoint assignment in the
                 # collection, leaving a stale fan whose spoke is now colored.
@@ -2160,9 +2132,7 @@ class Construction:
             incident.setdefault(left, []).append(right)
             incident.setdefault(right, []).append(left)
 
-        palettes = {
-            vertex: set(coloring.missing(vertex)) for vertex in incident
-        }
+        palettes = {vertex: set(coloring.missing(vertex)) for vertex in incident}
         fans = Fans()
         usedspokes: set[Edge] = set()
         for center in sorted(incident):
@@ -2843,9 +2813,7 @@ class Extension:
         ordered = tuple(sorted(colorgroup))
         tolocal = {color: index for index, color in enumerate(ordered)}
         edgescope = {edge for edge, color in coloring.items() if color in colorgroup}
-        selectedfans = [
-            fan for fan in fans.members if fan.type <= colorgroup
-        ]
+        selectedfans = [fan for fan in fans.members if fan.type <= colorgroup]
         for fan in selectedfans:
             edgescope.update(fan.edges)
         # E_k is an actual edge-disjoint subproblem in ABB's Extend.  Give the
@@ -3188,11 +3156,7 @@ class Paper:
         for index, edge in enumerate(originaledges):
             parts[partition[index]].add_edge(*edge)
         maximum = max(
-            (
-                graph.degree(vertex)
-                for component in components
-                for vertex in component
-            ),
+            (graph.degree(vertex) for component in components for vertex in component),
             default=0,
         )
         # An odd Euler circuit can leave one vertex with one extra edge in a

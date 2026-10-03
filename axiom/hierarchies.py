@@ -83,9 +83,7 @@ class Hierarchies:
             type(value) not in (set, Vertices) for value in values
         ):
             raise TypeError("hierarchy A-levels require bounded set storage")
-        if any(
-            type(value) is Vertices and value.n != root.graph.n for value in values
-        ):
+        if any(type(value) is Vertices and value.n != root.graph.n for value in values):
             raise ValueError("hierarchy A-level universe differs")
         if type(root.N_levels) is not list or any(
             type(value) not in (set, Vertices) for value in root.N_levels

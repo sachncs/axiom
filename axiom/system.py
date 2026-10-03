@@ -333,8 +333,7 @@ class System:
             type(self.lambda_lists) is not dict
             or any(vertex not in self.U for vertex in self.lambda_lists)
             or any(
-                type(row) is not list or not row
-                for row in self.lambda_lists.values()
+                type(row) is not list or not row for row in self.lambda_lists.values()
             )
         ):
             return False
@@ -493,9 +492,7 @@ class System:
             if isinstance(allowed, set):
                 self.M.intersection_update(allowed)
             else:
-                removed = tuple(
-                    edge for edge in self.M if not allowed.has_edge(*edge)
-                )
+                removed = tuple(edge for edge in self.M if not allowed.has_edge(*edge))
                 self.M.difference_update(removed)
         else:
             self.journal.restrict(self.M, allowed)
@@ -667,8 +664,7 @@ def switch(
 
         before_degrees = {vertex: deg_M[vertex] for vertex in deltas}
         after_degrees = {
-            vertex: before_degrees[vertex] + delta
-            for vertex, delta in deltas.items()
+            vertex: before_degrees[vertex] + delta for vertex, delta in deltas.items()
         }
         if any(degree > z for degree in after_degrees.values()) or any(
             before_degrees[vertex] == z and vertex != u and degree != z

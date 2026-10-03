@@ -160,9 +160,7 @@ def test_dense_system_partitions_use_compact_set_semantics():
     system.B.discard(81)
     assert system.check_partition()
 
-    sparse = System(
-        Adjacency(128), 0, A={0}, B={1}, U=set(range(2, 128))
-    )
+    sparse = System(Adjacency(128), 0, A={0}, B={1}, U=set(range(2, 128)))
     assert type(sparse.A) is set and type(sparse.B) is set
 
     crossover = System(

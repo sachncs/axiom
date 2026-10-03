@@ -86,15 +86,13 @@ class Systems:
                 )
                 or type(attributes["M"]) is not set
                 or any(
-                    type(attributes[name]) is Vertices
-                    and attributes[name].n != owner.n
+                    type(attributes[name]) is Vertices and attributes[name].n != owner.n
                     for name in ("A", "B", "U")
                 )
             ):
                 raise TypeError("System partitions require bounded set storage")
             if audit and any(
-                type(attributes[name]) is Vertices
-                and not attributes[name].check()
+                type(attributes[name]) is Vertices and not attributes[name].check()
                 for name in ("A", "B", "U")
             ):
                 raise ValueError("System contains an invalid compact partition")
@@ -103,8 +101,7 @@ class Systems:
                 if type(container) is not dict:
                     raise TypeError("System caches require plain maps and lists")
                 if audit and any(
-                    not self.validrow(row, source)
-                    for source, row in container.items()
+                    not self.validrow(row, source) for source, row in container.items()
                 ):
                     raise TypeError("System caches require plain maps and lists")
                 self.maps[id(container)] = container
@@ -163,9 +160,7 @@ class Systems:
             container[source] = values
         System.change(values, target, added)
 
-    def forget(
-        self, container: dict[Vertex, list[Vertex]], source: Vertex
-    ) -> None:
+    def forget(self, container: dict[Vertex, list[Vertex]], source: Vertex) -> None:
         """Remove an empty cache row while retaining its original map cell."""
         self.check()
         address = id(container)
@@ -266,8 +261,10 @@ class Systems:
                 container = getattr(system, name)
                 if type(container) is not dict:
                     raise TypeError("System candidate requires plain maps and lists")
-                full = self.audit or original is None or (
-                    container is not original[1][name]
+                full = (
+                    self.audit
+                    or original is None
+                    or (container is not original[1][name])
                 )
                 if full:
                     for source, row in container.items():

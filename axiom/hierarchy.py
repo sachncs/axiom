@@ -90,9 +90,7 @@ class Hierarchy:
             return
         for index, partition in enumerate(self.A_levels):
             if type(partition) is set and len(partition) * 4 >= self.graph.n:
-                self.A_levels[index] = Vertices(
-                    self.graph.n, partition, ordered=False
-                )
+                self.A_levels[index] = Vertices(self.graph.n, partition, ordered=False)
 
     def counts(
         self, matching: set[Edge], ceiling: int
@@ -238,9 +236,7 @@ class Hierarchy:
                 raise RuntimeError("hierarchy phase edge delta was not applied")
             if not self.certify(left, right):
                 reason = self.diagnose(left, right)
-                raise RuntimeError(
-                    f"hierarchy endpoint certificate failed: {reason}"
-                )
+                raise RuntimeError(f"hierarchy endpoint certificate failed: {reason}")
             return
 
         phase_graph = empty(graph)
@@ -352,9 +348,7 @@ class Hierarchy:
             if population != len(target):
                 return False
             return all(
-                type(vertex) is int
-                and 0 <= vertex < self.graph.n
-                and members[vertex]
+                type(vertex) is int and 0 <= vertex < self.graph.n and members[vertex]
                 for vertex in target
             )
 
@@ -366,8 +360,7 @@ class Hierarchy:
         if population != len(target):
             return False
         return all(
-            any(vertex in partition for partition in partitions)
-            for vertex in target
+            any(vertex in partition for partition in partitions) for vertex in target
         )
 
     def regionequals(
@@ -391,9 +384,7 @@ class Hierarchy:
             if members.count(1) != len(region):
                 return False
             return all(
-                type(vertex) is int
-                and 0 <= vertex < self.graph.n
-                and members[vertex]
+                type(vertex) is int and 0 <= vertex < self.graph.n and members[vertex]
                 for vertex in region
             )
 
@@ -432,9 +423,7 @@ class Hierarchy:
             or self.R1 != self.R_levels[0]
         ):
             return False
-        if any(
-            not self.graph.has_edge(*edge) for edge in self.deferred_deletions
-        ):
+        if any(not self.graph.has_edge(*edge) for edge in self.deferred_deletions):
             return False
         for index, level in enumerate(self.levels):
             if level.graph is not self.graph or level.graph.n != self.graph.n:
@@ -757,19 +746,13 @@ def refine_hierarchy(
                 raise ValueError(
                     f"{label} edges must be canonical endpoints in [0, n): {edge}"
                 )
-    missing = sorted(
-        edge for edge in deleted if not hierarchy.graph.has_edge(*edge)
-    )
+    missing = sorted(edge for edge in deleted if not hierarchy.graph.has_edge(*edge))
     if missing:
-        raise ValueError(
-            "deleted edges must belong to the phase graph: " f"{missing}"
-        )
-    present = sorted(
-        edge for edge in inserted if hierarchy.graph.has_edge(*edge)
-    )
+        raise ValueError(f"deleted edges must belong to the phase graph: {missing}")
+    present = sorted(edge for edge in inserted if hierarchy.graph.has_edge(*edge))
     if present:
         raise ValueError(
-            "inserted edges must be absent from the phase graph: " f"{present}"
+            f"inserted edges must be absent from the phase graph: {present}"
         )
     if deleted & inserted:
         raise ValueError("deleted and inserted edge sets must be disjoint")
@@ -1104,9 +1087,7 @@ def refine_hierarchy(
             if vertex not in excluded
         )
         if hierarchy.graph.n and region_size * 8 >= hierarchy.graph.n:
-            all_r_levels.append(
-                Vertices(hierarchy.graph.n, region, ordered=False)
-            )
+            all_r_levels.append(Vertices(hierarchy.graph.n, region, ordered=False))
         else:
             all_r_levels.append(set(region))
     all_r_levels.append(new_system.U)
@@ -1156,9 +1137,7 @@ def refine_hierarchy(
     return next_hierarchy
 
 
-def project(
-    graph: Graph, edges: Iterable[Edge], *, ordered: bool = False
-) -> Graph:
+def project(graph: Graph, edges: Iterable[Edge], *, ordered: bool = False) -> Graph:
     """Build an isolated graph from an edge set or a certified ordered stream."""
     if type(ordered) is not bool:
         raise TypeError("ordered selection must be a boolean")

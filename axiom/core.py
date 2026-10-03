@@ -906,10 +906,7 @@ class Matcher:
             mutate(u, v)
             change = 1 if added else -1
             if (
-                (
-                    isinstance(graph, Packed)
-                    and graph.version != version + 1
-                )
+                (isinstance(graph, Packed) and graph.version != version + 1)
                 or graph.num_edges() != count + change
                 or graph.degree(u) != left + change
                 or graph.degree(v) != right + change
@@ -1314,8 +1311,12 @@ class Matcher:
             if p is not None:
                 if level is None and p in system.A:
                     continue
-                if level is not None and self.multi is not None and any(
-                    p in self.multi.A_levels[index] for index in range(level + 1)
+                if (
+                    level is not None
+                    and self.multi is not None
+                    and any(
+                        p in self.multi.A_levels[index] for index in range(level + 1)
+                    )
                 ):
                     continue
             if p is not None:
