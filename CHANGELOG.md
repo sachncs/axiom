@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — engineering through 2026-10-03
 
+- Paper Vizing activation and fan-prefix rotation now update only touched coloring
+  indexes through an atomic local transaction, with endpoint certificates and
+  exact rollback on certificate failure. Completion keeps local checks per edge
+  and a full audit at the boundary; fan compatibility/full coloring audits
+  remain. Deterministic profiles improved, but large paper builds still take
+  about 25 seconds at 8,192 degree-four vertices and broader qualification is
+  open. See [ADR 0059](docs/adrs/0059-local-paper-coloring-transactions.md).
+
 - Matcher update transactions now contain no recursive `deepcopy`: shallow root
   references combine with bounded undo for indexes and phase-clock cells. Failure
   tests patch `copy.deepcopy` to raise and verify exact rollback/retry. This removes

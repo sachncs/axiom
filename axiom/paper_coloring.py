@@ -10,7 +10,7 @@ classical complete coloring as an interchangeable substitute.
 from __future__ import annotations
 
 import math
-from collections.abc import ItemsView, Iterator, Mapping
+from collections.abc import ItemsView, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from itertools import pairwise
 from types import MappingProxyType
@@ -212,6 +212,147 @@ class Partial:
             edgebycolor[(right, color)] = (left, right)
         self.incident = incident
         self.index = edgebycolor
+
+    def certify(self, edges: Iterable[Edge]) -> None:
+        """Check the coloring and indexes only at vertices touched by edges."""
+        vertices: set[Vertex] = set()
+        for edge in edges:
+            edge = canonical(*edge)
+            vertices.update(edge)
+            color = self.assignments.get(edge)
+            if color is None:
+                if edge in self.assignments:
+                    raise AssertionError("partial coloring contains a null color")
+                if any(
+                    self.index.get((vertex, used)) == edge
+                    for vertex in edge
+                    for used in self.incident[vertex]
+                ):
+                    raise AssertionError("uncolored edge remains in the local index")
+                continue
+            if (
+                not self.graph.has_edge(*edge)
+                or not 0 <= color < self.palette
+                or any(color not in self.incident[vertex] for vertex in edge)
+                or any(self.index.get((vertex, color)) != edge for vertex in edge)
+            ):
+                raise AssertionError(
+                    f"partial coloring edge certificate failed: {edge}"
+                )
+
+        for vertex in vertices:
+            expected: dict[Color, Edge] = {}
+            for neighbor in self.graph.neighbors(vertex):
+                edge = canonical(vertex, neighbor)
+                color = self.assignments.get(edge)
+                if color is None:
+                    continue
+                if color in expected:
+                    raise AssertionError(f"improper coloring at vertex {vertex}")
+                expected[color] = edge
+            if set(expected) != self.incident[vertex] or any(
+                self.index.get((vertex, color)) != edge
+                for color, edge in expected.items()
+            ):
+                raise AssertionError(
+                    f"partial-coloring local index is stale at {vertex}"
+                )
+
+    def replace(self, changes: Mapping[Edge, Color | None]) -> None:
+        """Atomically replace a bounded set of edge colors and local indexes."""
+        normalized: dict[Edge, Color | None] = {}
+        for edge, color in changes.items():
+            edge = canonical(*edge)
+            if edge in normalized:
+                raise ValueError(f"duplicate edge in coloring replacement: {edge}")
+            normalized[edge] = color
+        if not normalized:
+            return
+
+        before = {edge: self.assignments.get(edge) for edge in normalized}
+        affected = set(normalized)
+        released: dict[Vertex, set[Color]] = {}
+        proposed: dict[Vertex, set[Color]] = {}
+        touched: set[tuple[Vertex, Color]] = set()
+        for edge, old in before.items():
+            if old is None:
+                if edge in self.assignments:
+                    raise AssertionError("partial coloring contains a null color")
+                continue
+            if (
+                any(self.index.get((vertex, old)) != edge for vertex in edge)
+                or any(old not in self.incident[vertex] for vertex in edge)
+            ):
+                raise RuntimeError("partial-coloring old index is inconsistent")
+            for vertex in edge:
+                released.setdefault(vertex, set()).add(old)
+
+        for edge, color in normalized.items():
+            if color is None:
+                continue
+            if (
+                not isinstance(color, int)
+                or isinstance(color, bool)
+                or not 0 <= color < self.palette
+                or not self.graph.has_edge(*edge)
+            ):
+                raise ValueError(f"invalid replacement color for edge {edge}")
+            for vertex in edge:
+                colors = proposed.setdefault(vertex, set())
+                if color in colors or (
+                    color in self.incident[vertex]
+                    and color not in released.get(vertex, set())
+                ):
+                    raise ValueError(f"replacement would conflict at vertex {vertex}")
+                owner = self.index.get((vertex, color))
+                if owner is not None and owner not in affected:
+                    raise RuntimeError("replacement target contradicts the color index")
+                colors.add(color)
+
+        for edge, color in before.items():
+            for vertex in edge:
+                if color is not None:
+                    touched.add((vertex, color))
+                replacement = normalized[edge]
+                if replacement is not None:
+                    touched.add((vertex, replacement))
+
+        try:
+            for edge, old in before.items():
+                if old is None:
+                    continue
+                self.assignments.pop(edge)
+                for vertex in edge:
+                    key = vertex, old
+                    self.index.pop(key)
+                    self.incident[vertex].remove(old)
+
+            for edge, color in normalized.items():
+                if color is None:
+                    continue
+                self.assignments[edge] = color
+                for vertex in edge:
+                    key = vertex, color
+                    self.incident[vertex].add(color)
+                    self.index[key] = edge
+            self.certify(normalized)
+        except BaseException:
+            for edge in affected:
+                self.assignments.pop(edge, None)
+            for vertex, color in touched:
+                owner = self.index.get((vertex, color))
+                if owner in affected:
+                    self.index.pop((vertex, color))
+                if (vertex, color) not in self.index:
+                    self.incident[vertex].discard(color)
+            for edge, color in before.items():
+                if color is None:
+                    continue
+                self.assignments[edge] = color
+                for vertex in edge:
+                    self.incident[vertex].add(color)
+                    self.index[(vertex, color)] = edge
+            raise
 
     def __contains__(self, edge: object) -> bool:
         """Return whether a canonical edge has an assigned color."""
@@ -855,7 +996,6 @@ class Fans:
         ]
         for fan in damaged:
             self.discard(fan)
-        self.validate()
         return len(damaged)
 
 
@@ -989,17 +1129,24 @@ class Vizing:
             raise RuntimeError("Vizing chain is missing its fan leaf-color sequence")
         terminal = colors[-1]
         alpha = chain.spoke.alpha
-        before = dict(coloring.assignments)
+        pathedges = [
+            canonical(left, right) for left, right in pairwise(chain.path)
+        ]
+        spokeedges = [canonical(center, leaf) for leaf in leaves]
+        affected = dict.fromkeys((*pathedges, *spokeedges))
+        before = {
+            candidate: coloring.assignments.get(candidate) for candidate in affected
+        }
         try:
             if coloring.available(center, terminal):
                 # Trivial fan: rotate every assigned spoke and color the final
                 # spoke with the terminal missing color.
-                for leaf in leaves:
-                    coloring.assignments.pop(canonical(center, leaf), None)
-                for index, color in enumerate(colors):
-                    coloring.assignments[canonical(center, leaves[index])] = color
-                coloring.reindex()
-                coloring.validate()
+                coloring.replace(
+                    {
+                        canonical(center, leaf): color
+                        for leaf, color in zip(leaves, colors, strict=True)
+                    }
+                )
                 return edge
 
             repeated = next(
@@ -1022,30 +1169,46 @@ class Vizing:
             else:
                 rotationleaves = leaves[: repeated + 1]
                 rotationcolors = colors[: repeated + 1]
-            for leaf in rotationleaves:
-                coloring.assignments.pop(canonical(center, leaf), None)
-            for leaf, color in zip(rotationleaves, rotationcolors, strict=True):
-                coloring.assignments[canonical(center, leaf)] = color
-            coloring.reindex()
+            changes = {
+                canonical(center, leaf): color
+                for leaf, color in zip(
+                    rotationleaves, rotationcolors, strict=True
+                )
+            }
+            coloring.replace(changes)
             if edge not in coloring:
                 raise RuntimeError("Vizing rotation did not color the source u-edge")
-            coloring.validate()
             return edge
         except Exception:
-            coloring.assignments = before
-            coloring.reindex()
+            coloring.replace(before)
             coloring.validate()
             raise
 
     @classmethod
-    def color(cls, coloring: Partial, edge: Edge) -> Edge:
+    def color(cls, coloring: Partial, edge: Edge, batch: bool = False) -> Edge:
         """Activate one uncolored edge through the paper Vizing primitive."""
+        if type(batch) is not bool:
+            raise TypeError("batch selection must be a boolean")
         edge = canonical(*edge)
         if edge in coloring:
             raise ValueError(f"edge is already colored: {edge}")
         alpha = coloring.vacancy(edge[0])
         chain = cls.build(coloring, Spoke(edge, alpha))
-        return cls.activate(coloring, chain)
+        candidates = chain.edges + tuple(
+            canonical(chain.spoke.center, leaf) for leaf in chain.leaves
+        )
+        before = {
+            candidate: coloring.assignments.get(candidate) for candidate in candidates
+        }
+        try:
+            result = cls.activate(coloring, chain)
+            if not batch:
+                coloring.validate()
+            return result
+        except Exception:
+            coloring.replace(before)
+            coloring.validate()
+            raise
 
     @classmethod
     def resolve(
@@ -1159,11 +1322,13 @@ class Vizing:
         oldcolors = [
             coloring[canonical(center, fan[index + 1])] for index in range(width)
         ]
-        for index, color in enumerate(oldcolors):
-            coloring.assignments[canonical(center, fan[index])] = color
+        changes: dict[Edge, Color | None] = {
+            canonical(center, fan[index]): color
+            for index, color in enumerate(oldcolors)
+        }
         if width > 0:
-            coloring.assignments.pop(canonical(center, fan[width]))
-        coloring.reindex()
+            changes[canonical(center, fan[width])] = None
+        coloring.replace(changes)
 
 
 class Pruning:
@@ -1573,7 +1738,7 @@ class Construction:
                 )
                 batch = list(fans.select(target))
                 for fan in batch:
-                    if fan not in set(fans):
+                    if fan not in fans.members:
                         continue
                     typesbefore = {member.vertices: member.type for member in fans}
                     try:
@@ -1592,7 +1757,8 @@ class Construction:
                         if previoustype is not None and member.type != previoustype:
                             fans.discard(member)
                     fans.repair(coloring)
-                fans.validate()
+            fans.validate()
+            fans.compatible(coloring)
             coloring.validate()
             return extended
         except Exception:
@@ -2474,12 +2640,13 @@ class Paper:
             else:
                 cls.extension.extend(start, separablefans, eta)
             start.validate()
-        for edge in sorted(alledges - start.edges()):
+        pending = sorted(alledges - start.edges())
+        for edge in pending:
             if edge not in start:
-                cls.vizing.color(start, edge)
-                start.validate()
-        if start.edges() != alledges:
+                cls.vizing.color(start, edge, batch=True)
+        if start.assignments.keys() != alledges:
             raise RuntimeError("Vizing activation/reduction left edges uncolored")
+        start.validate()
         return dict(start.items())
 
     @classmethod

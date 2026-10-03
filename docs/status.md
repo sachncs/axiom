@@ -25,6 +25,15 @@ SQLite checkpoint plus committed tail is the complete durable authority.
 | Three-minute burst plus degree-65,536 hub | 10,431/s | 59 checkpoints, exact query/recovery; 56,554 rejections and 12 offered-ack tails beyond 1s retained |
 | Linux changing-density hard-resource drill | Not a rate test | 1.04m real changes, actual memory/disk exhaustion, compact backup restore under unchanged caps |
 
+The paper-coloring route now applies Vizing activation and fan-prefix rotation
+with touched-edge index updates and local certificates, retaining full coloring
+and fan audits at operation boundaries. Injected certificate failure restores
+the exact prior partial-coloring maps. Deterministic profiling shows fewer
+whole-state calls, but the 8,192-vertex degree-four hierarchy probe still takes
+about 25 seconds; this does not establish production throughput or billion-node
+support. Broader repeatability, snapshot migration, and durable integration
+remain active. See [ADR 0059](adrs/0059-local-paper-coloring-transactions.md).
+
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),
 [hub](../benchmarks/results/independent/hub-steady-million.json),

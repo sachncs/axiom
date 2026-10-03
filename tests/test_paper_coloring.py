@@ -103,6 +103,38 @@ def test_routing_prunes_multiple_groups_and_performs_chain_flips(count: int) -> 
     assert not fans
 
 
+def test_partial_replace_cycles_colors_and_rolls_back_failed_certification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(3)
+    for edge in ((0, 1), (1, 2), (0, 2)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 0)
+    coloring.assign((1, 2), 1)
+    coloring.assign((0, 2), 2)
+
+    coloring.replace({(0, 1): 1, (1, 2): 0})
+    assert coloring.assignments == {(0, 1): 1, (1, 2): 0, (0, 2): 2}
+    coloring.validate()
+
+    before = deepcopy(
+        {key: value for key, value in vars(coloring).items() if key != "graph"}
+    )
+
+    def fail(candidate: Partial, edges) -> None:
+        raise RuntimeError("injected local coloring certificate failure")
+
+    monkeypatch.setattr(Partial, "certify", fail)
+    with pytest.raises(
+        RuntimeError, match="injected local coloring certificate failure"
+    ):
+        coloring.replace({(0, 1): 0, (1, 2): 1})
+    assert {
+        key: value for key, value in vars(coloring).items() if key != "graph"
+    } == before
+
+
 def test_pruning_restores_every_index_after_a_later_collision_failure() -> None:
     coloring, pending = Cases.collisions(3)
     graph = coloring.graph
