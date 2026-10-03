@@ -72,7 +72,7 @@ class Systems:
             for name in ("lambda_lists", "L_lists"):
                 container = attributes[name]
                 if type(container) is not dict or any(
-                    type(row) is not list for row in container.values()
+                    type(row) is not list or not row for row in container.values()
                 ):
                     raise TypeError("System caches require plain maps and lists")
                 self.maps[id(container)] = container
@@ -130,6 +130,23 @@ class Systems:
             values = []
             container[source] = values
         System.change(values, target, added)
+
+    def forget(
+        self, container: dict[Vertex, list[Vertex]], source: Vertex
+    ) -> None:
+        """Remove an empty cache row while retaining its original map cell."""
+        self.check()
+        address = id(container)
+        key = address, source
+        if address not in self.maps:
+            raise RuntimeError("cache map is not owned by this System journal")
+        if key not in self.keys:
+            self.reserve(1)
+            self.keys[key] = source in container, container.get(source)
+        values = container.get(source)
+        if values:
+            raise RuntimeError("cannot forget a nonempty System cache row")
+        container.pop(source, None)
 
     def restrict(self, matching: set[Edge], allowed: set[Edge]) -> None:
         """Log removals first, then delete by iterating only bounded undo cells.
@@ -190,7 +207,7 @@ class Systems:
                 raise TypeError("System candidate requires plain sets")
             for container in (system.lambda_lists, system.L_lists):
                 if type(container) is not dict or any(
-                    type(row) is not list for row in container.values()
+                    type(row) is not list or not row for row in container.values()
                 ):
                     raise TypeError("System candidate requires plain maps and lists")
 

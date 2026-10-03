@@ -28,7 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Matcher trace reduced retained/peak traced allocations by about 59%/46%; this
   is not broad workload qualification. See
   [ADR 0039](docs/adrs/0039-sparse-empty-auxiliary-rows.md).
-- 1,201 local tests pass after sparse H rows, compact Matcher defaults,
+- `System` now stores only nonempty Lambda/L cache rows. Last-entry deletions
+  prune rows, with the `Systems` journal restoring exact row aliases and contents
+  on rollback. One empty 100k Matcher sample peaked at 40.5 MB RSS; the remaining
+  dominant Python allocation is the `U` partition set. See
+  [ADR 0040](docs/adrs/0040-sparse-system-cache-rows.md).
+- 1,202 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.
 

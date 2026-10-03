@@ -66,10 +66,10 @@ class System:
         B: Vertices in set :math:`B`.
         U: Vertices in set :math:`U`.
         M: Edge set :math:`M \subseteq E(G)`.
-        lambda_lists: For each :math:`u \in U`, the list
-            :math:`\Lambda(u) = N_G(u) \cap (B \cup U)`.
-        L_lists: For each :math:`a \in A`, the list
-            :math:`L(a) = N_G(a) \cap U`.
+        lambda_lists: Nonempty rows :math:`\Lambda(u) = N_G(u) \cap (B \cup U)`;
+            a missing key represents an empty row.
+        L_lists: Nonempty rows :math:`L(a) = N_G(a) \cap U`;
+            a missing key represents an empty row.
 
     Lifecycle:
         A system is normally built by :func:`build`.  After any
@@ -217,8 +217,6 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
-        if set(self.lambda_lists) != self.U:
-            return False
         for u in self.U:
             count = sum(1 for w in self.graph.neighbors(u) if w in self.U)
             if count > self.z:
@@ -256,8 +254,6 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
-        if set(self.L_lists) != self.A:
-            return False
         for a in self.A:
             for w in self.partner_in(a):
                 if w not in self.A and w not in self.B:
@@ -278,7 +274,14 @@ class System:
             :math:`O(n + m)` dominated by the recomputation of the
             expected lists.
         """
-        if set(self.lambda_lists) != self.U:
+        if (
+            type(self.lambda_lists) is not dict
+            or not self.lambda_lists.keys() <= self.U
+            or any(
+                type(row) is not list or not row
+                for row in self.lambda_lists.values()
+            )
+        ):
             return False
         for u in self.U:
             expected = sorted(
@@ -300,7 +303,11 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
-        if set(self.L_lists) != self.A:
+        if (
+            type(self.L_lists) is not dict
+            or not self.L_lists.keys() <= self.A
+            or any(type(row) is not list or not row for row in self.L_lists.values())
+        ):
             return False
         for a in self.A:
             expected = sorted(w for w in self.graph.neighbors(a) if w in self.U)
@@ -340,19 +347,25 @@ class System:
 
         Call this whenever the host graph has been mutated so that the
         cached lists stay consistent. Replaces ``self.lambda_lists`` and
-        ``self.L_lists`` with new maps/lists; old rows are not edited in place.
+        ``self.L_lists`` with maps containing only nonempty rows; old rows are
+        not edited in place.
 
         Complexity:
             :math:`O(n + m)`.  The list is sorted to make
             maximality-equality checks deterministic.
         """
-        self.lambda_lists = {
-            u: sorted(w for w in self.graph.neighbors(u) if w in self.B or w in self.U)
-            for u in self.U
-        }
-        self.L_lists = {
-            a: sorted(w for w in self.graph.neighbors(a) if w in self.U) for a in self.A
-        }
+        self.lambda_lists = {}
+        for u in self.U:
+            values = sorted(
+                w for w in self.graph.neighbors(u) if w in self.B or w in self.U
+            )
+            if values:
+                self.lambda_lists[u] = values
+        self.L_lists = {}
+        for a in self.A:
+            values = sorted(w for w in self.graph.neighbors(a) if w in self.U)
+            if values:
+                self.L_lists[a] = values
 
     @staticmethod
     def change(values: list[Vertex], value: Vertex, added: bool) -> None:
@@ -392,14 +405,32 @@ class System:
         for source, target in ((left, right), (right, left)):
             if source in self.U and (target in self.B or target in self.U):
                 if self.journal is None:
-                    self.change(self.lambda_lists.setdefault(source, []), target, added)
+                    values = self.lambda_lists.get(source)
+                    if values is None and added:
+                        values = []
+                        self.lambda_lists[source] = values
+                    if values is not None:
+                        self.change(values, target, added)
+                        if not added and not values:
+                            self.lambda_lists.pop(source, None)
                 else:
                     self.journal.edit(self.lambda_lists, source, target, added)
+                    if not added and not self.lambda_lists[source]:
+                        self.journal.forget(self.lambda_lists, source)
             if source in self.A and target in self.U:
                 if self.journal is None:
-                    self.change(self.L_lists.setdefault(source, []), target, added)
+                    values = self.L_lists.get(source)
+                    if values is None and added:
+                        values = []
+                        self.L_lists[source] = values
+                    if values is not None:
+                        self.change(values, target, added)
+                        if not added and not values:
+                            self.L_lists.pop(source, None)
                 else:
                     self.journal.edit(self.L_lists, source, target, added)
+                    if not added and not self.L_lists[source]:
+                        self.journal.forget(self.L_lists, source)
 
     def restrict(self, allowed: set[Edge]) -> None:
         """Cut matching edges with registered undo when this System is admitted."""

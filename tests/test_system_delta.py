@@ -8,6 +8,7 @@ from axiom.hierarchy import build_hierarchy as hierarchy
 from axiom.hierarchy import update
 from axiom.storage import Packed
 from axiom.system import System
+from axiom.systems import Systems
 from axiom.witness import Witness
 
 
@@ -32,7 +33,7 @@ def indexed(backend=Packed):
 def test_delta_matches_full_index_and_retains_unaffected_rows(backend, edge):
     system = indexed(backend)
     rows = {
-        (name, vertex): values
+        (name, vertex): (values, list(values))
         for name in ("lambda_lists", "L_lists")
         for vertex, values in getattr(system, name).items()
     }
@@ -41,8 +42,12 @@ def test_delta_matches_full_index_and_retains_unaffected_rows(backend, edge):
     mutate(*edge)
     system.update(*edge, not existed)
     assert system.check_lambda() and system.check_L()
-    for (name, vertex), values in rows.items():
-        assert getattr(system, name)[vertex] is values
+    for (name, vertex), (values, original) in rows.items():
+        current = getattr(system, name).get(vertex)
+        if vertex in edge and current is None:
+            assert original and values == []
+        else:
+            assert current is values
     previous = Witness().capture(system)
     system.update(*edge, not existed)
     assert Witness().capture(system) == previous
@@ -50,6 +55,28 @@ def test_delta_matches_full_index_and_retains_unaffected_rows(backend, edge):
     reverse(*edge)
     system.update(*edge, existed)
     assert system.check_lambda() and system.check_L()
+
+
+def test_deleting_last_cached_neighbor_prunes_row_and_rollback_restores_alias():
+    graph = Adjacency(4)
+    graph.add_edge(0, 1)
+    owner = Matcher(4, graph=graph)
+    system = System(graph, 1, A={0}, B=set(), U={1, 2, 3})
+    system.index()
+    owner.system = system
+    row = system.L_lists[0]
+    journal = Systems(owner)
+
+    graph.remove_edge(0, 1)
+    system.update(0, 1, False)
+    assert 0 not in system.L_lists
+    assert row == []
+
+    journal.rollback()
+    graph.add_edge(0, 1)
+    assert system.L_lists[0] is row
+    assert row == [1]
+    assert system.check_L()
 
 
 @pytest.mark.parametrize(
