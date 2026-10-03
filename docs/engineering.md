@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered built-in builder edges, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active; end-to-end paper memory/rate repeats are pending |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active; end-to-end paper memory/rate repeats are pending |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -152,6 +152,17 @@ The hierarchy journal admits compact values only in `R1/R_levels`; `A/N`
 partitions stay sets. This does not remove graph snapshots, and retained
 System/hierarchy/root state still needs end-to-end peak-memory measurement.
 See [ADR 0043](adrs/0043-preserve-compact-paper-partition-copies.md).
+
+Multilevel refinement and validation now use packed per-vertex degree arrays;
+color-incidence sets are created only for vertices touched by the current
+matching. Refinement validates changed-edge membership with graph lookups and
+constructs the live edge set in one pass instead of holding a full phase-edge
+set plus a second derived copy. Hierarchy partition checks use the existing
+System partition validator and cardinality/disjointness rather than building
+whole-universe Python sets. These remove avoidable state-sized temporaries;
+the surviving live-edge, graph-snapshot and algorithm state are still
+state-sized and need peak-RSS benchmarking. See
+[ADR 0044](adrs/0044-compact-hierarchy-refinement-state.md).
 
 ## Implemented foundation, not product qualification
 

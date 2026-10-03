@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   member copy measured 8.0 MB vs 65.5 MB (87.8% lower); phase graph snapshots
   and remaining hierarchy state still contribute. See
   [ADR 0043](docs/adrs/0043-preserve-compact-paper-partition-copies.md).
+- Multilevel refinement/audits now use packed degree counters, allocate
+  incident-color rows only for matched endpoints, avoid redundant universe
+  sets, and build one live-edge set instead of a phase set plus a derived copy.
+  Existing hierarchy invariant, adversarial, rollback and replay tests gate the
+  change; process-memory and rate qualification remain open. See
+  [ADR 0044](docs/adrs/0044-compact-hierarchy-refinement-state.md).
 - 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.

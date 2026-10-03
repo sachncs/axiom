@@ -50,6 +50,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0041](0041-compact-paper-system-vertices.md) | Use indexed integer arrays for dense U partitions and matching-degree counters | One-million-entry isolated allocations: 8 MB dense U and 4 MB degree counters versus ~74 MB each for Python set/dict; end-to-end paper qualification remains |
 | [0042](0042-stream-paper-builder-edges.md) | Stream ordered built-in graph edges into the paper greedy builder | One 200k-vertex path enumeration: 27.2 MB/0.276 s sorted materialization vs 432 traced bytes/0.019 s streaming; full rebuild qualification remains |
 | [0043](0043-preserve-compact-paper-partition-copies.md) | Preserve compact U/R representation in phase and hierarchy snapshots | One-million-member copy: 8.0 MB compact vs 65.5 MB set (87.8% lower); whole-phase memory and rate remain unqualified |
+| [0044](0044-compact-hierarchy-refinement-state.md) | Use packed counters and avoid redundant universe/phase-edge materialization in hierarchy refinement | Degree arrays replace dense per-vertex dicts; independent level/refinement results and rollback are covered; end-to-end memory/rate remain |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -86,6 +87,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Python hash table for dense U vertices and per-vertex matching degrees | Bounded dense `Vertices` indexes plus unsigned integer degree arrays (0041) | Isolated one-million-entry allocation falls from ~74 MB to 8 MB for full U and 4 MB for degrees; this is component evidence, not whole-Matcher RSS or paper throughput |
 | Global Python edge list and sort during built-in paper System construction | Consume deterministic `Adjacency`/`Packed` edge streams directly; retain sorted fallback for custom Graphs (0042) | 200k path enumeration reduced traced peak/time in one local component sample; full System rebuild behavior and scale still need qualification |
 | Expand compact dense U partitions to Python sets when retaining paper phase snapshots | Clone `Vertices` storage directly and retain compact `R` hierarchy regions (0043) | One-million-member isolated copy uses 8.0 MB vs 65.5 MB; graph/System snapshots and other set-valued partitions remain |
+| Per-vertex Python degree/color containers plus full validation universe and phase-edge copies during multilevel refinement | Packed degree counters, lazy incident-color rows, range membership, and one-pass live-edge construction (0044) | Removes multiple O(n)/O(m) Python temporaries; correctness gates pass but full peak-RSS/throughput benchmark remains |
 
 ## What is not being abandoned
 

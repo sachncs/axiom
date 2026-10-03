@@ -59,6 +59,14 @@ if TYPE_CHECKING:
     from axiom.systems import Systems
 
 
+def degrees(n: int) -> array[int]:
+    """Allocate compact zeroed matching-degree counters for a vertex range."""
+    if type(n) is not int or n < 0:
+        raise ValueError("degree counter length must be a nonnegative integer")
+    typecode = "I" if n <= Vertices.empty and array("I").itemsize >= 4 else "Q"
+    return array(typecode, [0]) * n
+
+
 @dataclass
 class System:
     r"""A single-level :math:`z`-subgraph system.
@@ -818,10 +826,7 @@ def build(graph: Graph, z: int) -> System:
     M: set[Edge] = set()
     # Matching degrees are bounded integers indexed by dense vertex labels;
     # a Python dict stores substantial per-entry hash-table and object overhead.
-    degree_typecode = (
-        "I" if graph.n <= Vertices.empty and array("I").itemsize >= 4 else "Q"
-    )
-    deg_M = array(degree_typecode, [0]) * graph.n
+    deg_M = degrees(graph.n)
     if type(graph) in (Adjacency, Packed):
         # Both owned graph implementations stream rows in increasing vertex
         # and neighbor order. Keep the sparse rebuild path streaming to avoid

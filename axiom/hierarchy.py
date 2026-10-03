@@ -34,7 +34,7 @@ from itertools import pairwise
 from axiom.graph import empty
 from axiom.hierarchies import Hierarchies
 from axiom.paper_coloring import Paper
-from axiom.system import System
+from axiom.system import System, degrees
 from axiom.system import build as build_z_system
 from axiom.types import Edge, Graph, Vertex, canonical
 from axiom.vertices import Vertices
@@ -234,17 +234,8 @@ class Hierarchy:
             return False
         if not self.deferred_deletions <= set(self.graph.edges()):
             return False
-        vertices = set(range(self.graph.n))
         for index, level in enumerate(self.levels):
             if level.graph is not self.graph or level.graph.n != self.graph.n:
-                return False
-            level_vertices = set(range(level.graph.n))
-            if (
-                level.A & set(level.B)
-                or level.A & set(level.U)
-                or set(level.B) & set(level.U)
-                or level.A | set(level.B) | set(level.U) != level_vertices
-            ):
                 return False
             if (
                 level.A != set().union(*self.A_levels[: index + 1])
@@ -264,7 +255,7 @@ class Hierarchy:
                 or not level.check_L()
             ):
                 return False
-            level_degree = {vertex: 0 for vertex in level_vertices}
+            level_degree = degrees(level.graph.n)
             for left, right in level.M:
                 level_degree[left] += 1
                 level_degree[right] += 1
@@ -272,18 +263,14 @@ class Hierarchy:
                     return False
                 if right in level.A and left not in level.A and left not in level.B:
                     return False
-            if any(value > level.z for value in level_degree.values()):
+            if any(value > level.z for value in level_degree):
                 return False
         system = self.levels[-1]
         z = system.z
         all_a = set().union(*self.A_levels)
-        if (
-            all_a & set(system.B)
-            or all_a & set(system.U)
-            or set(system.B) & set(system.U)
-        ):
+        if all_a & system.B or all_a & system.U or system.B & system.U:
             return False
-        if all_a | set(system.B) | set(system.U) != vertices:
+        if len(all_a) + len(system.B) + len(system.U) != self.graph.n:
             return False
         for index, region in enumerate(self.R_levels):
             below = (
@@ -291,15 +278,15 @@ class Hierarchy:
             )
             if region != below - self.N_levels[index]:
                 return False
-            if not self.N_levels[index] <= below - set(system.U):
+            if not self.N_levels[index] <= below - system.U:
                 return False
-        degree = {vertex: 0 for vertex in vertices}
+        degree = degrees(self.graph.n)
         for u, v in system.M:
             if self.k > 1 and u in system.U and v in system.U:
                 return False
             degree[u] += 1
             degree[v] += 1
-        if any(value > z for value in degree.values()):
+        if any(value > z for value in degree):
             return False
         if any(degree[v] < z - self.k + 1 for v in all_a | system.B):
             return False
@@ -330,7 +317,7 @@ class Hierarchy:
                 )
                 if self.L_levels[index].get(vertex, []) != expected:
                     return False
-        if self.R_levels[-1] != set(system.U):
+        if self.R_levels[-1] != system.U:
             return False
         if not self.N1 <= self.A2 | set(self.levels[0].B):
             return False
@@ -534,8 +521,7 @@ def refine_hierarchy(
 
     deleted = deleted or set()
     inserted = inserted or set()
-    phase_edges = set(hierarchy.graph.edges())
-    vertices = set(range(hierarchy.graph.n))
+    vertices = range(hierarchy.graph.n)
     for label, edges in (("deleted", deleted), ("inserted", inserted)):
         for edge in edges:
             if not isinstance(edge, tuple) or len(edge) != 2:
@@ -545,22 +531,27 @@ def refine_hierarchy(
                 raise ValueError(
                     f"{label} edges must be canonical endpoints in [0, n): {edge}"
                 )
-    if not deleted <= phase_edges:
+    missing = sorted(
+        edge for edge in deleted if not hierarchy.graph.has_edge(*edge)
+    )
+    if missing:
         raise ValueError(
-            "deleted edges must belong to the phase graph: "
-            f"{sorted(deleted - phase_edges)}"
+            "deleted edges must belong to the phase graph: " f"{missing}"
         )
-    if inserted & phase_edges:
+    present = sorted(
+        edge for edge in inserted if hierarchy.graph.has_edge(*edge)
+    )
+    if present:
         raise ValueError(
-            "inserted edges must be absent from the phase graph: "
-            f"{sorted(inserted & phase_edges)}"
+            "inserted edges must be absent from the phase graph: " f"{present}"
         )
     if deleted & inserted:
         raise ValueError("deleted and inserted edge sets must be disjoint")
     # The hierarchy graph is the phase-start snapshot.  ED is supplied as a
     # separate set, so remove it from the live side before selecting the
     # bounded deferred subset ED'.
-    live_edges = (phase_edges - deleted) | inserted
+    live_edges = set(inserted)
+    live_edges.update(edge for edge in hierarchy.graph.edges() if edge not in deleted)
     retained_deleted = deleted & previous.M
     subgraph = project(hierarchy.graph, previous.M)
     active_colorer = require(colorer)
@@ -570,9 +561,7 @@ def refine_hierarchy(
             "recursive refinement received an incomplete edge coloring: "
             f"missing={sorted(set(previous.M) - set(coloring))}"
         )
-    incident_colors: dict[Vertex, set[int]] = {
-        vertex: set() for vertex in range(hierarchy.graph.n)
-    }
+    incident_colors: dict[Vertex, set[int]] = {}
     for edge, color in coloring.items():
         if not isinstance(color, int) or isinstance(color, bool) or not 0 <= color <= z:
             raise RuntimeError(
@@ -580,13 +569,15 @@ def refine_hierarchy(
                 f"edge={edge}, color={color!r}, expected an integer in 0..{z}"
             )
         u, v = edge
-        if color in incident_colors[u] or color in incident_colors[v]:
+        u_colors = incident_colors.setdefault(u, set())
+        v_colors = incident_colors.setdefault(v, set())
+        if color in u_colors or color in v_colors:
             raise RuntimeError(
                 "recursive refinement received a non-proper edge coloring: "
                 f"color {color} conflicts on edge {edge}"
             )
-        incident_colors[u].add(color)
-        incident_colors[v].add(color)
+        u_colors.add(color)
+        v_colors.add(color)
     # Keep empty color classes in the candidate order.  The paper reindexes
     # color classes by nondecreasing deleted-edge count, then selects the
     # first z' classes.  This makes the retained deleted subset satisfy the
@@ -621,7 +612,7 @@ def refine_hierarchy(
     }
     working_edges = (live_edges | deferred_deleted) - (deleted - deferred_deleted)
     working_graph = project(hierarchy.graph, working_edges)
-    degree = {vertex: 0 for vertex in range(hierarchy.graph.n)}
+    degree = degrees(hierarchy.graph.n)
     for u, v in chosen:
         degree[u] += 1
         degree[v] += 1
@@ -706,7 +697,7 @@ def refine_hierarchy(
             frozenset(new_a),
             frozenset(new_b),
             frozenset(chosen),
-            tuple(sorted(degree.items())),
+            tuple(enumerate(degree)),
         )
         if state in seen_states:
             raise RuntimeError(
