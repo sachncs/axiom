@@ -1,0 +1,21 @@
+{
+  "benchmark": "color-small-local-fan-repair",
+  "date": "2026-10-03",
+  "baseline_revision": "be61216",
+  "candidate_revision": "working-tree-after-be61216",
+  "python": "3.14.8",
+  "fixture": {
+    "components": 400,
+    "vertices": 1600,
+    "edges": 1200,
+    "fans": 400,
+    "palette": 2,
+    "operation": "Construction.small"
+  },
+  "measurement": "Color-Small elapsed time only; graph, coloring, and fans constructed before timing; no tracemalloc",
+  "certificate": "all fans exhausted, exactly 400 edges extended, and coloring/fan validation succeeded in every run",
+  "baseline_seconds": [0.1453414160059765, 0.14478304200747516, 0.1433203750057146],
+  "candidate_seconds": [0.006749499996658415, 0.006553625004016794, 0.006636749996687286],
+  "median_seconds": {"baseline": 0.14478304200747516, "candidate": 0.006636749996687286, "speedup": 21.817},
+  "limitations": "Single-host synthetic disconnected workload, three repeats; not whole-graph coloring, allocation-peak, or end-to-end Matcher qualification."
+}

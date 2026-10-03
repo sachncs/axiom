@@ -992,11 +992,21 @@ class Fans:
                         f"fan={fan}, vertex={vertex}"
                     )
 
-    def repair(self, coloring: Partial) -> int:
-        """Remove fans whose spokes or assigned colors are no longer valid."""
+    def repair(
+        self, coloring: Partial, vertices: Iterable[Vertex] | None = None
+    ) -> int:
+        """Remove invalid fans globally or only at explicitly changed vertices."""
+        candidates: Iterable[Fan]
+        if vertices is None:
+            candidates = self.members
+        else:
+            localcandidates: set[Fan] = set()
+            for vertex in vertices:
+                localcandidates.update(self.vertices.get(vertex, ()))
+            candidates = localcandidates
         damaged = [
             fan
-            for fan in self
+            for fan in candidates
             if any(
                 not coloring.available(vertex, fan.color(vertex))
                 for vertex in fan.vertices
@@ -1705,6 +1715,16 @@ class Construction:
         for leaf, leafcolor in paths:
             path = coloring.path(leaf, leafcolor, fan.alpha)
             if fan.center not in path:
+                affectedvertices = set(fan.vertices)
+                affectedvertices.update(path)
+                affectedfans = {
+                    member
+                    for vertex in affectedvertices
+                    for member in fans.vertices.get(vertex, ())
+                }
+                typesbefore = {
+                    member.vertices: member.type for member in affectedfans
+                }
                 # Remove the activated fan before flipping.  Otherwise
                 # ``flip_path`` may replace its endpoint assignment in the
                 # collection, leaving a stale fan whose spoke is now colored.
@@ -1712,6 +1732,16 @@ class Construction:
                 fans.flip(coloring, path, leafcolor, fan.alpha)
                 edge = canonical(fan.center, leaf)
                 coloring.assign(edge, fan.alpha)
+                currentfans = {
+                    member
+                    for vertex in affectedvertices
+                    for member in fans.vertices.get(vertex, ())
+                }
+                for member in currentfans:
+                    previous = typesbefore.get(member.vertices)
+                    if previous is not None and member.type != previous:
+                        fans.discard(member)
+                fans.repair(coloring, affectedvertices)
                 return edge
         raise RuntimeError("both u-fan alternating paths reach the center")
 
@@ -1749,7 +1779,6 @@ class Construction:
                 for fan in batch:
                     if fan not in fans.members:
                         continue
-                    typesbefore = {member.vertices: member.type for member in fans}
                     try:
                         cls.activate(coloring, fans, fan)
                     except (RuntimeError, ValueError) as error:
@@ -1757,15 +1786,6 @@ class Construction:
                             f"Color-Small could not activate valid fan {fan}"
                         ) from error
                     extended += 1
-                    # ABB removes every surviving fan whose type changed during
-                    # activation, not only fans whose assigned colors became
-                    # invalid.  Otherwise a replacement fan can leak into a
-                    # later most-common-type round with stale proof state.
-                    for member in tuple(fans):
-                        previoustype = typesbefore.get(member.vertices)
-                        if previoustype is not None and member.type != previoustype:
-                            fans.discard(member)
-                    fans.repair(coloring)
             fans.validate()
             fans.compatible(coloring)
             coloring.validate()

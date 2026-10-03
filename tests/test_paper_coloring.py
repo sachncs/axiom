@@ -651,6 +651,36 @@ def test_activate_fan_extends_one_uncolored_spoke() -> None:
     fans.validate()
 
 
+def test_fan_repair_checks_only_fans_at_changed_vertices() -> None:
+    class CountedFans(Fans):
+        def __init__(self) -> None:
+            super().__init__()
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return super().__iter__()
+
+    graph = Adjacency(6)
+    for edge in ((0, 1), (0, 2), (3, 4), (3, 5)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    first = Fan(0, 1, 2, 0, 1, 1)
+    second = Fan(3, 4, 5, 0, 1, 1)
+    fans = CountedFans()
+    fans.add(first)
+    fans.add(second)
+    coloring.assign((0, 1), 2)
+
+    removed = fans.repair(coloring, (0, 1))
+
+    assert removed == 1
+    assert first not in fans.members
+    assert second in fans.members
+    assert fans.iterations == 0
+    fans.validate()
+
+
 def test_color_small_activates_deterministic_common_type() -> None:
     graph = Adjacency(4)
     graph.add_edge(0, 1)
@@ -665,6 +695,40 @@ def test_color_small_activates_deterministic_common_type() -> None:
     assert Construction.small(coloring, fans) == 1
     assert coloring[(0, 1)] == 0
     assert len(fans) == 0
+
+
+def test_color_small_repairs_fans_locally_across_many_components() -> None:
+    class CountedFans(Fans):
+        def __init__(self) -> None:
+            super().__init__()
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return super().__iter__()
+
+    count = 48
+    graph = Adjacency(4 * count)
+    coloring = Partial(graph, 2)
+    fans = CountedFans()
+    for index in range(count):
+        center = 4 * index
+        leaf = center + 1
+        second = center + 2
+        tail = center + 3
+        graph.add_edge(center, leaf)
+        graph.add_edge(center, second)
+        graph.add_edge(leaf, tail)
+        coloring.assign((leaf, tail), 0)
+        fans.add(Fan(center, leaf, second, 0, 1, 1))
+
+    extended = Construction.small(coloring, fans)
+
+    assert extended == count
+    assert not fans
+    assert fans.iterations <= 4
+    coloring.validate()
+    fans.validate()
 
 
 def test_collect_direct_fans_uses_only_supplied_uncolored_edges() -> None:
