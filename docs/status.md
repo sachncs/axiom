@@ -34,6 +34,12 @@ about 25 seconds; this does not establish production throughput or billion-node
 support. Broader repeatability, snapshot migration, and durable integration
 remain active. See [ADR 0059](adrs/0059-local-paper-coloring-transactions.md).
 
+Whole-collection fan replacement in Sparsify-Types and Extend now swaps index
+roots instead of sorting and discarding a full fan snapshot. Nested rollback
+restores the exact original fan contents and index identities. This is a
+component optimization, not an end-to-end paper-engine rate claim; see
+[ADR 0101](adrs/0101-constant-time-paper-fan-clear.md).
+
 A-level rematching now checks basic and hierarchical partition membership directly
 instead of constructing a Python set copy or union for each repair. The isolated
 500k-member probe fell from 35.2 MB/0.162 s for one set copy to 1.1 KB/0.021 s
@@ -141,7 +147,7 @@ refinement matching degrees avoid allocating n zero counters while preserving
 the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
 refinement cycle detection uses a strict U-decrease guard instead of copying
 U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
-Full-suite verification currently passes 1,282 tests. The
+Full-suite verification currently passes 1,284 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
@@ -180,5 +186,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,282 passing tests; CI and benchmark results must be attributed to their exact
+1,284 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

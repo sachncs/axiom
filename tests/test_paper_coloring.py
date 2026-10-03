@@ -366,6 +366,56 @@ def test_nested_fan_journal_restores_updates_relabel_and_membership() -> None:
     fans.validate()
 
 
+def test_fan_clear_swaps_roots_and_nested_rollback_restores_exact_state() -> None:
+    fans = Fans()
+    original = Fan(0, 1, 2, 0, 1, 1)
+    other = Fan(3, 4, 5, 0, 1, 1)
+    replacement = Fan(6, 7, 8, 0, 1, 1)
+    fans.add(original)
+    fans.add(other)
+    before = Witness().capture(fans)
+    roots = vars(fans).copy()
+
+    outer = FanJournal(fans)
+    fans.journal = outer
+    inner = FanJournal(fans, outer)
+    fans.journal = inner
+    fans.clear()
+    assert not fans
+    assert all(not getattr(fans, name) for name in (
+        "members", "spokes", "assignments", "assigned", "vertices", "types"
+    ))
+    assert all(vars(fans)[name] is not value for name, value in roots.items()
+               if name != "journal")
+    fans.add(replacement)
+    inner.commit()
+    outer.rollback()
+
+    assert fans.journal is None
+    assert Witness().capture(fans) == before
+    assert all(vars(fans)[name] is value for name, value in roots.items())
+    fans.validate()
+
+
+def test_fan_clear_without_journal_leaves_a_valid_empty_collection() -> None:
+    class NonIteratingFans(Fans):
+        def __iter__(self):
+            raise AssertionError("clear must not enumerate fan members")
+
+    fans = NonIteratingFans()
+    fans.add(Fan(0, 1, 2, 0, 1, 1))
+
+    fans.clear()
+
+    assert len(fans) == 0
+    assert not fans.spokes
+    assert not fans.assignments
+    assert not fans.assigned
+    assert not fans.vertices
+    assert not fans.types
+    fans.validate()
+
+
 def test_fan_update_staging_failure_restores_partial_reservations() -> None:
     class FailingColors(set[int]):
         def add(self, value: int) -> None:

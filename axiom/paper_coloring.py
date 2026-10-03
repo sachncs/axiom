@@ -729,6 +729,23 @@ class Fans:
                 if not members:
                     self.vertices.pop(vertex)
 
+    def clear(self) -> None:
+        """Replace all fan indexes without copying or visiting their members.
+
+        An active journal retains the existing index roots as the exact
+        before-image. The detached roots then remain untouched while the new
+        collection is populated, so rollback restores both contents and root
+        identity in constant time.
+        """
+        if self.journal is not None:
+            self.journal.capture_roots()
+        self.members = set()
+        self.spokes = set()
+        self.assignments = {}
+        self.assigned = {}
+        self.vertices = {}
+        self.types = {}
+
     def relabel(self, mapping: dict[Color, Color]) -> None:
         """Apply a global color permutation while preserving all indexes."""
         replacement = type(self)()
@@ -2778,8 +2795,7 @@ class Spectrum:
             # collection synchronized with the returned social collection so a
             # subsequent recursive step cannot accidentally process stale
             # non-social fans.
-            for fan in tuple(fans):
-                fans.discard(fan)
+            fans.clear()
             for fan in result:
                 fans.add(fan)
             fans.compatible(coloring)
@@ -2962,8 +2978,7 @@ class Extension:
         # synchronized after all recursive child merges.  A child may have
         # colored a spoke or invalidated a missing-color assignment in a sibling
         # fan, so validate the complete parent state before exposing it.
-        for fan in tuple(fans):
-            fans.discard(fan)
+        fans.clear()
         for fan in social:
             fans.add(fan)
         fans.repair(coloring)

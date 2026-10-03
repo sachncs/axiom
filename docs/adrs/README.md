@@ -147,6 +147,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Full hierarchy/cache/phase-edge audit after every paper update | Endpoint-local row/neighborhood certificates plus phase-edge cardinality; full independent audit at rebuild boundaries (0045) | One matched trace shows 7.55× higher multilevel update rate; not durable/product qualification, and other global matching/auxiliary checks remain |
 | Full live-graph maximality scan after each paper update | Check neighborhoods of only topology/matching-touched free vertices; retain full audit for replaced candidates (0046) | One matched trace shows 1.54× further update-rate improvement; auxiliary global validation remains and storage is unchanged |
 | Full auxiliary-index reconstruction after every paper update | Validate touched rows against graph/System and reverse-index cells; full reconstruction for replacement roots (0047) | One matched trace shows another 1.91×; no storage improvement or production qualification |
+| Whole-fan tuple snapshots before replacing fan state | O(1) index-root swap with journal-retained exact roots (0101) | Nested failure rollback preserves all root identities; focused correctness evidence only |
 
 ## What is not being abandoned
 
