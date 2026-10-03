@@ -98,6 +98,16 @@ diagnostic and was stopped. These are focused component measurements, not
 whole-rebuild qualification. See [ADR 0070](adrs/0070-stream-hierarchy-phase-sync.md),
 [ADR 0071](adrs/0071-localize-hierarchy-p2-audit.md), and the linked raw records.
 
+The same local-adjacency principle now covers hierarchy refinement's B
+classification, U promotion, and B-witness repair; the repair no longer copies
+the full selected matching to a tuple. The now-unused full-set neighbor helper
+was removed. Three uninstrumented runs over 256 disjoint two-swap witness
+components (2,048 vertices) measured median refinement time of 0.413 s before
+and 0.172 s after, with each result passing the complete hierarchy certificate.
+This is component-level evidence only; allocation/RSS and broader graph-shape
+repeats remain open. See [ADR 0072](adrs/0072-localize-refinement-matching-scans.md)
+and its [raw record](../benchmarks/results/paper/refinement-local-matching.json).
+
 Do not count an accepted design, a passing small test, or an older binary's soak
 as completion of a wider release gate. Naming/modularity conventions for new
 work are recorded in ADR 0020; established APIs need compatibility planning

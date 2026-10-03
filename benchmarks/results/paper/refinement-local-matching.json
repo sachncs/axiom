@@ -1,0 +1,21 @@
+{
+  "benchmark": "hierarchy-refinement-local-matching",
+  "date": "2026-10-03",
+  "baseline_revision": "b3b7e43",
+  "candidate_revision": "working-tree-after-a8d0caf",
+  "python": "3.14.8",
+  "fixture": {
+    "components": 256,
+    "vertices": 2048,
+    "edges": 4096,
+    "component_edges": [[0, 2], [0, 4], [0, 5], [0, 6], [0, 7], [1, 4], [1, 5], [1, 6], [1, 7], [2, 3], [2, 5], [2, 7], [3, 4], [3, 6], [4, 7], [5, 7]],
+    "initial_z": 8,
+    "refined_z": 4
+  },
+  "measurement": "refine_hierarchy elapsed time only; graph and base hierarchy construction excluded; no tracemalloc",
+  "certificate": "refined.check() returned true for every run",
+  "baseline_seconds": [0.4127250419987831, 0.4189582910039462, 0.4126298329938436],
+  "candidate_seconds": [0.17318700000760145, 0.1715302079974208, 0.17032679199473932],
+  "median_seconds": {"baseline": 0.4127250419987831, "candidate": 0.1715302079974208, "speedup": 2.406},
+  "limitations": "Single-host component benchmark, three repeats, uninstrumented wall time; not end-to-end rebuild or broad repeatability qualification."
+}

@@ -1135,11 +1135,6 @@ def project(
     return result
 
 
-def neighbors(vertex: Vertex, edges: set[Edge]) -> list[Vertex]:
-    """Return the opposite endpoints of the supplied edges incident to a vertex."""
-    return [v if u == vertex else u for u, v in edges if vertex in (u, v)]
-
-
 def lists(
     graph: Graph, vertices: Iterable[Vertex], region: Collection[Vertex]
 ) -> dict[Vertex, list[Vertex]]:
