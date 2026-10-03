@@ -27,6 +27,7 @@ References:
 
 from __future__ import annotations
 
+from array import array
 from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from heapq import merge
@@ -84,6 +85,29 @@ class Hierarchy:
                 self.A_levels[index] = Vertices(
                     self.graph.n, partition, ordered=False
                 )
+
+    def counts(
+        self, matching: set[Edge], ceiling: int
+    ) -> dict[Vertex, int] | array[int] | None:
+        """Count matching degrees sparsely or densely, failing at the cap."""
+        if len(matching) * 36 < self.graph.n:
+            result: dict[Vertex, int] = {}
+            for left, right in matching:
+                leftcount = result.get(left, 0) + 1
+                rightcount = result.get(right, 0) + 1
+                if leftcount > ceiling or rightcount > ceiling:
+                    return None
+                result[left] = leftcount
+                result[right] = rightcount
+            return result
+
+        dense_result = degrees(self.graph.n)
+        for left, right in matching:
+            dense_result[left] += 1
+            dense_result[right] += 1
+            if dense_result[left] > ceiling or dense_result[right] > ceiling:
+                return None
+        return dense_result
 
     def __setattr__(self, name: str, value: object) -> None:
         """Keep an active hierarchy transaction handle bound to its owner."""
@@ -425,18 +449,19 @@ class Hierarchy:
                 or not level.check_L()
             ):
                 return False
-            level_degree = degrees(level.graph.n)
+            level_degree = self.counts(level.M, level.z)
+            if level_degree is None:
+                return False
             for left, right in level.M:
-                level_degree[left] += 1
-                level_degree[right] += 1
                 if left in level.A and right not in level.A and right not in level.B:
                     return False
                 if right in level.A and left not in level.A and left not in level.B:
                     return False
-            if any(value > level.z for value in level_degree):
-                return False
         system = self.levels[-1]
         z = system.z
+        degree = level_degree
+        if degree is None:
+            return False
         all_a = system.A
         for index, region in enumerate(self.R_levels):
             below = [*self.A_levels[index + 1 :], system.B, system.U]
@@ -449,16 +474,17 @@ class Hierarchy:
                 for vertex in self.N_levels[index]
             ):
                 return False
-        degree = degrees(self.graph.n)
         for u, v in system.M:
             if self.k > 1 and u in system.U and v in system.U:
                 return False
-            degree[u] += 1
-            degree[v] += 1
-        if any(value > z for value in degree):
-            return False
-        if any(degree[v] < z - self.k + 1 for v in all_a) or any(
-            degree[v] < z - self.k + 1 for v in system.B
+        minimum = z - self.k + 1
+        if isinstance(degree, dict):
+            if any(degree.get(vertex, 0) < minimum for vertex in all_a) or any(
+                degree.get(vertex, 0) < minimum for vertex in system.B
+            ):
+                return False
+        elif any(degree[vertex] < minimum for vertex in all_a) or any(
+            degree[vertex] < minimum for vertex in system.B
         ):
             return False
         if any(

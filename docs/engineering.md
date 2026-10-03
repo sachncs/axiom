@@ -1146,3 +1146,11 @@ does not include a journal, incremental certificates, background rebuilds, or
 service queues. Those are prioritized follow-up designs with explicit gates;
 the current deliverable is reproducible evidence and the reliability envelope
 needed to implement them safely.
+
+Hierarchy validation now counts matching degrees sparsely when matching density
+is low, rejects degree-cap violations during counting, and reuses the final
+level's count state for its minimum-degree predicates. A 100k-vertex/one-edge
+certificate reduced isolated traced peak by 87.4% in one before/after run, with
+no demonstrated timing gain. This is component evidence only; repeatability,
+connected/dense adversarial cases, full paper snapshots, and durable production
+integration remain open. See [ADR 0090](adrs/0090-sparse-hierarchy-degree-audits.md).

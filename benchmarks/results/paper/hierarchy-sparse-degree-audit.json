@@ -1,0 +1,26 @@
+{
+  "benchmark": "hierarchy-sparse-degree-audit",
+  "date": "2026-10-04",
+  "baseline_revision": "1251614",
+  "candidate_revision": "working-tree-after-1251614",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 100000,
+    "edges": 1,
+    "edge": [0, 1],
+    "levels": [1]
+  },
+  "measurement": "Single before/after Hierarchy.check run; graph and hierarchy construction excluded; tracemalloc peak and wall time",
+  "baseline_seconds": [1.9146],
+  "candidate_seconds": [1.9238],
+  "baseline_peak_bytes": [801512],
+  "candidate_peak_bytes": [101329],
+  "median": {
+    "baseline_peak_bytes": 801512,
+    "candidate_peak_bytes": 101329,
+    "peak_reduction_percent": 87.36,
+    "elapsed_reduction_percent": -0.48
+  },
+  "certificate": "Both hierarchy checks returned true on the identical graph and hierarchy structure.",
+  "limitations": "Single sparse graph shape and one process; no repeatability, connected/dense/adversarial cases, process RSS, native capacity, or end-to-end update qualification. The timing difference is not a speedup claim."
+}

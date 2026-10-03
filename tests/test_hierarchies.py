@@ -95,6 +95,34 @@ def test_refinement_does_not_materialize_old_saturated_partition(
     assert refined.check()
 
 
+def test_sparse_hierarchy_check_does_not_allocate_vertex_degree_arrays(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Packed(1024)
+    graph.add_edge(0, 1)
+    hierarchy = build_hierarchy(graph, [1])
+
+    def reject_dense_counts(size: int):
+        raise AssertionError(f"sparse matching allocated {size} degree counters")
+
+    monkeypatch.setattr("axiom.hierarchy.degrees", reject_dense_counts)
+
+    assert hierarchy.check()
+
+
+def test_hierarchy_degree_counts_use_dense_storage_for_dense_matchings() -> None:
+    graph = Packed(64)
+    hierarchy = build_hierarchy(graph, [1])
+    matching = {(vertex, vertex + 1) for vertex in range(0, 32, 2)}
+
+    counts = hierarchy.counts(matching, 1)
+
+    assert counts is not None
+    assert not isinstance(counts, dict)
+    assert counts[0] == counts[1] == 1
+    assert counts[32] == 0
+
+
 def test_derived_hierarchy_partitions_share_exact_roots_when_possible():
     """Avoid copies of A1/N1 and a single upper A partition."""
     graphs = []
