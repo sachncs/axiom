@@ -652,6 +652,83 @@ def test_activate_fan_extends_one_uncolored_spoke() -> None:
     fans.validate()
 
 
+def test_color_small_journals_changes_and_rolls_back_mid_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(6)
+    for edge in ((0, 1), (0, 2), (3, 4), (3, 5)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    fans = Fans()
+    first = Fan(0, 1, 2, 0, 1, 1)
+    second = Fan(3, 4, 5, 0, 1, 1)
+    fans.add(first)
+    fans.add(second)
+    colorsbefore = dict(coloring.items())
+    coloringroots = (coloring.assignments, coloring.incident, coloring.index)
+    fanroots = (
+        fans.members,
+        fans.spokes,
+        fans.assignments,
+        fans.assigned,
+        fans.vertices,
+        fans.types,
+    )
+    originalactivate = Construction.activate
+    activations = 0
+
+    def fail_after_second_activation(
+        strategy: type[Construction],
+        candidate: Partial,
+        collection: Fans,
+        fan: Fan,
+        journal: ColorJournal | None = None,
+    ) -> tuple[int, int]:
+        nonlocal activations
+        edge = originalactivate(candidate, collection, fan, journal)
+        activations += 1
+        if activations == 2:
+            raise RuntimeError("injected Color-Small failure after activation")
+        return edge
+
+    monkeypatch.setattr(
+        Construction, "activate", classmethod(fail_after_second_activation)
+    )
+
+    with pytest.raises(RuntimeError, match="could not activate valid fan"):
+        Construction.small(coloring, fans)
+
+    assert activations == 2
+    assert dict(coloring.items()) == colorsbefore
+    assert fans.members == {first, second}
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            coloringroots,
+            strict=True,
+        )
+    )
+    assert all(
+        current is original
+        for current, original in zip(
+            (
+                fans.members,
+                fans.spokes,
+                fans.assignments,
+                fans.assigned,
+                fans.vertices,
+                fans.types,
+            ),
+            fanroots,
+            strict=True,
+        )
+    )
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_fan_repair_checks_only_fans_at_changed_vertices() -> None:
     class CountedFans(Fans):
         def __init__(self) -> None:

@@ -1,0 +1,36 @@
+{
+  "benchmark": "color-small-coloring-rollback-allocation",
+  "date": "2026-10-03",
+  "baseline_revision": "f4b7093",
+  "candidate_revision": "working-tree-after-f4b7093",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 53000,
+    "unrelated_colored_edges": 25000,
+    "independent_fans": 1000,
+    "palette": 3,
+    "operation": "Construction.small over 1000 independent fans"
+  },
+  "measurement": "tracemalloc peak during Color-Small; fixture setup and post-operation full validation excluded; garbage collection before each sample; baseline and candidate alternated fresh-state samples",
+  "certificate": "coloring.validate, fans.validate, and fans.compatible passed after each sample",
+  "baseline_peak_bytes": [
+    22480072,
+    22480136,
+    22480136,
+    22480136,
+    22480136
+  ],
+  "candidate_peak_bytes": [
+    21206552,
+    21206544,
+    21206536,
+    21206528,
+    21206520
+  ],
+  "median": {
+    "baseline_peak_bytes": 22480136,
+    "candidate_peak_bytes": 21206536,
+    "peak_reduction_percent": 5.67
+  },
+  "limitations": "Synthetic disconnected fixture, five samples, Python traced temporary memory only; elapsed time, process RSS, connected/skewed graph behavior, and whole Matcher throughput were not measured. Full fan tuple rollback remains state-sized."
+}

@@ -129,16 +129,23 @@ claim. Full entry/exit audits and global stale-fan cleanup remain. See
 [ADR 0079](adrs/0079-bounded-modify-types-rollback.md) and its
 [raw comparison](../benchmarks/results/paper/modify-types-local-rollback.json).
 
-Color-Small now records pre-activation types and repairs compatibility only for
+Color-Small records pre-activation types and repairs compatibility only for
 fans incident to the alternating path and activated spokes, using the existing
-vertex-to-fan index. A counted-iteration regression prevents a full fan scan per
-activation. On 400 independent fan gadgets (1,600 vertices), median Color-Small
+vertex-to-fan index. Its coloring rollback now journals first-write path edges
+and activated spokes rather than copying every coloring assignment; exact
+mid-batch failure rollback is covered. The before-image of all fans is still
+retained for rollback. A counted-iteration regression prevents a full fan scan
+per activation. On 400 independent fan gadgets (1,600 vertices), median Color-Small
 time fell from 144.78 ms to 6.64 ms over three runs, with every edge extended
-and full coloring/fan validation passing. This component result does not cover
-connected adversarial fans, peak memory, or whole Matcher throughput. Other fan
-repair callsites and whole-coloring/fan rollback snapshots remain open. See
+and full coloring/fan validation passing. A separate rollback-allocation probe
+with 25,000 unrelated colored edges and 1,000 fans reduced traced peak by 5.67%
+over five runs; elapsed time was not qualified. These component results do not
+cover connected adversarial fans or whole Matcher throughput. Other fan repair
+callsites and whole-fan rollback snapshots remain open. See
 [ADR 0074](adrs/0074-local-color-small-fan-repair.md) and its
 [raw record](../benchmarks/results/paper/color-small-local-repair.json).
+See also [ADR 0080](adrs/0080-color-small-coloring-journal.md) and its
+[rollback allocation record](../benchmarks/results/paper/color-small-rollback.json).
 
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores

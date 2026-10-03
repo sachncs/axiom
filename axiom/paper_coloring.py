@@ -1884,7 +1884,13 @@ class Construction:
     pruning: type[Pruning] = Pruning
 
     @classmethod
-    def activate(cls, coloring: Partial, fans: Fans, fan: Fan) -> Edge:
+    def activate(
+        cls,
+        coloring: Partial,
+        fans: Fans,
+        fan: Fan,
+        journal: ColorJournal | None = None,
+    ) -> Edge:
         """Activate one u-fan, extending the coloring to one spoke."""
         if fan not in fans.members:
             raise ValueError("fan must belong to the collection")
@@ -1910,6 +1916,16 @@ class Construction:
         for leaf, leafcolor in paths:
             path = coloring.path(leaf, leafcolor, fan.alpha)
             if fan.center not in path:
+                if journal is not None:
+                    journal.capture(
+                        (
+                            *(
+                                canonical(left, right)
+                                for left, right in pairwise(path)
+                            ),
+                            canonical(fan.center, leaf),
+                        )
+                    )
                 affectedvertices = set(fan.vertices)
                 affectedvertices.update(path)
                 affectedfans = {
@@ -1953,7 +1969,7 @@ class Construction:
         coloring.validate()
         fans.validate()
         fans.compatible(coloring)
-        colorsbefore = dict(coloring.assignments)
+        journal = ColorJournal(coloring)
         fansbefore = tuple(fans)
         extended = 0
         rounds = 0
@@ -1975,7 +1991,7 @@ class Construction:
                     if fan not in fans.members:
                         continue
                     try:
-                        cls.activate(coloring, fans, fan)
+                        cls.activate(coloring, fans, fan, journal)
                     except (RuntimeError, ValueError) as error:
                         raise RuntimeError(
                             f"Color-Small could not activate valid fan {fan}"
@@ -1986,8 +2002,7 @@ class Construction:
             coloring.validate()
             return extended
         except Exception:
-            coloring.assignments = colorsbefore
-            coloring.reindex()
+            journal.rollback()
             for fan in tuple(fans):
                 fans.discard(fan)
             for fan in fansbefore:
