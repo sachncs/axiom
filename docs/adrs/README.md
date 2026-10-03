@@ -62,6 +62,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0053](0053-compact-hierarchy-levels.md) | Compact dense A-levels and reuse immutable level/System partition roots during refinement | Isolated 500k-member `set(Vertices)` refinement copy: 35.2 MB peak; shared root: 64 bytes; full hierarchy validity and shared-root tests |
 | [0054](0054-bounded-hierarchy-audits.md) | Verify dense hierarchy unions and regions with bounded bitmap scratch, sparse cases by direct membership | One-million-vertex probes: union 35.2→1.0 MB at similar time; region 57.9→1.0 MB and 86→47 ms |
 | [0055](0055-share-hierarchy-phase-graph-root.md) | Retain the hierarchy-owned phase graph root instead of cloning it into an unused Matcher mirror | Removes one full native graph copy per multilevel rebuild; identity and failed-update rollback are regression-tested |
+| [0056](0056-reuse-inherited-phase-roots.md) | Reuse immutable inherited graph/System roots across child-phase rebuilds; detach only the refinement working state | Counter test proves one remaining graph snapshot and one working-System copy; injected failure restores inherited roots exactly |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

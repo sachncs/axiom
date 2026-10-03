@@ -315,8 +315,11 @@ class Multilevel:
                 raise RuntimeError(
                     "multilevel rebuild is missing its inherited phase-base state"
                 )
-            old_graph = snapshot(matcher.phase_base_graph)
-            base_system = copy(matcher.phase_base_system, old_graph)
+            # The inherited parent snapshot and its System are immutable
+            # throughout a child rebuild. Reuse both roots; only the working
+            # refinement graph/System need detached storage below.
+            old_graph = matcher.phase_base_graph
+            base_system = matcher.phase_base_system
             if not base_system.check():
                 raise RuntimeError(
                     "phase snapshot cannot inherit the previous level-1 system: "
@@ -324,7 +327,7 @@ class Multilevel:
                 )
             deleted = set(matcher.deleted_edges) | set(previous.deferred_deletions)
             phase_base_graph = old_graph
-            phase_base_system = copy(base_system, old_graph)
+            phase_base_system = base_system
             refine_graph = snapshot(old_graph)
             for left, right in deleted:
                 if not refine_graph.has_edge(left, right):

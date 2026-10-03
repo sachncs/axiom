@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; required phase-base snapshots, multi-source hierarchy union construction, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; parent-boundary snapshots, each child refinement's working graph/System copy, multi-source hierarchy union construction, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -284,6 +284,15 @@ isolated copies); avoiding it removes that duplicate retained graph per rebuilt
 multilevel Matcher. This does not remove required `phase_base_graph` snapshots
 or establish whole-rebuild memory bounds. Identity and injected-failure rollback
 tests cover the shared root. See [ADR 0055](adrs/0055-share-hierarchy-phase-graph-root.md).
+
+Child multilevel rebuilds now retain the existing inherited `phase_base_graph`
+and `phase_base_system` roots instead of cloning them for retention. Only the
+detached graph and System passed into recursive refinement are copied. An
+instrumented child-rebuild test observes exactly one graph snapshot and one
+System copy, while proving the retained graph, partition roots, and matching
+stay unchanged; a separate injected failure proves the Matcher rolls back to
+those same roots. Parent-boundary snapshot and System construction remain
+unchanged. See [ADR 0056](adrs/0056-reuse-inherited-phase-roots.md).
 
 ## Implemented foundation, not product qualification
 

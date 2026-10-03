@@ -101,7 +101,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Matcher.phase_graph`, avoiding a redundant 37 MB native clone in the
   one-million-edge component probe while retaining alias/rollback tests. See
   [ADR 0055](docs/adrs/0055-share-hierarchy-phase-graph-root.md).
-- 1,226 local tests pass after hierarchy audit certificates.
+- Child-phase rebuilds reuse inherited phase graph/System roots and copy only
+  detached refinement inputs; instrumented copy counts and injected-failure
+  rollback are covered. See [ADR 0056](docs/adrs/0056-reuse-inherited-phase-roots.md).
+- 1,227 local tests pass after inherited phase-root reuse.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references

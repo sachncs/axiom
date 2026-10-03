@@ -852,17 +852,54 @@ class TestMatcher:
         algo = Matcher(16, mode="multilevel", graph=dense)
         assert len(algo.level_zs) > 1
         edge = next(iter(algo.graph.edges()))
+        base_graph = algo.phase_base_graph
+        base_system = algo.phase_base_system
+        assert base_graph is not None and base_system is not None
+        base_edges = set(base_graph.edges())
+        base_matching = set(base_system.M)
+        base_roots = (base_system.A, base_system.B, base_system.U, base_system.M)
 
         def unexpected_base_rebuild(*args, **kwargs):
             raise AssertionError("recursive rebuild rebuilt level one")
 
+        snapshotcalls = []
+        copycalls = []
+        snapshotgraph = rebuild_module.snapshot
+        copysystem = rebuild_module.copy
+
+        def recordsnapshot(graph):
+            result = snapshotgraph(graph)
+            snapshotcalls.append((graph, result))
+            return result
+
+        def recordcopy(system, graph):
+            copycalls.append((system, graph))
+            return copysystem(system, graph)
+
         monkeypatch.setattr(rebuild_module, "build", unexpected_base_rebuild)
+        monkeypatch.setattr(rebuild_module, "snapshot", recordsnapshot)
+        monkeypatch.setattr(rebuild_module, "copy", recordcopy)
         algo.graph.remove_edge(*edge)
         algo.deleted_edges.add(edge)
         algo.policy.rebuild(algo)
 
         assert algo.multi is not None
         assert algo.multi.check()
+        assert algo.phase_base_graph is base_graph
+        assert algo.phase_base_system is base_system
+        assert set(base_graph.edges()) == base_edges
+        assert base_system.M == base_matching and base_system.check()
+        assert all(
+            current is original
+            for current, original in zip(
+                (base_system.A, base_system.B, base_system.U, base_system.M),
+                base_roots,
+                strict=True,
+            )
+        )
+        assert len(snapshotcalls) == 1
+        assert snapshotcalls[0][0] is base_graph
+        assert copycalls == [(base_system, snapshotcalls[0][1])]
 
     def test_removed_mode_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="basic.*multilevel"):
@@ -1668,6 +1705,53 @@ class TestMatcher:
             (set(level.A), set(level.B), set(level.U), set(level.M))
             for level in algo.multi.levels
         ] == before["levels"]
+        assert algo.multi.check()
+
+    def test_failed_child_rebuild_restores_inherited_phase_roots(self) -> None:
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        assert len(algo.level_zs) > 1
+        assert algo.phase_base_graph is not None
+        assert algo.phase_base_system is not None
+        assert algo.multi is not None
+        basegraph = algo.phase_base_graph
+        basesystem = algo.phase_base_system
+        hierarchy = algo.multi
+        baseedges = set(basegraph.edges())
+        basepartition = (set(basesystem.A), set(basesystem.B), set(basesystem.U))
+        baseroots = (basesystem.A, basesystem.B, basesystem.U, basesystem.M)
+        liveedges = set(algo.graph.edges())
+        algo.phase_length = 1
+
+        def failcolor(graph: object, delta: int) -> dict[tuple[int, int], int]:
+            raise RuntimeError("injected child rebuild failure")
+
+        algo.colorer.color = failcolor  # type: ignore[assignment]
+        with pytest.raises(RuntimeError, match="injected child rebuild failure"):
+            algo.delete(*next(iter(liveedges)))
+
+        assert set(algo.graph.edges()) == liveedges
+        assert algo.phase_base_graph is basegraph
+        assert algo.phase_base_system is basesystem
+        assert algo.multi is hierarchy
+        assert set(basegraph.edges()) == baseedges
+        assert (
+            set(basesystem.A),
+            set(basesystem.B),
+            set(basesystem.U),
+        ) == basepartition
+        assert all(
+            current is original
+            for current, original in zip(
+                (basesystem.A, basesystem.B, basesystem.U, basesystem.M),
+                baseroots,
+                strict=True,
+            )
+        )
+        assert basesystem.check()
         assert algo.multi.check()
 
 
