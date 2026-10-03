@@ -830,12 +830,27 @@ class Vizing:
             raise ValueError("chain collisions must be within one alpha group")
         firstedges = first.edges
         secondedges = second.edges
-        common = sorted(set(firstedges) & set(secondedges))
+        firstpositions = {edge: index for index, edge in enumerate(firstedges)}
+        secondpositions = {edge: index for index, edge in enumerate(secondedges)}
+        common = firstpositions.keys() & secondpositions.keys()
         if not common:
             raise RuntimeError("chain collision has no shared canonical edge")
-        shared = common[0]
-        firstindex = firstedges.index(shared)
-        secondindex = secondedges.index(shared)
+        # Match explore's round order: at each depth, the first chain is
+        # checked before the second. The first-chain hit at the current depth
+        # can therefore precede a second-chain hit even when its other index
+        # is smaller. Selecting an arbitrary shared edge can retain overlap in
+        # the prefixes that the resolver is about to activate.
+        shared = min(
+            common,
+            key=lambda edge: (
+                max(firstpositions[edge], secondpositions[edge]),
+                0 if firstpositions[edge] > secondpositions[edge] else 1,
+                firstpositions[edge],
+                secondpositions[edge],
+            ),
+        )
+        firstindex = firstpositions[shared]
+        secondindex = secondpositions[shared]
         colorsbefore = dict(coloring.assignments)
         fansbefore = tuple(fans)
         alpha = first.spoke.alpha
@@ -854,8 +869,17 @@ class Vizing:
                 beta = coloring[firstpredecessor]
                 coloring.unassign(firstpredecessor)
                 coloring.unassign(secondpredecessor)
-                cls.activate(coloring, first)
-                cls.activate(coloring, second)
+                firstprefix = Chain(
+                    first.spoke, first.leaves, first.path[:firstindex], first.colors
+                )
+                secondprefix = Chain(
+                    second.spoke,
+                    second.leaves,
+                    second.path[:secondindex],
+                    second.colors,
+                )
+                cls.activate(coloring, firstprefix)
+                cls.activate(coloring, secondprefix)
                 center = first.path[firstindex]
                 left = cls.opposite(firstpredecessor, center)
                 right = cls.opposite(secondpredecessor, center)
@@ -867,8 +891,20 @@ class Vizing:
                 return True, 2
 
             coloring.unassign(shared)
-            cls.activate(coloring, first)
-            cls.activate(coloring, second)
+            firstprefix = Chain(
+                first.spoke,
+                first.leaves,
+                first.path[: firstindex + 1],
+                first.colors,
+            )
+            secondprefix = Chain(
+                second.spoke,
+                second.leaves,
+                second.path[: secondindex + 1],
+                second.colors,
+            )
+            cls.activate(coloring, firstprefix)
+            cls.activate(coloring, secondprefix)
             if shared in coloring:
                 raise RuntimeError("opposite-direction shift recolored the shared edge")
             return True, 2

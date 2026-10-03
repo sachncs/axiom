@@ -66,7 +66,7 @@ class Cases:
 
 
 @pytest.mark.parametrize("count", [2, 3, 8])
-def test_routing_dispatches_multiple_collisions_and_chain_flips(count: int) -> None:
+def test_routing_prunes_multiple_groups_and_performs_chain_flips(count: int) -> None:
     coloring, pending = Cases.collisions(count, chain=True)
 
     class Tracing(Vizing):
@@ -79,18 +79,18 @@ def test_routing_dispatches_multiple_collisions_and_chain_flips(count: int) -> N
 
     class Counting(Pruning):
         vizing = Tracing
-        collisions = 0
+        selections = 0
 
         @classmethod
         def choose(cls, coloring, fans, vertex, blocked):
-            cls.collisions += 1
+            cls.selections += 1
             return super().choose(coloring, fans, vertex, blocked)
 
     class Routing(Construction):
         pruning = Counting
 
     fans = Routing.collect(coloring, pending)
-    assert Counting.collisions == count
+    assert Counting.selections == count
     assert len(fans) == count
     assert (8 * count, 8 * count + 2, 8 * count + 5) in Tracing.paths
     coloring.validate()
@@ -573,6 +573,206 @@ def test_vizing_chain_exploration_detects_oriented_collisions() -> None:
         (first, opposite_direction),
         (opposite_direction, first),
     }
+
+
+def test_vizing_resolves_opposite_direction_collision_to_complete_coloring():
+    graph = Adjacency(6)
+    for edge in ((0, 1), (2, 3), (4, 5)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 2)
+    coloring.assign((0, 1), 0)
+    first = Chain(Spoke((2, 3), 1), (3,), (0, 1), (0,))
+    second = Chain(Spoke((4, 5), 1), (5,), (1, 0), (0,))
+    fans = Fans()
+
+    assert Vizing.resolve(coloring, fans, (first, second)) == (True, 2)
+    assert dict(coloring.items()) == {(2, 3): 0, (4, 5): 0}
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+    assert (0, 1) not in coloring
+    completed = Paper.complete(coloring, set(graph.edges()), 1)
+    Paper.certify(graph, 1, set(graph.edges()), completed)
+
+
+def test_built_vizing_chains_resolve_a_real_shared_alternating_edge():
+    graph = Adjacency(12)
+    for edge in (
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (0, 4),
+        (3, 5),
+        (0, 6),
+        (3, 7),
+        (6, 8),
+        (7, 9),
+        (4, 10),
+        (5, 11),
+    ):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    for edge, color in (
+        ((0, 1), 1),
+        ((1, 2), 0),
+        ((2, 3), 1),
+        ((0, 4), 2),
+        ((3, 5), 2),
+        ((6, 8), 0),
+        ((7, 9), 0),
+        ((4, 10), 0),
+        ((5, 11), 0),
+    ):
+        coloring.assign(edge, color)
+    chains = tuple(
+        Vizing.build(coloring, Spoke(edge, 0)) for edge in ((0, 6), (3, 7))
+    )
+    event = Vizing.explore(chains)
+    assert event.terminal is None and event.collision is not None
+    assert set(chains[0].edges) & set(chains[1].edges) == {
+        (0, 1),
+        (1, 2),
+        (2, 3),
+    }
+    assert (1, 2) in coloring
+
+    resolved, progress = Vizing.resolve(coloring, Fans(), event.collision)
+    assert resolved and progress == 2
+    coloring.validate()
+    assert all(edge in coloring for edge in ((0, 6), (3, 7)))
+
+
+def test_pruning_reduces_real_collision_inside_the_enclosing_construction():
+    graph = Adjacency(24)
+    coloring = Partial(graph, 3)
+    edges = (
+        (0, 1, 1),
+        (1, 2, 0),
+        (2, 3, 1),
+        (0, 4, 2),
+        (3, 5, 2),
+        (6, 8, 0),
+        (7, 9, 0),
+        (4, 10, 0),
+        (5, 11, 0),
+    )
+    pending = set()
+    for offset in (0, 12):
+        for left, right, color in edges:
+            edge = (offset + left, offset + right)
+            graph.add_edge(*edge)
+            coloring.assign(edge, color)
+        for edge in ((offset, offset + 6), (offset + 3, offset + 7)):
+            graph.add_edge(*edge)
+            pending.add(edge)
+
+    class Routing(Pruning):
+        collisions = 0
+
+        class Oracle(Vizing):
+            @classmethod
+            def resolve(cls, coloring, fans, collision):
+                Routing.collisions += 1
+                return super().resolve(coloring, fans, collision)
+
+        vizing = Oracle
+
+    fans = Routing.construct(coloring, pending)
+    assert Routing.collisions == 2
+    covered = {spoke for fan in fans for spoke in fan.edges}
+    assert all(edge in coloring or edge in covered for edge in pending)
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+    complete = Paper.complete(coloring, set(graph.edges()), 2)
+    Paper.certify(graph, 2, set(graph.edges()), complete)
+
+
+def test_vizing_collision_failure_restores_color_and_every_fan_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(12)
+    for edge in ((0, 1), (2, 3), (4, 5), (6, 7), (6, 8)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 0)
+    fans = Fans()
+    sentinel = Fan(6, 7, 8, 1, 2, 2)
+    fans.add(sentinel)
+    first = Chain(Spoke((2, 3), 1), (3,), (0, 1), (0,))
+    second = Chain(Spoke((4, 5), 1), (5,), (1, 0), (0,))
+    before = Witness().capture((coloring, fans))
+    activate = Vizing.activate
+    calls = 0
+
+    def fail_second(coloring, chain):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("injected second-chain activation failure")
+        return activate(coloring, chain)
+
+    monkeypatch.setattr(Vizing, "activate", fail_second)
+    assert Vizing.resolve(coloring, fans, (first, second)) == (False, 0)
+    assert calls == 2
+    assert Witness().capture((coloring, fans)) == before
+    assert tuple(fans) == (sentinel,)
+    assert fans.assignments[(6, 1)] is sentinel
+    assert fans.assigned[6] == {1}
+    assert fans.vertices[6] == {sentinel}
+    assert fans.types[sentinel.type] == {sentinel}
+    coloring.validate()
+    fans.validate()
+
+
+def test_same_direction_collision_failure_restores_first_predecessor_edit():
+    graph = Adjacency(10)
+    for edge in (
+        (0, 1),
+        (1, 2),
+        (1, 3),
+        (4, 5),
+        (6, 7),
+        (8, 9),
+    ):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 2)
+    fans = Fans()
+    sentinel = Fan(8, 9, 7, 0, 1, 1)
+    fans.add(sentinel)
+    first = Chain(Spoke((4, 5), 0), (5,), (0, 1, 2), (1,))
+    second = Chain(Spoke((6, 7), 0), (7,), (3, 1, 2), (1,))
+    before = Witness().capture((coloring, fans))
+
+    assert Vizing.resolve(coloring, fans, (first, second)) == (False, 0)
+    assert Witness().capture((coloring, fans)) == before
+    assert fans.assignments[(8, 0)] is sentinel
+    assert fans.assigned[8] == {0}
+    assert fans.vertices[8] == {sentinel}
+    assert fans.types[sentinel.type] == {sentinel}
+    coloring.validate()
+    fans.validate()
+
+
+def test_same_direction_collision_shifts_both_spokes_and_adds_compatible_fan():
+    graph = Adjacency(8)
+    for edge in ((0, 1), (1, 2), (1, 3), (4, 5), (6, 7)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 2)
+    coloring.assign((1, 3), 0)
+    first = Chain(Spoke((4, 5), 0), (5,), (0, 1, 2), (1,))
+    second = Chain(Spoke((6, 7), 0), (7,), (3, 1, 2), (1,))
+    fans = Fans()
+
+    assert Vizing.resolve(coloring, fans, (first, second)) == (True, 2)
+    assert dict(coloring.items()) == {(4, 5): 1, (6, 7): 1}
+    expected = Fan(1, 0, 3, 2, 0, 0)
+    assert tuple(fans) == (expected,)
+    fans.compatible(coloring)
+    coloring.validate()
+    fans.validate()
 
 
 def test_paper_vizing_activation_handles_trivial_fan() -> None:

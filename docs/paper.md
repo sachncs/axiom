@@ -57,6 +57,21 @@ operation fails. Recursive extension retains its existing partial-progress
 failure semantics. The complete ABB+26 near-linear bound remains a separate
 release gate.
 
+Vizing-chain collision tests now distinguish fan-selection calls from actual
+oriented chain collisions. A deterministic two-component graph reaches the
+resolver through `Pruning.construct`; both direction cases check complete
+coloring/fan compatibility, while injected failure after the first spoke
+activation verifies exact coloring-index and fan-index rollback. The resolver
+activates only each chain prefix before its first shared edge, so it never asks
+an alternating-path flip to traverse the collision edge after that edge has
+been uncolored. These tests cover this local routing rule, not the complete
+ABB+26 proof or its asymptotic bound.
+
+As of 2026-10-03, the isolated `tests/test_paper_coloring.py` suite has 100 tests
+and 85% line coverage of `axiom.paper_coloring` (pytest-cov). This is a diagnostic
+coverage measure, not a correctness or algorithm-completeness certificate; the
+remaining 15% includes error cases and recursive/type-sparsification branches.
+
 ## Benchmarks
 
 Run from the repository root:

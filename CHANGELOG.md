@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   references combine with bounded undo for indexes and phase-clock cells. Failure
   tests patch `copy.deepcopy` to raise and verify exact rollback/retry. This removes
   a global recursive allocation but does not finish durable paper integration.
-- 1,167 local tests pass after the no-copy transaction migration.
+- 1,173 local tests pass after no-copy transactions and real collision-routing
+  regressions.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references
@@ -32,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alternatives to whole-state copying and the limits of current guarantees.
 
 ### Fixed
+
+- Real opposing Vizing chains could collide on an edge that both subsequent
+  activations tried to flip after it had been uncolored; this rejected valid
+  reductions and rolled back the collision. The resolver now selects the first
+  shared edge in synchronized chain order and activates only the disjoint
+  prefixes. Deterministic end-to-end tests force two such collisions, certify
+  the final coloring, and inject failure to verify exact color/fan-index rollback.
 
 - At the System-journal milestone, System objects retained their original root references through failures.
   Bounded first-write cells restore aliased Lambda/L rows and deleted matching
