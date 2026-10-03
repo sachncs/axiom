@@ -94,7 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   roots are reused during refinement, and base/finest partition roots are shared
   with their Systems. A 500k-member refinement copy previously cost 35.2 MB.
   See [ADR 0053](docs/adrs/0053-compact-hierarchy-levels.md).
-- 1,225 local tests pass after compact hierarchy-level integration.
+- Dense full-hierarchy set comparisons now use one-byte-per-vertex scratch and
+  sparse checks use membership certificates. A million-label region audit peak
+  fell 57.9→1.0 MB while median time fell 86→47 ms. See [ADR 0054](docs/adrs/0054-bounded-hierarchy-audits.md).
+- 1,226 local tests pass after hierarchy audit certificates.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references

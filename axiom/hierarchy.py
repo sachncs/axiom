@@ -27,7 +27,7 @@ References:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Container, Iterable
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from itertools import chain, pairwise
 
@@ -295,6 +295,78 @@ class Hierarchy:
                         return f"level {index} region row differs at {vertex}"
         return None
 
+    def unionequals(
+        self, target: Collection[Vertex], partitions: Sequence[Collection[Vertex]]
+    ) -> bool:
+        """Compare a set-like target to a partition union without a scratch set."""
+        if self.graph.n and len(target) * 8 >= self.graph.n:
+            members = bytearray(self.graph.n)
+            population = 0
+            for partition in partitions:
+                for vertex in partition:
+                    if type(vertex) is not int or not 0 <= vertex < self.graph.n:
+                        return False
+                    members[vertex] = 1
+                    population += 1
+            if population != len(target):
+                return False
+            return all(
+                type(vertex) is int
+                and 0 <= vertex < self.graph.n
+                and members[vertex]
+                for vertex in target
+            )
+
+        population = 0
+        for partition in partitions:
+            population += len(partition)
+            if any(vertex not in target for vertex in partition):
+                return False
+        if population != len(target):
+            return False
+        return all(
+            any(vertex in partition for partition in partitions)
+            for vertex in target
+        )
+
+    def regionequals(
+        self,
+        region: Collection[Vertex],
+        included: Sequence[Collection[Vertex]],
+        excluded: Collection[Vertex],
+    ) -> bool:
+        """Check region = union(included) - excluded without materializing it."""
+        if self.graph.n and len(region) * 8 >= self.graph.n:
+            members = bytearray(self.graph.n)
+            for partition in included:
+                for vertex in partition:
+                    if type(vertex) is not int or not 0 <= vertex < self.graph.n:
+                        return False
+                    members[vertex] = 1
+            for vertex in excluded:
+                if type(vertex) is not int or not 0 <= vertex < self.graph.n:
+                    return False
+                members[vertex] = 0
+            if members.count(1) != len(region):
+                return False
+            return all(
+                type(vertex) is int
+                and 0 <= vertex < self.graph.n
+                and members[vertex]
+                for vertex in region
+            )
+
+        for vertex in region:
+            if vertex in excluded or not any(
+                vertex in partition for partition in included
+            ):
+                return False
+        return all(
+            vertex in excluded or vertex in region
+            for partition in included
+            for vertex in partition
+        )
+
     def check(self) -> bool:
         """Validate the multi-level subgraph-system invariants."""
         if not self.levels or len(self.levels) != self.k:
@@ -314,7 +386,7 @@ class Hierarchy:
             return False
         if (
             self.A1 != self.A_levels[0]
-            or self.A2 != set().union(*self.A_levels[1:])
+            or not self.unionequals(self.A2, self.A_levels[1:])
             or self.N1 != self.N_levels[0]
             or self.R1 != self.R_levels[0]
         ):
@@ -327,8 +399,8 @@ class Hierarchy:
             if level.graph is not self.graph or level.graph.n != self.graph.n:
                 return False
             if (
-                level.A != set().union(*self.A_levels[: index + 1])
-                or set(level.B) != self.N_levels[index]
+                not self.unionequals(level.A, self.A_levels[: index + 1])
+                or level.B != self.N_levels[index]
             ):
                 return False
             # Refinement intentionally relaxes exact saturation for inherited
@@ -356,18 +428,17 @@ class Hierarchy:
                 return False
         system = self.levels[-1]
         z = system.z
-        all_a = set().union(*self.A_levels)
-        if all_a & system.B or all_a & system.U or system.B & system.U:
-            return False
-        if len(all_a) + len(system.B) + len(system.U) != self.graph.n:
-            return False
+        all_a = system.A
         for index, region in enumerate(self.R_levels):
-            below = (
-                set().union(*self.A_levels[index + 1 :]) | system.B | system.U
-            )
-            if region != below - self.N_levels[index]:
+            below = [*self.A_levels[index + 1 :], system.B, system.U]
+            if not self.regionequals(region, below, self.N_levels[index]):
                 return False
-            if not self.N_levels[index] <= below - system.U:
+            below_without_u = [*self.A_levels[index + 1 :], system.B]
+            if any(
+                vertex in system.U
+                or not any(vertex in partition for partition in below_without_u)
+                for vertex in self.N_levels[index]
+            ):
                 return False
         degree = degrees(self.graph.n)
         for u, v in system.M:
@@ -377,7 +448,9 @@ class Hierarchy:
             degree[v] += 1
         if any(value > z for value in degree):
             return False
-        if any(degree[v] < z - self.k + 1 for v in all_a | system.B):
+        if any(degree[v] < z - self.k + 1 for v in all_a) or any(
+            degree[v] < z - self.k + 1 for v in system.B
+        ):
             return False
         if any(
             sum(1 for neighbor in self.graph.neighbors(u) if neighbor in system.U) > z
@@ -391,13 +464,15 @@ class Hierarchy:
         ):
             return False
         for index, a_vertices in enumerate(self.A_levels):
-            lower = set().union(*self.A_levels[: index + 1])
+            lower = self.A_levels[: index + 1]
             for vertex in a_vertices:
                 for edge in system.M:
                     if vertex not in edge:
                         continue
                     other = edge[1] if edge[0] == vertex else edge[0]
-                    if other not in lower and other not in self.N_levels[index]:
+                    if not any(other in partition for partition in lower) and (
+                        other not in self.N_levels[index]
+                    ):
                         return False
                 expected = sorted(
                     neighbor
@@ -408,7 +483,10 @@ class Hierarchy:
                     return False
         if self.R_levels[-1] != system.U:
             return False
-        if not self.N1 <= self.A2 | set(self.levels[0].B):
+        if any(
+            vertex not in self.A2 and vertex not in self.levels[0].B
+            for vertex in self.N1
+        ):
             return False
         for left, right in self.levels[-1].M:
             if left in self.A1 and right not in self.A1 and right not in self.N1:
@@ -989,7 +1067,7 @@ def neighbors(vertex: Vertex, edges: set[Edge]) -> list[Vertex]:
 
 
 def lists(
-    graph: Graph, vertices: Iterable[Vertex], region: Container[Vertex]
+    graph: Graph, vertices: Iterable[Vertex], region: Collection[Vertex]
 ) -> dict[Vertex, list[Vertex]]:
     """Index each supplied vertex's sorted neighbors in the requested region."""
     return {

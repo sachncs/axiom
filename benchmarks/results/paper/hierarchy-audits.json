@@ -1,0 +1,45 @@
+{
+  "status": "isolated_hierarchy_certificate_diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "candidate_sources": {
+    "axiom/hierarchy.py": "5f13f103be8c396e233d3b2e55783ad445a61ec3830d51ff711c373625f37f01",
+    "tests/test_hierarchies.py": "202e5b44daac460a948253ef804a3f75acefdd86407a2a37de5584e40991df5e"
+  },
+  "configuration": {
+    "universe_vertices": 1000000,
+    "repeats": 5,
+    "timing_and_tracemalloc_passes_separate": true
+  },
+  "union": {
+    "members": 500000,
+    "old_operation": "set().union(*compact_A_levels) == target",
+    "new_operation": "Hierarchy.unionequals(target, compact_A_levels)",
+    "old_peak_traced_bytes": 35224560,
+    "new_peak_traced_bytes": 1000969,
+    "old_median_seconds": 0.048296,
+    "new_median_seconds": 0.046898,
+    "old_batch_seconds": [0.04945, 0.047931, 0.047723, 0.048576, 0.048296],
+    "new_batch_seconds": [0.047872, 0.047493, 0.046367, 0.046898, 0.046695]
+  },
+  "region": {
+    "members": 450000,
+    "source_partitions": 4,
+    "old_operation": "set().union(*sources) - excluded == region",
+    "new_operation": "Hierarchy.regionequals(region, sources, excluded)",
+    "old_peak_traced_bytes": 57935496,
+    "new_peak_traced_bytes": 1000977,
+    "old_median_seconds": 0.086225,
+    "new_median_seconds": 0.047354,
+    "old_batch_seconds": [0.088888, 0.087969, 0.086225, 0.08602, 0.085711],
+    "new_batch_seconds": [0.047939, 0.047354, 0.047704, 0.046677, 0.046479]
+  },
+  "limits": [
+    "Synthetic compact partitions isolate the comparison operations; no graph rebuild, matching repair or persistence is included.",
+    "Tracemalloc does not measure total process RSS or native graph allocation.",
+    "One host and one partition shape; these results do not qualify full hierarchy performance or durable paper integration."
+  ]
+}

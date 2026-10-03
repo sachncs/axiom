@@ -59,6 +59,23 @@ def test_derived_hierarchy_partitions_share_exact_roots_when_possible():
             assert all(hierarchy.A2 is not level for level in upper)
 
 
+def test_partition_union_and_region_certificates_are_exact_without_materializing():
+    hierarchy = Hierarchy(Adjacency(6), k=1)
+
+    assert hierarchy.unionequals({0, 1, 2, 3}, [{0, 1}, {2, 3}])
+    assert not hierarchy.unionequals({0, 1, 2, 3}, [{0, 1}, {2}])
+    assert not hierarchy.unionequals({0, 1, 2}, [{0, 1}, {1, 2}])
+    assert hierarchy.regionequals({0, 2}, [{0, 1}, {2, 3}], {1, 3})
+    assert not hierarchy.regionequals({0, 1, 2}, [{0, 1}, {2, 3}], {1, 3})
+    assert not hierarchy.regionequals({0}, [{0, 1}, {2}], {1})
+
+    sparse = Hierarchy(Adjacency(128), k=1)
+    assert sparse.unionequals({1, 4}, [{1}, {4}])
+    assert not sparse.unionequals({1, 4}, [{1}, {5}])
+    assert sparse.regionequals({1}, [{1, 2}], {2})
+    assert not sparse.regionequals({1, 2}, [{1, 2}], {2})
+
+
 def test_hierarchy_transactions_run_without_recursive_deepcopy(monkeypatch):
     matcher = populated()
     root = matcher.multi

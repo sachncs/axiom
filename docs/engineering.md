@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; graph snapshots, multi-source hierarchy unions, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense A/B/U and hierarchy partitions/counters, shared derived hierarchy roots, streamed builder edges, lazy `A ∪ B` traversal, endpoint-local certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Sparse A/B remain Python sets; opaque custom graphs retain a full-edge rollback fallback; graph snapshots, multi-source hierarchy union construction, some certificate/admission checks and phase-boundary audits remain state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -262,6 +262,18 @@ old refinement copied to a Python set allocated 35,224,208 traced bytes; root
 reuse allocated 64 bytes. This is partition-copy evidence, not end-to-end peak
 RSS or multi-level throughput qualification. See [ADR 0053](adrs/0053-compact-hierarchy-levels.md)
 and its [raw record](../benchmarks/results/paper/hierarchy-levels.json).
+
+Full hierarchy validation no longer materializes dense A-level unions, cumulative
+level-A sets, or `below − N` region sets. Exact dense comparisons use one
+byte-per-vertex scratch bitmap; sparse comparisons use direct membership and
+cardinality checks without a universe-sized allocation. The independent checker
+still detects missing members, duplicates, out-of-range labels, and incorrect
+exclusions. On a one-million-label union, peak scratch fell from 35,224,560 to
+1,000,969 bytes at essentially the same median time (48.3→46.9 ms). For a
+four-partition region difference, it fell from 57,935,496 to 1,000,977 bytes
+and median time from 86.2 to 47.4 ms. These are isolated probes, not full
+hierarchy rebuild or product qualification. See [ADR 0054](adrs/0054-bounded-hierarchy-audits.md)
+and its [raw record](../benchmarks/results/paper/hierarchy-audits.json).
 
 ## Implemented foundation, not product qualification
 
