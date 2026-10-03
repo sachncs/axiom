@@ -39,6 +39,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0030](0030-sparse-committed-partner-index.md) | Size committed-partner indexes to active batch touches, not graph universe | Sparse journal index implemented; 8.1% initial native-memory reduction in one-million-vertex diagnostic; durable repeats active |
 | [0031](0031-derived-block-occupancy.md) | Derive live block occupancy from row degree instead of storing another word per block | 4 MB less native allocation in one-million-vertex degree-four diagnostics; one short Engine rate sample lower; repeated performance qualification pending |
 | [0032](0032-bitpacked-audit-ownership.md) | Bit-pack per-block ownership scratch in independent full audits | 8× less audit ownership-map payload; corruption and differential tests pass; peak RSS still workload-dependent |
+| [0033](0033-failure-atomic-fan-relabel.md) | Stage color-relabel fan indexes before publishing | Invalid maps and injected staging failures preserve all live fan indexes; broader paper mutation audit remains open |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

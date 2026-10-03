@@ -143,6 +143,71 @@ def test_pruning_restores_every_index_after_a_later_collision_failure() -> None:
     fans.compatible(coloring)
 
 
+def test_fan_relabel_failure_preserves_every_index() -> None:
+    fans = Fans()
+    fans.add(Fan(0, 1, 2, 0, 1, 1))
+    fans.add(Fan(3, 4, 5, 1, 0, 0))
+    snapshot = deepcopy(vars(fans))
+    roots = tuple(vars(fans).values())
+
+    with pytest.raises(ValueError, match="colors must differ"):
+        fans.relabel({0: 0, 1: 0})
+
+    assert vars(fans) == snapshot
+    assert all(
+        actual is original
+        for actual, original in zip(vars(fans).values(), roots, strict=True)
+    )
+    fans.validate()
+
+
+def test_fan_relabel_publishes_a_complete_color_permutation() -> None:
+    fans = Fans()
+    first = Fan(0, 1, 2, 0, 1, 1)
+    second = Fan(3, 4, 5, 1, 0, 0)
+    fans.add(first)
+    fans.add(second)
+
+    fans.relabel({0: 1, 1: 0})
+
+    assert set(fans) == {
+        Fan(0, 1, 2, 1, 0, 0),
+        Fan(3, 4, 5, 0, 1, 1),
+    }
+    fans.validate()
+
+
+def test_fan_relabel_staging_failure_does_not_publish_partial_indexes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fans = Fans()
+    fans.add(Fan(0, 1, 2, 0, 1, 1))
+    fans.add(Fan(3, 4, 5, 1, 0, 0))
+    snapshot = deepcopy(vars(fans))
+    roots = tuple(vars(fans).values())
+    original = Fans.add
+    builds = 0
+
+    def fail_on_second(candidate: Fans, fan: Fan) -> None:
+        nonlocal builds
+        if candidate is not fans:
+            builds += 1
+            if builds == 2:
+                raise RuntimeError("injected staged fan-index failure")
+        original(candidate, fan)
+
+    monkeypatch.setattr(Fans, "add", fail_on_second)
+    with pytest.raises(RuntimeError, match="injected staged fan-index failure"):
+        fans.relabel({0: 1, 1: 0})
+
+    assert vars(fans) == snapshot
+    assert all(
+        actual is original
+        for actual, original in zip(vars(fans).values(), roots, strict=True)
+    )
+    fans.validate()
+
+
 @pytest.mark.parametrize("size", [0, 1, 2, 5, 12, 33])
 @pytest.mark.parametrize("family", ["path", "cycle", "star", "clique", "bipartite"])
 def test_paper_certifies_graph_families(size: int, family: str) -> None:

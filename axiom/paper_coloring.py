@@ -450,29 +450,25 @@ class Fans:
     def relabel(self, mapping: dict[Color, Color]) -> None:
         """Apply a global color permutation while preserving all indexes."""
         current = tuple(self)
+        replacement = type(self)()
         for fan in current:
-            self.discard(fan)
-        try:
-            for fan in current:
-                self.add(
-                    Fan(
-                        fan.center,
-                        fan.first,
-                        fan.second,
-                        mapping[fan.alpha],
-                        mapping[fan.beta],
-                        mapping[fan.gamma],
-                    )
+            replacement.add(
+                Fan(
+                    fan.center,
+                    fan.first,
+                    fan.second,
+                    mapping[fan.alpha],
+                    mapping[fan.beta],
+                    mapping[fan.gamma],
                 )
-        except (KeyError, ValueError):
-            self.members.clear()
-            self.spokes.clear()
-            self.assignments.clear()
-            self.assigned.clear()
-            self.vertices.clear()
-            self.types.clear()
-            raise
-        self.validate()
+            )
+        replacement.validate()
+        self.members = replacement.members
+        self.spokes = replacement.spokes
+        self.assignments = replacement.assignments
+        self.assigned = replacement.assigned
+        self.vertices = replacement.vertices
+        self.types = replacement.types
 
     def at(self, vertex: Vertex) -> tuple[Fan, ...]:
         """Return fans containing ``vertex`` in deterministic order."""
