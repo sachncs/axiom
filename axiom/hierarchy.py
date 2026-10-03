@@ -899,7 +899,6 @@ def refine_hierarchy(
         tuple[
             frozenset[Vertex],
             frozenset[Vertex],
-            frozenset[Vertex],
             frozenset[Edge],
         ]
     ] = set()
@@ -909,10 +908,12 @@ def refine_hierarchy(
         # at zero and every chosen-edge insertion/removal updates both values
         # together. The fixed graph and chosen set therefore determine it;
         # retaining all n counters in every exact cycle key is redundant.
+        # ``new_a``, ``new_b`` and ``new_u`` partition the fixed universe
+        # ``previous.B ∪ old_u``. Thus U and A uniquely determine B; retaining
+        # both partition sides would duplicate another full set in each key.
         state = (
             frozenset(new_u),
             frozenset(new_a),
-            frozenset(new_b),
             frozenset(chosen),
         )
         if state in seen_states:

@@ -1,0 +1,29 @@
+{
+  "benchmark": "hierarchy-refinement-cycle-key-derived-b-partition",
+  "date": "2026-10-04",
+  "baseline_revision": "a33883b",
+  "candidate_revision": "working-tree-after-a33883b",
+  "python": "3.14.8",
+  "fixture": {
+    "components": 256,
+    "vertices": 2048,
+    "edges": 4096,
+    "component_edges": [[0, 2], [0, 4], [0, 5], [0, 6], [0, 7], [1, 4], [1, 5], [1, 6], [1, 7], [2, 3], [2, 5], [2, 7], [3, 4], [3, 6], [4, 7], [5, 7]],
+    "initial_z": 8,
+    "refined_z": 4
+  },
+  "measurement": "Five alternating baseline/candidate runs; graph/base hierarchy build excluded; refinement elapsed time and tracemalloc peak; canonical hierarchy state compared after each run",
+  "baseline_seconds": [0.269719, 0.267118, 0.25684, 0.258428, 0.258731],
+  "candidate_seconds": [0.271384, 0.254395, 0.255802, 0.263145, 0.256876],
+  "baseline_peak_bytes": [1654687, 1654727, 1654111, 1654023, 1653927],
+  "candidate_peak_bytes": [1621703, 1621175, 1621095, 1620991, 1620911],
+  "median": {
+    "baseline_seconds": 0.258731,
+    "candidate_seconds": 0.256876,
+    "baseline_peak_bytes": 1654111,
+    "candidate_peak_bytes": 1621095,
+    "peak_reduction_percent": 2.0
+  },
+  "certificate": "Canonical hierarchy state equal before/after across levels, partitions, matchings, graph edges, deferred deletions and cache rows; both refinements passed Hierarchy.check().",
+  "limitations": "Disconnected witness-heavy fixture on one host; small timing difference not considered a speedup; traced Python memory is not RSS; other state-sized cycle keys and rebuild snapshots remain."
+}

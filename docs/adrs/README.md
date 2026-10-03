@@ -95,6 +95,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0086](0086-bound-refinement-cycle-snapshots.md) | Discard exact refinement cycle snapshots when the monotone U frontier shrinks | 2,048-vertex refinement: 11.68% lower traced peak with identical state; broader hierarchy qualification remains |
 | [0087](0087-derive-refinement-degree-state.md) | Omit the matching-degree array from exact cycle keys because it is fully derived from the selected matching | 2,048-vertex refinement: another 16.88% lower peak vs 0086 and 5.59% vs original; exact output retained |
 | [0088](0088-localize-refinement-boundary-normalization.md) | Normalize A/B frontier membership through incident graph edges instead of scanning all selected matching edges per vertex | 2,048-vertex/4,096-edge refinement: 34.97% faster, identical certified state; broader shape qualification remains |
+| [0089](0089-derive-refinement-b-partition.md) | Omit new B from exact cycle keys because fixed-universe partition membership is derivable from U and A | 2,048-vertex refinement: 2.00% lower peak, identical state; connected/dense repeats remain |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

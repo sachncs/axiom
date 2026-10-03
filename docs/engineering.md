@@ -121,6 +121,17 @@ evidence, not broad or durable qualification. See
 [ADR 0088](adrs/0088-localize-refinement-boundary-normalization.md) and its
 [raw record](../benchmarks/results/paper/refinement-boundary-normalization.json).
 
+The exact hierarchy cycle key now also omits `new_b`. At every point in this
+refinement, `new_a`, `new_b`, and `new_u` are disjoint and partition the fixed
+universe `previous.B ∪ old_u`; therefore U and A uniquely determine B. The
+cycle check remains exact, with no probabilistic digest. On the same five-run
+2,048-vertex fixture, canonical state remained identical and median peak traced
+allocation fell from 1,654,111 to 1,621,095 bytes (2.00%); median time was
+0.25873 s before and 0.25688 s after. This is a further storage reduction on
+one disconnected fixture, not broad qualification. See
+[ADR 0089](adrs/0089-derive-refinement-b-partition.md) and its
+[raw comparison](../benchmarks/results/paper/refinement-b-partition.json).
+
 Fan batch ownership validation now checks the existing `Fans.members` set rather
 than rebuilding a set of every fan for every batch entry. The duplicate-fan
 check likewise no longer allocates a temporary singleton set. A deterministic
