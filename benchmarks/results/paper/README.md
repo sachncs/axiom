@@ -100,6 +100,23 @@ See [ADR 0027](../../../docs/adrs/0027-system-cache-deltas.md). The shared delta
 boundary still relies on snapshots for System/Hierarchy undo; it is not their
 journal migration, an exact recovery codec, or a durable Service implementation.
 
+## Incremental hierarchy certificates
+
+[hierarchy-certificates.json](hierarchy-certificates.json) compares baseline
+`764f652` with the endpoint-certificate candidate on one host using the same
+8,192-vertex, sparse, average-degree-four multilevel churn trace: 128 real
+updates, seed 42, five timing batches, no full phase rebuild, and one subphase
+rebuild. Both versions produce the same final matching certificate and rebuild
+counters. Rate rises from 19.70 to 148.65 updates/s (7.55×). Traced transient
+peak falls from 4.65 MB to 2.39 MB; process peak RSS falls from 109.8 MB to
+102.5 MB in the single memory sample. Source and benchmark hashes, all five
+durations and scope limitations are in the JSON.
+
+This diagnostic is not durable service or million-vertex qualification. It
+shows that the prior every-update full hierarchy audit dominated the paper
+mode at this size; endpoint-local certificates now preserve graph-dependent
+invariants, with complete hierarchy audits retained at rebuild boundaries.
+
 ## System root and row journal
 
 [systems.json](systems.json) captures isolated installed-wheel comparisons of

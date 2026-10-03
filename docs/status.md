@@ -42,8 +42,10 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
 
 1. Broader repeated skew/arrival qualification on fresh installed-wheel runs,
    with exact-prefix queries, independent recovery and all losses retained.
-2. Complete adversarial qualification and finish integrating paper coloring/fan/
-   hierarchy operations into the durable production service. Recursive Matcher
+2. Reduce the paper multilevel per-update full audit with endpoint-local
+   hierarchy certificates; a bounded 8,192-vertex diagnostic measured the
+   improvement. Complete adversarial qualification and finish integrating paper
+   coloring/fan/hierarchy operations into the durable production service. Recursive Matcher
    `deepcopy` has been removed; do not confuse this with durable paper integration
    or full billion-vertex support.
    Integrate basic/multilevel through the durable production service with explicit
@@ -93,5 +95,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,176 passing tests; CI and benchmark results must be attributed to their exact
+1,211 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

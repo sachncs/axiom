@@ -56,6 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Existing hierarchy invariant, adversarial, rollback and replay tests gate the
   change; process-memory and rate qualification remain open. See
   [ADR 0044](docs/adrs/0044-compact-hierarchy-refinement-state.md).
+- Incremental multilevel updates now certify changed edges and affected cache
+  rows locally, replacing a full hierarchy/edge-set audit after every update;
+  full audits remain at construction and rebuild boundaries. One 8,192-vertex
+  diagnostic trace measured 7.55× throughput and 48.6% lower transient traced
+  allocation with matching certificates unchanged. This is not release or
+  million-vertex qualification. See [ADR 0045](docs/adrs/0045-incremental-paper-hierarchy-certificates.md).
 - 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.

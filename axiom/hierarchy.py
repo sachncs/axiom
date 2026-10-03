@@ -190,12 +190,23 @@ class Hierarchy:
                                 journal.edit(
                                     self.L_levels[index], source, target, added
                                 )
+            if self.graph.has_edge(left, right) != should_exist:
+                raise RuntimeError("hierarchy phase edge delta was not applied")
+            if not self.certify(left, right):
+                reason = self.diagnose(left, right)
+                raise RuntimeError(
+                    f"hierarchy endpoint certificate failed: {reason}"
+                )
             return
 
         phase_graph = empty(graph)
-        phase_edges = set(graph.edges()) | set(self.deferred_deletions)
-        for left, right in phase_edges:
+        for left, right in self.deferred_deletions:
             if canonical(left, right) not in excluded:
+                phase_graph.add_edge(left, right)
+        for left, right in graph.edges():
+            if canonical(left, right) not in excluded and not phase_graph.has_edge(
+                left, right
+            ):
                 phase_graph.add_edge(left, right)
         self.graph = phase_graph
         phase_edge_set = set(phase_graph.edges())
@@ -207,6 +218,72 @@ class Hierarchy:
             lists(phase_graph, vertices, self.R_levels[index])
             for index, vertices in enumerate(self.A_levels)
         ]
+
+    def certify(self, left: Vertex, right: Vertex) -> bool:
+        """Certify one synchronized edge delta across affected hierarchy rows.
+
+        A phase update changes only the requested edge. Partition roots and
+        matching sets stay fixed until rebuild; their full certificates run at
+        construction/rebuild boundaries. This certificate checks every
+        graph-dependent row and neighborhood bound for the two endpoints at
+        every level, finest-level neighborhood caps, plus the matching-edge
+        relation for the changed edge.
+        """
+        return self.diagnose(left, right) is None
+
+    def diagnose(self, left: Vertex, right: Vertex) -> str | None:
+        """Return the first failed endpoint-certificate condition, if any."""
+        if (
+            type(left) is not int
+            or type(right) is not int
+            or not 0 <= left < right < self.graph.n
+        ):
+            return "invalid edge endpoints"
+        for index, level in enumerate(self.levels):
+            if level.graph is not self.graph:
+                return f"level {index} graph reference differs"
+            for vertex in (left, right):
+                neighbors = sorted(self.graph.neighbors(vertex))
+                if vertex in level.U:
+                    lambda_row = [
+                        neighbor
+                        for neighbor in neighbors
+                        if neighbor in level.B or neighbor in level.U
+                    ]
+                    lambda_value = level.lambda_lists.get(vertex)
+                    if lambda_row and lambda_value != lambda_row:
+                        return f"level {index} Lambda row differs at {vertex}"
+                    if not lambda_row and lambda_value is not None:
+                        return f"level {index} has empty Lambda row at {vertex}"
+                    if index == len(self.levels) - 1:
+                        u_degree = sum(neighbor in level.U for neighbor in neighbors)
+                        b_degree = sum(neighbor in level.B for neighbor in neighbors)
+                        if u_degree > level.z:
+                            return f"level {index} U-degree bound fails at {vertex}"
+                        if b_degree > 2 * level.z:
+                            return (
+                                f"level {index} B-neighborhood bound fails at {vertex}"
+                            )
+                if vertex in level.A:
+                    l_row = [neighbor for neighbor in neighbors if neighbor in level.U]
+                    l_value = level.L_lists.get(vertex)
+                    if l_row and l_value != l_row:
+                        return f"level {index} L row differs at {vertex}"
+                    if not l_row and l_value is not None:
+                        return f"level {index} has empty L row at {vertex}"
+                if canonical(left, right) in level.M and not self.graph.has_edge(
+                    left, right
+                ):
+                    return f"level {index} matching contains absent edge"
+                if vertex in self.A_levels[index]:
+                    region_row = [
+                        neighbor
+                        for neighbor in neighbors
+                        if neighbor in self.R_levels[index]
+                    ]
+                    if self.L_levels[index].get(vertex, []) != region_row:
+                        return f"level {index} region row differs at {vertex}"
+        return None
 
     def check(self) -> bool:
         """Validate the multi-level subgraph-system invariants."""
@@ -232,7 +309,9 @@ class Hierarchy:
             or self.R1 != self.R_levels[0]
         ):
             return False
-        if not self.deferred_deletions <= set(self.graph.edges()):
+        if any(
+            not self.graph.has_edge(*edge) for edge in self.deferred_deletions
+        ):
             return False
         for index, level in enumerate(self.levels):
             if level.graph is not self.graph or level.graph.n != self.graph.n:
@@ -274,7 +353,7 @@ class Hierarchy:
             return False
         for index, region in enumerate(self.R_levels):
             below = (
-                set().union(*self.A_levels[index + 1 :]) | set(system.B) | set(system.U)
+                set().union(*self.A_levels[index + 1 :]) | system.B | system.U
             )
             if region != below - self.N_levels[index]:
                 return False

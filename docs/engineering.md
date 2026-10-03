@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active; end-to-end paper memory/rate repeats are pending |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy certificates and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; matching/auxiliary checks, `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -163,6 +163,19 @@ whole-universe Python sets. These remove avoidable state-sized temporaries;
 the surviving live-edge, graph-snapshot and algorithm state are still
 state-sized and need peak-RSS benchmarking. See
 [ADR 0044](adrs/0044-compact-hierarchy-refinement-state.md).
+
+Multilevel updates no longer run the full hierarchy/cache/phase-graph comparison
+after every edge change. `Hierarchy.certify()` checks changed endpoints' Lambda/L
+rows, neighborhood bounds, phase edge and level graph bindings; the owner also
+checks an O(1) phase-edge-count equation. Full hierarchy checks remain mandatory
+at construction/rebuild boundaries, and injected certificate failure restores
+exact Matcher/Witness state. An isolated 8,192-vertex, average-degree-four,
+128-update trace improved from 19.70 to 148.65 updates/s (7.55×), with 48.6%
+lower transient traced peak and 6.6% lower process-peak RSS on one host. This
+five-repeat diagnostic is not durable or million-vertex qualification;
+matching/auxiliary global checks remain visible costs. See
+[ADR 0045](adrs/0045-incremental-paper-hierarchy-certificates.md) and the
+[raw comparison JSON](../benchmarks/results/paper/hierarchy-certificates.json).
 
 ## Implemented foundation, not product qualification
 

@@ -1,0 +1,83 @@
+{
+  "status": "diagnostic_only_not_durable_or_release_qualification",
+  "comparison": {
+    "baseline_revision": "764f652",
+    "candidate_revision": "764f652 plus hierarchy endpoint certificates",
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8",
+    "runner": {
+      "path": "benchmarks/performance.py",
+      "sha256": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767"
+    },
+    "baseline_sources": {
+      "axiom/core.py": "f5dd831d27b168bb6302a4e921a4d6bf0132e563a6fc868e3dcb5fa3989a977a",
+      "axiom/hierarchy.py": "e5a534a7e3cecbfe49d837ce7d1b2d97f0191a14d4c3106af933b53b1cf836cb"
+    },
+    "candidate_sources": {
+      "axiom/core.py": "4c2dd2df88ce0df758497f2c86c8528cf700ea3656ae329c3ce1caae83f2feb6",
+      "axiom/hierarchy.py": "8199715665b7dfdae4e315885669d45d7d84b50c2e27b1a2d92651dc9d4c6410",
+      "tests/test_hierarchies.py": "59bec9cbd33b4082b94fad470feedece0cfa7a915403a88a3ee2e2ded1f4681b"
+    }
+  },
+  "configuration": {
+    "vertices": 8192,
+    "family": "sparse",
+    "average_degree_target": 4,
+    "workload": "churn",
+    "mode": "multilevel",
+    "seed": 42,
+    "real_updates": 128,
+    "timed_repeats": 5,
+    "phase_rebuilds": 0,
+    "subphase_rebuilds": 1,
+    "rematch_u_scans": 9
+  },
+  "baseline": {
+    "updates_per_second": 19.700801389737627,
+    "batch_nanoseconds": [
+      6449453291,
+      6496015250,
+      6554439791,
+      6497197625,
+      6547124334
+    ],
+    "memory": {
+      "initial_traced_bytes": 20438096,
+      "construction_peak_traced_bytes": 23237616,
+      "peak_traced_bytes": 25086968,
+      "transient_traced_bytes": 4648872,
+      "process_peak_rss_bytes": 109756416
+    },
+    "certificate_sha256": "28c548aecae0c5dfc168e326f0dd2def74e7758320b1349bb1e35b9ecf0f1c89"
+  },
+  "candidate": {
+    "updates_per_second": 148.64978387662757,
+    "batch_nanoseconds": [
+      852995208,
+      842416041,
+      861084333,
+      867752958,
+      933454542
+    ],
+    "memory": {
+      "initial_traced_bytes": 20310624,
+      "construction_peak_traced_bytes": 23237672,
+      "peak_traced_bytes": 22701696,
+      "transient_traced_bytes": 2391072,
+      "process_peak_rss_bytes": 102498304
+    },
+    "certificate_sha256": "28c548aecae0c5dfc168e326f0dd2def74e7758320b1349bb1e35b9ecf0f1c89"
+  },
+  "derived": {
+    "throughput_ratio": 7.5454,
+    "transient_traced_reduction_percent": 48.56,
+    "process_peak_rss_reduction_percent": 6.61
+  },
+  "limits": [
+    "One host and one seeded 128-update workload; five timing repetitions do not establish cross-run or cross-host confidence intervals.",
+    "Memory and process RSS are single isolated samples.",
+    "This paper Matcher diagnostic has no durable acknowledgments, concurrent clients, or million-vertex workload.",
+    "Other full scans remain, including matching/auxiliary checks and phase-boundary hierarchy audits."
+  ]
+}

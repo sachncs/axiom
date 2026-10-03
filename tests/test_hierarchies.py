@@ -7,6 +7,7 @@ import pytest
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchies import Hierarchies
+from axiom.hierarchy import Hierarchy
 from axiom.storage import Packed
 from axiom.witness import Witness
 
@@ -34,6 +35,37 @@ def test_hierarchy_transactions_run_without_recursive_deepcopy(monkeypatch):
     assert matcher.multi is root
     assert matcher.hierarchies is None and root.journal is None
     assert Witness().capture(matcher) != before
+
+
+def test_endpoint_certificate_detects_corrupt_system_cache():
+    matcher = populated()
+    root = matcher.multi
+    assert root is not None
+    level = root.levels[0]
+    vertex = next(iter(level.U))
+    level.lambda_lists[vertex] = [-1]
+    left, right = sorted((vertex, (vertex + 1) % matcher.n))
+
+    assert not root.certify(left, right)
+
+
+def test_endpoint_certificate_failure_rolls_back_exact_matcher_state(monkeypatch):
+    matcher = populated()
+    root = matcher.multi
+    assert root is not None
+    before = Witness().capture(matcher)
+
+    def reject(self, left, right):
+        return False
+
+    monkeypatch.setattr(Hierarchy, "certify", reject)
+    with pytest.raises(RuntimeError, match="endpoint certificate failed"):
+        matcher.insert(0, 4)
+
+    assert matcher.multi is root
+    assert matcher.hierarchies is None
+    assert root.journal is None
+    assert Witness().capture(matcher) == before
 
 
 def test_failed_deletion_restores_hierarchy_and_partition_identities(monkeypatch):
