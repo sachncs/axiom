@@ -49,6 +49,7 @@ from axiom.paper_coloring import Paper
 from axiom.rebuild import Basic, Multilevel
 from axiom.storage import Packed, publish
 from axiom.system import System
+from axiom.systems import Systems
 from axiom.types import (
     Colorer,
     Edge,
@@ -162,6 +163,7 @@ class Matcher:
         self.partner_map: dict[Vertex, Vertex] = {}
         self.views: Views | None = None
         self.classes: Classes | None = None
+        self.systems: Systems | None = None
 
         self.z: int = 0
         self.phase_length: int = 0
@@ -928,6 +930,7 @@ class Matcher:
         accounting = None
         views = None
         classes = None
+        systems = None
         snapshot = None
         published = False
         try:
@@ -937,6 +940,8 @@ class Matcher:
             classes = Classes(self)
             for container in (classes.list, classes.seed, *classes.slots):
                 memo[id(container)] = container
+            systems = Systems(self)
+            systems.retain(memo)
             for graph in managed.values():
                 if isinstance(graph, Packed):
                     token = graph.begin()
@@ -954,7 +959,8 @@ class Matcher:
             snapshot = {
                 name: copy.deepcopy(value, memo)
                 for name, value in self.__dict__.items()
-                if name not in {"graph", "colorer", "policy", "views", "classes"}
+                if name
+                not in {"graph", "colorer", "policy", "views", "classes", "systems"}
             }
             yield
             if self.accountant is not accountant:
@@ -962,11 +968,13 @@ class Matcher:
             accountant.validate(accounting)
             views.validate()
             classes.validate()
+            systems.validate()
             publish(journals)
             published = True
             accountant.commit(accounting)
             views.commit()
             classes.commit()
+            systems.commit()
         except BaseException as error:
             if published:
                 self.failed = True
@@ -978,6 +986,8 @@ class Matcher:
                     native.rollback(token)
                 if accounting is not None:
                     accountant.rollback(accounting)
+                if systems is not None:
+                    systems.rollback()
                 if classes is not None:
                     classes.rollback()
                 if views is not None:
@@ -1457,12 +1467,18 @@ class Matcher:
 
     def __setattr__(self, name: str, value: object) -> None:
         """Reject replacement of active matching undo, using protocol spelling."""
-        if name in {"views", "classes"} and getattr(self, name, None) is not None:
+        if (
+            name in {"views", "classes", "systems"}
+            and getattr(self, name, None) is not None
+        ):
             raise RuntimeError("active matching journal cannot be replaced")
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name: str) -> None:
         """Prevent deletion of the active matching transaction handle."""
-        if name in {"views", "classes"} and getattr(self, name, None) is not None:
+        if (
+            name in {"views", "classes", "systems"}
+            and getattr(self, name, None) is not None
+        ):
             raise RuntimeError("active matching journal cannot be deleted")
         object.__delattr__(self, name)

@@ -34,6 +34,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0025](0025-matching-view-journal.md) | Bounded matching-cell undo and retained edge/vertex/partner containers | Matching views migrated; global alias preflight, other snapshots and durable integration remain active |
 | [0026](0026-color-class-journal.md) | Bounded class/seed membership undo and retained list/set aliases | Color classes migrated; shared-class admission, System/Hierarchy snapshots and durable integration remain active |
 | [0027](0027-system-cache-deltas.md) | Shared endpoint-cache mutations and union-free point membership | Cache delta boundary implemented; System/Hierarchy journals and durable integration remain active |
+| [0028](0028-system-undo-journal.md) | Bounded System-root, shared-row and matching-cut undo | System objects and touched rows migrated; Hierarchy/auxiliary snapshots and durable integration remain active |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

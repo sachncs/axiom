@@ -141,11 +141,17 @@ class Hierarchy:
                     region = self.R_levels[index]
                     for source, target in ((left, right), (right, left)):
                         if source in vertices and target in region:
-                            update(
-                                self.L_levels[index].setdefault(source, []),
-                                target,
-                                added,
-                            )
+                            journal = self.levels[index].journal
+                            if journal is None:
+                                update(
+                                    self.L_levels[index].setdefault(source, []),
+                                    target,
+                                    added,
+                                )
+                            else:
+                                journal.edit(
+                                    self.L_levels[index], source, target, added
+                                )
             return
 
         phase_graph = empty(graph)
@@ -157,7 +163,7 @@ class Hierarchy:
         phase_edge_set = set(phase_graph.edges())
         for system in self.levels:
             system.graph = phase_graph
-            system.M.intersection_update(phase_edge_set)
+            system.restrict(phase_edge_set)
             system.index()
         self.L_levels = [
             lists(phase_graph, vertices, self.R_levels[index])
@@ -766,7 +772,7 @@ def refine_hierarchy(
     working_edge_set = set(working_graph.edges())
     for level in hierarchy.levels:
         level.graph = working_graph
-        level.M.intersection_update(working_edge_set)
+        level.restrict(working_edge_set)
         level.index()
 
     new_system = System(

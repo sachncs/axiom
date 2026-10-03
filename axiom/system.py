@@ -47,8 +47,12 @@ from bisect import bisect_left
 from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from axiom.types import Edge, Graph, Matching, Vertex, canonical
+
+if TYPE_CHECKING:
+    from axiom.systems import Systems
 
 
 @dataclass
@@ -89,6 +93,9 @@ class System:
     M: set[Edge] = field(default_factory=set)
     lambda_lists: dict[Vertex, list[Vertex]] = field(default_factory=dict)
     L_lists: dict[Vertex, list[Vertex]] = field(default_factory=dict)
+    journal: Systems | None = field(
+        default_factory=lambda: None, init=False, repr=False, compare=False
+    )
 
     @property
     def S(self) -> set[Vertex]:
@@ -384,9 +391,34 @@ class System:
             raise ValueError("system graph delta must precede cache update")
         for source, target in ((left, right), (right, left)):
             if source in self.U and (target in self.B or target in self.U):
-                self.change(self.lambda_lists.setdefault(source, []), target, added)
+                if self.journal is None:
+                    self.change(self.lambda_lists.setdefault(source, []), target, added)
+                else:
+                    self.journal.edit(self.lambda_lists, source, target, added)
             if source in self.A and target in self.U:
-                self.change(self.L_lists.setdefault(source, []), target, added)
+                if self.journal is None:
+                    self.change(self.L_lists.setdefault(source, []), target, added)
+                else:
+                    self.journal.edit(self.L_lists, source, target, added)
+
+    def restrict(self, allowed: set[Edge]) -> None:
+        """Cut matching edges with registered undo when this System is admitted."""
+        if self.journal is None:
+            self.M.intersection_update(allowed)
+        else:
+            self.journal.restrict(self.M, allowed)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Protect the active transaction handle using Python protocol spelling."""
+        if name == "journal" and getattr(self, "journal", None) is not None:
+            raise RuntimeError("active system journal cannot be replaced")
+        object.__setattr__(self, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        """Reject deletion of bound undo while allowing ordinary field access."""
+        if name == "journal" and self.journal is not None:
+            raise RuntimeError("active system journal cannot be deleted")
+        object.__delattr__(self, name)
 
     def maximal(self, matching: Matching) -> bool:
         """Return ``True`` iff ``matching`` is maximal in the current ``graph``.

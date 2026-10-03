@@ -26,6 +26,12 @@ def verify() -> None:
             raise RuntimeError("installed native paper graph/repair failed")
         if witness.capture(matcher) != witness.capture(recovered):
             raise RuntimeError("installed paper full-state replay differs")
+        system = matcher.system
+        caches = tuple(
+            (container, vertex, row)
+            for container in (system.lambda_lists, system.L_lists)
+            for vertex, row in container.items()
+        )
         before = witness.capture(matcher)
         counter = matcher.accountant
         journal = counter.begin()
@@ -53,6 +59,9 @@ def verify() -> None:
             )
             or matcher.views is not None
             or matcher.classes is not None
+            or matcher.systems is not None
+            or matcher.system is not system
+            or any(container[vertex] is not row for container, vertex, row in caches)
             or matcher.matchings is not colors[0]
             or matcher.seed_matching is not colors[1]
             or any(
