@@ -1,0 +1,21 @@
+{
+  "benchmark": "fan-batch-membership",
+  "date": "2026-10-03",
+  "baseline_revision": "a8d0caf",
+  "candidate_revision": "working-tree-after-a8d0caf",
+  "python": "3.14.8",
+  "fixture": {
+    "fan_count": 400,
+    "vertices": 1200,
+    "edges": 800,
+    "palette": 100,
+    "eta": 10,
+    "operation": "Spectrum.modify over the complete same-block fan batch"
+  },
+  "measurement": "operation wall time; setup and final validation excluded; no tracemalloc",
+  "certificate": "fan validation and coloring/fan compatibility succeeded for every run",
+  "baseline_seconds": [0.04638037500262726, 0.045837249999749474, 0.045946375001221895],
+  "candidate_seconds": [0.009818082995479926, 0.00995420898834709, 0.00996974999725353],
+  "median_seconds": {"baseline": 0.045946375001221895, "candidate": 0.00995420898834709, "speedup": 4.616},
+  "limitations": "Single-host microbenchmark with three repeats; it isolates fan batch processing, not coloring completion, memory peak, or end-to-end Matcher throughput."
+}

@@ -636,7 +636,7 @@ class Fans:
 
     def add(self, fan: Fan) -> None:
         """Add a fan, rejecting shared spokes or shared vertex-color assignments."""
-        if self.members.intersection({fan}):
+        if fan in self.members:
             raise ValueError("u-fan is already present")
         if self.spokes.intersection(fan.edges):
             raise ValueError("u-fan collection must be edge-disjoint")
@@ -1681,7 +1681,7 @@ class Construction:
     @classmethod
     def activate(cls, coloring: Partial, fans: Fans, fan: Fan) -> Edge:
         """Activate one u-fan, extending the coloring to one spoke."""
-        if fan not in set(fans):
+        if fan not in fans.members:
             raise ValueError("fan must belong to the collection")
         spokes = {
             canonical(fan.center, fan.first),
@@ -2197,7 +2197,7 @@ class Spectrum:
             colorededges = coloring.edges()
             if not batch:
                 raise ValueError("Modify-Types requires a non-empty fan batch")
-            if any(fan not in set(fans) for fan in batch):
+            if any(fan not in fans.members for fan in batch):
                 raise ValueError("Modify-Types batch must belong to the fan collection")
             if len(set(batch)) != len(batch):
                 raise ValueError("Modify-Types batch must not contain duplicate fans")

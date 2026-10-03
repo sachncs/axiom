@@ -79,6 +79,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0070](0070-stream-hierarchy-phase-sync.md) | Stream phase graph construction and restrict matching against the graph instead of an O(m) Python edge set | 50k-ring sync: 18.3→7.8 MB traced peak and 0.613→0.401 s; broader boundary workloads open |
 | [0071](0071-localize-hierarchy-p2-audit.md) | Check matching P2 through incident graph edges instead of scanning all M for every A vertex | 1,024-cycle certificate 5.45× faster; 50k candidate valid in 142 ms; baseline exceeded 90 s diagnostic |
 | [0072](0072-localize-refinement-matching-scans.md) | Traverse local projected-graph neighbors for refinement matching predicates and repairs | 2,048-vertex witness-heavy refinement 2.41× faster; broader shape and allocation qualification open |
+| [0073](0073-indexed-fan-membership-checks.md) | Use the authoritative Fans member set instead of rebuilding it for ownership checks | 400-fan Modify-Types batch 4.62× faster; full paper-engine and allocation qualification remain open |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

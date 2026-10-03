@@ -1248,6 +1248,37 @@ def test_modify_types_flips_one_batch_and_reindexes_fans() -> None:
     fans.validate()
 
 
+def test_modify_types_batch_membership_does_not_rescan_all_fans() -> None:
+    class CountedFans(Fans):
+        def __init__(self) -> None:
+            super().__init__()
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return super().__iter__()
+
+    count = 64
+    graph = Adjacency(3 * count)
+    fans = CountedFans()
+    for index in range(count):
+        center = 3 * index
+        graph.add_edge(center, center + 1)
+        graph.add_edge(center, center + 2)
+        fans.add(Fan(center, center + 1, center + 2, 0, 10, 10))
+    coloring = Partial(graph, 100)
+    blocks, ignored = Spectrum.blocks(100, 10)
+
+    Spectrum.modify(coloring, fans, tuple(fans), blocks, 0)
+
+    assert len(fans) == count
+    assert fans.iterations <= 8
+    assert all(Spectrum.social(fan, blocks) for fan in fans)
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_modify_types_rejects_mixed_fan_block_batches() -> None:
     graph = Adjacency(6)
     for edge in ((0, 1), (0, 2), (3, 4), (3, 5)):
