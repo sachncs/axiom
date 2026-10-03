@@ -76,6 +76,13 @@ fallback. One 100k-vertex/200k-edge projection reduced traced Python scratch fro
 unqualified. See [ADR 0064](adrs/0064-stream-hierarchy-projections.md) and the
 [raw result](../benchmarks/results/paper/stream-projection.json).
 
+At child-to-parent hierarchy boundaries, reuse the already synchronized
+detached graph as the next phase base instead of taking a second equivalent
+O(n + m) snapshot. Failure-injection coverage checks graph/system root identity,
+exact topology and matching restoration. This is a scoped snapshot reduction;
+full refinement resource qualification remains open. See
+[ADR 0102](adrs/0102-reuse-parent-boundary-graph.md).
+
 Refinement also no longer materializes `previous.A | previous.B`: the initial
 partition pass queries the inherited roots directly, and later promotion checks
 use the already-built A/B destination partitions plus inherited A. On one
@@ -110,6 +117,11 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
    matching/index/hierarchy certificates. Broader repeated skew/arrival
    qualification on fresh installed-wheel runs,
    with exact-prefix queries, independent recovery and all losses retained.
+   A new seeded power-law offered-load profile now has four one-million-vertex,
+   ten-second source-checkout samples: 10k offers/s delivered 9,538–9,549 real
+   updates/s (miss); 12k offers/s delivered 11,146–11,151/s. All four recovered
+   and certified exactly, but they are not installed-wheel, sustained or
+   historical-query replay qualification. See [raw results](../benchmarks/results/overload/power-law-million.json).
 2. Continue paper-engine adversarial qualification and finish integrating
    coloring/fan/hierarchy operations into the durable production service.
    Endpoint-local hierarchy, maximality, auxiliary-index and System-row
@@ -147,7 +159,7 @@ refinement matching degrees avoid allocating n zero counters while preserving
 the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
 refinement cycle detection uses a strict U-decrease guard instead of copying
 U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
-Full-suite verification currently passes 1,284 tests. The
+Full-suite verification currently passes 1,306 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
@@ -186,5 +198,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,284 passing tests; CI and benchmark results must be attributed to their exact
+1,306 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

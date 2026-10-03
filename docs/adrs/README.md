@@ -148,6 +148,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Full live-graph maximality scan after each paper update | Check neighborhoods of only topology/matching-touched free vertices; retain full audit for replaced candidates (0046) | One matched trace shows 1.54× further update-rate improvement; auxiliary global validation remains and storage is unchanged |
 | Full auxiliary-index reconstruction after every paper update | Validate touched rows against graph/System and reverse-index cells; full reconstruction for replacement roots (0047) | One matched trace shows another 1.91×; no storage improvement or production qualification |
 | Whole-fan tuple snapshots before replacing fan state | O(1) index-root swap with journal-retained exact roots (0101) | Nested failure rollback preserves all root identities; focused correctness evidence only |
+| Re-snapshotting the synchronized graph at a parent-phase boundary | Reuse the detached graph produced by hierarchy synchronization (0102) | Exact phase topology and injected failure rollback tested; no end-to-end performance claim |
 
 ## What is not being abandoned
 

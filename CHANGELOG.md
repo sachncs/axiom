@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — 2026-10-04
+
+- `Service.submit_batch()` now admits an explicit bounded batch as one
+  FULL-WAL transaction, with contiguous sequence IDs, exact pending/historical
+  retry rules, one commit boundary and atomic failure recovery. Ordinary
+  `submit()` grouping is unchanged. See [service contract](docs/service.md#atomic-explicit-batches).
+- Paper fan collection replacement swaps indexed roots instead of sorting and
+  discarding a complete tuple; nested rollback preserves exact index identities.
+  A multilevel parent boundary reuses the synchronized phase graph rather than
+  cloning the same topology again. Both are scoped memory/work reductions, not
+  end-to-end paper throughput qualification; see [ADR 0101](docs/adrs/0101-constant-time-paper-fan-clear.md)
+  and [ADR 0102](docs/adrs/0102-reuse-parent-boundary-graph.md).
+- CI now qualifies installed native wheels on Linux x86_64/ARM64, macOS
+  x86_64/ARM64 and Windows x86_64 for CPython 3.10–3.13. Release publication
+  aggregation and hosted runner results remain separate gates; see
+  [CI responsibilities](docs/ci.md).
+- Seeded million-vertex power-law workload results now retain exact trace,
+  graph/matching digests, overload losses, recovery evidence and resource data.
+  Two 10k-offer runs delivered 9.54k/s (below target); two 12k-offer runs
+  delivered 11.15k/s, but only for ten-second source-checkout samples. This is
+  not sustained or installed-wheel qualification; see [qualification record](benchmarks/results/overload/README.md).
+
 ### Added — engineering through 2026-10-03
 
 - Paper Vizing activation and fan-prefix rotation now update only touched coloring

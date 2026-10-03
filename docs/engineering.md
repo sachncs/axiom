@@ -25,12 +25,13 @@ explicit algorithm identity and qualify each mode independently; the native
 10k measurements cannot be advertised as paper-engine performance. See
 [ADR 0023](adrs/0023-durable-paper-integration.md).
 
-Scope update 2026-10-02: the user keeps **broader repeatability/skew qualification
-and paper-engine snapshot migration active**, and explicitly defers the other
-remaining deployment/latency/hardware/larger-scale work for this version.
-Deferral is not a delivered guarantee. [Current status](status.md) separates
-these decisions from the historical investigation plan below. Documentation and
-the product site are being reconciled with the implemented production path.
+Scope update 2026-10-04: the user supplied a new active **17-point product
+objective**, covering paper-engine hardening, durable paper modes, broad
+qualification, deployment, and the external-ID/service API. This supersedes the
+narrower 2026-10-02 scope statement below; see the requirement-by-requirement
+[product roadmap](product-roadmap.md). The explicit hardware power-loss
+qualification deferral remains in force. Neither historical measurements nor
+native-mode evidence confer qualification on paper modes.
 
 Historical measurements below retain their original scope; they are not claims
 that later-delivered production components are absent.
