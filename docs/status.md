@@ -135,7 +135,9 @@ and recursive seeding ([ADR 0094](adrs/0094-adaptive-paper-maximum-degree.md));
 the standalone System.switch snapshot/recount path now uses local deltas and
 failure rollback ([ADR 0095](adrs/0095-path-local-switch-undo.md)); sparse
 refinement matching degrees avoid allocating n zero counters while preserving
-the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md)).
+the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
+refinement cycle detection uses a strict U-decrease guard instead of copying
+U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
 Full-suite verification currently passes 1,278 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.

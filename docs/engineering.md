@@ -1192,3 +1192,10 @@ microprobe fell from 4,000,164 bytes to 904 bytes. On a 20k full-refinement
 fixture, aggregate traced peak/time were neutral; snapshots and other hierarchy
 allocations dominate, so this is not an end-to-end win. See
 [ADR 0096](adrs/0096-sparse-refinement-degrees.md).
+
+Refinement cycle detection now uses the exact monotone U-cardinality potential
+instead of copying U, A and M into three frozensets per pass. The guard requires
+strict U reduction whenever another pass is requested. Four baseline/candidate
+Witness comparisons were identical; a 20k star refinement was 6.1% faster, but
+aggregate peak stayed flat due to other state. See
+[ADR 0097](adrs/0097-monotone-refinement-progress.md).

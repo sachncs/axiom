@@ -139,3 +139,10 @@ matchings. A million-counter microprobe saved about 4 MB, but full 20k refinemen
 peak/time remained neutral because other snapshots dominate. This is an
 allocation component result, not end-to-end Matcher improvement; see
 [ADR 0096](adrs/0096-sparse-refinement-degrees.md).
+
+Exact refinement cycle detection now stores no frozenset copies of U, A or the
+chosen matching. A scalar guard verifies strict U reduction across every
+continuing promotion pass; baseline/candidate Witness output was identical on
+four graph families. Total traced peak stayed flat on the measured 20k star,
+so the change removes per-pass cycle-key copies but does not qualify whole
+refinement memory. See [ADR 0097](adrs/0097-monotone-refinement-progress.md).

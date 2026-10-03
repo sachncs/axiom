@@ -933,33 +933,9 @@ def refine_hierarchy(
             promote(vertex)
 
     changed = True
-    seen_states: set[
-        tuple[
-            frozenset[Vertex],
-            frozenset[Vertex],
-            frozenset[Edge],
-        ]
-    ] = set()
+    previous_u_size = len(new_u)
     while changed:
         changed = False
-        # ``degree`` is exactly the degree of the chosen matching: it starts
-        # at zero and every chosen-edge insertion/removal updates both values
-        # together. The fixed graph and chosen set therefore determine it;
-        # retaining all n counters in every exact cycle key is redundant.
-        # ``new_a``, ``new_b`` and ``new_u`` partition the fixed universe
-        # ``previous.B ∪ old_u``. Thus U and A uniquely determine B; retaining
-        # both partition sides would duplicate another full set in each key.
-        state = (
-            frozenset(new_u),
-            frozenset(new_a),
-            frozenset(chosen),
-        )
-        if state in seen_states:
-            raise RuntimeError(
-                "recursive refinement repeated a promotion state; refusing to "
-                "continue with a non-terminating hierarchy construction"
-            )
-        seen_states.add(state)
         for vertex in sorted(new_u):
             need = z_prime - degree[vertex]
             if need <= 0:
@@ -1035,12 +1011,17 @@ def refine_hierarchy(
                 promote(vertex)
                 changed = True
 
-        # U only shrinks during refinement. A previously seen state contains
-        # its exact U membership, so no state from a larger U can ever recur
-        # after a promotion. Drop those full graph-sized snapshots as soon as
-        # the U frontier shrinks instead of retaining one copy per pass.
-        if len(new_u) < len(state[0]):
-            seen_states.clear()
+        # Every branch that continues the loop performs at least one promotion;
+        # promotion removes a vertex from U and U is never repopulated. This
+        # exact scalar potential replaces graph-sized cycle-key snapshots.
+        if changed:
+            current_u_size = len(new_u)
+            if current_u_size >= previous_u_size:
+                raise RuntimeError(
+                    "recursive refinement continued without reducing U; "
+                    "refusing a non-terminating hierarchy construction"
+                )
+            previous_u_size = current_u_size
 
     # ProcPromote keeps every B vertex attached to U through M.  A vertex
     # promoted to A may not subsequently acquire a U partner; normalize this

@@ -1,0 +1,28 @@
+{
+  "benchmark": "monotone-hierarchy-refinement-progress-guard",
+  "date": "2026-10-04",
+  "baseline_revision": "f22fd69",
+  "candidate_revision": "working-tree-after-f22fd69",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 20000,
+    "edges": [[0, 1], [0, 2], [0, 3], [0, 4]],
+    "initial_z": 4,
+    "refined_z": 2,
+    "measurement": "Three alternating full refine_hierarchy runs; base hierarchy construction excluded; tracemalloc peak and elapsed time",
+    "baseline_seconds": [1.275001, 1.122152, 1.129483],
+    "candidate_seconds": [1.121002, 1.059947, 1.060975],
+    "baseline_peak_bytes": [18129560, 18128312, 18128256],
+    "candidate_peak_bytes": [18128680, 18128296, 18128224]
+  },
+  "median": {
+    "baseline_seconds": 1.129483,
+    "candidate_seconds": 1.060975,
+    "elapsed_reduction_percent": 6.07,
+    "baseline_peak_bytes": 18128312,
+    "candidate_peak_bytes": 18128296,
+    "peak_change_bytes": -16
+  },
+  "certificate": "Both versions passed Hierarchy.check() and produced the same two-edge final matching. Four star/path/clique/random baseline-candidate outputs had identical Witness bytes.",
+  "limitations": "Candidate includes both sparse degree storage and monotone-cycle-guard changes; aggregate traced peak remains dominated by other hierarchy state. One 20k sparse fixture plus four exact-state cases; no process RSS, connected/dense repeats, or durable service qualification."
+}

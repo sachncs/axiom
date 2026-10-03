@@ -122,7 +122,13 @@ def test_sparse_hierarchy_refinement_does_not_allocate_universe_degrees(
     def reject_dense_counts(size: int):
         raise AssertionError(f"sparse refinement allocated {size} degree counters")
 
+    def reject_cycle_snapshots(values):
+        raise AssertionError("refinement materialized a full cycle-key snapshot")
+
     monkeypatch.setattr("axiom.hierarchy.degrees", reject_dense_counts)
+    monkeypatch.setattr(
+        "axiom.hierarchy.frozenset", reject_cycle_snapshots, raising=False
+    )
 
     refined = refine_hierarchy(hierarchy, 2)
 

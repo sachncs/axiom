@@ -103,6 +103,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0094](0094-adaptive-paper-maximum-degree.md) | Find maximum degree by streaming edge endpoints on sparse graphs and retain a universe scan for denser graphs | 100k labels/3 edges: max-degree probe 3.760→0.302 ms; same result, +128 B median traced scratch |
 | [0095](0095-path-local-switch-undo.md) | Replace System.switch full M/degree snapshots and recount with path-local before-images and degree deltas | 20k vertices/19,998 M edges, failed search: 1.64 MB→1.23 KB traced peak and 95.7% lower median time; 1,000 differential cases equal |
 | [0096](0096-sparse-refinement-degrees.md) | Store refinement matching degrees sparsely when the chosen matching is small; retain packed counters otherwise | One-million-counter component: 4,000,164→904 B for four touched endpoints; full-refinement peak/time neutral, so no end-to-end gain claimed |
+| [0097](0097-monotone-refinement-progress.md) | Replace full U/A/M frozenset cycle keys with an exact scalar guard on strictly shrinking U | 20k-star refinement median 6.1% faster; four baseline/candidate Witness states equal; aggregate peak dominated by other state |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
