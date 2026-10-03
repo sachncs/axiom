@@ -33,11 +33,13 @@ semantically unchanged. Graph-backed journal admission reserves every removed
 matching edge before mutating the matching, so capacity failure leaves the
 matching unchanged and rollback restores exact roots/cells.
 
-This removes two O(|E|) Python edge-set materializations from refinement. It
-does not remove the `working_edges` set, the isolated working graph, or
-state-sized refinement data. Graph membership now runs over each retained
-matching, whose size is bounded by the vertex universe. No update-rate or
-billion-vertex claim follows.
+This removes the `live_edges` and `working_edge_set` O(|E|) Python
+materializations. The remaining `working_edges` set was subsequently removed
+for built-in graph backends by [ADR 0064](0064-stream-hierarchy-projections.md);
+opaque custom graphs retain the compatibility fallback. The isolated working
+graph and state-sized refinement data remain. Graph membership now runs over
+each retained matching, whose size is bounded by the vertex universe. No
+update-rate or billion-vertex claim follows.
 
 ## Evidence
 
@@ -59,6 +61,5 @@ billion-vertex claim follows.
 
 ## Follow-up
 
-Stream ordered native graph edges into projection to remove the remaining
-full-edge working set, preserving a sorted compatibility fallback for opaque
-graphs. Continue migrating child graph/System copies under exact rollback tests.
+Continue migrating child graph/System copies under exact rollback tests and
+qualify full refinement memory under adversarial workloads.

@@ -70,6 +70,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0061](0061-sparse-paper-color-incidence.md) | Retain coloring-index rows only for colored endpoints and count projected degree only at scoped endpoints | Million-vertex/two-edge projection peak: 878.3→224.5 MB; residual is primarily reference Adjacency child rows; end-to-end qualification remains open |
 | [0062](0062-compact-paper-projection-graphs.md) | Build isolated paper color-group projections in budgeted Packed storage instead of per-vertex Python empty sets | Same million-vertex projection: ~224.5 MB traced child to ~13.01 MB combined Python/native allocation (94.2% lower); recursive/resource qualification remains open |
 | [0063](0063-graph-backed-hierarchy-cuts.md) | Derive selected-edge liveness from the phase graph and restrict inherited matchings by graph membership, not full edge-set copies | Removes two O(E) edge-set materializations per hierarchy refinement; exact journal rollback/capacity tests and hierarchy certificates remain required |
+| [0064](0064-stream-hierarchy-projections.md) | Stream ordered native graph edges and merge sorted insertions directly into isolated Packed hierarchy projections | 100k vertices/200k edges: Python peak 36.4 MB→448 B, same 4.45 MB native output, traced time 0.444→0.146 s; full-refinement qualification open |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

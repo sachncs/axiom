@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   edge set and the extra working-graph membership set. One deterministic working
   edge set and isolated graph remain; exact journal capacity/rollback behavior
   is covered. See [ADR 0063](docs/adrs/0063-graph-backed-hierarchy-cuts.md).
+- Built-in hierarchy refinement now streams ordered phase edges and merges the
+  sorted inserted batch directly into its isolated `Packed` snapshot, removing
+  the remaining O(E) working-edge set on this path. A 200k-edge isolated
+  projection used 448 B traced Python scratch versus 36.4 MB for set-plus-sort,
+  with equal native output size. Opaque graph fallback and full-refinement
+  qualification remain; see [ADR 0064](docs/adrs/0064-stream-hierarchy-projections.md)
+  and [raw measurement](benchmarks/results/paper/stream-projection.json).
 
 - Matcher update transactions now contain no recursive `deepcopy`: shallow root
   references combine with bounded undo for indexes and phase-clock cells. Failure

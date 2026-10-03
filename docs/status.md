@@ -62,6 +62,13 @@ against the phase graph and restricts each System matching by graph membership;
 the owner journal retains exact undo and rejects capacity failure before cuts.
 One `working_edges` set and the isolated working graph still remain. See
 [ADR 0063](adrs/0063-graph-backed-hierarchy-cuts.md).
+For built-in graphs, the remaining working-edge set is now streamed directly into
+the isolated Packed projection; inserted edges are merged in sorted order, and
+unordered custom Graph implementations keep the deterministic materializing
+fallback. One 100k-vertex/200k-edge projection reduced traced Python scratch from
+36.4 MB to 448 bytes at equal native output size. Full refinement RSS remains
+unqualified. See [ADR 0064](adrs/0064-stream-hierarchy-projections.md) and the
+[raw result](../benchmarks/results/paper/stream-projection.json).
 
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),

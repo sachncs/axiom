@@ -8,7 +8,7 @@ import pytest
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchies import Hierarchies
-from axiom.hierarchy import Hierarchy, build_hierarchy
+from axiom.hierarchy import Hierarchy, build_hierarchy, project
 from axiom.rebuild import copy as copysystem
 from axiom.storage import Packed
 from axiom.system import build as buildsystem
@@ -21,6 +21,56 @@ def populated():
     for vertex in range(16):
         graph.add_edge(vertex, (vertex + 1) % 16)
     return Matcher(16, graph=graph, mode="multilevel")
+
+
+@pytest.mark.parametrize("backend", [Adjacency, Packed])
+def test_ordered_projection_stream_builds_compact_isolated_graph(backend):
+    source = backend(8)
+    for edge in ((0, 4), (1, 3), (2, 7)):
+        source.add_edge(*edge)
+    edges = tuple(source.edges())
+    visited = []
+
+    def stream():
+        for edge in edges:
+            visited.append(edge)
+            yield edge
+
+    child = project(source, stream(), ordered=True)
+
+    assert isinstance(child, Packed)
+    assert list(child.edges()) == list(edges)
+    assert tuple(visited) == edges
+    child.remove_edge(*edges[0])
+    assert source.has_edge(*edges[0])
+    if isinstance(source, Packed):
+        assert child.memory()["budget"] == source.memory()["budget"]
+
+
+def test_ordered_projection_rejects_an_unsorted_stream():
+    source = Packed(4)
+    source.add_edge(0, 1)
+
+    with pytest.raises(ValueError, match="strictly increasing"):
+        project(source, iter(((1, 2), (0, 1))), ordered=True)
+
+
+def test_unordered_custom_projection_retains_sorted_reference_fallback():
+    class Custom:
+        def __init__(self, graph: Adjacency) -> None:
+            self.graph = graph
+
+        def __getattr__(self, name: str):
+            return getattr(self.graph, name)
+
+    backing = Adjacency(6)
+    for edge in ((1, 5), (0, 4), (2, 3)):
+        backing.add_edge(*edge)
+    source = Custom(backing)
+    child = project(source, set(backing.edges()))
+
+    assert isinstance(child, Adjacency)
+    assert list(child.edges()) == sorted(backing.edges())
 
 
 def test_derived_hierarchy_partitions_share_exact_roots_when_possible():

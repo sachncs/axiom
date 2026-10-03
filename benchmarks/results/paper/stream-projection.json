@@ -1,0 +1,40 @@
+{
+  "status": "isolated ordered graph projection diagnostic",
+  "host": {
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8"
+  },
+  "configuration": {
+    "vertices": 100000,
+    "edges": 200000,
+    "source_backend": "Packed",
+    "source_graph_prepared_before_tracing": true,
+    "repeats": 1,
+    "measurement": "tracemalloc peak and elapsed time; output native allocation separately"
+  },
+  "baseline": {
+    "commit": "21db8c2",
+    "operation": "project(source, set(source.edges())) with global sort",
+    "elapsed_seconds": 0.44354133399610873,
+    "python_peak_bytes": 36356048,
+    "output_native_bytes": 4445992
+  },
+  "candidate": {
+    "sources": {
+      "axiom/hierarchy.py": "a38a2f142decaaa65cef47d92fbab12ae11b4575c8fc4d65ae940fc48c64cd11",
+      "tests/test_hierarchies.py": "765f9eab8134731ec45303b300dea8b4f4c7d7d8842f61181be4e38387f25cf1",
+      "tests/test_systems.py": "28f95c5e93f5b5f4c4148a747849d7c0ae57ae0e9eab9248c8048b83103d83e9"
+    },
+    "operation": "project(source, source.edges(), ordered=True)",
+    "elapsed_seconds": 0.1464996249997057,
+    "python_peak_bytes": 448,
+    "output_native_bytes": 4445992
+  },
+  "limits": [
+    "One host and one sample; time is tracemalloc-instrumented and diagnostic only.",
+    "Measures projection only, not full hierarchy refinement, matcher RSS, or journal state.",
+    "The source graph is outside the traced interval; native output storage is reported separately.",
+    "Opaque custom graph iterators retain the sorted edge-set fallback."
+  ]
+}

@@ -29,11 +29,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
+from heapq import merge
 from itertools import chain, pairwise
 
-from axiom.graph import empty
+from axiom.graph import Adjacency, empty
 from axiom.hierarchies import Hierarchies
 from axiom.paper_coloring import Paper
+from axiom.storage import Packed
 from axiom.system import System, degrees
 from axiom.system import build as build_z_system
 from axiom.types import Edge, Graph, Vertex, canonical
@@ -794,13 +796,25 @@ def refine_hierarchy(
         or (edge not in deleted and hierarchy.graph.has_edge(*edge))
         or edge in deferred_deleted
     }
-    working_edges = set(inserted)
-    working_edges.update(
-        edge
-        for edge in hierarchy.graph.edges()
-        if edge not in deleted or edge in deferred_deleted
-    )
-    working_graph = project(hierarchy.graph, working_edges)
+    if isinstance(hierarchy.graph, (Adjacency, Packed)):
+        phase_edges = (
+            edge
+            for edge in hierarchy.graph.edges()
+            if edge not in deleted or edge in deferred_deleted
+        )
+        working_graph = project(
+            hierarchy.graph,
+            merge(phase_edges, iter(sorted(inserted))),
+            ordered=True,
+        )
+    else:
+        working_edges = set(inserted)
+        working_edges.update(
+            edge
+            for edge in hierarchy.graph.edges()
+            if edge not in deleted or edge in deferred_deleted
+        )
+        working_graph = project(hierarchy.graph, working_edges)
     degree = degrees(hierarchy.graph.n)
     for u, v in chosen:
         degree[u] += 1
@@ -1070,11 +1084,21 @@ def refine_hierarchy(
     return next_hierarchy
 
 
-def project(graph: Graph, edges: set[Edge]) -> Graph:
-    """Build an isolated graph with the same vertices and only the supplied edges."""
-    result = empty(graph)
-    for u, v in sorted(edges):
+def project(
+    graph: Graph, edges: Iterable[Edge], *, ordered: bool = False
+) -> Graph:
+    """Build an isolated graph from an edge set or a certified ordered stream."""
+    if type(ordered) is not bool:
+        raise TypeError("ordered selection must be a boolean")
+    result = Packed(graph.n) if isinstance(graph, Adjacency) else empty(graph)
+    candidates = edges if ordered else sorted(edges)
+    previous: Edge | None = None
+    for u, v in candidates:
+        edge = u, v
+        if ordered and previous is not None and edge <= previous:
+            raise ValueError("ordered projection edges must be strictly increasing")
         result.add_edge(u, v)
+        previous = edge
     return result
 
 
