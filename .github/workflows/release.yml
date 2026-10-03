@@ -12,14 +12,10 @@ defaults:
     shell: bash
 
 jobs:
-  publish:
+  verify:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-      artifact-metadata: write
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,31 +55,139 @@ jobs:
           ruff check .
           mypy axiom
 
-      - name: Build release artifacts
+  build-wheels:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: verify
+    name: Release wheels (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+            arch: x86_64
+          - platform: linux-aarch64
+            runner: ubuntu-24.04-arm
+            arch: aarch64
+          - platform: macos-x86_64
+            runner: macos-15-intel
+            arch: x86_64
+          - platform: macos-arm64
+            runner: macos-14
+            arch: arm64
+          - platform: windows-x86_64
+            runner: windows-2025
+            arch: AMD64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up wheel builder Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pinned wheel builder
+        run: python -m pip install --disable-pip-version-check cibuildwheel==4.2.1
+
+      - name: Build and test CPython wheels
+        env:
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_TEST_COMMAND: "python -I {project}/scripts/verify_install.py"
+        run: python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Verify supported Python wheel coverage
         run: |
-          python -m pip install --upgrade pip build twine
-          rm -rf build dist axiom_matching.egg-info
-          python -m build
+          set -euo pipefail
+          for abi in cp310 cp311 cp312 cp313; do
+            if ! compgen -G "wheelhouse/*-${abi}-${abi}-*.whl" > /dev/null; then
+              echo "Missing $abi wheel for ${{ matrix.platform }}"
+              exit 1
+            fi
+          done
+          find wheelhouse -maxdepth 1 -type f -name '*.whl' -print | sort
+
+      - name: Retain release wheels
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: axiom-release-wheels-${{ matrix.platform }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [verify, build-wheels]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Download every platform wheel artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: axiom-release-wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: Verify release wheel matrix completeness
+        run: |
+          set -euo pipefail
+          for abi in cp310 cp311 cp312 cp313; do
+            for tag in 'manylinux*_x86_64' 'manylinux*aarch64' 'macosx_*_x86_64' 'macosx_*_arm64' 'win_amd64'; do
+              if ! compgen -G "dist/*-${abi}-${abi}-${tag}.whl" > /dev/null; then
+                echo "Missing release wheel for $abi / $tag"
+                exit 1
+              fi
+            done
+          done
+          python -m pip install --disable-pip-version-check build twine
+          python -m build --sdist --outdir dist
           python -m twine check dist/*
-          if unzip -l dist/*.whl | grep -q 'axiom/invariant.py'; then
-            echo "Deleted compatibility module found in wheel"
-            exit 1
-          fi
+          for wheel in dist/*.whl; do
+            if unzip -l "$wheel" | grep -q 'axiom/invariant.py'; then
+              echo "Deleted compatibility module found in $wheel"
+              exit 1
+            fi
+          done
           if tar -tf dist/*.tar.gz | grep -q 'axiom/invariant.py'; then
             echo "Deleted compatibility module found in source distribution"
             exit 1
           fi
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 20
+          test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" -eq 1
 
-      - name: Verify reproducible release artifacts
+      - name: Verify reproducible source distribution
         run: |
           first="$RUNNER_TEMP/axiom-release-one"
           second="$RUNNER_TEMP/axiom-release-two"
-          SOURCE_DATE_EPOCH=0 python -m build --outdir "$first"
-          SOURCE_DATE_EPOCH=0 python -m build --outdir "$second"
-          python scripts/normalize_sdist.py "$first"/*.tar.gz "$second"/*.tar.gz
-          diff -u \
-            <(sha256sum "$first"/* | sed "s#$first/##" | sort) \
-            <(sha256sum "$second"/* | sed "s#$second/##" | sort)
+          SOURCE_DATE_EPOCH=0 python -m build --sdist --outdir "$first"
+          SOURCE_DATE_EPOCH=0 python -m build --sdist --outdir "$second"
+          python scripts/normalize_sdist.py dist/*.tar.gz "$first"/*.tar.gz "$second"/*.tar.gz
+          cmp \
+            <(sha256sum dist/*.tar.gz | cut -d ' ' -f 1) \
+            <(sha256sum "$first"/*.tar.gz | cut -d ' ' -f 1)
+          cmp \
+            <(sha256sum "$first"/*.tar.gz | cut -d ' ' -f 1) \
+            <(sha256sum "$second"/*.tar.gz | cut -d ' ' -f 1)
 
       - name: Attest release artifacts
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
