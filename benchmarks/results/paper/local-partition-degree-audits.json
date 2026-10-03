@@ -1,0 +1,29 @@
+{
+  "benchmark": "local-paper-partition-degree-audits",
+  "date": "2026-10-04",
+  "baseline_revision": "2509324",
+  "candidate_revision": "working-tree-after-2509324",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 2048,
+    "edges": [[0, 1], [1, 2], [1000, 1001]],
+    "components_with_edges": 2,
+    "isolated_vertices": 2045,
+    "storage": "Packed"
+  },
+  "measurement": "Three alternating before/after Paper.partition runs; graph construction excluded; wall time and tracemalloc peak; output edge union checked",
+  "baseline_seconds": [0.00034, 0.000293, 0.000291],
+  "candidate_seconds": [0.000187, 0.000171, 0.000171],
+  "baseline_peak_bytes": [3264, 3264, 3264],
+  "candidate_peak_bytes": [3360, 3384, 3384],
+  "median": {
+    "baseline_seconds": 0.000293,
+    "candidate_seconds": 0.000171,
+    "elapsed_reduction_percent": 41.64,
+    "baseline_peak_bytes": 3264,
+    "candidate_peak_bytes": 3384,
+    "peak_reduction_percent": -3.68
+  },
+  "certificate": "Every run produced disjoint left/right edge sets whose union exactly equals the input graph edges.",
+  "limitations": "Sparse isolate-heavy fixture; no allocation reduction claimed; connected/dense/high-degree full seed, process RSS, or service throughput not qualified."
+}

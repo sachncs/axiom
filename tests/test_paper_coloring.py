@@ -554,7 +554,7 @@ def test_partition_component_discovery_avoids_isolated_vertex_universe(
 
     left, right = Paper.partition(graph)
 
-    assert universescans == 3  # degree bound and one balance check per output
+    assert universescans == 0
     leftedges = set(left.edges())
     rightedges = set(right.edges())
     assert leftedges.isdisjoint(rightedges)

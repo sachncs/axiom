@@ -1169,3 +1169,6 @@ in the output. On 2,048 labels with three edges, three runs reduced partition
 time 98.98% and traced peak 98.30%, with identical edge partitions. The
 subsequent global degree-bound scans remain O(n), and connected/dense behavior
 is not qualified. See [ADR 0092](adrs/0092-sparse-paper-partition-components.md).
+The follow-up now evaluates the same maximum-degree and balanced-output
+certificates only over active component vertices, eliminating those remaining
+universe scans without dropping either check; see [ADR 0093](adrs/0093-local-paper-partition-degree-audits.md).

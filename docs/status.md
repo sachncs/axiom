@@ -128,7 +128,8 @@ certificate now examines incident edges instead of rescanning the full matching
 per A vertex. Recent work also uses sparse degree counts in hierarchy checks,
 counts seed palette frequencies in one edge pass, and discovers Euler
 components from live endpoints rather than scanning/materializing isolated
-vertices ([ADRs 0090–0092](adrs/README.md)). These remain component-level changes;
+vertices, and now limits those degree certificates to active components
+([ADRs 0090–0093](adrs/README.md)). These remain component-level changes;
 full-suite verification currently passes 1,271 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.

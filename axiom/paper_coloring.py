@@ -3068,13 +3068,23 @@ class Paper:
         parts = (empty(graph), empty(graph))
         for index, edge in enumerate(originaledges):
             parts[partition[index]].add_edge(*edge)
-        maximum = max((graph.degree(vertex) for vertex in range(graph.n)), default=0)
+        maximum = max(
+            (
+                graph.degree(vertex)
+                for component in components
+                for vertex in component
+            ),
+            default=0,
+        )
         # An odd Euler circuit can leave one vertex with one extra edge in a
         # subgraph.  The recursive construction therefore uses the standard
         # ``ceil((Delta + 1) / 2)`` bound, not ``floor((Delta + 1) / 2)``.
         bound = (maximum + 2) // 2
         if any(
-            part.degree(vertex) > bound for part in parts for vertex in range(graph.n)
+            part.degree(vertex) > bound
+            for part in parts
+            for component in components
+            for vertex in component
         ):
             raise RuntimeError("Euler partition violated the balanced-degree bound")
         return parts
