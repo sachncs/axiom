@@ -121,6 +121,11 @@ def test_derived_hierarchy_partitions_share_exact_roots_when_possible():
         assert hierarchy.N_levels[0] is hierarchy.levels[0].B
         assert hierarchy.R_levels[-1] is hierarchy.levels[-1].U
         assert all(
+            isinstance(region, Vertices)
+            for region in hierarchy.R_levels[:-1]
+            if len(region) * 8 >= graph.n
+        )
+        assert all(
             type(partition) is Vertices
             for partition in hierarchy.A_levels
             if len(partition) * 4 >= graph.n

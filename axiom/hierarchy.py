@@ -1039,10 +1039,27 @@ def refine_hierarchy(
     all_n_levels = [*hierarchy.N_levels, new_system.B]
     all_b = new_system.B
     all_u = new_u
-    all_r_levels: list[set[Vertex] | Vertices] = [
-        (set().union(*all_a_levels[index + 1 :]) | all_b | all_u) - all_n_levels[index]
-        for index in range(len(all_a_levels) - 1)
-    ]
+    all_r_levels: list[set[Vertex] | Vertices] = []
+    for index in range(len(all_a_levels) - 1):
+        excluded = all_n_levels[index]
+        below: list[Collection[Vertex]] = [
+            *all_a_levels[index + 1 :],
+            all_b,
+            all_u,
+        ]
+        region_size = sum(len(partition) for partition in below) - len(excluded)
+        region = (
+            vertex
+            for partition in below
+            for vertex in partition
+            if vertex not in excluded
+        )
+        if hierarchy.graph.n and region_size * 8 >= hierarchy.graph.n:
+            all_r_levels.append(
+                Vertices(hierarchy.graph.n, region, ordered=False)
+            )
+        else:
+            all_r_levels.append(set(region))
     all_r_levels.append(new_system.U)
     inherited_lists = [
         lists(working_graph, vertices, all_r_levels[index])
