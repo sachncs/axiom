@@ -1,0 +1,20 @@
+{
+  "scope": "Isolated colored-edge scope selection only; not Extend, Matcher, Durable, or qualification throughput",
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "python": "3.11.16",
+  "colored_assignments": 100000,
+  "disjoint_color_groups": 10,
+  "repetitions": 10,
+  "baseline_full_scan_seconds_per_call": 0.0169575209,
+  "indexed_selection_seconds_per_call": 0.0062978167,
+  "speedup_ratio": 2.6926031,
+  "color_index_traced_current_bytes": 852496,
+  "color_index_traced_peak_bytes": 852568,
+  "limitations": [
+    "single process and one sample sequence",
+    "projection child-graph construction excluded",
+    "does not measure process RSS or allocator residency",
+    "index adds O(m) temporary edge references",
+    "not an end-to-end update-rate result"
+  ]
+}

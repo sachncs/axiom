@@ -1,0 +1,58 @@
+{
+  "description": "Single-run Durable smoke measurements around incremental Multilevel I3 crossing indexing. These are not performance or deployment qualification.",
+  "platform": "macOS 26.7.1 arm64; Python 3.11.16; SQLite 3.53.1",
+  "common": {
+    "mode": "multilevel",
+    "seed": 600,
+    "average_degree": 4,
+    "durable": "SQLite FULL-WAL, synchronous FULL, fullfsync",
+    "exact_recovery": true,
+    "independent_audit": true
+  },
+  "before": {
+    "vertices": 128000,
+    "pairs": 64,
+    "batch": 32,
+    "real_updates": 128,
+    "updates_per_second": 49.29,
+    "ack_p99_ms": 657,
+    "peak_rss_bytes": 321716224
+  },
+  "after": [
+    {
+      "vertices": 128000,
+      "pairs": 64,
+      "batch": 32,
+      "real_updates": 128,
+      "updates_per_second": 3057.276,
+      "ack_p99_ms": 15.963,
+      "peak_rss_bytes": 317227008,
+      "trace_digest": "255b0660aeb4a2eb498d6722a78cc329976eff01d50412da52bad0044ee44a85",
+      "matching_digest": "d2569c104070e79db94da6adcc90bae784a0890e89ce56a2a5be4f39c60cac97"
+    },
+    {
+      "vertices": 1000000,
+      "pairs": 256,
+      "batch": 256,
+      "real_updates": 512,
+      "updates_per_second": 3135.881,
+      "ack_p99_ms": 81.280,
+      "query_p99_us": 9.791,
+      "peak_rss_bytes": 1803288576,
+      "trace_digest": "3153565ca6e48bf57f34440a7e7e5a0274b1dee195894e3589a3e3534c7cfa1a",
+      "matching_digest": "b07982a13480c4cf4f8fe24f06fd91b34e68216d26edcf0df314f815d08bc9fc"
+    },
+    {
+      "vertices": 1000000,
+      "pairs": 2048,
+      "batch": 4096,
+      "real_updates": 4096,
+      "updates_per_second": 1559.320,
+      "ack_p99_ms": 2599.879,
+      "query_p99_us": 16.583,
+      "peak_rss_bytes": 1882767360,
+      "trace_digest": "9272f17a69ac5a7c5f6d6b29597a617cd483ae73680a597e2e0731939677e4f7",
+      "matching_digest": "eae6bbd9f09f9970170c02698dde9f6cec377b3ee7456505746fdf16d7b95ddc"
+    }
+  ]
+}

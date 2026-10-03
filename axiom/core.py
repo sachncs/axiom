@@ -34,8 +34,11 @@ Thread-safety:
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from threading import get_ident
+from typing import TypedDict
+from weakref import WeakKeyDictionary
 
 from axiom.augment import augment as augment
 from axiom.auxiliary import Auxiliary
@@ -61,6 +64,20 @@ from axiom.types import (
     canonical,
 )
 from axiom.views import Views
+
+
+class BatchState(TypedDict):
+    """Bounded ephemeral coordination data for one open Matcher batch."""
+
+    entered: bool
+    failed: bool
+    thread: int
+    count: int
+    limit: int
+    before_publish: Callable[[], None] | None
+
+
+batch_states: WeakKeyDictionary[Matcher, BatchState] = WeakKeyDictionary()
 
 
 class Matcher:
@@ -182,6 +199,9 @@ class Matcher:
         self.seed_matching: Matching = set()
 
         self.multi: Hierarchy | None = None
+        # Active A1-to-R1 matching edges are indexed as matching edits occur;
+        # phase rebuilds recertify and replace this bounded view.
+        self.i3_crossings: set[tuple[int, int]] = set()
         self.phase_graph: Graph | None = None
         self.phase_base_graph: Graph | None = None
         self.phase_base_system: System | None = None
@@ -205,6 +225,7 @@ class Matcher:
         self.H: dict[Vertex, set[Vertex]] = {}
         self.H_reverse: dict[Vertex, set[Vertex]] = {}
         self.H_tilde: set[tuple[Vertex, Vertex]] = set()
+        self.H_tilde_outgoing: dict[Vertex, set[Vertex]] = {}
         self.H_tilde_reverse: dict[Vertex, set[Vertex]] = {}
         self.S_hat: set[Vertex] = set()
 
@@ -349,6 +370,7 @@ class Matcher:
         self.H = {}
         self.H_reverse = {}
         self.H_tilde = set()
+        self.H_tilde_outgoing = {}
         self.H_tilde_reverse = {}
         self.S_hat = set()
         if self.system is None:
@@ -449,25 +471,34 @@ class Matcher:
                     self.auxiliary.discard(self.H_reverse, target, source, empty=True)
 
     def __add_h_tilde(self, edge: tuple[Vertex, Vertex]) -> None:
-        """Insert one ``H_tilde`` edge and its incoming-edge index."""
+        """Insert one ``H_tilde`` edge and both endpoint indexes."""
         source, target = edge
         if edge in self.H_tilde:
             return
         if self.auxiliary is None:
             self.H_tilde.add(edge)
+            self.H_tilde_outgoing.setdefault(source, set()).add(target)
             self.H_tilde_reverse.setdefault(target, set()).add(source)
         else:
             self.auxiliary.member(self.H_tilde, edge, True)
+            self.auxiliary.add(self.H_tilde_outgoing, source, target)
             self.auxiliary.add(self.H_tilde_reverse, target, source)
 
     def __remove_h_tilde_source(self, source: Vertex) -> None:
         """Remove all outgoing ``H_tilde`` edges for one source."""
-        outgoing = [edge for edge in self.H_tilde if edge[0] == source]
-        for left, target in outgoing:
+        outgoing = self.H_tilde_outgoing.get(source, set())
+        for target in sorted(outgoing):
+            edge = source, target
             if self.auxiliary is None:
-                self.H_tilde.remove((left, target))
+                self.H_tilde.remove(edge)
+                outgoing.remove(target)
+                if not outgoing:
+                    self.H_tilde_outgoing.pop(source, None)
             else:
-                self.auxiliary.member(self.H_tilde, (left, target), False)
+                self.auxiliary.member(self.H_tilde, edge, False)
+                self.auxiliary.discard(
+                    self.H_tilde_outgoing, source, target, empty=True
+                )
             incoming = self.H_tilde_reverse.get(target)
             if incoming is not None:
                 if self.auxiliary is None:
@@ -564,6 +595,7 @@ class Matcher:
         self.matched_vertices.add(v)
         self.partner_map[u] = v
         self.partner_map[v] = u
+        self.update_i3_index(e, True)
         self.__proc_update(u)
         self.__proc_update(v)
 
@@ -587,8 +619,38 @@ class Matcher:
         self.matched_vertices.discard(v)
         self.partner_map.pop(u, None)
         self.partner_map.pop(v, None)
+        self.update_i3_index(e, False)
+        if e in self.seed_matching:
+            self.remove_seed_edge(e)
         self.__proc_update(u)
         self.__proc_update(v)
+
+    def update_i3_index(self, edge: tuple[int, int], added: bool) -> None:
+        """Keep the active hierarchy's A1/R1 matching-edge index current."""
+        hierarchy = self.multi
+        included = added and hierarchy is not None and hierarchy.has_i3_crossing(edge)
+        present = edge in self.i3_crossings
+        if included == present:
+            return
+        if self.views is not None:
+            self.views.crossing(edge, included)
+        elif included:
+            self.i3_crossings.add(edge)
+        else:
+            self.i3_crossings.discard(edge)
+
+    def remove_seed_edge(self, edge: tuple[int, int]) -> None:
+        """Remove a dropped matching edge from the seed class immediately."""
+        if edge in self.seed_matching:
+            if self.classes is None:
+                self.seed_matching.discard(edge)
+            else:
+                self.classes.remove(self.seed_matching, edge)
+        if self.matchings and edge in self.matchings[0]:
+            if self.classes is None:
+                self.matchings[0].discard(edge)
+            else:
+                self.classes.remove(self.matchings[0], edge)
 
     def refresh(self) -> None:
         """Extend the seed to a maximal matching and rebuild its partner indexes."""
@@ -744,9 +806,21 @@ class Matcher:
             u: One endpoint.
             v: The other endpoint.
         """
-        self.__validate_vertex(u)
-        self.__validate_vertex(v)
-        existed = self.graph.has_edge(u, v)
+        self.__count_batch_operation()
+        state = batch_states.get(self)
+        try:
+            self.__validate_vertex(u)
+            self.__validate_vertex(v)
+        except BaseException:
+            if state is not None:
+                state["failed"] = True
+            raise
+        try:
+            existed = self.graph.has_edge(u, v)
+        except BaseException:
+            if state is not None:
+                state["failed"] = True
+            raise
         if u == v or existed:
             # Self-loops are outside the graph model and duplicate insertions
             # do not constitute graph updates.  Validate endpoints through
@@ -824,9 +898,29 @@ class Matcher:
             u: One endpoint.
             v: The other endpoint.
         """
-        self.__validate_vertex(u)
-        self.__validate_vertex(v)
-        if not self.graph.has_edge(u, v):
+        self.__count_batch_operation()
+        state = batch_states.get(self)
+        try:
+            self.__validate_vertex(u)
+            self.__validate_vertex(v)
+        except BaseException:
+            if state is not None:
+                state["failed"] = True
+            raise
+        try:
+            exists = self.graph.has_edge(u, v)
+        except BaseException:
+            if state is not None:
+                state["failed"] = True
+            raise
+        if not exists:
+            if state is not None and state["entered"]:
+                try:
+                    self.accountant.record_deletion()
+                except BaseException:
+                    state["failed"] = True
+                    raise
+                return
             accountant = self.accountant
             journal = accountant.begin()
             try:
@@ -929,6 +1023,78 @@ class Matcher:
             )
 
     @contextmanager
+    def batch(
+        self,
+        max_operations: int = 256,
+        before_publish: Callable[[], None] | None = None,
+    ) -> Iterator[Matcher]:
+        """Apply a bounded update group under one paper-state transaction.
+
+        All successful calls to :meth:`insert` and :meth:`delete` inside the
+        context share one set of first-write journals. Validation and graph
+        publication happen once, when the context exits. Any failed operation
+        poisons the batch even if its exception is caught by the caller.
+
+        ``before_publish`` runs after paper invariants pass and before graph
+        journals are published. Durable owners can persist their transaction
+        there; if the callback fails, paper state is rolled back. A failure
+        after the callback has durably committed is necessarily an uncertain
+        cross-resource outcome and the matcher fails closed.
+
+        Args:
+            max_operations: Positive upper bound on attempted insert/delete
+                calls, including no-ops. Hard capped at 4096.
+            before_publish: Optional persistence hook called once on success.
+
+        Raises:
+            ValueError: If the bound or callback is invalid.
+            MemoryError: If bounded component journal admission is exceeded.
+            RuntimeError: If an update or validation fails, or a batch is nested.
+        """
+        if type(max_operations) is not int or not 1 <= max_operations <= 4096:
+            raise ValueError("max_operations must be between 1 and 4096")
+        if before_publish is not None and not callable(before_publish):
+            raise TypeError("before_publish must be callable or None")
+        if self.failed:
+            raise RuntimeError("matcher has failed; discard it")
+        state = batch_states.get(self)
+        if state is not None:
+            if state["thread"] != get_ident():
+                raise RuntimeError("matcher batch belongs to another thread")
+            raise RuntimeError("matcher batches cannot be nested")
+        state = {
+            "entered": False,
+            "failed": False,
+            "thread": get_ident(),
+            "count": 0,
+            "limit": max_operations,
+            "before_publish": before_publish,
+        }
+        batch_states[self] = state
+        try:
+            with self.__atomic_update():
+                state["entered"] = True
+                yield self
+                if state["failed"]:
+                    raise RuntimeError("paper batch was aborted by a failed operation")
+        finally:
+            batch_states.pop(self, None)
+
+    def __count_batch_operation(self) -> None:
+        """Charge an attempted graph update against the active batch bound."""
+        state = batch_states.get(self)
+        if state is None:
+            return
+        if state["thread"] != get_ident():
+            raise RuntimeError("matcher batch belongs to another thread")
+        if state["failed"]:
+            raise RuntimeError("paper batch is already aborted")
+        if state["count"] >= state["limit"]:
+            state["failed"] = True
+            raise MemoryError("paper batch operation limit exceeded")
+        state["count"] += 1
+
+    @contextmanager
     def __atomic_update(self) -> Iterator[None]:
         """Roll back before publication; fail-stop on uncertain publication.
 
@@ -938,6 +1104,15 @@ class Matcher:
         across two states.  Graph objects are preserved by identity so a
         caller-supplied implementation remains the authoritative storage.
         """
+        state = batch_states.get(self)
+        if state is not None and state["entered"]:
+            try:
+                yield
+            except BaseException:
+                state["failed"] = True
+                raise
+            return
+
         graph_objects = [self.graph, self.phase_graph, self.phase_base_graph]
         if self.phase_base_system is not None:
             graph_objects.append(self.phase_base_system.graph)
@@ -960,6 +1135,7 @@ class Matcher:
         clocks = None
         snapshot = None
         published = False
+        durable_callback_completed = False
         try:
             views = Views(self)
             classes = Classes(self)
@@ -1013,6 +1189,9 @@ class Matcher:
             hierarchies.validate()
             auxiliary.validate()
             clocks.validate()
+            if state is not None and state["before_publish"] is not None:
+                state["before_publish"]()
+                durable_callback_completed = True
             publish(journals)
             published = True
             for graph, token in adjlogs:
@@ -1068,6 +1247,12 @@ class Matcher:
             except BaseException as failure:
                 self.failed = True
                 raise RuntimeError("rollback failed; discard matcher") from failure
+            if durable_callback_completed:
+                self.failed = True
+                raise RuntimeError(
+                    "durable callback completed but graph publication failed; "
+                    "discard matcher"
+                ) from error
             raise
 
     def __handle_insertion(self, u: Vertex, v: Vertex) -> None:
@@ -1371,6 +1556,7 @@ class Matcher:
             self.partner,
             self.__rematch_vertex,
             self.drop_match,
+            self.i3_crossings,
         )
 
     def __advance_update_counter(self) -> None:
@@ -1384,20 +1570,10 @@ class Matcher:
         self.__check_subphase_boundary()
         self.__maintain_i3()
 
-        # Local rematching is allowed to remove an edge from M_1.  Reconcile
-        # that legal transition before the next subphase rather than leaving
-        # a stale seed edge that is no longer contained in M*.
-        stale_seed = self.seed_matching - self.matched_edges
-        if stale_seed:
-            if self.classes is None:
-                raise RuntimeError("seed reconciliation requires class undo")
-            for edge in stale_seed:
-                self.classes.remove(self.seed_matching, edge)
-                if self.matchings:
-                    self.classes.remove(self.matchings[0], edge)
-
         if self.multi is not None:
-            if not self.multi.check_i3(self.matched_edges, self.phase_length, self.z):
+            if not self.multi.check_i3_count(
+                len(self.i3_crossings), self.phase_length, self.z
+            ):
                 raise RuntimeError(
                     "multilevel invariant I3 violated after update; refusing to "
                     "continue with stale recursive state"

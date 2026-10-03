@@ -570,11 +570,28 @@ class Hierarchy:
         bound = (64 * r) // z
         count = 0
         for u, v in matching:
-            if (u in self.A1 and v in self.R1) or (v in self.A1 and u in self.R1):
+            if self.has_i3_crossing((u, v)):
                 count += 1
                 if count > bound:
                     return False
         return True
+
+    def has_i3_crossing(self, edge: Edge) -> bool:
+        """Return whether one edge crosses the active A1/R1 boundary."""
+        left, right = edge
+        return (left in self.A1 and right in self.R1) or (
+            right in self.A1 and left in self.R1
+        )
+
+    def crossing_edges(self, matching: set[Edge]) -> set[Edge]:
+        """Build the I3 crossing index at initialization and phase boundaries."""
+        return {edge for edge in matching if self.has_i3_crossing(edge)}
+
+    def check_i3_count(self, count: int, r: int, z: int) -> bool:
+        """Check the I3 bound using the incrementally maintained crossing count."""
+        if z <= 0:
+            return True
+        return count <= (64 * r) // z
 
     def maintain_i3(
         self,
@@ -584,6 +601,7 @@ class Hierarchy:
         partner_of: Callable[[Vertex], Vertex | None],
         rematch: Callable[[Vertex], None],
         drop_match: Callable[[Vertex, Vertex], None] | None = None,
+        crossing_edges: set[Edge] | None = None,
     ) -> int:
         """Repair any violation of invariant (I3).
 
@@ -601,6 +619,9 @@ class Hierarchy:
                 supplied, it must remove the edge from the matching and all
                 synchronized partner indexes; the direct set mutation is
                 retained only for standalone hierarchy callers.
+            crossing_edges: Optional incrementally maintained I3 boundary
+                index. When supplied, repair work scales with indexed crossings
+                instead of scanning the complete matching.
 
         Returns:
             The number of A_1 -> R_1 edges broken and rematched.
@@ -611,9 +632,16 @@ class Hierarchy:
         # not 2*floor(tau), which is stricter for non-integral tau.
         bound = (64 * r) // z
         offenders: list[tuple[int, int]] = []
-        for u, v in sorted(matching):
-            if (u in self.A1 and v in self.R1) or (v in self.A1 and u in self.R1):
-                offenders.append((min(u, v), max(u, v)))
+        candidates = matching if crossing_edges is None else crossing_edges
+        for u, v in sorted(candidates):
+            edge = (min(u, v), max(u, v))
+            if crossing_edges is None:
+                if self.has_i3_crossing(edge):
+                    offenders.append(edge)
+            elif edge not in matching or not self.has_i3_crossing(edge):
+                raise RuntimeError("incremental I3 crossing index is stale")
+            else:
+                offenders.append(edge)
         # Keep at most ``bound`` crossing edges.  Slicing to ``bound`` would
         # remove the wrong number when the violation is larger than the
         # allowed budget and could leave I3 false after repair.

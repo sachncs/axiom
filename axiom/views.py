@@ -33,6 +33,7 @@ class Views:
         self.edges = owner.matched_edges
         self.vertices = owner.matched_vertices
         self.partners = owner.partner_map
+        self.crossings = owner.i3_crossings
         if (
             type(self.edges) is not set
             or type(self.vertices) is not set
@@ -44,6 +45,7 @@ class Views:
         self.edge: dict[tuple[int, int], bool] = {}
         self.vertex: dict[int, tuple[bool, bool, object]] = {}
         self.affected: set[int] = set()
+        self.crossing_cells: dict[tuple[int, int], bool] = {}
         self.isolate()
         object.__setattr__(owner, "views", self)
 
@@ -140,6 +142,19 @@ class Views:
             self.reserve()
             self.affected.add(vertex)
 
+    def crossing(self, edge: tuple[int, int], present: bool) -> None:
+        """Journal one I3 boundary-index cell before changing membership."""
+        self.check()
+        if self.owner.i3_crossings is not self.crossings:
+            raise RuntimeError("I3 crossing index root changed during local update")
+        if edge not in self.crossing_cells:
+            self.reserve()
+            self.crossing_cells[edge] = edge in self.crossings
+        if present:
+            self.crossings.add(edge)
+        else:
+            self.crossings.discard(edge)
+
     def certify_maximal(self) -> bool:
         """Certify maximality from touched neighborhoods, or audit a rebuild.
 
@@ -165,7 +180,10 @@ class Views:
 
     def reserve(self) -> None:
         """Reject a new distinct cell before it or matching state is changed."""
-        if len(self.edge) + len(self.vertex) >= self.capacity:
+        if (
+            len(self.edge) + len(self.vertex) + len(self.crossing_cells)
+            >= self.capacity
+        ):
             raise MemoryError("matching journal capacity exceeded")
 
     def validate(self) -> None:
@@ -230,6 +248,7 @@ class Views:
         self.edge.clear()
         self.vertex.clear()
         self.affected.clear()
+        self.crossing_cells.clear()
         self.active = False
         object.__setattr__(self.owner, "views", None)
 
@@ -260,8 +279,15 @@ class Views:
         self.owner.matched_edges = self.edges
         self.owner.matched_vertices = self.vertices
         self.owner.partner_map = self.partners
+        for edge, present in self.crossing_cells.items():
+            if present:
+                self.crossings.add(edge)
+            else:
+                self.crossings.discard(edge)
+        self.owner.i3_crossings = self.crossings
         self.edge.clear()
         self.vertex.clear()
         self.affected.clear()
+        self.crossing_cells.clear()
         self.active = False
         object.__setattr__(self.owner, "views", None)

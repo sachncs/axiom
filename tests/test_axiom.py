@@ -1269,6 +1269,7 @@ class TestMatcher:
         algo.H_reverse = {2: {0}}
         algo.inserted_edges = {(1, 2)}
         algo.H_tilde = {(1, 2)}
+        algo.H_tilde_outgoing = {1: {2}}
         algo.H_tilde_reverse = {2: {1}}
         algo.bad_vertices = {2}
 
@@ -1279,12 +1280,30 @@ class TestMatcher:
     def test_proc_update_preserves_incoming_h_tilde_targets(self) -> None:
         algo = Matcher(4, mode="multilevel")
         algo.H_tilde = {(1, 2), (2, 3)}
+        algo.H_tilde_outgoing = {1: {2}, 2: {3}}
         algo.H_tilde_reverse = {2: {1}, 3: {2}}
         algo.matched_vertices = {2}
 
         algo._Matcher__proc_update(2)
 
         assert algo.H_tilde == {(1, 2)}
+        assert algo.H_tilde_outgoing == {1: {2}}
+        assert algo.H_tilde_reverse == {2: {1}}
+
+    def test_proc_update_removes_tilde_edges_without_scanning_global_edge_set(self):
+        class GuardedSet(set):
+            def __iter__(self):
+                raise AssertionError("global H-tilde scan")
+
+        algo = Matcher(4, mode="multilevel")
+        algo.H_tilde = GuardedSet({(0, 1), (1, 2)})
+        algo.H_tilde_outgoing = {0: {1}, 1: {2}}
+        algo.H_tilde_reverse = {1: {0}, 2: {1}}
+
+        algo._Matcher__remove_h_tilde_source(0)
+
+        assert algo.H_tilde == {(1, 2)}
+        assert algo.H_tilde_outgoing == {1: {2}}
         assert algo.H_tilde_reverse == {2: {1}}
 
     def test_rematch_rejects_partition_corruption_instead_of_scanning_graph(

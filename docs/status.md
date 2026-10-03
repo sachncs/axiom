@@ -1,20 +1,53 @@
 # Current implementation and qualification status
 
-Updated 2026-10-04. This page describes current components; historical experiment
-sections retain their source/workload provenance and do not override this status.
+Updated 2026-10-04. The product has exactly two matching methods: `basic`
+(default) and `multilevel`. The former separate native matching Engine and its
+API, checkpoints, tests, benchmarks, and compatibility path have been removed.
+Historical ADRs and result artifacts remain for provenance only; they are not
+current product behavior or qualification evidence for the paper methods.
 
 | Path | Use | Durability and concurrency |
 | --- | --- | --- |
-| `Service` → `Durable` → native `Engine` | Local production engineering | FULL-WAL commit before acknowledgment; thread-safe clients, one mutation owner |
-| Native `Engine` alone | In-memory deterministic maximal matching | Owner-bound, bounded rollback; no persistence on its own |
-| `Matcher(mode="basic" or "multilevel")` | Paper/research implementation | Nondurable, externally serialized; recursive `deepcopy` removed, mutation journals active |
+| `Service` → `Durable` → `Matcher(mode="basic" or "multilevel")` | Local durable integration | Both modes use the same commit-before-ack path; bounded batch/replay tests pass; qualification remains active |
+| `Packed` | Compact native graph storage | Stores adjacency only; it does not choose or implement a matching algorithm |
+| `Matcher` alone | Direct Basic/Multilevel matching API | In-memory and caller-owned; updates are locally atomic, no persistence unless used through `Durable` |
 
-All paths maintain proper maximal matching, not maximum matching. The production
-algorithm is explicitly different from the paper/coloring/hierarchy machinery;
-no paper asymptotic theorem is transferred. C++ holds compact compute state;
-SQLite checkpoint plus committed tail is the complete durable authority.
+The methods maintain proper maximal matching, not maximum matching. Durable
+recovery replays the persisted operation stream through its recorded paper mode;
+it does not restore or reinterpret the removed native matcher format. C++ is
+limited to compact graph storage, while SQLite is the durable operation authority.
+One-million-vertex Basic smoke qualification currently passes exact recovery,
+but measured only about 506 real updates/s and about 1.54 GB process peak RSS.
+That short run does not approach the 10k/s target or establish efficient
+million-vertex memory use. A targeted Multilevel change replaced full
+matching/seed scans on every update with a rollback-aware I3 crossing index.
+On one 128k trace (128 durable updates, batch 32), measured throughput moved
+from 49 to 3,057 updates/s. A one-million-vertex, batch-256 Multilevel smoke
+measured 3,136 updates/s, 81 ms ack p99, and 1.80 GB peak RSS. A 4,096-update
+single atomic group measured only 1,559 updates/s, 2.60 s ack p99, and 1.88 GB
+peak RSS. These are single-run smoke measurements, not repeatable qualification;
+the 10k/s target remains unmet and very large group latency is unacceptable.
 
-## Completed scoped evidence
+`ProcUpdate` no longer scans all H-tilde edges to remove one source's outgoing
+edges. A journaled sparse source index makes that cleanup proportional to the
+source's own out-degree, with full rebuild audits and exact rollback retained.
+A synthetic 100k-edge empty-source microprobe measured 4.27 ms for the old
+whole-set filtering operation and 146 ns for indexed cleanup; this omits index
+memory and is not an end-to-end performance claim. See
+[ADR 0104](adrs/0104-source-indexed-tilde-edges.md).
+
+Recursive Extend projection now indexes parent coloring assignments once by
+color and queries the fan-type index for each disjoint group. The isolated
+100k-assignment/10-group selection probe measured 2.69x faster selection with
+about 852 KB of temporary traced Python allocation; whole Extend peak RSS and
+connected adversarial performance remain unqualified. See
+[ADR 0105](adrs/0105-index-extend-projection-by-color.md).
+
+## Historical evidence from the removed native matcher
+
+The following rates and resource drills were recorded against the former native
+matching Engine. Keep the reports and provenance, but do not use them to claim
+performance or production qualification for Basic or Multilevel.
 
 | Stage | Delivered rate | Verification |
 | --- | --- | --- |
@@ -31,8 +64,8 @@ and fan audits at operation boundaries. Injected certificate failure restores
 the exact prior partial-coloring maps. Deterministic profiling shows fewer
 whole-state calls, but the 8,192-vertex degree-four hierarchy probe still takes
 about 25 seconds; this does not establish production throughput or billion-node
-support. Broader repeatability, snapshot migration, and durable integration
-remain active. See [ADR 0059](adrs/0059-local-paper-coloring-transactions.md).
+support. Broader repeatability and remaining snapshot migration are active. See
+[ADR 0059](adrs/0059-local-paper-coloring-transactions.md).
 
 Whole-collection fan replacement in Sparsify-Types and Extend now swaps index
 roots instead of sorting and discarding a full fan snapshot. Nested rollback
@@ -110,35 +143,49 @@ Default macOS growth/drain reached 913 MB RSS; the explicitly selected allocator
 profile reduced measured peaks to about 208 MB. It is not a portable quota.
 Degree-64 throughput measured 6,640/s and fails the target for that denser envelope.
 
-## Active scope
+## Completed in this change set
 
-1. Paper qualification now includes a deterministic 360-update hot-hub churn
-   trace replayed twice with full Witness equality after every operation plus
-   matching/index/hierarchy certificates. Broader repeated skew/arrival
-   qualification on fresh installed-wheel runs,
-   with exact-prefix queries, independent recovery and all losses retained.
-   A new seeded power-law offered-load profile now has four one-million-vertex,
-   ten-second source-checkout samples: 10k offers/s delivered 9,538–9,549 real
-   updates/s (miss); 12k offers/s delivered 11,146–11,151/s. All four recovered
-   and certified exactly, but they are not installed-wheel, sustained or
-   historical-query replay qualification. See [raw results](../benchmarks/results/overload/power-law-million.json).
-   One 60-second 12k-offer probe completed 11,348 real updates/s while serving
-   59,451 queries, with exact recovery. The colocated producer missed 5.4% of
-   scheduled update slots; ack p99 was 181.4 ms. This is not an independent
-   producer or installed-wheel soak. See [60-second summary](../benchmarks/results/overload/power-law-million-60s.json).
-2. Continue paper-engine adversarial qualification and finish integrating
-   coloring/fan/hierarchy operations into the durable production service.
-   Endpoint-local hierarchy, maximality, auxiliary-index and System-row
-   certificates have bounded diagnostic evidence; remaining global
-   snapshots/admission work and durable integration are unfinished. Recursive Matcher
-   `deepcopy` has been removed; do not confuse this with durable paper integration
-   or full billion-vertex support.
-   Integrate basic/multilevel through the durable production service with explicit
-   algorithm selection and persisted identity. The user requires this on 2026-10-03;
-   it is no longer a permanent nondurable research-only destination. Current
-   persistence remains native-only until exact rollback/recovery tests pass.
-3. Keep website, README, changelog, API guidance and decision records consistent
-   with current implementation and measured boundaries.
+- Basic and Multilevel both run through `Durable` and thread-safe `Service`;
+  Basic is the default. Native matching-engine sources, package entry points,
+  native checkpoint compatibility, and associated tests have been removed.
+- A caller's Durable batch is one SQLite commit. Its paper updates use bounded
+  private Matcher journal slices, with automatic smaller-slice replay on
+  journal-capacity pressure; a failure before persistence restores the exact
+  prior paper state. Both modes have failure-injection, exact-state,
+  batch-partition, restart, retry, and backup coverage.
+- The published million-vertex Basic smoke trace with 256-operation groups
+  passed exact graph/matching recovery. It delivered about 506 acknowledged real
+  updates/s, used about 1.54 GB process peak RSS, and had about 509 ms ack p99.
+  This is a short local smoke test, far below 10k/s and not a performance or
+  resource qualification.
+- Multilevel maintains a journaled I3 crossing-edge index and removes dropped
+  seed edges immediately, eliminating full matching scans from ordinary update
+  work. Full I3 validation remains at rebuild boundaries. This is a scoped
+  optimization, not qualification; see [ADR 0103](adrs/0103-incremental-multilevel-i3-index.md).
+- Auxiliary H-tilde cleanup uses a rollback-aware source index instead of a
+  global directed-edge scan; memory and broad skew/performance measurements
+  remain open (ADR 0104).
+- Recursive Extend uses one temporary sparse assignment-by-color index and
+  indexed fan types to avoid repeating parent scans; the O(m) temporary index
+  is included in the remaining peak-memory qualification (ADR 0105).
+
+## Still active
+
+- Migrate the remaining graph-sized paper snapshots/allocations and global
+  hierarchy work; current operation-log recovery is linear in retained history
+  and has no compact paper-state checkpoint.
+- Repeat throughput, memory, recovery-time, skew, adversarial and boundary
+  qualification independently for both modes at the million-vertex target.
+- Finish installed-artifact and service/deployment qualification, including
+  enforced process/filesystem resource ceilings and full overload behavior.
+- Remove stale references from remaining historical/product documentation and
+  keep every claimed result tied to the implementation and exact test run.
+
+## Deferred by explicit user direction
+
+Physical power-loss qualification on disposable hardware and billion-vertex
+qualification are future engineering. Their deferral is not evidence of device
+durability under arbitrary power loss or billion-node feasibility.
 
 Paper migration prerequisite: a bounded full-state comparison oracle now covers
 both modes/storage backends, replay prefixes, post-rebuild rollback and fan
@@ -163,7 +210,8 @@ refinement matching degrees avoid allocating n zero counters while preserving
 the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
 refinement cycle detection uses a strict U-decrease guard instead of copying
 U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
-Full-suite verification currently passes 1,314 tests. The
+Full-suite verification currently passes 1,112 tests and one optional plotting
+test is skipped because matplotlib is unavailable. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
@@ -176,19 +224,20 @@ copies are removed. GIL-enabled CPython skips global alias admission only when
 reference counts prove the views unique; shared views and other runtimes retain
 the walk. Other snapshots/certificates still cost global work.
 [ADR 0025](adrs/0025-matching-view-journal.md) defines the boundary.
-Color classes and seed removals are now journaled too, retaining original
+Color classes and seed removals are journaled too, retaining original
 list/set identities and restoring seed/class aliases after failed subphase or
 phase reconstruction. Class admission uses a GIL-enabled CPython uniqueness proof
 when possible; aliases/other runtimes retain a global walk. System, Hierarchy
 and auxiliary snapshots remain. [ADR 0026](adrs/0026-color-class-journal.md)
-records this partial migration, not durable paper integration.
+records the component-level undo design; it is not a performance qualification.
 Basic/multilevel now share System endpoint-cache deltas and avoid temporary
 partition unions for point membership. [ADR 0027](adrs/0027-system-cache-deltas.md)
 defines the new mutation boundary; it is not yet System/Hierarchy undo.
 System roots, touched endpoint rows and old matching-set cuts now use bounded
 first-write undo with retained root identity. Shared hierarchy rows use one undo
-record. Recursive Matcher copying has since been removed; typed durable recovery
-remains. [ADR 0028](adrs/0028-system-undo-journal.md) records the System boundary.
+record. Recursive Matcher copying has since been removed. [ADR 0028](adrs/0028-system-undo-journal.md)
+records the System boundary; remaining snapshot migration and full mode
+qualification remain active.
 
 ## Deferred by explicit user direction
 
@@ -201,6 +250,7 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
-for the retained contracts and migration rationale. Current local coverage is
-1,314 passing tests; CI and benchmark results must be attributed to their exact
-revision, not assumed to qualify every subsequent change.
+for the retained contracts and migration rationale. Current local validation is
+1,112 passing tests and one optional plotting skip; mypy and Ruff pass. CI and
+benchmark results must be attributed to their exact revision, not assumed to
+qualify every subsequent change.

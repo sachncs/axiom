@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 from collections.abc import ItemsView, Iterable, Iterator, Mapping
 from dataclasses import dataclass
-from itertools import pairwise
+from itertools import combinations, pairwise
 from types import MappingProxyType
 
 from axiom.graph import Adjacency, empty
@@ -628,6 +628,26 @@ class Partial:
             self.incident[vertex].remove(oldcolor)
 
 
+class ColorIndex:
+    """Temporary sparse edge-by-color lookup for recursive projections.
+
+    The index stores references to existing edge keys, not copied edge tuples.
+    It lives only for one Extend decomposition and avoids rescanning the entire
+    coloring once per disjoint color group.
+    """
+
+    def __init__(self, coloring: Partial) -> None:
+        """Group current assignment keys once, preserving their deterministic order."""
+        self.edges: dict[Color, list[Edge]] = {}
+        for edge, color in coloring.items():
+            self.edges.setdefault(color, []).append(edge)
+
+    def select(self, colors: Iterable[Color]) -> Iterator[Edge]:
+        """Yield only edges whose color is in the selected group."""
+        for color in sorted(colors):
+            yield from self.edges.get(color, ())
+
+
 class ColorJournal:
     """Retain first-write before-images for a bounded Partial coloring region."""
 
@@ -675,6 +695,32 @@ class Fans:
                 self.members,
                 key=lambda fan: (fan.center, fan.first, fan.second),
             )
+        )
+
+    def within(self, colors: Iterable[Color]) -> tuple[Fan, ...]:
+        """Select fans whose two-color type is contained in ``colors``.
+
+        Fan types have exactly two colors, so the type index lets projection
+        visit only candidate pairs rather than every fan in the parent set.
+        """
+        ordered = tuple(sorted(set(colors)))
+        possible_pairs = len(ordered) * (len(ordered) - 1) // 2
+        if possible_pairs <= len(self.types):
+            selected = [
+                fan
+                for pair in combinations(ordered, 2)
+                for fan in self.types.get(frozenset(pair), ())
+            ]
+        else:
+            allowed = frozenset(ordered)
+            selected = [
+                fan
+                for fan_type, group in self.types.items()
+                if fan_type <= allowed
+                for fan in group
+            ]
+        return tuple(
+            sorted(selected, key=lambda fan: (fan.center, fan.first, fan.second))
         )
 
     def add(self, fan: Fan) -> None:
@@ -2802,6 +2848,7 @@ class Extension:
         coloring: Partial,
         fans: Fans,
         colorgroup: frozenset[Color],
+        colorindex: ColorIndex | None = None,
     ) -> tuple[Partial, Fans, set[Edge], tuple[Color, ...]]:
         """Project one paper ``Extend`` subproblem onto local color numbers.
 
@@ -2812,8 +2859,9 @@ class Extension:
         """
         ordered = tuple(sorted(colorgroup))
         tolocal = {color: index for index, color in enumerate(ordered)}
-        edgescope = {edge for edge, color in coloring.items() if color in colorgroup}
-        selectedfans = [fan for fan in fans.members if fan.type <= colorgroup]
+        activeindex = ColorIndex(coloring) if colorindex is None else colorindex
+        edgescope = set(activeindex.select(colorgroup))
+        selectedfans = fans.within(colorgroup)
         for fan in selectedfans:
             edgescope.update(fan.edges)
         # E_k is an actual edge-disjoint subproblem in ABB's Extend.  Give the
@@ -2908,12 +2956,13 @@ class Extension:
             if any(color in assignedcolors for color in group):
                 raise RuntimeError("Extend received overlapping color groups")
             assignedcolors.update(group)
+        colorindex = ColorIndex(coloring)
         for group in groups:
-            selected = [fan for fan in social if fan.type <= group]
+            selected = social.within(group)
             if not selected:
                 continue
             child, childfans, edgescope, localcolors = cls.project(
-                coloring, social, group
+                coloring, social, group, colorindex
             )
             # The color groups are disjoint, so a colored edge can enter only
             # its one color group. Every fan type has two distinct colors and

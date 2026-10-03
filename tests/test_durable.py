@@ -156,6 +156,8 @@ def test_failure_in_later_private_slice_restores_committed_matcher_exactly(
 ) -> None:
     path = tmp_path / f"sliced-{mode}.db"
     store = Durable(path, n=32, width=0, mode=mode, max_batch=24)
+    before_status = store.status()
+    before_history = store.history()
     before = witness(store)
     original = Matcher.insert
     attempts = 0
@@ -177,12 +179,29 @@ def test_failure_in_later_private_slice_restores_committed_matcher_exactly(
 
     assert attempts == 10
     assert witness(store) == before
-    assert store.status()["sequence"] == 0
+    assert store.status() == before_status
+    assert store.history() == before_history
     assert store.check()
+    with closing(sqlite3.connect(path)) as database:
+        assert (
+            database.execute(
+                "SELECT sequence,adding,u,v,changed,version,digest "
+                "FROM operations ORDER BY sequence"
+            ).fetchall()
+            == []
+        )
+        assert database.execute(
+            "SELECT sequence,version FROM control WHERE id=1"
+        ).fetchone() == (before_status["sequence"], before_status["version"])
+
     assert store.apply(batch) == tuple(
         Outcome(sequence, True, sequence) for sequence in range(1, 13)
     )
     assert store.check()
+    assert store.status()["sequence"] == len(batch)
+    assert tuple(record.sequence for record in store.history().records) == tuple(
+        range(1, len(batch) + 1)
+    )
     committed = state(store)
     committed_witness = witness(store)
     store.close()

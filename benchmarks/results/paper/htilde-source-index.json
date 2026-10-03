@@ -1,0 +1,25 @@
+{
+  "scope": "Synthetic isolated source-cleanup timing only; not Matcher, Durable, Service, or qualification throughput",
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "python": "3.11.16",
+  "directed_edge_set_size": 100000,
+  "source_outdegree": 0,
+  "baseline": {
+    "operation": "full-set comprehension filtering by source",
+    "repetitions": 50,
+    "mean_nanoseconds_per_call": 4264638.34
+  },
+  "indexed": {
+    "operation": "source-index lookup and cleanup",
+    "repetitions": 100000,
+    "mean_nanoseconds_per_call": 145.835
+  },
+  "ratio": 29242.9,
+  "limitations": [
+    "single local process; no fresh-process repeats",
+    "empty-source case isolates avoiding a global scan",
+    "does not measure cleanup for nonempty source buckets",
+    "does not measure the additional source-index memory",
+    "not an end-to-end update-rate or deployment result"
+  ]
+}

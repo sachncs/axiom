@@ -1,9 +1,15 @@
 # Architecture decision records
 
-These records explain the scalability/reliability work, including what is being
-replaced, why, the guarantees retained, alternatives, and verification still
-required. **Accepted design is not evidence of completed implementation.**
-Dates use the project's user-facing calendar and are recorded per decision.
+These records explain scalability/reliability decisions and their evidence.
+**Accepted design is not evidence of completed implementation.** The product
+now supports only paper `basic` and `multilevel` through SQLite Durable/Service;
+the native matching Engine and native graph-checkpoint format were removed.
+ADR [0023](0023-durable-paper-integration.md) supersedes the native production
+matcher decisions. Records 0001–0022 and their rate/status rows are historical
+context for the removed native matching path; they do not describe current
+matching throughput or guarantees. Records 0023 onward track the paper-mode
+replacement and remaining qualification. Dates use the project's user-facing
+calendar and are recorded per decision.
 
 | Record | Decision | State |
 | --- | --- | --- |
@@ -29,7 +35,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0020](0020-resource-exhaustion-and-recovery.md) | Isolated hard address-space/filesystem exhaustion with exact recovery | Million-vertex growth/drain and compact backup recovery passed; deployment quotas pending; hardware power-loss deferred |
 | [0021](0021-moderate-row-index-policy.md) | Bound moderate-row scans and retain indexed hubs | Fixed-trace memory/compute comparison and new-binary sustained degree-four stage pass; degree 64 fails throughput |
 | [0022](0022-allocator-residency.md) | Distinguish freed allocator residency from live graph allocation | Explicit macOS launch policy measured through growth/drain; burst and Linux hard-resource stages pass separately; aggregate quotas deferred |
-| [0023](0023-durable-paper-integration.md) | Make Basic (default) and Multilevel the only durable production matching methods; retain Packed only as storage | Required active migration; no backward matcher/database shim; not implemented or performance-qualified |
+| [0023](0023-durable-paper-integration.md) | Make Basic (default) and Multilevel the only durable production matching methods; retain Packed only as storage | Product packaging/path migrated; end-to-end correctness and performance qualification remain pending; no backward matcher/database shim |
 | [0024](0024-accounting-journal.md) | Bounded first-write paper accounting undo and explicit publication/rollback fail-stop | Accounting migrated in place; wider journal migration/durable paper integration remain active |
 | [0025](0025-matching-view-journal.md) | Bounded matching-cell undo and retained edge/vertex/partner containers | Matching views migrated; global alias preflight, other snapshots and durable integration remain active |
 | [0026](0026-color-class-journal.md) | Bounded class/seed membership undo and retained list/set aliases | Color classes migrated; shared-class admission, System/Hierarchy snapshots and durable integration remain active |
@@ -124,7 +130,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Whole-state `deepcopy` before each edit | Shallow root references plus bounded owner journals for Matcher state (0003) | Exact tested rollback for enlisted state; some admission/certification work remains global; durable paper promotion remains |
 | Eager empty phase dictionaries/sets | Sparse live-endpoint overlays avoid allocating empty vertex buckets (0004) | Phase counters/lifecycle unchanged; regression-tested |
 | Global scans on every ordinary production edit | Local dependency certificates plus separate independent full audits (0005) | Immediate proper/maximal matching checks are retained, not disabled; paper hierarchy scans still present |
-| Paper coloring/fans/hierarchy on the production path | Explicit `axiom.engine.Engine`, with deterministic incremental maximal matching (0006) | Research engine retained; different matching choices and no transferred paper theorem; hub deletion remains degree-dependent |
+| Paper coloring/fans/hierarchy on the production path | Basic (default) and Multilevel paper methods under durable Service; `Packed` is storage only (0023) | Current product direction; qualification remains active. ADR 0006 and native results are historical only. |
 | Treating an in-memory commit as success after a crash | FULL-WAL barrier, then coherent publication/acknowledgment (0007/0009) | Replay/dedup/process recovery implemented; native `commit` alone remains nondurable; sustained qualification pending |
 | Lifetime operation-log growth and replay from genesis | Exact checkpoints plus atomic history/retry retirement (0010) bound replay and table rows | Opt-in v2 implemented; expired IDs reject, v1 remains capped; physical disk/RSS and maintenance latency still need qualification |
 | Rebuilding a different valid matching after restart | Persist exact compact partner state and audit a separate candidate (0010) | Exact partners/version preserved; invalid images refuse recovery, never silently repaired |
@@ -149,6 +155,9 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Full auxiliary-index reconstruction after every paper update | Validate touched rows against graph/System and reverse-index cells; full reconstruction for replacement roots (0047) | One matched trace shows another 1.91×; no storage improvement or production qualification |
 | Whole-fan tuple snapshots before replacing fan state | O(1) index-root swap with journal-retained exact roots (0101) | Nested failure rollback preserves all root identities; focused correctness evidence only |
 | Re-snapshotting the synchronized graph at a parent-phase boundary | Reuse the detached graph produced by hierarchy synchronization (0102) | Exact phase topology and injected failure rollback tested; no end-to-end performance claim |
+| Full matching and seed scans on each Multilevel update | Rollback-aware incremental I3 crossing index and immediate seed-edge removal (0103) | One matched 128k trace improved from 49 to 3,057 durable updates/s; 1m batch-256 smoke measured 3,136/s and 81 ms ack p99; still below 10k/s and not qualification |
+| Full H-tilde edge-set scan on every ProcUpdate | Sparse source-to-target H-tilde index journaled with the existing reverse index (0104) | Synthetic 100k-edge empty-source cleanup avoids a 4.27 ms global scan; added index memory and end-to-end throughput remain unmeasured |
+| Rescan every coloring assignment and fan for each Extend color group | Temporary assignment-by-color index and exact fan-type index (0105) | Isolated 100k-edge/10-group selection was 2.69× faster with ~852 KB traced index cost; whole Extend/RSS remain unqualified |
 
 ## What is not being abandoned
 
@@ -156,9 +165,11 @@ than silently changing an accepted contract or declaring an unfinished goal done
 - Deterministic behavior under the specified backend and update order.
 - All-or-nothing accepted updates and coherent committed graph/matching queries.
 - Explicit rejection, rollback/fail-stop behavior, and independent verification.
-- The existing research engine, including its coloring/fan/hierarchy regression
-  requirements and the reference snapshot path until replacements are certified.
+- Paper-derived Basic and Multilevel remain the only matching methods; the
+  native matching engine and its compatibility path were removed by explicit
+  product direction. Paper coloring/fan/hierarchy correctness remains in scope.
 
-The changes remove implementation overhead and introduce an explicitly different
-production algorithm. They do not silently weaken the paper engine or claim its
-theoretical bounds for the new backend.
+These decisions reduce implementation overhead without claiming the paper
+algorithm's theoretical bounds until its remaining data structures and update
+complexities are implemented and verified. Historical native results in ADRs
+0001–0022 are provenance, not present product behavior or paper-mode evidence.

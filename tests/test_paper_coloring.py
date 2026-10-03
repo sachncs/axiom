@@ -8,6 +8,7 @@ import pytest
 from axiom.graph import Adjacency
 from axiom.paper_coloring import (
     Chain,
+    ColorIndex,
     ColorJournal,
     Construction,
     Event,
@@ -799,6 +800,62 @@ def test_project_does_not_sort_materialize_the_parent_fan_collection() -> None:
     assert isinstance(child.graph, Packed)
     child.validate()
     childfans.validate()
+
+
+def test_project_color_index_selects_only_requested_assignments_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(9)
+    for edge in (
+        (0, 1),
+        (0, 2),
+        (3, 4),
+        (3, 5),
+        (6, 7),
+    ):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 4)
+    coloring.assign((6, 7), 0)
+    coloring.assign((3, 4), 2)
+    fans = Fans()
+    chosen = Fan(0, 1, 2, 0, 1, 1)
+    unrelated = Fan(3, 4, 5, 2, 3, 3)
+    fans.add(unrelated)
+    fans.add(chosen)
+    index = ColorIndex(coloring)
+    before = Witness().capture((coloring, fans))
+
+    def reject_rescan(self: Partial):
+        raise AssertionError("projection rescanned the full coloring")
+
+    monkeypatch.setattr(Partial, "items", reject_rescan)
+    child, childfans, scope, localcolors = Extension.project(
+        coloring, fans, frozenset({0, 1}), index
+    )
+
+    assert scope == {(0, 1), (0, 2), (6, 7)}
+    assert child.assignments == {(6, 7): 0}
+    assert localcolors == (0, 1)
+    assert childfans.members == {chosen}
+    assert Witness().capture((coloring, fans)) == before
+    child.validate()
+    childfans.validate()
+
+
+def test_fan_color_index_selection_is_deterministic_and_type_local() -> None:
+    graph = Adjacency(12)
+    fans = Fans()
+    selected = (Fan(6, 7, 8, 0, 1, 1), Fan(0, 1, 2, 0, 1, 1))
+    excluded = Fan(3, 4, 5, 2, 3, 3)
+    for fan in (*selected, excluded):
+        for edge in fan.edges:
+            graph.add_edge(*edge)
+    fans.add(selected[0])
+    fans.add(excluded)
+    fans.add(selected[1])
+
+    assert fans.within({0, 1}) == (selected[1], selected[0])
+    assert fans.within({2, 3}) == (excluded,)
 
 
 def test_project_rejects_infeasible_degree_without_mutating_parent_state() -> None:

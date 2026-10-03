@@ -448,6 +448,9 @@ class Multilevel:
                 "multilevel rebuild violated invariant I3; refusing to "
                 "continue with stale recursive state"
             )
+        # Rebuilds can replace A1/R1 wholesale. Re-index once at this explicit
+        # phase boundary; ordinary updates maintain only their changed matches.
+        matcher.i3_crossings = matcher.multi.crossing_edges(matcher.matched_edges)
         # The hierarchy owns this phase graph and updates it in place. Retain
         # its root instead of cloning every edge into an observational copy;
         # Matcher transaction setup deduplicates graph identities before
