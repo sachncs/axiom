@@ -1,0 +1,36 @@
+{
+  "benchmark": "sparse-hierarchy-refinement-degree-state",
+  "date": "2026-10-04",
+  "baseline_revision": "f22fd69",
+  "candidate_revision": "working-tree-after-f22fd69",
+  "python": "3.14.8",
+  "component_fixture": {
+    "vertices": 1000000,
+    "selected_edges": 2,
+    "touched_endpoints": 4,
+    "measurement": "Isolated degree representation construction and population",
+    "dense_array_peak_bytes": 4000164,
+    "sparse_map_peak_bytes": 904
+  },
+  "refinement_fixture": {
+    "vertices": 20000,
+    "edges": [[0, 1], [0, 2], [0, 3], [0, 4]],
+    "initial_z": 4,
+    "refined_z": 2,
+    "measurement": "Three alternating full refine_hierarchy runs; base hierarchy construction excluded; tracemalloc peak and elapsed time",
+    "baseline_seconds": [1.262727, 1.165047, 1.149137],
+    "candidate_seconds": [1.24682, 1.170478, 1.159116],
+    "baseline_peak_bytes": [18129560, 18128312, 18128256],
+    "candidate_peak_bytes": [18128680, 18128296, 18128224],
+    "certificate": "All results passed Hierarchy.check() and contained two matching edges."
+  },
+  "median": {
+    "baseline_seconds": 1.165047,
+    "candidate_seconds": 1.170478,
+    "elapsed_change_percent": 0.47,
+    "baseline_peak_bytes": 18128312,
+    "candidate_peak_bytes": 18128296,
+    "full_refinement_peak_change_bytes": -16
+  },
+  "limitations": "Counter representation microprobe excludes whole refinement. Full refinement result is neutral for both time and peak because other hierarchy allocations dominate; no end-to-end improvement claim. Not process RSS, durable service, or large connected-graph qualification."
+}

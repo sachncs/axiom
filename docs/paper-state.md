@@ -132,3 +132,10 @@ retains path-edge and endpoint-degree before-images, with injected edge-write
 and degree-write rollback tests plus randomized differential comparison. It has
 no current internal caller, so its allocation gain does not yet reduce active
 Matcher hierarchy cost. See [ADR 0095](adrs/0095-path-local-switch-undo.md).
+
+Hierarchy refinement also uses missing-as-zero sparse matching-degree storage
+below a conservative density threshold, retaining packed arrays for dense
+matchings. A million-counter microprobe saved about 4 MB, but full 20k refinement
+peak/time remained neutral because other snapshots dominate. This is an
+allocation component result, not end-to-end Matcher improvement; see
+[ADR 0096](adrs/0096-sparse-refinement-degrees.md).

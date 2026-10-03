@@ -43,6 +43,14 @@ from axiom.types import Edge, Graph, Vertex, canonical
 from axiom.vertices import Vertices
 
 
+class SparseDegrees(dict[Vertex, int]):
+    """Store only touched nonzero matching degrees for sparse refinement."""
+
+    def __missing__(self, vertex: Vertex) -> int:
+        """Treat an absent degree as zero without inserting a hash entry."""
+        return 0
+
+
 @dataclass
 class Hierarchy:
     r"""A :math:`k`-level subgraph system.
@@ -847,7 +855,11 @@ def refine_hierarchy(
             if edge not in deleted or edge in deferred_deleted
         )
         working_graph = project(hierarchy.graph, working_edges)
-    degree = degrees(hierarchy.graph.n)
+    degree: SparseDegrees | array[int]
+    if len(chosen) * 36 < hierarchy.graph.n:
+        degree = SparseDegrees()
+    else:
+        degree = degrees(hierarchy.graph.n)
     for u, v in chosen:
         degree[u] += 1
         degree[v] += 1

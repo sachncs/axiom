@@ -110,6 +110,26 @@ def test_sparse_hierarchy_check_does_not_allocate_vertex_degree_arrays(
     assert hierarchy.check()
 
 
+def test_sparse_hierarchy_refinement_does_not_allocate_universe_degrees(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Packed(1024)
+    for vertex in range(1, 5):
+        graph.add_edge(0, vertex)
+    hierarchy = build_hierarchy(graph, [4])
+    assert hierarchy.levels[-1].M
+
+    def reject_dense_counts(size: int):
+        raise AssertionError(f"sparse refinement allocated {size} degree counters")
+
+    monkeypatch.setattr("axiom.hierarchy.degrees", reject_dense_counts)
+
+    refined = refine_hierarchy(hierarchy, 2)
+
+    assert refined.check()
+    assert len(refined.levels[-1].M) == 2
+
+
 def test_hierarchy_degree_counts_use_dense_storage_for_dense_matchings() -> None:
     graph = Packed(64)
     hierarchy = build_hierarchy(graph, [1])

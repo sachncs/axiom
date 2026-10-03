@@ -1185,3 +1185,10 @@ failed-search probe reduced traced peak 99.925%; 1,000 random differential
 cases matched the previous result/state. Repository search finds no internal
 callers, so this component improvement is not end-to-end hierarchy evidence.
 See [ADR 0095](adrs/0095-path-local-switch-undo.md).
+
+Sparse `refine_hierarchy` matching degrees no longer allocate an n-sized array
+when only a few selected edges touch vertices. A one-million-counter component
+microprobe fell from 4,000,164 bytes to 904 bytes. On a 20k full-refinement
+fixture, aggregate traced peak/time were neutral; snapshots and other hierarchy
+allocations dominate, so this is not an end-to-end win. See
+[ADR 0096](adrs/0096-sparse-refinement-degrees.md).
