@@ -19,7 +19,7 @@ struct Inspector {
     return engine.available(vertex);
   }
   static void corruptPublishedIndex(Engine &engine, uint32_t vertex) {
-    engine.firstWrite[vertex] = 12345;
+    engine.firstWrite.set(vertex, 12345, engine.limit);
   }
   static void corruptPartner(Engine &engine, uint32_t vertex,
                              uint32_t partner) {

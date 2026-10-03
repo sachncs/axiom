@@ -187,11 +187,13 @@ The earlier queued-read service has now completed a 30-minute million-vertex soa
 independent recovery. Peak RSS is 204.5 MB; query p99 is still 14.4 ms. This proves
 the scoped sustained throughput stage, not overload/skew/resource/backup/power-loss
 qualification. [Raw provenance](../benchmarks/results/service/README.md).
-The newer published-partner read path avoids waiting for SQLite without exposing
-private batches; it adds a budgeted four bytes/vertex and supports concurrent
-clients on GIL-enabled CPython. [ADR 0012](adrs/0012-committed-partner-reads.md)
-records the tradeoff and pending latency measurements; the old soak is not evidence
-for changed code.
+The published-partner read path avoids waiting for SQLite without exposing
+private batches. Its original four-bytes-per-vertex index is now replaced by a
+sparse journal index sized to distinct batch touches; a one-million-vertex
+diagnostic saves 3,999,864 initial native bytes with a 1.4% lower single-run
+in-memory rate. This is not durable-service qualification. [ADR 0012](adrs/0012-committed-partner-reads.md)
+and [ADR 0030](adrs/0030-sparse-committed-partner-index.md) record the contract,
+tradeoff and evidence; broader repeats remain active.
 
 Bounded owner backups now capture committed WAL state, exact matching and retry
 retirement without a native graph clone. Failure/process-crash tests require an

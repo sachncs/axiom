@@ -36,6 +36,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0027](0027-system-cache-deltas.md) | Shared endpoint-cache mutations and union-free point membership | Cache delta boundary implemented; System/Hierarchy journals and durable integration remain active |
 | [0028](0028-system-undo-journal.md) | Bounded System-root, shared-row and matching-cut undo | System objects and touched rows migrated; Hierarchy/auxiliary snapshots and durable integration remain active |
 | [0029](0029-hierarchy-root-journal.md) | Retain Hierarchy roots and journal deferred phase deletions | Hierarchy journal delivered; Matcher recursive copy subsequently removed; durable paper integration remains |
+| [0030](0030-sparse-committed-partner-index.md) | Size committed-partner indexes to active batch touches, not graph universe | Sparse journal index implemented; 8.1% initial native-memory reduction in one-million-vertex diagnostic; durable repeats active |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -63,6 +64,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Copying a live SQLite main file or exporting only edges | Owner snapshot captures committed WAL state, partners and retry retirement (0013) | Bounded image, no-overwrite publication, independent restore required; not replication or power-loss proof |
 | Unbounded growth or claiming capacity from a short microbenchmark | Native budget, bounded pages, single ownership and full-service release gates (0008) | Native limits implemented; queue/RSS/disk limits and sustained durable qualification remain pending |
 | Treating native allocation bytes as whole-process memory | Live Python/allocator/VM measurements plus explicit operator launch policy (0022) | macOS large-cache spike reduced in scoped experiment; aggregate quotas and portable checkpoint allocation work remain separate |
+| Dense committed-partner first-write slot per vertex | Inline plus budgeted sparse journal index sized to touched vertices (0030) | Same coupled publication read; 4 MB less initial native allocation at one million vertices in one fixed trace; high-water batch capacity is retained |
 
 ## What is not being abandoned
 

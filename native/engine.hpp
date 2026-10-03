@@ -10,6 +10,133 @@ struct PartnerUndo {
   uint32_t vertex, previous, expected;
 };
 
+class FirstWrite {
+  struct Slot {
+    uint32_t vertex = none;
+    uint32_t write = none;
+  };
+  static constexpr uint64_t inlineCount = 16;
+
+  std::array<Slot, inlineCount> local;
+  std::vector<Slot> slots;
+  uint64_t count = 0;
+
+  static uint32_t hash(uint32_t value) noexcept {
+    value ^= value >> 16;
+    value *= 0x7feb352dU;
+    value ^= value >> 15;
+    value *= 0x846ca68bU;
+    return value ^ (value >> 16);
+  }
+
+  uint64_t size() const noexcept {
+    return slots.empty() ? inlineCount : slots.size();
+  }
+
+  Slot &at(uint64_t position) noexcept {
+    return slots.empty() ? local[position] : slots[position];
+  }
+
+  const Slot &at(uint64_t position) const noexcept {
+    return slots.empty() ? local[position] : slots[position];
+  }
+
+  uint64_t locate(uint32_t vertex) const noexcept {
+    uint64_t mask = size() - 1;
+    uint64_t position = hash(vertex) & mask;
+    for (uint64_t attempts = 0; attempts < size(); ++attempts) {
+      if (at(position).vertex == vertex)
+        return position;
+      if (at(position).vertex == none)
+        return none;
+      position = (position + 1) & mask;
+    }
+    return none;
+  }
+
+  void grow(uint64_t needed, uint64_t available) {
+    uint64_t target = size();
+    if (needed * 2 <= target)
+      return;
+    target = std::max(inlineCount * 2, target);
+    while (target < needed * 2)
+      target *= 2;
+    if (target > available / sizeof(Slot))
+      throw std::length_error("partner index exceeds native budget");
+    std::vector<Slot> candidate(static_cast<size_t>(target));
+    if (candidate.capacity() > available / sizeof(Slot))
+      throw std::length_error(
+          "partner index allocator peak exceeds native budget");
+    for (uint64_t index = 0; index < size(); ++index) {
+      const Slot &entry = at(index);
+      if (entry.vertex != none) {
+        uint64_t position = hash(entry.vertex) & (target - 1);
+        while (candidate[position].vertex != none)
+          position = (position + 1) & (target - 1);
+        candidate[position] = entry;
+      }
+    }
+    slots.swap(candidate);
+  }
+
+public:
+  explicit FirstWrite(uint32_t) {}
+
+  static uint64_t base(uint32_t) noexcept { return 0; }
+
+  uint64_t allocated() const noexcept {
+    return uint64_t(slots.capacity()) * sizeof(Slot);
+  }
+
+  uint32_t get(uint32_t vertex) const noexcept {
+    uint64_t position = locate(vertex);
+    return position == none ? none : at(position).write;
+  }
+
+  bool set(uint32_t vertex, uint32_t value, uint64_t available) {
+    uint64_t position = locate(vertex);
+    if (position != none) {
+      at(position).write = value;
+      return false;
+    }
+    uint64_t priorCapacity = slots.capacity();
+    grow(count + 1, available);
+    uint64_t mask = size() - 1;
+    position = hash(vertex) & mask;
+    while (at(position).vertex != none)
+      position = (position + 1) & mask;
+    at(position) = Slot{vertex, value};
+    ++count;
+    return slots.capacity() != priorCapacity;
+  }
+
+  void clear() noexcept {
+    for (uint64_t position = 0; position < size(); ++position)
+      at(position) = Slot{};
+    count = 0;
+  }
+
+  bool check(uint32_t vertices, bool active,
+             const std::vector<PartnerUndo> &writes) const noexcept {
+    uint64_t occupied = 0;
+    for (uint64_t position = 0; position < size(); ++position) {
+      const Slot &entry = at(position);
+      if (entry.vertex == none) {
+        if (entry.write != none)
+          return false;
+        continue;
+      }
+      ++occupied;
+      if (!active || entry.vertex >= vertices || entry.write >= writes.size() ||
+          writes[entry.write].vertex != entry.vertex ||
+          locate(entry.vertex) != position)
+        return false;
+    }
+    return occupied == count && count * 2 <= size() &&
+           (size() & (size() - 1)) == 0;
+  }
+};
+
 class CertificateError : public std::logic_error {
 public:
   using std::logic_error::logic_error;
@@ -25,9 +152,9 @@ class Engine {
   uint64_t limit;
   Store storage;
   std::vector<uint32_t> partners;
-  // First undo record per vertex: O(1) access to the last published partner
-  // while a batch is private. This is not a whole-graph copy per update.
-  std::vector<uint32_t> firstWrite;
+  // First undo record per touched vertex. The sparse map avoids reserving one
+  // word for every graph vertex when batches touch only a small subset.
+  FirstWrite firstWrite;
   FreeIndex freeVertices;
   std::vector<PartnerUndo> writes;
   uint64_t matched = 0, savedMatched = 0;
@@ -35,8 +162,8 @@ class Engine {
   static uint64_t overhead() { return sizeof(Engine) - sizeof(Store); }
 
   static uint64_t graphBudget(uint32_t vertices, uint64_t budget) {
-    uint64_t extra = overhead() + uint64_t(vertices) * 2 * sizeof(uint32_t) +
-                     FreeIndex::base(vertices);
+    uint64_t extra = overhead() + uint64_t(vertices) * sizeof(uint32_t) +
+                     FirstWrite::base(vertices) + FreeIndex::base(vertices);
     if (budget < extra || Store::base(vertices) > budget - extra)
       throw std::length_error("engine metadata exceeds native budget");
     return budget - extra;
@@ -45,8 +172,7 @@ class Engine {
   void rebudget() {
     uint64_t extra = overhead() +
                      uint64_t(partners.capacity()) * sizeof(uint32_t) +
-                     uint64_t(firstWrite.capacity()) * sizeof(uint32_t) +
-                     freeVertices.allocated() +
+                     firstWrite.allocated() + freeVertices.allocated() +
                      uint64_t(writes.capacity()) * sizeof(PartnerUndo);
     if (extra > limit || storage.allocated() > limit - extra)
       throw std::length_error("engine native allocation exceeds budget");
@@ -75,15 +201,17 @@ class Engine {
     rebudget();
   }
 
-  void write(uint32_t vertex, uint32_t value) noexcept {
-    if (firstWrite[vertex] == none)
-      firstWrite[vertex] = static_cast<uint32_t>(writes.size());
+  void write(uint32_t vertex, uint32_t value) {
+    if (firstWrite.get(vertex) == none &&
+        firstWrite.set(vertex, static_cast<uint32_t>(writes.size()),
+                       limit - allocated()))
+      rebudget();
     writes.push_back(PartnerUndo{vertex, partners[vertex], value});
     partners[vertex] = value;
     freeVertices.set(vertex, value == none);
   }
 
-  void pair(uint32_t u, uint32_t v) noexcept {
+  void pair(uint32_t u, uint32_t v) {
     write(u, v);
     write(v, u);
     ++matched;
@@ -189,7 +317,7 @@ class Engine {
       for (size_t i = first; i < writes.size(); ++i) {
         endpointDelta +=
             int(writes[i].expected != none) - int(writes[i].previous != none);
-        uint32_t slot = firstWrite[writes[i].vertex];
+        uint32_t slot = firstWrite.get(writes[i].vertex);
         if (slot == none || slot > i ||
             writes[slot].vertex != writes[i].vertex ||
             !certified(writes[i].vertex))
@@ -220,8 +348,7 @@ class Engine {
 public:
   explicit Engine(uint32_t vertices, uint64_t budget = defaultBudget)
       : limit(budget), storage(vertices, graphBudget(vertices, budget)),
-        partners(vertices, none), firstWrite(vertices, none),
-        freeVertices(vertices) {
+        partners(vertices, none), firstWrite(vertices), freeVertices(vertices) {
     rebudget();
     freeVertices.build(partners);
   }
@@ -241,7 +368,7 @@ public:
     storage.healthy();
     if (vertex >= storage.n)
       throw std::invalid_argument("vertex out of range");
-    uint32_t slot = firstWrite[vertex];
+    uint32_t slot = firstWrite.get(vertex);
     if (slot != none && (!storage.active || slot >= writes.size() ||
                          writes[slot].vertex != vertex)) {
       storage.poisoned = true;
@@ -254,8 +381,7 @@ public:
   uint64_t allocated() const {
     return overhead() + storage.allocated() +
            uint64_t(partners.capacity()) * sizeof(uint32_t) +
-           uint64_t(firstWrite.capacity()) * sizeof(uint32_t) +
-           freeVertices.allocated() +
+           firstWrite.allocated() + freeVertices.allocated() +
            uint64_t(writes.capacity()) * sizeof(PartnerUndo);
   }
   uint64_t journal() const {
@@ -390,9 +516,9 @@ public:
   void commit(uint64_t value) {
     token(value);
     storage.commit(value);
-    for (const auto &entry : writes)
-      firstWrite[entry.vertex] = none;
+    firstWrite.clear();
     writes.clear();
+    rebudget();
   }
   void rollback(uint64_t value) {
     token(value);
@@ -405,22 +531,23 @@ public:
       freeVertices.set(it->vertex, it->previous == none);
     }
     storage.rollback(value);
-    for (const auto &entry : writes)
-      firstWrite[entry.vertex] = none;
+    firstWrite.clear();
     writes.clear();
     matched = savedMatched;
+    rebudget();
   }
   bool insert(uint32_t u, uint32_t v) { return edit(u, v, true); }
   bool remove(uint32_t u, uint32_t v) { return edit(u, v, false); }
 
   bool check() const {
     if (!storage.check() || allocated() > limit ||
-        !freeVertices.check(partners))
+        !freeVertices.check(partners) ||
+        !firstWrite.check(storage.n, storage.active, writes))
       return false;
     uint64_t endpoints = 0;
     for (uint32_t u = 0; u < storage.n; ++u) {
       // Independent full audit, not a replay of the local certificate helper.
-      uint32_t slot = firstWrite[u];
+      uint32_t slot = firstWrite.get(u);
       if (slot != none && (!storage.active || slot >= writes.size() ||
                            writes[slot].vertex != u))
         return false;
@@ -439,8 +566,8 @@ public:
     }
     for (size_t i = 0; i < writes.size(); ++i)
       if (writes[i].vertex >= storage.n ||
-          firstWrite[writes[i].vertex] == none ||
-          firstWrite[writes[i].vertex] > i)
+          firstWrite.get(writes[i].vertex) == none ||
+          firstWrite.get(writes[i].vertex) > i)
         return false;
     return endpoints == 2 * matched;
   }

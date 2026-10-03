@@ -82,6 +82,57 @@ def test_bounded_degree64_checkpoint_and_full_state_rollback():
     assert snapshot(candidates[0]) == snapshot(candidates[1])
 
 
+def test_sparse_firstwrite_hash_growth_preserves_committed_reads():
+    engine = Engine(600)
+    token = engine.begin()
+    edges = (
+        (254, 255),
+        (256, 257),
+        (511, 512),
+        (300, 301),
+        (400, 401),
+    )
+    for left, right in edges:
+        assert engine.insert(left, right)
+    assert engine.check()
+    for vertex in (254, 255, 256, 257, 511, 512, 300, 301, 400, 401):
+        assert engine.committed_partner(vertex) == (0, None)
+    engine.rollback(token)
+    assert engine.version == engine.num_edges() == engine.size() == 0
+    assert all(engine.partner(vertex) is None for vertex in range(600))
+    assert engine.check()
+
+    token = engine.begin()
+    for left, right in edges:
+        assert engine.insert(left, right)
+    engine.commit(token)
+    committed = engine.version
+    assert committed == len(edges)
+    token = engine.begin()
+    assert engine.delete(256, 257)
+    assert engine.committed_partner(256) == (committed, 257)
+    assert engine.committed_partner(257) == (committed, 256)
+    engine.rollback(token)
+    assert engine.version == committed
+    assert engine.partner(256) == 257 and engine.partner(257) == 256
+    assert engine.check()
+
+
+def test_sparse_firstwrite_index_budget_failure_rolls_back_batch_exactly():
+    baseline = Engine(600).memory()["allocated"]
+    engine = Engine(600, budget=baseline + 832)
+    before = snapshot(engine)
+    token = engine.begin()
+    with pytest.raises(MemoryError, match="partner index"):
+        for edge in ((0, 1), (2, 3), (4, 5), (6, 7), (8, 9)):
+            engine.insert(*edge)
+    assert snapshot(engine) == before
+    assert not engine.memory()["active"]
+    assert engine.check()
+    with pytest.raises(RuntimeError, match="stale"):
+        engine.commit(token)
+
+
 def snapshot(engine: Engine) -> tuple:
     """Read one committed graph/matching state through public query methods."""
     return (

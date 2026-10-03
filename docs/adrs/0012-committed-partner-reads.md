@@ -23,6 +23,12 @@ The index adds `4*n` bytes plus vector metadata: approximately 4 MB at one milli
 vertices, included in the shared native budget and candidate-growth accounting.
 It is ephemeral; checkpoint format and exact persisted state are unchanged.
 
+Implementation update 2026-10-03: the dense per-vertex index described above
+was replaced by an inline-plus-sparse open-addressed journal index sized to
+distinct vertices touched by a batch. The coupled read and publication contract
+is unchanged; see [ADR 0030](0030-sparse-committed-partner-index.md) for memory,
+budget, rollback, and measured-trace evidence.
+
 `Engine.committed_partner(vertex)` returns `(version, partner)` even during a
 private transaction, including to another client thread. Ordinary native queries
 still reject unpublished transactions. `Service.partner` returns an already

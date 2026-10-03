@@ -23,15 +23,19 @@ Vertices remain fixed dense IDs; insertion/deletion methods edit **edges**.
 Native `Packed` metadata uses three uint32 arrays and one byte per vertex (13
 bytes per vertex, excluding vector capacity and container objects). Adjacency
 uses reusable four-neighbor blocks of 28 bytes. In the production `Engine`,
-partners and first-write lookup add another 8 bytes per vertex, and the
-hierarchical free-vertex bitmap adds about 0.127 bytes per vertex. Thus a
-degree-four graph that uses roughly one adjacency block per vertex has a
-structural baseline near 49.13 bytes per vertex: about 49 GB (45.8 GiB) at one
-billion vertices, before allocator/capacity slack, indexes, journals, SQLite,
-Python, or process overhead. The default 1 GiB graph budget cannot hold that
-representation. This is an order-of-magnitude estimate, not a billion-vertex
-capacity claim; uint32 block addresses additionally cap higher-density graphs
-at fewer than 4.3 billion adjacency blocks. `Engine.memory()` and
+partners add 4 bytes per vertex and the hierarchical free-vertex bitmap about
+0.127 bytes per vertex. The published-partner first-write index is now sparse:
+it has eight inline entries and grows with vertices touched in an active batch,
+not with the graph universe. Its dynamic open-addressed capacity is budgeted,
+retained for reuse after large batches, and grows with old/new coexistence
+accounted. Thus a degree-four graph using roughly one adjacency block per vertex
+has an idle structural baseline near 45.13 bytes per vertex: about 45 GB
+(42.0 GiB) at one billion vertices, before allocator/capacity slack, active
+batch indexes/journals, SQLite, Python, or process overhead. The default 1 GiB
+graph budget cannot hold that representation. This is an order-of-magnitude
+estimate, not a billion-vertex capacity claim; uint32 block addresses
+additionally cap higher-density graphs at fewer than 4.3 billion adjacency
+blocks. `Engine.memory()` and
 `Packed.memory()` report retained native allocation under the graph budget, not
 this broader process footprint.
 
