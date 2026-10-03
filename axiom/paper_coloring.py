@@ -2993,7 +2993,7 @@ class Paper:
         """
         originaledges = sorted(graph.edges())
         components: list[set[Vertex]] = []
-        unseen = set(range(graph.n))
+        unseen = {vertex for edge in originaledges for vertex in edge}
         while unseen:
             root = min(unseen)
             component: set[Vertex] = set()
@@ -3006,8 +3006,7 @@ class Paper:
                     if neighbor in unseen:
                         unseen.remove(neighbor)
                         visitstack.append(neighbor)
-            if any(graph.degree(vertex) for vertex in component):
-                components.append(component)
+            components.append(component)
 
         augmented: list[tuple[Vertex, Vertex, int | None]] = [
             (left, right, index) for index, (left, right) in enumerate(originaledges)

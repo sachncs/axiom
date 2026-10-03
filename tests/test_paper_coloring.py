@@ -534,6 +534,33 @@ def test_seed_palette_reduction_certifies_complete_graph_with_excess_palette() -
     Paper.certify(graph, delta, set(graph.edges()), coloring)
 
 
+def test_partition_component_discovery_avoids_isolated_vertex_universe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Packed(2_048)
+    graph.add_edge(0, 1)
+    graph.add_edge(1, 2)
+    graph.add_edge(1_000, 1_001)
+    originalrange = range
+    universescans = 0
+
+    def trackrange(*arguments: int) -> range:
+        nonlocal universescans
+        if arguments == (graph.n,):
+            universescans += 1
+        return originalrange(*arguments)
+
+    monkeypatch.setattr("axiom.paper_coloring.range", trackrange, raising=False)
+
+    left, right = Paper.partition(graph)
+
+    assert universescans == 3  # degree bound and one balance check per output
+    leftedges = set(left.edges())
+    rightedges = set(right.edges())
+    assert leftedges.isdisjoint(rightedges)
+    assert leftedges | rightedges == set(graph.edges())
+
+
 def test_separable_fans_enforce_edge_and_vertex_color_disjointness() -> None:
     fans = Fans()
     first = Fan(0, 1, 2, 0, 1, 1)

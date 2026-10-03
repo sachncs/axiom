@@ -1162,3 +1162,10 @@ and remains fully certified; three warmed before/after runs were timing-neutral
 at this small scale. The asymptotic frequency work falls from O(E·C) to O(E),
 with O(C log C) deterministic ordering. Large high-degree seed qualification
 remains open; see [ADR 0091](adrs/0091-linear-seed-palette-counting.md).
+
+Euler partition component discovery now starts from live edge endpoints instead
+of a `set(range(n))`; this avoids allocating/scanning isolates that cannot occur
+in the output. On 2,048 labels with three edges, three runs reduced partition
+time 98.98% and traced peak 98.30%, with identical edge partitions. The
+subsequent global degree-bound scans remain O(n), and connected/dense behavior
+is not qualified. See [ADR 0092](adrs/0092-sparse-paper-partition-components.md).

@@ -1,0 +1,29 @@
+{
+  "benchmark": "sparse-paper-partition-component-discovery",
+  "date": "2026-10-04",
+  "baseline_revision": "88f7775",
+  "candidate_revision": "working-tree-after-88f7775",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 2048,
+    "edges": [[0, 1], [1, 2], [1000, 1001]],
+    "components_with_edges": 2,
+    "isolated_vertices": 2045,
+    "storage": "Packed"
+  },
+  "measurement": "Three alternating before/after Paper.partition runs; graph construction excluded; wall time and tracemalloc peak; output edge union checked",
+  "baseline_seconds": [0.028115, 0.028921, 0.028229],
+  "candidate_seconds": [0.000305, 0.000288, 0.000288],
+  "baseline_peak_bytes": [192272, 192360, 192360],
+  "candidate_peak_bytes": [3240, 3264, 3264],
+  "median": {
+    "baseline_seconds": 0.028229,
+    "candidate_seconds": 0.000288,
+    "elapsed_reduction_percent": 98.98,
+    "baseline_peak_bytes": 192360,
+    "candidate_peak_bytes": 3264,
+    "peak_reduction_percent": 98.3
+  },
+  "certificate": "All runs produced disjoint left/right edge sets whose union exactly equals the input graph edges.",
+  "limitations": "Sparse isolate-heavy component-discovery shape only; global degree-bound scans remain O(n); not connected/dense/full Paper.color/RSS/service qualification."
+}
