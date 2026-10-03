@@ -7,7 +7,7 @@ sections retain their source/workload provenance and do not override this status
 | --- | --- | --- |
 | `Service` → `Durable` → native `Engine` | Local production engineering | FULL-WAL commit before acknowledgment; thread-safe clients, one mutation owner |
 | Native `Engine` alone | In-memory deterministic maximal matching | Owner-bound, bounded rollback; no persistence on its own |
-| `Matcher(mode="basic" or "multilevel")` | Paper/research implementation | Nondurable, externally serialized; snapshot migration active |
+| `Matcher(mode="basic" or "multilevel")` | Paper/research implementation | Nondurable, externally serialized; recursive `deepcopy` removed, mutation journals active |
 
 All paths maintain proper maximal matching, not maximum matching. The production
 algorithm is explicitly different from the paper/coloring/hierarchy machinery;
@@ -42,9 +42,10 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
 
 1. Broader repeated skew/arrival qualification on fresh installed-wheel runs,
    with exact-prefix queries, independent recovery and all losses retained.
-2. Replace successful paper-engine whole-state snapshots with validated mutation
-   journals, preserving graph/object identity, coloring/fans/hierarchy, accounting
-   and exact failure rollback. Do not call partial migration complete.
+2. Complete adversarial qualification and finish integrating paper coloring/fan/
+   hierarchy operations into the durable production service. Recursive Matcher
+   `deepcopy` has been removed; do not confuse this with durable paper integration
+   or full billion-vertex support.
    Integrate basic/multilevel through the durable production service with explicit
    algorithm selection and persisted identity. The user requires this on 2026-10-03;
    it is no longer a permanent nondurable research-only destination. Current
@@ -76,9 +77,9 @@ Basic/multilevel now share System endpoint-cache deltas and avoid temporary
 partition unions for point membership. [ADR 0027](adrs/0027-system-cache-deltas.md)
 defines the new mutation boundary; it is not yet System/Hierarchy undo.
 System roots, touched endpoint rows and old matching-set cuts now use bounded
-first-write undo with identity-preserving snapshot memoization. Shared hierarchy
-rows use one undo record. Hierarchy/auxiliary snapshots and typed durable recovery
-remain. [ADR 0028](adrs/0028-system-undo-journal.md) records the verified boundary.
+first-write undo with retained root identity. Shared hierarchy rows use one undo
+record. Recursive Matcher copying has since been removed; typed durable recovery
+remains. [ADR 0028](adrs/0028-system-undo-journal.md) records the System boundary.
 
 ## Deferred by explicit user direction
 
@@ -92,5 +93,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,147 passing tests; CI and benchmark results must be attributed to their exact
+1,155 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.

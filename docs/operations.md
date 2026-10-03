@@ -91,7 +91,7 @@ On 2026-10-02 the user explicitly deferred remaining deployment aggregate
 quotas, monitoring/supervision and transport integration, alongside tighter
 latency, hardware power-loss and larger-scale qualification. The operating
 responsibilities above remain documented future requirements, not promises of
-an installed deployment. Repeatability/skew and paper snapshot migration stay
+an installed deployment. Repeatability/skew and durable paper-engine integration stay
 active; see [current status](status.md).
 
 ## Failure and restart

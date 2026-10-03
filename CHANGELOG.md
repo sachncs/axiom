@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — engineering through 2026-10-03
 
+- Matcher update transactions now contain no recursive `deepcopy`: shallow root
+  references combine with bounded undo for indexes and phase-clock cells. Failure
+  tests patch `copy.deepcopy` to raise and verify exact rollback/retry. This removes
+  a global recursive allocation but does not finish durable paper integration.
+- 1,167 local tests pass after the no-copy transaction migration.
+
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references
   and redundant fan indexes. This is a migration oracle, not durable paper storage.
@@ -21,13 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed version/partner queries, bounded maintenance and local ownership.
 - Independent paced/burst/full-ring/growth/drain/hub qualification harnesses,
   explicit offer-loss accounting, long-run recovery evidence and Linux hard
-  allocation/disk-exhaustion drills. 1,147 local tests pass at this milestone.
+  allocation/disk-exhaustion drills. Earlier scoped milestone recorded 1,155 tests.
 - Architecture decision records and operations guidance explaining production
   alternatives to whole-state copying and the limits of current guarantees.
 
 ### Fixed
 
-- System objects now retain their original root references through failures.
+- At the System-journal milestone, System objects retained their original root references through failures.
   Bounded first-write cells restore aliased Lambda/L rows and deleted matching
   edges; incremental basic/multilevel cache paths share this owner-bound journal.
   System alias memoization avoids copying its original cache rows. Remaining
@@ -38,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   identical certificates and every full-state update prefix; measurements and
   qualifications are recorded in `benchmarks/results/paper/systems.json`. These
   small nondurable runs are not production throughput claims.
+
+- At the Hierarchy-journal milestone, multilevel Matcher transactions retained the prior Hierarchy root and its
+  unchanged partition/index containers instead of recursively copying them.
+  Deferred-edge mutations use bounded first-write undo; graph and System journals
+  continue to own topology and shared cache rows. This was followed by the complete
+  Matcher recursive-copy removal described above; neither milestone is durable paper integration.
 
 - Basic/multilevel share class-owned System endpoint-cache deltas. Sorted rows
   use binary-search insert/remove rather than whole-row sorting; point-membership
@@ -89,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Million-vertex degree-four full-ring 30-minute and growth/drain 10-minute
   stages exceed 10k real durable changes/s with queries and exact recovery.
   First independently paced degree-65,536 hub stage also passes; broader
-  repeatability/skew and paper snapshot migration remain active.
+  repeatability/skew and durable paper-engine integration remain active.
 - Deployment integration/aggregate quotas, tighter latency, physical power-loss
   and billion-vertex qualification are deferred by user, not delivered promises.
 - Durable `basic`/`multilevel` integration through the production service is now

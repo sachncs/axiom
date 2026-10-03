@@ -20,9 +20,10 @@ scalar undo, not a generic container interception layer or durable codec.
 
 Ledger routes active assignments through this journal, with ten entries maximum.
 Active field deletion and journal replacement reject before changing state.
-The Matcher snapshot memo retains the original Ledger and aliases rather than
-copying it. On failure, accounting rolls back in place alongside graph journals;
-other Python state still uses the established snapshot path. Absent-edge deletes
+At the time of this ADR, the Matcher snapshot memo retained the original Ledger
+and aliases rather than copying it. On failure, accounting rolled back in place
+alongside graph journals; remaining Python state was later migrated by ADR 0003.
+Absent-edge deletes
 now also use an accounting transaction while retaining their existing no-op
 accounting semantics and unchanged graph version. Duplicate inserts remain no-ops.
 

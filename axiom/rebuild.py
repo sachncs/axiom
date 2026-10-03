@@ -162,14 +162,25 @@ class Multilevel:
         if len(matcher.level_phase_updates) != len(matcher.level_phase_lengths):
             Multilevel.reset(matcher)
         for index, length in enumerate(matcher.level_phase_lengths):
-            matcher.level_phase_updates[index] += 1
+            updates = matcher.level_phase_updates
+            indices = matcher.level_phase_indices
+            update = updates[index] + 1
+            if matcher.clocks is not None:
+                matcher.clocks.write(updates, index, update)
+            else:
+                updates[index] = update
             if matcher.level_phase_updates[index] > length:
                 raise RuntimeError(
                     "multilevel phase clock exceeded its configured boundary"
                 )
             if matcher.level_phase_updates[index] == length:
-                matcher.level_phase_indices[index] += 1
-                matcher.level_phase_updates[index] = 0
+                index_value = indices[index] + 1
+                if matcher.clocks is not None:
+                    matcher.clocks.write(indices, index, index_value)
+                    matcher.clocks.write(updates, index, 0)
+                else:
+                    indices[index] = index_value
+                    updates[index] = 0
 
     def configure(self, matcher: Matcher) -> None:
         """Configure the density-sensitive recursive schedule and its clocks."""
@@ -362,13 +373,23 @@ class Multilevel:
         if parent_boundary:
             # The parent phase has closed: consume deferred deletions and
             # establish a new level-1 root over the current live graph.
-            matcher.multi.deferred_deletions.clear()
+            matcher.multi.clear()
             matcher.multi.sync_graph(matcher.graph)
-            matcher.inserted_edges.clear()
-            matcher.inserted_incident_edges.clear()
-            matcher.deleted_edges.clear()
-            matcher.inserted_incident_counts.clear()
-            matcher.bad_vertices.clear()
+            if matcher.auxiliary is None:
+                matcher.inserted_edges.clear()
+                matcher.inserted_incident_edges.clear()
+                matcher.deleted_edges.clear()
+                matcher.inserted_incident_counts.clear()
+                matcher.bad_vertices.clear()
+            else:
+                for values in (
+                    matcher.inserted_edges,
+                    matcher.inserted_incident_edges,
+                    matcher.deleted_edges,
+                    matcher.inserted_incident_counts,
+                    matcher.bad_vertices,
+                ):
+                    matcher.auxiliary.clear(values)
         else:
             # A child phase rebuild keeps the inherited parent snapshot and
             # cumulative update sets.  Insertions remain outside the phase

@@ -1,8 +1,8 @@
 """Owner-bound undo for admitted paper Systems, cached rows and matching cuts.
 
 Root references are retained, not recursively copied. Row aliases share one
-first-write record across all admitted Systems and hierarchy cache edits.
-Hierarchy's own containers and other Matcher state still use snapshots.
+first-write record across all admitted Systems and hierarchy cache edits. Other
+Matcher state is protected by its owner-specific journals and shallow root record.
 """
 
 from __future__ import annotations
@@ -105,22 +105,6 @@ class Systems:
         if count > self.capacity - self.size:
             raise MemoryError("system journal capacity exceeded")
         self.size += count
-
-    def retain(self, memo: dict[int, object]) -> None:
-        """Preserve roots and shared row aliases in the remaining snapshot memo.
-
-        This admission enumerates all original rows; it is not locally bounded
-        validation or a total-memory quota. It does not copy row contents.
-        """
-        self.check()
-        for system, attributes in self.roots.values():
-            memo[id(system)] = system
-            for value in attributes.values():
-                if type(value) in (set, dict):
-                    memo[id(value)] = value
-        for container in self.maps.values():
-            for values in container.values():
-                memo[id(values)] = values
 
     def edit(
         self,

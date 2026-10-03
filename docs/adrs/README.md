@@ -9,7 +9,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | --- | --- | --- |
 | [0001](0001-production-qualification.md) | Qualify 10k durable real updates/s at one million vertices | Target accepted; qualification pending |
 | [0002](0002-native-storage.md) | Compact native storage instead of per-vertex Python sets | Implemented; storage-only evidence |
-| [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Native graph/partner journals and separate durability implemented; paper snapshot migration pending |
+| [0003](0003-bounded-transactions.md) | Bounded undo instead of whole-state `deepcopy` | Matcher recursive `deepcopy` removed; durable paper integration and state-sized admission/certificates remain |
 | [0004](0004-sparse-phase-indexes.md) | Sparse phase overlays instead of eager empty maps | Implemented and regression-tested; short-trace evidence only |
 | [0005](0005-incremental-certificates.md) | Immediate incremental certificates, not disabled checks | Native production certificates implemented; paper hierarchy work pending |
 | [0006](0006-native-production-matcher.md) | Native production matcher, retaining the paper engine | Native service implemented; permanent nondurable paper split superseded by 0023 |
@@ -35,6 +35,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0026](0026-color-class-journal.md) | Bounded class/seed membership undo and retained list/set aliases | Color classes migrated; shared-class admission, System/Hierarchy snapshots and durable integration remain active |
 | [0027](0027-system-cache-deltas.md) | Shared endpoint-cache mutations and union-free point membership | Cache delta boundary implemented; System/Hierarchy journals and durable integration remain active |
 | [0028](0028-system-undo-journal.md) | Bounded System-root, shared-row and matching-cut undo | System objects and touched rows migrated; Hierarchy/auxiliary snapshots and durable integration remain active |
+| [0029](0029-hierarchy-root-journal.md) | Retain Hierarchy roots and journal deferred phase deletions | Hierarchy journal delivered; Matcher recursive copy subsequently removed; durable paper integration remains |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -49,7 +50,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Previous cost/risk | Replacement and reason | Guarantee/limit and current status |
 | --- | --- | --- |
 | Per-vertex Python adjacency sets/objects | Native blocked adjacency and degree-sensitive indexes reduce object and allocation overhead (0002) | Shared native budget; Python reference storage remains available |
-| Whole-state `deepcopy` before each edit | Reserve-before-mutation graph/partner undo journals make ordinary production edits local (0003) | Exact logical rollback, allocation-free native undo, fail-stop on certificate/undo corruption; Python paper snapshots remain |
+| Whole-state `deepcopy` before each edit | Shallow root references plus bounded owner journals for Matcher state (0003) | Exact tested rollback for enlisted state; some admission/certification work remains global; durable paper promotion remains |
 | Eager empty phase dictionaries/sets | Sparse live-endpoint overlays avoid allocating empty vertex buckets (0004) | Phase counters/lifecycle unchanged; regression-tested |
 | Global scans on every ordinary production edit | Local dependency certificates plus separate independent full audits (0005) | Immediate proper/maximal matching checks are retained, not disabled; paper hierarchy scans still present |
 | Paper coloring/fans/hierarchy on the production path | Explicit `axiom.engine.Engine`, with deterministic incremental maximal matching (0006) | Research engine retained; different matching choices and no transferred paper theorem; hub deletion remains degree-dependent |

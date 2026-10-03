@@ -33,15 +33,17 @@ Thread-safety:
 
 from __future__ import annotations
 
-import copy
 import math
 from collections.abc import Iterator
 from contextlib import contextmanager
 
 from axiom.augment import augment as augment
+from axiom.auxiliary import Auxiliary
 from axiom.classes import Classes
+from axiom.clocks import Clocks
 from axiom.color import Vizing
 from axiom.graph import Adjacency, empty
+from axiom.hierarchies import Hierarchies
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import is_maximal_matching, partners
@@ -164,6 +166,9 @@ class Matcher:
         self.views: Views | None = None
         self.classes: Classes | None = None
         self.systems: Systems | None = None
+        self.hierarchies: Hierarchies | None = None
+        self.auxiliary: Auxiliary | None = None
+        self.clocks: Clocks | None = None
 
         self.z: int = 0
         self.phase_length: int = 0
@@ -374,12 +379,18 @@ class Matcher:
             return
         matched = vertex in self.matched_vertices
         if matched:
-            self.S_hat.discard(vertex)
+            if self.auxiliary is None:
+                self.S_hat.discard(vertex)
+            else:
+                self.auxiliary.member(self.S_hat, vertex, False)
             if vertex in self.system.U:
                 self.__remove_h_source(vertex)
         else:
             if vertex in self.system.A or vertex in self.system.B:
-                self.S_hat.add(vertex)
+                if self.auxiliary is None:
+                    self.S_hat.add(vertex)
+                else:
+                    self.auxiliary.member(self.S_hat, vertex, True)
             if vertex in self.system.U:
                 # ProcUpdate replaces the source's outgoing H edges.  Remove
                 # the old reverse-index entries first; otherwise a changed
@@ -391,9 +402,15 @@ class Matcher:
                     for target in self.system.lambda_lists.get(vertex, [])
                     if self.graph.has_edge(vertex, target)
                 }
-                self.H[vertex] = targets
+                if self.auxiliary is None:
+                    self.H[vertex] = targets
+                else:
+                    self.auxiliary.assign(self.H, vertex, targets)
                 for target in targets:
-                    self.H_reverse.setdefault(target, set()).add(vertex)
+                    if self.auxiliary is None:
+                        self.H_reverse.setdefault(target, set()).add(vertex)
+                    else:
+                        self.auxiliary.add(self.H_reverse, target, vertex)
 
         # ProcUpdate removes only edges leaving a status-changing vertex.
         # Incoming edges to a bad target remain valid: their sources may
@@ -408,49 +425,83 @@ class Matcher:
 
     def __remove_h_source(self, source: Vertex) -> None:
         """Remove one source and all of its reverse-H index entries."""
-        targets = self.H.pop(source, set())
+        if self.auxiliary is None:
+            targets = self.H.pop(source, set())
+        else:
+            targets = self.H.get(source, set())
+            self.auxiliary.remove(self.H, source)
         for target in targets:
             incoming = self.H_reverse.get(target)
             if incoming is not None:
-                incoming.discard(source)
-                if not incoming:
-                    self.H_reverse.pop(target, None)
+                if self.auxiliary is None:
+                    incoming.discard(source)
+                    if not incoming:
+                        self.H_reverse.pop(target, None)
+                else:
+                    self.auxiliary.discard(self.H_reverse, target, source, empty=True)
 
     def __add_h_tilde(self, edge: tuple[Vertex, Vertex]) -> None:
         """Insert one ``H_tilde`` edge and its incoming-edge index."""
         source, target = edge
         if edge in self.H_tilde:
             return
-        self.H_tilde.add(edge)
-        self.H_tilde_reverse.setdefault(target, set()).add(source)
+        if self.auxiliary is None:
+            self.H_tilde.add(edge)
+            self.H_tilde_reverse.setdefault(target, set()).add(source)
+        else:
+            self.auxiliary.member(self.H_tilde, edge, True)
+            self.auxiliary.add(self.H_tilde_reverse, target, source)
 
     def __remove_h_tilde_source(self, source: Vertex) -> None:
         """Remove all outgoing ``H_tilde`` edges for one source."""
         outgoing = [edge for edge in self.H_tilde if edge[0] == source]
         for left, target in outgoing:
-            self.H_tilde.remove((left, target))
+            if self.auxiliary is None:
+                self.H_tilde.remove((left, target))
+            else:
+                self.auxiliary.member(self.H_tilde, (left, target), False)
             incoming = self.H_tilde_reverse.get(target)
             if incoming is not None:
-                incoming.discard(source)
-                if not incoming:
-                    self.H_tilde_reverse.pop(target, None)
+                if self.auxiliary is None:
+                    incoming.discard(source)
+                    if not incoming:
+                        self.H_tilde_reverse.pop(target, None)
+                else:
+                    self.auxiliary.discard(
+                        self.H_tilde_reverse, target, source, empty=True
+                    )
 
     def __add_inserted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
         """Add an ``E_I`` edge to the incident index used by rematching."""
-        self.inserted_edges.add(edge)
+        if self.auxiliary is None:
+            self.inserted_edges.add(edge)
+        else:
+            self.auxiliary.member(self.inserted_edges, edge, True)
         left, right = edge
-        self.inserted_incident_edges.setdefault(left, set()).add(edge)
-        self.inserted_incident_edges.setdefault(right, set()).add(edge)
+        if self.auxiliary is None:
+            self.inserted_incident_edges.setdefault(left, set()).add(edge)
+            self.inserted_incident_edges.setdefault(right, set()).add(edge)
+        else:
+            self.auxiliary.add(self.inserted_incident_edges, left, edge)
+            self.auxiliary.add(self.inserted_incident_edges, right, edge)
 
     def __remove_inserted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
         """Remove an ``E_I`` edge from its two incident index buckets."""
-        self.inserted_edges.discard(edge)
+        if self.auxiliary is None:
+            self.inserted_edges.discard(edge)
+        else:
+            self.auxiliary.member(self.inserted_edges, edge, False)
         left, right = edge
         for vertex in (left, right):
-            values = self.inserted_incident_edges[vertex]
-            values.discard(edge)
-            if not values:
-                del self.inserted_incident_edges[vertex]
+            if self.auxiliary is None:
+                values = self.inserted_incident_edges[vertex]
+                values.discard(edge)
+                if not values:
+                    del self.inserted_incident_edges[vertex]
+            else:
+                self.auxiliary.discard(
+                    self.inserted_incident_edges, vertex, edge, empty=True
+                )
 
     def __inserted_edges_at(self, vertex: Vertex) -> list[tuple[Vertex, Vertex]]:
         """Return incident inserted edges in deterministic order."""
@@ -757,15 +808,22 @@ class Matcher:
                 restores_phase_edge = was_deferred or edge in self.deleted_edges
                 if not restores_phase_edge:
                     self.__add_inserted_edge(edge)
-                self.deleted_edges.discard(edge)
+                if self.auxiliary is None:
+                    self.deleted_edges.discard(edge)
+                else:
+                    self.auxiliary.member(self.deleted_edges, edge, False)
                 if self.multi is not None:
-                    self.multi.deferred_deletions.discard(edge)
+                    self.multi.undefer(edge)
                 newly_bad: list[Vertex] = []
                 if not was_deferred:
                     for vertex in edge:
-                        self.inserted_incident_counts[vertex] = (
-                            self.inserted_incident_counts.get(vertex, 0) + 1
-                        )
+                        count = self.inserted_incident_counts.get(vertex, 0) + 1
+                        if self.auxiliary is None:
+                            self.inserted_incident_counts[vertex] = count
+                        else:
+                            self.auxiliary.assign(
+                                self.inserted_incident_counts, vertex, count
+                            )
                         # The paper's insertion protocol marks a vertex bad
                         # when its incident E_I count reaches z.  ``self.z``
                         # is the active (finest) multilevel parameter; using
@@ -776,7 +834,10 @@ class Matcher:
                             self.inserted_incident_counts[vertex] >= insertion_budget
                             and vertex not in self.bad_vertices
                         ):
-                            self.bad_vertices.add(vertex)
+                            if self.auxiliary is None:
+                                self.bad_vertices.add(vertex)
+                            else:
+                                self.auxiliary.member(self.bad_vertices, vertex, True)
                             newly_bad.append(vertex)
                 # A newly bad target must expose every already-live inserted
                 # edge to it whose other endpoint is currently unmatched.
@@ -833,16 +894,19 @@ class Matcher:
                 if edge in self.inserted_edges:
                     self.__remove_inserted_edge(edge)
                     if self.multi is not None:
-                        self.multi.deferred_deletions.discard(edge)
+                        self.multi.undefer(edge)
                 else:
-                    self.deleted_edges.add(edge)
+                    if self.auxiliary is None:
+                        self.deleted_edges.add(edge)
+                    else:
+                        self.auxiliary.member(self.deleted_edges, edge, True)
                     if self.multi is not None:
                         # Keep adversarially deleted phase edges in the
                         # decremental snapshot until the next recursive
                         # rebuild.  The live matching is repaired against
                         # the host graph immediately, while the z-system
                         # retains this edge to preserve its degree bound.
-                        self.multi.deferred_deletions.add(edge)
+                        self.multi.defer(edge)
             # The paper removes an adversarially deleted edge from M_1
             # immediately.  Keeping it in the seed until the next subphase
             # would violate M_1 subset M* between boundaries.
@@ -923,7 +987,6 @@ class Matcher:
             graph_objects.append(self.multi.graph)
             graph_objects.extend(level.graph for level in self.multi.levels)
         managed = {id(graph): graph for graph in graph_objects if graph is not None}
-        memo: dict[int, object] = dict(managed)
         graph_snapshots: list[tuple[Graph, set[Edge]]] = []
         journals: list[tuple[Packed, int]] = []
         accountant = self.accountant
@@ -931,17 +994,18 @@ class Matcher:
         views = None
         classes = None
         systems = None
+        hierarchies = None
+        auxiliary = None
+        clocks = None
         snapshot = None
         published = False
         try:
             views = Views(self)
-            for value in (views.edges, views.vertices, views.partners):
-                memo[id(value)] = value
             classes = Classes(self)
-            for container in (classes.list, classes.seed, *classes.slots):
-                memo[id(container)] = container
             systems = Systems(self)
-            systems.retain(memo)
+            hierarchies = Hierarchies(self)
+            auxiliary = Auxiliary(self)
+            clocks = Clocks(self)
             for graph in managed.values():
                 if isinstance(graph, Packed):
                     token = graph.begin()
@@ -953,14 +1017,23 @@ class Matcher:
                 else:
                     graph_snapshots.append((graph, set(graph.edges())))
             accounting = accountant.begin()
-            # Keep the accounting object and its aliases; only its changed
-            # scalar cells need undo. Other paper state retains the oracle.
-            memo[id(accountant)] = accountant
+            # All mutable roots are retained by their owner journals; the
+            # root snapshot records assignments without traversing contents.
             snapshot = {
-                name: copy.deepcopy(value, memo)
+                name: value
                 for name, value in self.__dict__.items()
                 if name
-                not in {"graph", "colorer", "policy", "views", "classes", "systems"}
+                not in {
+                    "graph",
+                    "colorer",
+                    "policy",
+                    "views",
+                    "classes",
+                    "systems",
+                    "hierarchies",
+                    "auxiliary",
+                    "clocks",
+                }
             }
             yield
             if self.accountant is not accountant:
@@ -969,12 +1042,18 @@ class Matcher:
             views.validate()
             classes.validate()
             systems.validate()
+            hierarchies.validate()
+            auxiliary.validate()
+            clocks.validate()
             publish(journals)
             published = True
             accountant.commit(accounting)
             views.commit()
             classes.commit()
             systems.commit()
+            hierarchies.commit()
+            auxiliary.commit()
+            clocks.commit()
         except BaseException as error:
             if published:
                 self.failed = True
@@ -988,6 +1067,12 @@ class Matcher:
                     accountant.rollback(accounting)
                 if systems is not None:
                     systems.rollback()
+                if hierarchies is not None:
+                    hierarchies.rollback()
+                if auxiliary is not None:
+                    auxiliary.rollback()
+                if clocks is not None:
+                    clocks.rollback()
                 if classes is not None:
                     classes.rollback()
                 if views is not None:
@@ -1468,7 +1553,8 @@ class Matcher:
     def __setattr__(self, name: str, value: object) -> None:
         """Reject replacement of active matching undo, using protocol spelling."""
         if (
-            name in {"views", "classes", "systems"}
+            name
+            in {"views", "classes", "systems", "hierarchies", "auxiliary", "clocks"}
             and getattr(self, name, None) is not None
         ):
             raise RuntimeError("active matching journal cannot be replaced")
@@ -1477,7 +1563,8 @@ class Matcher:
     def __delattr__(self, name: str) -> None:
         """Prevent deletion of the active matching transaction handle."""
         if (
-            name in {"views", "classes", "systems"}
+            name
+            in {"views", "classes", "systems", "hierarchies", "auxiliary", "clocks"}
             and getattr(self, name, None) is not None
         ):
             raise RuntimeError("active matching journal cannot be deleted")

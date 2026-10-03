@@ -2,8 +2,10 @@
 
 The durable paper integration is **not implemented**. `axiom.witness.Witness`
 is a bounded diagnostic comparison oracle, not a checkpoint decoder, persistence
-API or mutation journal. It establishes the differential test boundary needed
-before removing the paper matcher's current `deepcopy` rollback path.
+API or mutation journal. The Matcher update path no longer calls `deepcopy`:
+transactions retain shallow attribute roots and enlist owner-specific journals.
+That removes recursive copy allocation; it does not establish durable paper
+state, billion-vertex support, or zero state-proportional work in every journal.
 
 ## Coupled state inventory
 
@@ -63,19 +65,19 @@ topology or native graph version. Duplicate inserts do not change state. A futur
 durable paper codec/replay must retain these algorithm-specific semantics rather
 than borrowing native `changed` bookkeeping without examination.
 
-Accounting now uses ten-entry first-write undo, not deepcopy; failed updates
+Accounting now uses ten-entry first-write undo; failed updates
 preserve Ledger identity and exact counters, including absent-edge deletion
 failures. [ADR 0024](adrs/0024-accounting-journal.md) records publication/fail-stop
 behavior and the remaining migration boundary.
 
 Matching edge/vertex sets and the partner map now use first-write cell undo, with
-their original containers retained in the snapshot memo. Failed repair/rebuild
+their original containers retained by the owner journal. Failed repair/rebuild
 restores their identities, including old edits before candidate replacement.
 [ADR 0025](adrs/0025-matching-view-journal.md) records the ownership precondition,
 shared-view alias admission and uncopied-view mutation inventory.
 
 Color classes and the seed now also retain original list/set references through
-the snapshot memo. Registered removals use bounded first-write membership cells;
+the owner journal. Registered removals use bounded first-write membership cells;
 failed subphase/rebuild candidates restore original list slots and seed/class
 sharing in place. [ADR 0026](adrs/0026-color-class-journal.md) records the mutation
 inventory, global alias admission and remaining migration boundary.
@@ -87,16 +89,26 @@ and mutation boundary. Basic and multilevel updates now retain the original
 System objects, root references, touched cache rows and deleted M edges in a
 bounded owner-bound journal. Aliases shared with hierarchy row indexes use the
 same first-write record. Failed updates restore System and row identities before
-the remaining hierarchy/Matcher snapshot rollback. [ADR 0028](adrs/0028-system-undo-journal.md)
-documents admission, capacity and failure semantics. Hierarchy partitions/indexes,
-deferred overlays, auxiliary maps and clocks still use snapshots; admission and
-certificates remain state-sized, and Python undo is not allocation-free.
+the remaining auxiliary Matcher rollback. [ADR 0028](adrs/0028-system-undo-journal.md)
+documents admission, capacity and failure semantics. The active Hierarchy root
+and unchanged partition/index roots retain identity; deferred edges have their
+own bounded journal. Auxiliary maps/sets and clock cells now use bounded
+first-write journals. Arbitrary in-place partition/index edits are not
+journaled, and some admission/certificates remain state-sized.
 
-Existing paper rollback restores logical state but replaces many other Python objects
-from snapshots. The tests do **not** claim preservation of every pre-failure
-Python object identity. Journal migration must additionally preserve identities
-and aliases while covering in-place container edits, attribute replacement,
-phase/hierarchy reconstruction and failure during allocations. Typed recovery,
+The active Hierarchy itself and its unchanged partition/index roots now pass
+through shallow Matcher root retention by identity. Deferred deletion membership has a
+bounded first-write journal, while System-owned `L_levels` rows use the System
+journal. Full rebuilds install private Hierarchy candidates; rollback restores
+the original root, graph identity/topology, Systems and deferred-edge cells. This
+does not journal arbitrary in-place writes to partition/index contents; that
+mutation boundary must remain enforced and tested. See [ADR 0029](adrs/0029-hierarchy-root-journal.md).
+
+Existing paper rollback is now journal-based for known mutation owners. Tests
+check identity and aliases for enlisted roots, but do not claim arbitrary custom
+colorer/graph objects are rollback-safe. Remaining work is to audit/integrate the
+paper's coloring, fan, hierarchy and phase-maintenance operations as one production
+path, exercise adversarial boundaries, and add typed recovery,
 persisted algorithm/configuration, bounded checkpoint/history, SQLite failure,
 commit/publication/ack sequencing, concurrent service admission and installed
 per-mode qualification remain required under [ADR 0023](adrs/0023-durable-paper-integration.md).

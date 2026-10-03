@@ -1,0 +1,48 @@
+{
+  "status": "working_tree_diagnostic_not_release_qualification",
+  "runner": {
+    "path": "benchmarks/performance.py",
+    "sha256": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767",
+    "python": "3.14.8",
+    "platform": "macOS-26.7.1-arm64",
+    "hardware": "Apple M3 Pro"
+  },
+  "workload": {
+    "vertices": 512,
+    "family": "sparse",
+    "average_degree": 4,
+    "workload": "churn",
+    "seed": 7,
+    "updates": 128,
+    "inserts": 64,
+    "deletes": 64,
+    "repeats": 3,
+    "trace_sha256": "fc66ac89a9da24591f05eaf0aa4b6d5880491e684a563415e34a8890a461cda9"
+  },
+  "modes": {
+    "basic": {
+      "updates_per_second": 1281.0691546951255,
+      "traced_initial_bytes": 515696,
+      "traced_construction_peak_bytes": 576880,
+      "traced_peak_bytes": 922856,
+      "traced_transient_bytes": 407160,
+      "peak_rss_bytes": 34291712,
+      "certificate_sha256": "54dedc3e78ce368dfcec199824b88171700b072124f8bd8ee0270f765713fcb9"
+    },
+    "multilevel": {
+      "updates_per_second": 311.73347736524045,
+      "traced_initial_bytes": 1357848,
+      "traced_construction_peak_bytes": 1538064,
+      "traced_peak_bytes": 2191104,
+      "traced_transient_bytes": 833256,
+      "peak_rss_bytes": 37388288,
+      "certificate_sha256": "54dedc3e78ce368dfcec199824b88171700b072124f8bd8ee0270f765713fcb9"
+    }
+  },
+  "limitations": [
+    "A 512-vertex diagnostic does not establish million-vertex or billion-vertex scale.",
+    "The benchmark measures the complete working tree; it does not isolate the causal effect of deepcopy removal.",
+    "Peak RSS includes interpreter and graph setup; traced transient bytes are not a process memory quota.",
+    "This run is not durable-service or paper-engine production qualification."
+  ]
+}

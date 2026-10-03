@@ -20,9 +20,9 @@ original-set undo. Slot zero replacement is restored from the retained reference
 Rollback restores memberships, original slots, roots and intentional seed/class
 sharing in place, including edits made before candidate construction.
 
-The snapshot memo preserves original list/seed/class references rather than
-copying their edge populations. Other state retains the differential snapshot
-oracle. Existing proper-coloring, live matching, maximality, seed containment,
+At this stage, the snapshot memo preserved original list/seed/class references
+rather than copying edge populations; the remaining recursive Matcher copy was
+removed later by ADR 0003. Existing proper-coloring, live matching, maximality, seed containment,
 auxiliary and hierarchy certificates remain. Journal validation additionally
 requires supported plain candidate containers; it is not a substitute for those
 algorithm certificates. Raw container edits are not a supported transactional

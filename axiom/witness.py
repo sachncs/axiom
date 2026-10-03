@@ -15,6 +15,7 @@ import math
 from dataclasses import fields
 from typing import Any
 
+from axiom.clocks import Clocks
 from axiom.color import Greedy, Vizing
 from axiom.core import Matcher
 from axiom.graph import Adjacency
@@ -44,13 +45,16 @@ class Witness:
                 "H_tilde_reverse",
                 "S_hat",
                 "accountant",
+                "auxiliary",
                 "bad_vertices",
                 "colorer",
+                "clocks",
                 "classes",
                 "deleted_edges",
                 "eta",
                 "failed",
                 "graph",
+                "hierarchies",
                 "inserted_edges",
                 "inserted_incident_counts",
                 "inserted_incident_edges",
@@ -94,6 +98,7 @@ class Witness:
         Paper: frozenset(),
         Basic: frozenset(),
         Multilevel: frozenset(),
+        Clocks: frozenset(),
     }
 
     def __init__(

@@ -144,31 +144,16 @@ def test_failure_restores_full_state_and_every_external_matching_alias(
 
 
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])
-def test_matching_views_are_reused_not_deepcopied(mode, monkeypatch):
-    import axiom.core as core
-
+def test_matching_views_transaction_runs_without_deepcopy(mode, monkeypatch):
     matcher = Matcher(16, mode=mode, graph=Packed(16))
-    original = core.copy.deepcopy
-    held = (matcher.matched_edges, matcher.matched_vertices, matcher.partner_map)
-    observed = set()
+    import copy
 
-    def audited(value, memo):
-        if any(value is container for container in held):
-            assert memo[id(value)] is value
-            observed.add(id(value))
-        return original(value, memo)
+    def reject(*args, **kwargs):
+        raise AssertionError("Matcher update invoked deepcopy")
 
-    monkeypatch.setattr(core.copy, "deepcopy", audited)
+    monkeypatch.setattr(copy, "deepcopy", reject)
     matcher.insert(0, 1)
-    assert observed == {id(container) for container in held}
-    assert all(
-        current is original
-        for current, original in zip(
-            (matcher.matched_edges, matcher.matched_vertices, matcher.partner_map),
-            held,
-            strict=True,
-        )
-    )
+    assert matcher.maximal()
 
 
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])

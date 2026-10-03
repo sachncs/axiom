@@ -2,7 +2,7 @@
 
 Axiom has a native SQLite-backed local matching service and separate Python
 paper/research modes. Start with [current status](status.md): implementation,
-measured evidence, active repeatability/skew and snapshot migration, and explicitly
+measured evidence, active repeatability/skew and paper-engine integration, and explicitly
 deferred work. The production engine does not inherit the paper theorem.
 
 ## Contents

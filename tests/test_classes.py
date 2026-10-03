@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from axiom.auxiliary import Auxiliary
 from axiom.classes import Classes
 from axiom.core import Matcher
 from axiom.graph import Adjacency
@@ -219,6 +220,12 @@ def test_real_deletion_failure_restores_class_identity_full_state_then_retries(
     held = tuple(original)
     edge = min(seed)
     before = Witness().capture(matcher)
+    import copy
+
+    def forbid_copy(*args, **kwargs):
+        raise AssertionError("Matcher transaction invoked deepcopy")
+
+    monkeypatch.setattr(copy, "deepcopy", forbid_copy)
     advance = Matcher._Matcher__advance_update_counter
 
     def fail(owner):
@@ -242,32 +249,23 @@ def test_real_deletion_failure_restores_class_identity_full_state_then_retries(
     assert matcher.maximal() and matcher.classes is None
 
 
-def test_snapshot_memo_reuses_original_classes_instead_of_copying(monkeypatch):
-    import axiom.core as core
-
+def test_class_transactions_run_without_recursive_deepcopy(monkeypatch):
     matcher = populated()
-    held = (matcher.matchings, matcher.seed_matching, *matcher.matchings)
-    copy = core.copy.deepcopy
-    observed = set()
+    import copy
 
-    def audited(value, memo):
-        if any(value is original for original in held):
-            assert memo[id(value)] is value
-            observed.add(id(value))
-        return copy(value, memo)
+    def reject(*args, **kwargs):
+        raise AssertionError("Matcher update invoked deepcopy")
 
-    monkeypatch.setattr(core.copy, "deepcopy", audited)
+    monkeypatch.setattr(copy, "deepcopy", reject)
     matcher.delete(*min(matcher.seed_matching))
-    assert id(held[0]) in observed and id(held[1]) in observed
+    assert matcher.maximal()
 
 
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])
-@pytest.mark.parametrize("stage", ["capacity", "copy"])
+@pytest.mark.parametrize("stage", ["capacity", "admission"])
 def test_admission_and_snapshot_failures_restore_full_state_then_retry(
     mode, stage, monkeypatch
 ):
-    import axiom.core as core
-
     matcher = populated(mode)
     before = Witness().capture(matcher)
     remove = Classes.remove
@@ -278,14 +276,14 @@ def test_admission_and_snapshot_failures_restore_full_state_then_retry(
         remove(journal, matching, edge)
 
     def reject(*args):
-        raise MemoryError("snapshot allocation failed")
+        raise MemoryError("journal admission failed")
 
     with monkeypatch.context() as patch:
         if stage == "capacity":
             patch.setattr(Classes, "remove", bounded)
         else:
-            patch.setattr(core.copy, "deepcopy", reject)
-        with pytest.raises(MemoryError, match="capacity|allocation"):
+            patch.setattr(Auxiliary, "__init__", reject)
+        with pytest.raises(MemoryError, match="capacity|admission"):
             matcher.delete(*edge)
     assert Witness().capture(matcher) == before
     assert matcher.classes is None and matcher.views is None

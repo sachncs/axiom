@@ -156,21 +156,6 @@ def test_unsupported_or_bound_system_rejects_before_any_handle_is_bound(shape):
         assert system.journal is None
 
 
-def test_original_roots_and_row_aliases_are_retained_in_snapshot_memo():
-    matcher = populated("multilevel")
-    journal = Systems(matcher)
-    memo = {}
-    journal.retain(memo)
-    for system, roots in journal.roots.values():
-        assert memo[id(system)] is system
-        for name in ("A", "B", "U", "M", "lambda_lists", "L_lists"):
-            assert memo[id(roots[name])] is roots[name]
-        for container in (system.lambda_lists, system.L_lists):
-            for row in container.values():
-                assert memo[id(row)] is row
-    journal.rollback()
-
-
 @pytest.mark.parametrize("shape", ["configuration", "record", "valid", "foreign"])
 def test_candidate_system_configuration_and_record_are_checked_before_publish(shape):
     matcher = populated()
@@ -293,7 +278,7 @@ def test_invalid_candidate_roots_reject_then_restore_exact_state(shape):
 
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])
 @pytest.mark.parametrize("backend", [Adjacency, Packed])
-@pytest.mark.parametrize("stage", ["repair", "subphase", "rebuild", "copy", "publish"])
+@pytest.mark.parametrize("stage", ["repair", "subphase", "rebuild", "publish"])
 def test_real_failure_retains_system_roots_rows_full_state_then_retries(
     mode, backend, stage, monkeypatch
 ):
@@ -321,9 +306,7 @@ def test_real_failure_retains_system_roots_rows_full_state_then_retries(
         raise RuntimeError("System boundary rejected")
 
     with monkeypatch.context() as patch:
-        if stage == "copy":
-            patch.setattr(core.copy, "deepcopy", reject)
-        elif stage == "publish":
+        if stage == "publish":
             patch.setattr(core, "publish", reject)
         else:
             patch.setattr(Matcher, "_Matcher__advance_update_counter", fail)

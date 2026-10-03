@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from itertools import pairwise
 
 from axiom.graph import empty
+from axiom.hierarchies import Hierarchies
 from axiom.paper_coloring import Paper
 from axiom.system import System
 from axiom.system import build as build_z_system
@@ -67,6 +68,42 @@ class Hierarchy:
     R_levels: list[set[Vertex]] = field(default_factory=list)
     L_levels: list[dict[Vertex, list[Vertex]]] = field(default_factory=list)
     deferred_deletions: set[Edge] = field(default_factory=set)
+    journal: Hierarchies | None = field(
+        default_factory=lambda: None, init=False, repr=False, compare=False
+    )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Keep an active hierarchy transaction handle bound to its owner."""
+        if name == "journal" and getattr(self, "journal", None) is not None:
+            raise RuntimeError("active hierarchy journal cannot be replaced")
+        object.__setattr__(self, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        """Prevent deletion of the active hierarchy transaction handle."""
+        if name == "journal" and getattr(self, "journal", None) is not None:
+            raise RuntimeError("active hierarchy journal cannot be deleted")
+        object.__delattr__(self, name)
+
+    def defer(self, edge: Edge) -> None:
+        """Retain an adversarial deletion in this phase graph."""
+        if self.journal is None:
+            self.deferred_deletions.add(edge)
+        else:
+            self.journal.change(edge, True)
+
+    def undefer(self, edge: Edge) -> None:
+        """Remove a restored or inserted edge from deferred phase deletions."""
+        if self.journal is None:
+            self.deferred_deletions.discard(edge)
+        else:
+            self.journal.change(edge, False)
+
+    def clear(self) -> None:
+        """Consume every deferred deletion at a parent-phase boundary."""
+        if self.journal is None:
+            self.deferred_deletions.clear()
+        else:
+            self.journal.clear()
 
     def sync_graph(
         self,

@@ -17,8 +17,10 @@ are not conflated. The default bound is 65,536 distinct edge/endpoint records;
 capacity/allocation failure occurs before the associated view edit. Repeated
 drop/add transitions retain the pre-update value, not an intermediate one.
 
-The snapshot memo retains all three containers without deepcopy. Other paper
-state continues to use snapshots. `add_match`/`drop_match` register mutations;
+At this ADR's implementation stage, the snapshot memo retained all three
+containers without deepcopy while other paper state still used snapshots.
+Those remaining recursive Matcher copies were removed later by ADR 0003.
+`add_match`/`drop_match` register mutations;
 Hierarchy I3 repair already delegates to these helpers. `refresh` constructs
 new private containers and replaces all three root references. Failed refresh,
 including failure between assignments, restores the old references and earlier
@@ -74,8 +76,8 @@ Tests cover both modes and both graph backends, original edge/vertex/map identit
 first-write retention, old edits followed by candidate replacement, capacity
 rejection and retry, repair/rebuild/copy/publication failure, endpoint corruption,
 partial candidate assignment, unsafe aliases/cycles, lifecycle/thread errors and
-post-publication fail-stop. Instrumented deepcopy calls require memo reuse for
-the three views. Full-state replay/rollback oracle checks remain independent of
+post-publication fail-stop. Instrumented deepcopy calls at this stage required
+memo reuse for the three views. Full-state replay/rollback oracle checks remain independent of
 proper/maximal matching checks.
 
 Matching classes/seeds, System/Hierarchy containers, clocks and auxiliary maps

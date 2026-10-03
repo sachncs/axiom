@@ -1,0 +1,80 @@
+{
+  "status": "diagnostic_only_not_durable_qualification",
+  "runner": {
+    "revision": "aaafdf9",
+    "sha256": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767"
+  },
+  "comparison": {
+    "baseline": "System-journal installed wheel",
+    "baseline_wheel_sha256": "e0ba13654accba4e0e67033a028230e01c3aa54e9468cb5a41c720b956d250fa",
+    "candidate": "Hierarchy-root journal installed wheel",
+    "candidate_wheel_sha256": "70bcbbc26a3f045276c9dc5e54beb4058f0bcd5733ab0861309f93b1ea7d19f8",
+    "hardware": "same host, sequential isolated Python 3.14 interpreters",
+    "allocator": "MallocLargeCache=0",
+    "workload": {
+      "vertices": 512,
+      "family": "sparse",
+      "average_degree": 4,
+      "workload": "churn",
+      "seed": 7,
+      "updates": 128,
+      "inserts": 64,
+      "deletes": 64,
+      "timed_repeats": 3
+    }
+  },
+  "modes": {
+    "basic": {
+      "trace_sha256": "fc66ac89a9da24591f05eaf0aa4b6d5880491e684a563415e34a8890a461cda9",
+      "baseline_updates_per_second": 792.920705,
+      "candidate_updates_per_second": 803.515380,
+      "baseline_transient_traced_bytes": 582832,
+      "candidate_transient_traced_bytes": 583064,
+      "baseline_peak_rss_bytes": 34504704,
+      "candidate_peak_rss_bytes": 34390016,
+      "ordinary_update_p99_ns": [1626625, 1631667],
+      "maximality_query_p99_ns": [49625, 47083],
+      "certificate_sha256": "54dedc3e78ce368dfcec199824b88171700b072124f8bd8ee0270f765713fcb9",
+      "repair_counters": {
+        "phase_rebuilds": 0,
+        "subphase_rebuilds": 2,
+        "rematch_u_scans": 19,
+        "rematch_b_scans": 0,
+        "rematch_a_scans": 0
+      },
+      "full_state_prefixes": 257,
+      "prefix_sha256": "c02401f2b62fa8cf1ca92263d5458382175d62632229624a73980c68849097e9",
+      "phase_rebuilds_in_prefix_run": 1,
+      "subphase_rebuilds_in_prefix_run": 10
+    },
+    "multilevel": {
+      "trace_sha256": "fc66ac89a9da24591f05eaf0aa4b6d5880491e684a563415e34a8890a461cda9",
+      "baseline_updates_per_second": 244.330976,
+      "candidate_updates_per_second": 253.103505,
+      "baseline_transient_traced_bytes": 1203568,
+      "candidate_transient_traced_bytes": 1115032,
+      "baseline_peak_rss_bytes": 37830656,
+      "candidate_peak_rss_bytes": 38223872,
+      "ordinary_update_p99_ns": [4432958, 4198167],
+      "maximality_query_p99_ns": [50542, 51083],
+      "certificate_sha256": "54dedc3e78ce368dfcec199824b88171700b072124f8bd8ee0270f765713fcb9",
+      "repair_counters": {
+        "phase_rebuilds": 0,
+        "subphase_rebuilds": 5,
+        "rematch_u_scans": 19,
+        "rematch_b_scans": 0,
+        "rematch_a_scans": 0
+      },
+      "full_state_prefixes": 257,
+      "prefix_sha256": "57df0ba481efea3d724c4729d2489fdf186b6a8983f4b090229e6716715b7767",
+      "phase_rebuilds_in_prefix_run": 3,
+      "subphase_rebuilds_in_prefix_run": 24
+    }
+  },
+  "remaining": [
+    "Matcher auxiliary H/H-tilde, sparse overlay and clock state still use deepcopy",
+    "Hierarchy in-place partition/index edits do not have undo cells",
+    "Other paper snapshots and O(state) admission/certification remain",
+    "Basic and multilevel are not integrated into SQLite Durable/Service"
+  ]
+}

@@ -1,4 +1,10 @@
-# Paper matching-view diagnostic
+# Paper-engine diagnostics
+
+`no-deepcopy-spotcheck.json` records a reproducible 512-vertex working-tree
+diagnostic after recursive Matcher snapshot removal. It is not a before/after
+causal comparison, release qualification, or evidence for million/billion-node
+support. The prior installed-wheel comparisons below have their own runner and
+methodology; do not compare those rates directly.
 
 [views.json](views.json) retains all three installed-wheel results, including
 per-operation samples, query latency, memory, certificates and artifact provenance.
@@ -113,3 +119,24 @@ hierarchy certificates are checked after every update. Basic has one phase and
 ten subphase rebuilds; multilevel has three phases and 24 subphases. The runner
 uses normalized `None` values only for the two new idle undo-handle fields so
 the old and new Witness schemas compare the same logical state.
+
+## Hierarchy root retention
+
+[hierarchies.json](hierarchies.json) isolates the Hierarchy migration by comparing
+the prior System-journal wheel (`e0ba1365…`) with the clean candidate wheel
+(`70bcbbc2…`), using the unchanged runner and 512-vertex/128-update fixed trace.
+Every operation outcome, trace digest, final certificate and repair counter
+matches. Basic is effectively flat within this small sample (792.92 to 803.52/s;
+transient traced bytes 582,832 to 583,064). Multilevel rises from 244.33 to
+253.10/s (+3.6%) and transient traced bytes fall from 1,203,568 to 1,115,032
+(-7.4%); RSS rises by about 1.0%. Three repeats on one host are diagnostic, not
+a general speedup or production-throughput qualification.
+
+An independent 128-vertex, 256-update comparison checks the complete Witness
+state at all 257 prefixes for each mode; both prefix sequences match exactly.
+Maximality and hierarchy invariants are checked after every update. Both traces
+cross phase and subphase rebuilds. Failure injection after a full rebuild on
+Adjacency and Packed also restores original hierarchy/partition object identities
+and permits retry. The Hierarchy root is still passed to `deepcopy`, but its memo
+entry returns the exact original object without traversing it. Other Matcher
+state continues to be deep-copied.

@@ -1,7 +1,7 @@
 # ADR 0003: Replace global snapshots with bounded local undo
 
-Date: 2026-10-01. Status: graph/production partner journals implemented;
-paper algorithm-state migration pending. Separate durable publication is delivered
+Date: 2026-10-01. Status: Matcher recursive `deepcopy` removed on 2026-10-03;
+owner-specific paper journals are implemented but durable paper integration remains incomplete. Separate durable publication is delivered
 in ADRs 0009/0010; undo itself remains an in-memory guarantee.
 
 ## Context
@@ -35,7 +35,8 @@ preserves token sequencing, preventing stale-token reuse.
 Matcher opens journals on distinct existing managed native graphs, including base
 phase graphs. Group publication validates every participant before an
 allocation-free commit pass; it cannot close an earlier journal then discover a
-stale later participant. Python paper state retains the snapshot reference path.
+stale later participant. Python paper transactions now use a shallow root-reference
+snapshot and enlist owner journals for in-place mutable state.
 The native production core now journals compact partners and matching count
 alongside its graph, without whole-state copying.
 
@@ -59,7 +60,9 @@ batch mutations, and injected certificate corruption with rollback and fail-stop
 Paper accounting now uses bounded first-write undo and retains Ledger identity
 on failure ([0024](0024-accounting-journal.md)). Absent-edge accounting failures
 also roll back; uncertain cleanup/rollback explicitly fail-stops the Matcher.
-Full Python algorithm snapshot elimination is **not implemented**.
-The matching edge/vertex/partner containers also retain identity through bounded
-cell undo rather than deepcopy ([0025](0025-matching-view-journal.md)). Other state
-and global alias preflight remain on the migration path, not a completed local engine.
+Recursive Matcher-state `deepcopy` elimination is complete; tests patch
+`copy.deepcopy` to fail during successful and failed updates. Durable paper-state
+encoding and promotion into the production service are **not implemented**. The
+matching edge/vertex/partner containers retain identity through bounded cell undo
+([0025](0025-matching-view-journal.md)). Some validation/admission passes remain
+proportional to state.

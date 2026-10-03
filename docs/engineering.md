@@ -41,8 +41,8 @@ that later-delivered production components are absent.
 | Million-vertex 10k durable updates/s | Independent 30-minute hot/full-ring soaks at 10.97k/11.00k/s with queries and exact recovery | Broader degree/growth/skew/burst runs and repeatability; all misses/drops/rejections remain explicit |
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
-| Paper engine | Coloring/fan rollback regressions and sparse overlays retained | Hierarchy/auxiliary snapshot migration, incremental hierarchy validation and durable service integration, separately certified |
-| Paper undo migration | Accounting, live matching views, color classes/seed and System roots/touched rows use bounded first-write undo with retained identity | Hierarchy partitions/indexes, auxiliary maps and clocks still use snapshots; durable paper integration remains active |
+| Paper engine | Coloring/fan rollback regressions, sparse overlays, and exact root/cell journals retained | Adversarial algorithm qualification and durable service integration, separately certified |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, System, Hierarchy, auxiliary indexes and clocks use owner journals/root retention | Some certificate/admission checks remain state-sized; arbitrary partition/index in-place edits are outside journal contract; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -613,31 +613,23 @@ repeated baseline/candidate runs; widen the experiment if observed variation is
 near the gate. Do not accept gains obtained by dropping validation or sampling
 different traces.
 
-### 2. Replace successful-update full snapshots with bounded mutation journals
+### 2. Matcher recursive-copy removal: delivered; paper integration remains
 
-Investigate an inverse-operation journal for local updates: record a prior value
-before each mutation, commit only after repair and invariant checks, and unwind
-in reverse order on failure. Preserve object identity. Journal sets, maps,
-matching/partner views, index buckets, hierarchy metadata, graph edits, and
-accounting—not just the live graph edge.
+`Matcher.__atomic_update` now records shallow attribute roots and delegates
+in-place edits to bounded owner journals for graph storage, views, classes,
+Systems, hierarchy/deferred edges, auxiliary indexes, clocks and accounting.
+The Matcher update path does not import or call `deepcopy`. Tests patch the
+standard-library function to fail during successful updates and injected failure
+rollback. This avoids recursively traversing and allocating the full object
+graph; it is not a claim of constant-time transaction admission, since some
+certificates and System admission passes remain state-sized.
 
-For phase transitions, build candidate replacement structures separately, verify
-them, and publish at one commit point where the existing API permits it. Preserve
-caller graph identity rather than swapping the caller's graph for a private copy.
-Keep the existing snapshot path available as a differential reference while the
-journal implementation is being certified. Ensure nested repair/chain/fan
-transitions cannot commit independently of their enclosing update.
-
-Acceptance tests must inject failures after each meaningful mutation stage,
-including a phase rebuild and coloring/chain-flip failure. Compare graph contents,
-object identities, matching views, indexes, hierarchy/coloring/fan state, and
-counters with the pre-call state. Repeat a valid update after rollback to prove
-the object is still usable. A failure in the rollback mechanism itself must be
-explicit; never silently claim success on potentially corrupted state.
-
-This is the largest likely ordinary-update opportunity based on the profile.
-Measure journal size and transient memory, not just throughput, before accepting
-it. Do not predict the speedup from profiled percentages alone.
+Remaining engineering: audit every paper mutation site; route fan, chain-flip,
+coloring, and phase transitions through the same enclosing transaction; add
+adversarial negative/boundary coverage for each owner; measure transient journal
+memory and latency; and integrate explicitly selected basic/multilevel modes into
+durable service/recovery. Keep graph identity and exact failure rollback. A rollback
+failure remains fail-stop, never a silent success.
 
 ### 3. Make invariant maintenance incremental, not optional
 

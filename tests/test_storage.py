@@ -118,10 +118,10 @@ def test_candidate_publication_does_not_reuse_stale_tokens(publish: str) -> None
     graph.rollback(current)
 
 
-def test_snapshot_allocation_failure_closes_native_journals(
+def test_journal_admission_failure_closes_native_journals(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import axiom.core as core
+    from axiom.clocks import Clocks
 
     graph = Packed(16)
     graph.ring()
@@ -129,10 +129,10 @@ def test_snapshot_allocation_failure_closes_native_journals(
     before = list(graph.edges()), graph.version
 
     def failure(*args: object, **kwargs: object) -> object:
-        raise MemoryError("injected snapshot allocation failure")
+        raise MemoryError("injected clock journal admission failure")
 
-    monkeypatch.setattr(core.copy, "deepcopy", failure)
-    with pytest.raises(MemoryError, match="injected"):
+    monkeypatch.setattr(Clocks, "__init__", failure)
+    with pytest.raises(MemoryError, match="injected clock"):
         matcher.insert(0, 4)
     assert (list(graph.edges()), graph.version) == before
     for part in (graph, matcher.phase_graph, matcher.phase_base_graph):

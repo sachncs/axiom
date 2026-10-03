@@ -147,9 +147,10 @@ def test_active_field_deletion_rejects_before_mutation(name):
 
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])
 @pytest.mark.parametrize("backend", [Adjacency, Packed])
-@pytest.mark.parametrize("stage", ["repair", "publish", "copy"])
+@pytest.mark.parametrize("stage", ["repair", "publish", "admission"])
 def test_real_update_rolls_back_accounting_in_place(mode, backend, stage, monkeypatch):
     import axiom.core as core
+    from axiom.clocks import Clocks
 
     matcher = Matcher(16, graph=backend(16), mode=mode)
     matcher.phase_length = 1
@@ -171,7 +172,7 @@ def test_real_update_rolls_back_accounting_in_place(mode, backend, stage, monkey
         elif stage == "publish":
             patch.setattr(core, "publish", fail)
         else:
-            patch.setattr(core.copy, "deepcopy", fail)
+            patch.setattr(Clocks, "__init__", fail)
         with pytest.raises((RuntimeError, MemoryError), match="injected"):
             matcher.insert(0, 1)
     assert matcher.accountant is ledger
