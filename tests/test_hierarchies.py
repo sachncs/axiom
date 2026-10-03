@@ -9,6 +9,7 @@ from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchies import Hierarchies
 from axiom.hierarchy import Hierarchy, build_hierarchy, project, refine_hierarchy
+from axiom.paper_coloring import Paper
 from axiom.rebuild import copy as copysystem
 from axiom.storage import Packed
 from axiom.system import build as buildsystem
@@ -91,6 +92,29 @@ def test_refinement_does_not_materialize_old_saturated_partition(
 
     monkeypatch.setattr(Vertices, "__or__", reject_union)
     refined = refine_hierarchy(hierarchy, 2)
+
+    assert refined.check()
+
+
+def test_refinement_compares_coloring_keys_without_copying_edge_sets() -> None:
+    """Successful completeness validation must not iterate/copy all color keys."""
+
+    class KeyViewOnly(dict):
+        def __iter__(self):
+            raise AssertionError("refinement copied the full coloring key set")
+
+    class KeyViewColorer(Paper):
+        @classmethod
+        def color(cls, graph, delta):
+            coloring = super().color(graph, delta)
+            return KeyViewOnly(coloring.items())
+
+    graph = Packed(16)
+    for vertex in range(16):
+        graph.add_edge(vertex, (vertex + 1) % 16)
+    hierarchy = build_hierarchy(graph, [4])
+
+    refined = refine_hierarchy(hierarchy, 2, colorer=KeyViewColorer())
 
     assert refined.check()
 

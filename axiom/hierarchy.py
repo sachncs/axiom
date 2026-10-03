@@ -780,7 +780,7 @@ def refine_hierarchy(
     subgraph = project(hierarchy.graph, previous.M)
     active_colorer = require(colorer)
     coloring = active_colorer.color(subgraph, z)
-    if set(coloring) != set(previous.M):
+    if coloring.keys() != previous.M:
         raise RuntimeError(
             "recursive refinement received an incomplete edge coloring: "
             f"missing={sorted(set(previous.M) - set(coloring))}"

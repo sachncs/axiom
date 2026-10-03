@@ -1199,3 +1199,9 @@ strict U reduction whenever another pass is requested. Four baseline/candidate
 Witness comparisons were identical; a 20k star refinement was 6.1% faster, but
 aggregate peak stayed flat due to other state. See
 [ADR 0097](adrs/0097-monotone-refinement-progress.md).
+
+Recursive refinement also compares the coloring key view directly against the
+selected matching rather than allocating two full edge sets for completeness
+validation. A 100k-edge component probe measured 8,389,040 to 112 bytes of
+traced comparison peak and 2.45 to 0.90 ms median; full-refinement performance
+is not inferred. See [ADR 0098](adrs/0098-compare-refinement-coloring-keys.md).
