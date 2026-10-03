@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U` and degree counters, streamed ordered built-in builder edges, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active; end-to-end paper memory/rate repeats are pending |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered built-in builder edges, Hierarchy, auxiliary indexes, clocks and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase graph copies remain state-sized; durable paper integration remains active; end-to-end paper memory/rate repeats are pending |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -144,6 +144,14 @@ fallback. On one 200k-vertex path, measuring edge enumeration alone reduced
 tracemalloc peak from 27.2 MB (global sort/materialization) to 432 bytes and
 elapsed time from 0.276s to 0.019s. This excludes builder mutation/partition
 costs and is not a rebuild SLA. See [ADR 0042](adrs/0042-stream-paper-builder-edges.md).
+
+Phase System copies and hierarchy `R` regions now retain dense `Vertices`
+instead of expanding to Python sets. A one-million-member copy measured 8.0 MB
+for the compact representation versus 65.5 MB for a set copy (87.8% lower).
+The hierarchy journal admits compact values only in `R1/R_levels`; `A/N`
+partitions stay sets. This does not remove graph snapshots, and retained
+System/hierarchy/root state still needs end-to-end peak-memory measurement.
+See [ADR 0043](adrs/0043-preserve-compact-paper-partition-copies.md).
 
 ## Implemented foundation, not product qualification
 

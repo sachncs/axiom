@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   path. A 200k-vertex path enumeration sample reduced traced peak from 27.2 MB
   to 432 bytes; full rebuild performance remains unqualified. See
   [ADR 0042](docs/adrs/0042-stream-paper-builder-edges.md).
+- System phase copies and hierarchy `R` regions preserve dense compact vertex
+  partitions instead of expanding them into Python sets. An isolated million-
+  member copy measured 8.0 MB vs 65.5 MB (87.8% lower); phase graph snapshots
+  and remaining hierarchy state still contribute. See
+  [ADR 0043](docs/adrs/0043-preserve-compact-paper-partition-copies.md).
 - 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.

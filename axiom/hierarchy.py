@@ -27,7 +27,7 @@ References:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Container
 from dataclasses import dataclass, field
 from itertools import pairwise
 
@@ -37,6 +37,7 @@ from axiom.paper_coloring import Paper
 from axiom.system import System
 from axiom.system import build as build_z_system
 from axiom.types import Edge, Graph, Vertex, canonical
+from axiom.vertices import Vertices
 
 
 @dataclass
@@ -62,10 +63,10 @@ class Hierarchy:
     A1: set[Vertex] = field(default_factory=set)
     A2: set[Vertex] = field(default_factory=set)
     N1: set[Vertex] = field(default_factory=set)
-    R1: set[Vertex] = field(default_factory=set)
+    R1: set[Vertex] | Vertices = field(default_factory=set)
     A_levels: list[set[Vertex]] = field(default_factory=list)
     N_levels: list[set[Vertex]] = field(default_factory=list)
-    R_levels: list[set[Vertex]] = field(default_factory=list)
+    R_levels: list[set[Vertex] | Vertices] = field(default_factory=list)
     L_levels: list[dict[Vertex, list[Vertex]]] = field(default_factory=list)
     deferred_deletions: set[Edge] = field(default_factory=set)
     journal: Hierarchies | None = field(
@@ -498,12 +499,12 @@ def build_hierarchy(
     hierarchy = Hierarchy(graph=system.graph, k=1, levels=[system])
     hierarchy.A_levels = [set(system.A)]
     hierarchy.N_levels = [set(system.B)]
-    hierarchy.R_levels = [set(system.U)]
+    hierarchy.R_levels = [system.U.copy()]
     hierarchy.L_levels = [dict(system.L_lists)]
     hierarchy.A1 = set(system.A)
     hierarchy.A2 = set()
     hierarchy.N1 = set(system.B)
-    hierarchy.R1 = set(system.U)
+    hierarchy.R1 = hierarchy.R_levels[0]
     for z in level_zs[1:]:
         hierarchy = refine_hierarchy(hierarchy, z, colorer=active_colorer)
     return hierarchy
@@ -627,7 +628,7 @@ def refine_hierarchy(
 
     old_a = set(previous.A)
     old_b = set(previous.B)
-    old_u = set(previous.U)
+    old_u = previous.U.copy()
     levels = [set(level) for level in hierarchy.A_levels]
     # The base construction already removes U-U matching edges.  Keep this
     # defensive normalization for explicitly supplied/custom hierarchies;
@@ -640,7 +641,7 @@ def refine_hierarchy(
     old_s = old_a | old_b
     new_a: set[Vertex] = set()
     new_b: set[Vertex] = set()
-    new_u = set(old_u)
+    new_u = old_u.copy()
     settled = set(old_s)
     for vertex in sorted(old_b):
         # Step 1 of the paper's construction keeps S and U fixed and
@@ -672,7 +673,7 @@ def refine_hierarchy(
         """Move a U vertex into A or B and repair its neighbors' partitions."""
         if vertex not in new_u:
             return
-        new_u.remove(vertex)
+        new_u.discard(vertex)
         settled.add(vertex)
         if degree[vertex] >= z_prime - h and all(
             neighbor in settled for neighbor in neighbors(vertex, chosen)
@@ -825,8 +826,8 @@ def refine_hierarchy(
     all_a_levels = [*levels, new_a]
     all_n_levels = [*hierarchy.N_levels, new_b]
     all_b = set(new_b)
-    all_u = set(new_u)
-    all_r_levels = [
+    all_u = new_u
+    all_r_levels: list[set[Vertex] | Vertices] = [
         (set().union(*all_a_levels[index + 1 :]) | all_b | all_u) - all_n_levels[index]
         for index in range(len(all_a_levels))
     ]
@@ -847,7 +848,7 @@ def refine_hierarchy(
     next_hierarchy.A1 = set(next_hierarchy.A_levels[0])
     next_hierarchy.A2 = set().union(*next_hierarchy.A_levels[1:])
     next_hierarchy.N1 = set(next_hierarchy.N_levels[0])
-    next_hierarchy.R1 = set(next_hierarchy.R_levels[0])
+    next_hierarchy.R1 = next_hierarchy.R_levels[0]
     if not next_hierarchy.check():
         raise RuntimeError(
             "recursive refinement produced an invalid inherited hierarchy"
@@ -869,7 +870,7 @@ def neighbors(vertex: Vertex, edges: set[Edge]) -> list[Vertex]:
 
 
 def lists(
-    graph: Graph, vertices: set[Vertex], region: set[Vertex]
+    graph: Graph, vertices: set[Vertex], region: Container[Vertex]
 ) -> dict[Vertex, list[Vertex]]:
     """Index each supplied vertex's sorted neighbors in the requested region."""
     return {

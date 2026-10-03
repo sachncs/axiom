@@ -32,7 +32,11 @@ def test_vertices_set_algebra_and_reference_equality():
     assert vertices & {4, 5} == {4}
     assert vertices - {9} == {1, 4, 15}
     assert {0, 9} - vertices == {0}
-    assert vertices.copy() == reference
+    copied = vertices.copy()
+    assert type(copied) is Vertices
+    assert copied == reference
+    copied.discard(1)
+    assert vertices == reference
 
 
 def test_vertices_boundaries_and_clear_keep_bitmap_consistent():

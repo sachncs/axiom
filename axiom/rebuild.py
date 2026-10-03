@@ -47,7 +47,7 @@ def copy(system: System, graph: Graph) -> System:
         z=system.z,
         A=set(system.A),
         B=set(system.B),
-        U=set(system.U),
+        U=system.U.copy(),
         M=set(system.M),
     )
     copied.index()
@@ -336,7 +336,7 @@ class Multilevel:
                 levels=[working_base_system],
                 A_levels=[set(base_system.A)],
                 N_levels=[set(base_system.B)],
-                R_levels=[set(base_system.U)],
+                R_levels=[base_system.U.copy()],
                 L_levels=[dict(working_base_system.L_lists)],
             )
             inserted = set(matcher.inserted_edges)

@@ -6,6 +6,7 @@ from threading import get_ident
 from typing import TYPE_CHECKING
 
 from axiom.types import Edge
+from axiom.vertices import Vertices
 
 if TYPE_CHECKING:
     from axiom.core import Matcher
@@ -67,10 +68,12 @@ class Hierarchies:
             type(level) is not System for level in root.levels
         ):
             raise TypeError("hierarchy levels require plain System records")
-        for name in ("A1", "A2", "N1", "R1", "deferred_deletions"):
+        for name in ("A1", "A2", "N1", "deferred_deletions"):
             if type(getattr(root, name)) is not set:
                 raise TypeError("hierarchy partitions require plain sets")
-        for name in ("A_levels", "N_levels", "R_levels"):
+        if type(root.R1) not in (set, Vertices):
+            raise TypeError("hierarchy R partition requires a set or Vertices")
+        for name in ("A_levels", "N_levels"):
             values = getattr(root, name)
             if type(values) is not list or any(
                 type(value) is not set for value in values
@@ -78,6 +81,10 @@ class Hierarchies:
                 raise TypeError(
                     "hierarchy level partitions require plain lists and sets"
                 )
+        if type(root.R_levels) is not list or any(
+            type(value) not in (set, Vertices) for value in root.R_levels
+        ):
+            raise TypeError("hierarchy R levels require sets or Vertices")
         if type(root.L_levels) is not list or any(
             type(container) is not dict for container in root.L_levels
         ):

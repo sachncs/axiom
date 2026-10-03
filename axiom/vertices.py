@@ -114,9 +114,13 @@ class Vertices:
         self.members = array("I")
         self.size = 0
 
-    def copy(self) -> set[Vertex]:
-        """Return an independent ordinary set of members."""
-        return set(self.members)
+    def copy(self) -> Vertices:
+        """Return an independent compact copy, preserving member order."""
+        copied = Vertices(self.n)
+        copied.positions = array(self.positions.typecode, self.positions)
+        copied.members = array(self.members.typecode, self.members)
+        copied.size = self.size
+        return copied
 
     def check(self) -> bool:
         """Independently verify positions, members and cached cardinality."""

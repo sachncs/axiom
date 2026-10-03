@@ -29,6 +29,7 @@ from axiom.simulation import replay as replay
 from axiom.storage import Packed
 from axiom.system import System, build
 from axiom.types import canonical
+from axiom.vertices import Vertices
 from axiom.visualize import visualize_adjacency, visualize_matching, visualize_system
 
 # ------------------------------------------------------------------
@@ -582,6 +583,25 @@ class TestBuild:
         assert system.check_p2()
         assert system.check_lambda()
         assert system.check_L()
+
+    def test_phase_system_copy_retains_dense_u_representation(self) -> None:
+        graph = Adjacency(32)
+        system = build(graph, z=2)
+        assert type(system.U) is Vertices
+
+        copied = rebuild_module.copy(system, graph.copy())
+
+        assert type(copied.U) is type(system.U)
+        assert copied.U == system.U
+        assert copied.U is not system.U
+        copied.U.discard(0)
+        assert 0 in system.U
+
+    def test_hierarchy_region_retains_compact_dense_u(self) -> None:
+        hierarchy = build_hierarchy(Adjacency(32), [2])
+        assert type(hierarchy.R1) is Vertices
+        assert hierarchy.R1 is hierarchy.R_levels[0]
+        assert hierarchy.R1 == hierarchy.levels[-1].U
 
     def test_build_keeps_determinism_for_unordered_custom_edge_iterators(self) -> None:
         class Reversed(Adjacency):
