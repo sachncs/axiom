@@ -34,6 +34,12 @@ about 25 seconds; this does not establish production throughput or billion-node
 support. Broader repeatability, snapshot migration, and durable integration
 remain active. See [ADR 0059](adrs/0059-local-paper-coloring-transactions.md).
 
+A-level rematching now checks basic and hierarchical partition membership directly
+instead of constructing a Python set copy or union for each repair. The isolated
+500k-member probe fell from 35.2 MB/0.162 s for one set copy to 1.1 KB/0.021 s
+for 100k direct membership checks. End-to-end paper update qualification remains
+open; see [ADR 0060](adrs/0060-avoid-rematch-partition-copies.md).
+
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),
 [hub](../benchmarks/results/independent/hub-steady-million.json),

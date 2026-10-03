@@ -1290,7 +1290,6 @@ class Matcher:
         if level is None:
             candidates = system.L_lists.get(a, [])
             allowed_region = None
-            allowed_a = set(system.A)
         else:
             if self.multi is None:
                 raise RuntimeError(
@@ -1298,7 +1297,6 @@ class Matcher:
                 )
             candidates = self.multi.L_levels[level].get(a, [])
             allowed_region = self.multi.R_levels[level]
-            allowed_a = set().union(*self.multi.A_levels[: level + 1])
 
         for u in candidates:
             if allowed_region is not None and u not in allowed_region:
@@ -1313,8 +1311,13 @@ class Matcher:
                 self.accountant.record_rematch_a_scan(scanned)
                 return
             p = self.partner(u)
-            if p is not None and p in allowed_a:
-                continue
+            if p is not None:
+                if level is None and p in system.A:
+                    continue
+                if level is not None and self.multi is not None and any(
+                    p in self.multi.A_levels[index] for index in range(level + 1)
+                ):
+                    continue
             if p is not None:
                 self.drop_match(u, p)
             self.add_match(a, u)

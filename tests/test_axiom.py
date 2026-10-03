@@ -57,6 +57,40 @@ def test_deletion_graph_lookups_do_not_scale_with_unrelated_matching(pairs):
     assert calls == 4
 
 
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_a_rematching_checks_partition_membership_without_copying(mode: str) -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(1, 2)
+    matcher = Matcher(3, graph=graph, mode=mode)
+    for left, right in tuple(matcher.matching()):
+        matcher.drop_match(left, right)
+    matcher.add_match(1, 2)
+
+    class Membership:
+        def __contains__(self, vertex: object) -> bool:
+            return vertex == 2
+
+        def __iter__(self):
+            raise AssertionError("partition membership must not materialize a copy")
+
+    if mode == "basic":
+        assert matcher.system is not None
+        matcher.system.A = Membership()  # type: ignore[assignment]
+        matcher.system.L_lists[0] = [1]
+        level = None
+    else:
+        assert matcher.multi is not None
+        matcher.multi.A_levels[0] = Membership()  # type: ignore[assignment]
+        matcher.multi.R_levels[0] = Membership()  # type: ignore[assignment]
+        matcher.multi.L_levels[0][0] = [1]
+        level = 0
+
+    matcher._Matcher__rematch_a_level(level, 0)
+    assert matcher.partner(1) == 2
+    assert matcher.partner(0) is None
+
+
 # ------------------------------------------------------------------
 # Graph layer
 # ------------------------------------------------------------------

@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remain. Deterministic profiles improved, but large paper builds still take
   about 25 seconds at 8,192 degree-four vertices and broader qualification is
   open. See [ADR 0059](docs/adrs/0059-local-paper-coloring-transactions.md).
+- Basic and multilevel A-rematching now check the active partition roots directly
+  instead of copying/unioning the full A regions for each rematch. Membership-only
+  regressions prove neither path iterates those roots; an isolated 500k-member
+  copy used 35.2 MB versus 1.1 KB for 100k direct checks. This is not end-to-end
+  paper performance evidence. See [ADR 0060](docs/adrs/0060-avoid-rematch-partition-copies.md).
 
 - Matcher update transactions now contain no recursive `deepcopy`: shallow root
   references combine with bounded undo for indexes and phase-clock cells. Failure
