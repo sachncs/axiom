@@ -52,6 +52,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0043](0043-preserve-compact-paper-partition-copies.md) | Preserve compact U/R representation in phase and hierarchy snapshots | One-million-member copy: 8.0 MB compact vs 65.5 MB set (87.8% lower); whole-phase memory and rate remain unqualified |
 | [0044](0044-compact-hierarchy-refinement-state.md) | Use packed counters and avoid redundant universe/phase-edge materialization in hierarchy refinement | Degree arrays replace dense per-vertex dicts; independent level/refinement results and rollback are covered; end-to-end memory/rate remain |
 | [0045](0045-incremental-paper-hierarchy-certificates.md) | Certify hierarchy graph deltas locally; retain full audits at construction/rebuild | Fixed 8,192-vertex trace: 19.70 to 148.65 updates/s (7.55×), 48.6% less traced transient peak; broader qualification remains |
+| [0046](0046-local-maximality-certificates.md) | Certify incremental matching maximality at changed unmatched endpoints | Same 8,192-vertex trace: 148.65 to 228.92 updates/s (1.54×); exact injected-failure rollback; retained storage unchanged |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
@@ -90,6 +91,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Expand compact dense U partitions to Python sets when retaining paper phase snapshots | Clone `Vertices` storage directly and retain compact `R` hierarchy regions (0043) | One-million-member isolated copy uses 8.0 MB vs 65.5 MB; graph/System snapshots and other set-valued partitions remain |
 | Per-vertex Python degree/color containers plus full validation universe and phase-edge copies during multilevel refinement | Packed degree counters, lazy incident-color rows, range membership, and one-pass live-edge construction (0044) | Removes multiple O(n)/O(m) Python temporaries; correctness gates pass but full peak-RSS/throughput benchmark remains |
 | Full hierarchy/cache/phase-edge audit after every paper update | Endpoint-local row/neighborhood certificates plus phase-edge cardinality; full independent audit at rebuild boundaries (0045) | One matched trace shows 7.55× higher multilevel update rate; not durable/product qualification, and other global matching/auxiliary checks remain |
+| Full live-graph maximality scan after each paper update | Check neighborhoods of only topology/matching-touched free vertices; retain full audit for replaced candidates (0046) | One matched trace shows 1.54× further update-rate improvement; auxiliary global validation remains and storage is unchanged |
 
 ## What is not being abandoned
 

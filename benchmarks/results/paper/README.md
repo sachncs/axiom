@@ -117,6 +117,17 @@ shows that the prior every-update full hierarchy audit dominated the paper
 mode at this size; endpoint-local certificates now preserve graph-dependent
 invariants, with complete hierarchy audits retained at rebuild boundaries.
 
+## Incremental maximality certificates
+
+[local-maximality.json](local-maximality.json) compares `4ab447c` with the
+affected-neighborhood certificate on the same 8,192-vertex, average-degree-four
+multilevel churn trace: 128 updates, seed 42, five timing batches. Rate rises
+from 148.65 to 228.92 updates/s (1.54×), with unchanged final graph/matching
+certificates and rebuild counters. Traced transient memory is unchanged within
+measurement noise and RSS differs by 1.52% in a single sample; this is compute
+evidence, not a storage claim or release qualification. A separate 512-vertex
+profile identifies full auxiliary-index validation as the next cost.
+
 ## System root and row journal
 
 [systems.json](systems.json) captures isolated installed-wheel comparisons of

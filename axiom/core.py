@@ -948,6 +948,9 @@ class Matcher:
         """
         graph = self.graph
         mutate = graph.add_edge if added else graph.remove_edge
+        if self.views is not None:
+            self.views.affect(u)
+            self.views.affect(v)
         if isinstance(graph, Packed) or type(graph) is Adjacency:
             version = graph.version if isinstance(graph, Packed) else 0
             count = graph.num_edges()
@@ -1054,6 +1057,10 @@ class Matcher:
             yield
             if self.accountant is not accountant:
                 raise RuntimeError("update replaced its accounting owner")
+            if not views.certify_maximal():
+                raise RuntimeError(
+                    "update repair violated maximality at an affected endpoint"
+                )
             accountant.validate(accounting)
             views.validate()
             classes.validate()
@@ -1178,7 +1185,7 @@ class Matcher:
         self.__rematch_vertex(v)
         self.__cleanup_stale_edges()
 
-        if not self.maximal():
+        if self.views is None and not self.maximal():
             raise RuntimeError(
                 "deletion repair violated maximality; refusing a heuristic "
                 "greedy rebuild"
@@ -1433,23 +1440,11 @@ class Matcher:
             self.policy.advance_phase_clocks(self)
         self.__check_subphase_boundary()
         self.__maintain_i3()
-        if not self.__check_matching_state():
-            raise RuntimeError(
-                "matching views diverged from the authoritative live graph"
-            )
         if not self.__check_auxiliary_indexes():
             raise RuntimeError(
                 "auxiliary matching indexes diverged from authoritative state"
             )
 
-        # I3 repair may reroute a matching edge recursively.  The final
-        # settledness condition is authoritative; an exposed edge endpoint
-        # is an invariant failure, never a reason to switch algorithms.
-        if not self.maximal():
-            raise RuntimeError(
-                "update repair violated maximality; refusing to install a "
-                "replacement matching"
-            )
         # Local rematching is allowed to remove an edge from M_1.  Reconcile
         # that legal transition before the next subphase rather than leaving
         # a stale seed edge that is no longer contained in M*.

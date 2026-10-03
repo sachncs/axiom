@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy certificates and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; matching/auxiliary checks, `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy and maximality certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; auxiliary checks, `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -176,6 +176,18 @@ five-repeat diagnostic is not durable or million-vertex qualification;
 matching/auxiliary global checks remain visible costs. See
 [ADR 0045](adrs/0045-incremental-paper-hierarchy-certificates.md) and the
 [raw comparison JSON](../benchmarks/results/paper/hierarchy-certificates.json).
+
+Incremental update maximality no longer rescans the whole live graph. The
+transaction tracks both endpoints of every topology/matching delta and verifies
+that each affected unmatched vertex has no unmatched neighbor; a matching-root
+replacement still receives the complete audit. A forced missing-rematch test
+proves this local certificate rejects and exactly rolls back an uncovered edge.
+On the same 8,192-vertex trace, this reduced update rate's previous batch time
+from 148.65 to 228.92 updates/s (1.54×) without changing the final certificate.
+This does not reduce retained storage. A separate 512-vertex profile now assigns
+30.8% of cumulative update time to the still-global auxiliary-index audit, which
+is the next measured target. See [ADR 0046](adrs/0046-local-maximality-certificates.md)
+and its [raw run record](../benchmarks/results/paper/local-maximality.json).
 
 ## Implemented foundation, not product qualification
 

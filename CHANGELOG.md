@@ -62,6 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   diagnostic trace measured 7.55× throughput and 48.6% lower transient traced
   allocation with matching certificates unchanged. This is not release or
   million-vertex qualification. See [ADR 0045](docs/adrs/0045-incremental-paper-hierarchy-certificates.md).
+- Incremental matching updates now certify maximality by scanning only affected
+  unmatched neighborhoods; a replaced matching candidate still receives a full
+  audit. A matched 8,192-vertex trace improved 1.54× with its final certificate
+  unchanged. Retained storage is essentially unchanged, and full auxiliary-index
+  validation is now a leading profiled cost. See [ADR 0046](docs/adrs/0046-local-maximality-certificates.md).
 - 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.

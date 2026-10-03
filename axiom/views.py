@@ -11,6 +11,8 @@ import sysconfig
 from threading import get_ident
 from typing import TYPE_CHECKING
 
+from axiom.matching import is_maximal_matching
+
 if TYPE_CHECKING:
     from axiom.core import Matcher
 
@@ -41,6 +43,7 @@ class Views:
             raise ValueError("matching views cannot share a container")
         self.edge: dict[tuple[int, int], bool] = {}
         self.vertex: dict[int, tuple[bool, bool, object]] = {}
+        self.affected: set[int] = set()
         self.isolate()
         object.__setattr__(owner, "views", self)
 
@@ -116,6 +119,7 @@ class Views:
             self.reserve()
             self.edge[edge] = edge in self.edges
         for vertex in (left, right):
+            self.affect(vertex)
             if vertex not in self.vertex:
                 self.reserve()
                 self.vertex[vertex] = (
@@ -123,6 +127,38 @@ class Views:
                     vertex in self.partners,
                     self.partners.get(vertex),
                 )
+
+    def affect(self, vertex: int) -> None:
+        """Record a vertex whose graph or matching neighborhood can change."""
+        self.check()
+        if type(vertex) is not int:
+            raise TypeError("affected matching vertices must be integers")
+        if vertex not in self.affected:
+            self.reserve()
+            self.affected.add(vertex)
+
+    def certify_maximal(self) -> bool:
+        """Certify maximality from touched neighborhoods, or audit a rebuild.
+
+        An edge mutation can invalidate maximality only if it creates an edge
+        between two unmatched vertices. A matching mutation can invalidate it
+        only around a vertex whose matched status changed. ``affected`` contains
+        both endpoints of every live graph edit and every recorded matching
+        edit, so scanning neighbors of its currently unmatched members is a
+        complete certificate for an incremental transaction. Replaced matching
+        roots are rebuilt candidates and retain the full independent audit.
+        """
+        if not self.check():
+            return is_maximal_matching(self.owner.graph, self.owner.matched_edges)
+        for vertex in self.affected:
+            if vertex in self.owner.matched_vertices:
+                continue
+            if any(
+                neighbor not in self.owner.matched_vertices
+                for neighbor in self.owner.graph.neighbors(vertex)
+            ):
+                return False
+        return True
 
     def reserve(self) -> None:
         """Reject a new distinct cell before it or matching state is changed."""
@@ -190,6 +226,7 @@ class Views:
         self.check()
         self.edge.clear()
         self.vertex.clear()
+        self.affected.clear()
         self.active = False
         object.__setattr__(self.owner, "views", None)
 
@@ -222,5 +259,6 @@ class Views:
         self.owner.partner_map = self.partners
         self.edge.clear()
         self.vertex.clear()
+        self.affected.clear()
         self.active = False
         object.__setattr__(self.owner, "views", None)

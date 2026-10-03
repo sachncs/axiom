@@ -156,6 +156,43 @@ def test_matching_views_transaction_runs_without_deepcopy(mode, monkeypatch):
     assert matcher.maximal()
 
 
+def test_incremental_update_uses_touched_neighborhoods_not_full_maximal_scan(
+    monkeypatch,
+):
+    import axiom.core as core
+
+    matcher = Matcher(16, graph=Packed(16))
+
+    def reject(*args, **kwargs):
+        raise AssertionError("incremental update performed a global maximal scan")
+
+    monkeypatch.setattr(core, "is_maximal_matching", reject)
+    matcher.insert(0, 1)
+    assert matcher.partner(0) == 1
+
+
+def test_local_maximality_certificate_rejects_and_rolls_back_uncovered_vertices(
+    monkeypatch,
+):
+    graph = Packed(4)
+    graph.add_edge(0, 1)
+    graph.add_edge(0, 2)
+    matcher = Matcher(4, graph=graph)
+    assert matcher.partner(0) == 1
+    before = Witness().capture(matcher)
+
+    def skip_repair(owner, vertex):
+        return None
+
+    monkeypatch.setattr(Matcher, "_Matcher__rematch_vertex", skip_repair)
+    with pytest.raises(RuntimeError, match="maximality at an affected endpoint"):
+        matcher.delete(0, 1)
+
+    assert Witness().capture(matcher) == before
+    assert matcher.partner(0) == 1
+    assert matcher.graph.check()
+
+
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])
 @pytest.mark.parametrize("capacity", [1, 2])
 def test_capacity_rejection_restores_graph_and_every_view_then_retries(
