@@ -140,6 +140,18 @@ Traced transient allocation changes by less than 0.1%, and single-sample RSS
 is effectively unchanged. Full reconstruction remains at rebuilt-root
 boundaries; property tests independently run it after each generated update.
 
+## Incremental System cache-row validation
+
+[system-certificates.json](system-certificates.json) compares `c3d443a` with
+the stable-root local row validator on the same 8,192-vertex trace. Rate rises
+from 436.54 to 610.30 updates/s (1.40×), with unchanged graph/matching
+certificates and rebuild counters. At 512 vertices the cProfile time for 128
+updates falls from 0.1035 to 0.0733 seconds (29.2%). This is one-host diagnostic
+evidence; sampled memory is unchanged. Standalone/new/replaced Systems retain
+full cache-row admission; generated tests run complete Lambda/L cache equality
+checks after each update. Full phase-owned System bounds are checked at phase
+boundaries, not against intermediate live topology.
+
 ## System root and row journal
 
 [systems.json](systems.json) captures isolated installed-wheel comparisons of

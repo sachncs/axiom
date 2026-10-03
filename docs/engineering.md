@@ -44,7 +44,7 @@ that later-delivered production components are absent.
 | Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
 | Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
 | Paper engine | Coloring/fan rollback regressions, sparse overlays, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, and endpoint-local aggregate rollback retained | Phase-wide adversarial qualification and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy, maximality and auxiliary-index certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
+| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H caches, compact dense `U`/hierarchy `R` copies and degree counters, streamed ordered builder edges, sparse incident-color rows, endpoint-local hierarchy, maximality, auxiliary-index and System cache-row certificates, and built-in `Adjacency` graph edits use compact state or owner journals/root retention | Opaque custom graphs retain a full-edge rollback fallback; `A/B`, graph snapshots, some certificate/admission checks and phase-boundary audits remain global/state-sized; durable paper integration remains active |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Do not count an accepted design, a passing small test, or an older binary's soak
@@ -194,6 +194,20 @@ after each generated test update. The same 8,192-vertex trace improved from
 unchanged. At 512 vertices profiled time fell 27.3%; sampled memory stayed level.
 This is a bounded diagnostic, not production qualification. See [ADR 0047](adrs/0047-incremental-auxiliary-certificates.md)
 and its [raw run record](../benchmarks/results/paper/auxiliary-certificates.json).
+
+Stable Matcher-owned System caches no longer enumerate every `Lambda` and `L`
+row during journal admission and commit. The fast path validates exact changed
+rows and their sorted/nonempty shape; standalone journal admission remains
+exhaustive, and new Systems or replaced cache maps receive a full row audit.
+Generated tests run complete Lambda/L cache equality checks after each update.
+On the same 8,192-vertex trace, rate improved from 436.54 to 610.30 updates/s
+(1.40×), with matching certificate and repair counters unchanged; the
+512-vertex profile fell from 0.1035 to 0.0733 seconds (29.2%). Sampled memory
+stayed level. This remains a
+bounded nondurable diagnostic. The new profile's leading cost is now deletion
+cleanup's scan of the matching plus graph lookups; durable paper integration
+and state-sized snapshot/admission work remain open. See [ADR 0048](adrs/0048-incremental-system-row-validation.md)
+and its [raw record](../benchmarks/results/paper/system-certificates.json).
 
 ## Implemented foundation, not product qualification
 

@@ -1,0 +1,91 @@
+{
+  "status": "diagnostic_only_not_durable_or_release_qualification",
+  "comparison": {
+    "baseline_revision": "c3d443a",
+    "candidate_revision": "c3d443a plus touched-row System validation",
+    "hardware": "Apple M3 Pro, 19,327,352,832 bytes RAM, 12 logical CPUs",
+    "platform": "macOS 26.7.1 arm64",
+    "python": "3.14.8",
+    "runner": {
+      "path": "benchmarks/performance.py",
+      "sha256": "33ee7a41962b3f48eac0cfb5400cee6f0f9dcc3c9275f02b2f397441c73e5767"
+    },
+    "baseline_sources": {
+      "axiom/core.py": "e718e8951bd3fbef57711ca185fa6eb928ae9cce6400b4ab9434397404d5d5e1",
+      "axiom/systems.py": "0d0b1a0c50bfa893ad0cb6f1ff7ea9c97bcf188de9cd00b34b24f92aedbbf51e",
+      "tests/test_systems.py": "5bdc9752029bbbe02fd3e50ce96a93fcf7151b590b38491d1c30cc7063ab4286",
+      "tests/test_property.py": "5f9810c3c3ad7bcb0b7d8f9d45734569127fec1d67195bb23f53b024461fd13d"
+    },
+    "candidate_sources": {
+      "axiom/core.py": "3c088e877a29a245e878d7a1575834d8efc2c0d26f30a728fa2398e614f727f1",
+      "axiom/systems.py": "2ddaaec92c851395470bb5b3e2706824596b385851978a4048816e24bc9aa4d7",
+      "tests/test_systems.py": "758bbe7c8b2c61a34b0c12d8afb597484539004ab4765c6dfe3208fa6c80164c",
+      "tests/test_property.py": "b885bed5d6dab22433dee94a90561d6a1e6a50e41a0255b4b3cec93a32b88e8e"
+    }
+  },
+  "configuration": {
+    "vertices": 8192,
+    "family": "sparse",
+    "average_degree_target": 4,
+    "workload": "churn",
+    "mode": "multilevel",
+    "seed": 42,
+    "real_updates": 128,
+    "timed_repeats": 5,
+    "phase_rebuilds": 0,
+    "subphase_rebuilds": 1,
+    "rematch_u_scans": 9,
+    "trace_digest": "b914aa5584db0f34e16609e9d251d51b5d32f20a717cf98e8bfd6a89f093f633",
+    "matching_certificate_sha256": "28c548aecae0c5dfc168e326f0dd2def74e7758320b1349bb1e35b9ecf0f1c89"
+  },
+  "profile_512": {
+    "vertices": 512,
+    "mode": "multilevel",
+    "updates": 128,
+    "seed": 42,
+    "baseline_profiled_seconds": 0.103455002,
+    "candidate_profiled_seconds": 0.073266210,
+    "profiled_time_reduction_percent": 29.18,
+    "candidate_top_functions": [
+      "Matcher.__cleanup_stale_edges",
+      "Graph.has_edge",
+      "Matcher.__handle_deletion",
+      "Matcher.__advance_update_counter",
+      "Hierarchy.sync_graph"
+    ],
+    "notice": "cProfile diagnostic, not unprofiled throughput or latency"
+  },
+  "baseline": {
+    "updates_per_second": 436.53812809442655,
+    "batch_nanoseconds": [293231500, 292175583, 289506541, 295513500, 293216083],
+    "memory": {
+      "initial_traced_bytes": 20307528,
+      "construction_peak_traced_bytes": 23234792,
+      "peak_traced_bytes": 22700744,
+      "transient_traced_bytes": 2393216,
+      "process_peak_rss_bytes": 101285888
+    }
+  },
+  "candidate": {
+    "updates_per_second": 610.2979434032096,
+    "batch_nanoseconds": [209733625, 209231208, 206591333, 213849375, 210636333],
+    "memory": {
+      "initial_traced_bytes": 20307528,
+      "construction_peak_traced_bytes": 23234792,
+      "peak_traced_bytes": 22700752,
+      "transient_traced_bytes": 2393224,
+      "process_peak_rss_bytes": 101220352
+    }
+  },
+  "derived": {
+    "throughput_ratio": 1.398,
+    "transient_traced_change_percent": 0.0,
+    "process_peak_rss_change_percent": -0.06
+  },
+  "limits": [
+    "One host and one seeded 128-update workload; five batches do not establish cross-host confidence intervals.",
+    "Memory and RSS are isolated measurements; no material storage improvement is claimed.",
+    "This paper Matcher diagnostic has no durable acknowledgments, concurrent clients, or million-vertex workload.",
+    "Stable System cache roots are trusted only inside the owner transaction; new/replaced roots receive full row validation, and generated property tests run full Lambda/L cache equality checks after each update."
+  ]
+}

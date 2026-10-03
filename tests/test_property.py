@@ -52,6 +52,8 @@ def test_generated_updates_preserve_matching_contract(
             assert partners(matching) == matcher.partner_map
             assert matcher.maximal()
             assert matcher._Matcher__check_auxiliary_indexes()
+            assert matcher.system is not None
+            assert matcher.system.check_lambda() and matcher.system.check_L()
             if mode == "multilevel":
                 assert matcher.multi is not None
                 assert matcher.multi.check()

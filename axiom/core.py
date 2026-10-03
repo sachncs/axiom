@@ -964,7 +964,7 @@ class Matcher:
         try:
             views = Views(self)
             classes = Classes(self)
-            systems = Systems(self)
+            systems = Systems(self, audit=False)
             hierarchies = Hierarchies(self)
             auxiliary = Auxiliary(self)
             clocks = Clocks(self)

@@ -72,6 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A 512-vertex profile's cumulative time fell 27.3%; the matched 8,192-vertex
   trace improved another 1.91×. Full oracle checks run after each generated
   update in tests. Memory is unchanged; see [ADR 0047](docs/adrs/0047-incremental-auxiliary-certificates.md).
+- Stable Matcher-owned System roots now validate only journal-touched cache rows;
+  standalone journals and replaced/rebuilt roots retain full admission. The same
+  bounded trace improved another 1.40×, and the 512-vertex profile fell 29.2%.
+  Memory was unchanged. See [ADR 0048](docs/adrs/0048-incremental-system-row-validation.md).
 - 1,206 local tests pass after sparse System/H rows, compact Matcher defaults,
   adjacency-journal integration and prior no-copy
   transaction/collision-routing regressions.

@@ -34,6 +34,51 @@ def test_bad_capacity_leaves_owner_and_system_idle(capacity):
     assert Witness().capture(matcher) == before
 
 
+@pytest.mark.parametrize("audit", [0, None])
+def test_audit_selection_requires_an_exact_boolean(audit):
+    matcher = populated()
+    with pytest.raises(TypeError, match="audit selection"):
+        Systems(matcher, audit=audit)
+    assert matcher.systems is None and matcher.system.journal is None
+
+
+def test_system_update_validates_only_first_write_rows(monkeypatch):
+    matcher = populated()
+    rows = sum(
+        len(container)
+        for container in (matcher.system.lambda_lists, matcher.system.L_lists)
+    )
+    checked = 0
+    validate = Systems.validrow
+
+    def count(journal, row, source):
+        nonlocal checked
+        checked += 1
+        return validate(journal, row, source)
+
+    monkeypatch.setattr(Systems, "validrow", count)
+    matcher.insert(0, 4)
+
+    assert 0 < checked < rows
+    assert matcher.system is not None
+    assert matcher.system.check()
+
+
+def test_local_cache_row_corruption_fails_and_restores_exact_state():
+    matcher = populated()
+    system = matcher.system
+    before = Witness().capture(matcher)
+    journal = Systems(matcher, audit=False)
+    journal.edit(system.lambda_lists, 0, 4, True)
+    system.lambda_lists[0] = tuple(system.lambda_lists[0])
+
+    with pytest.raises(TypeError, match="nonempty sorted cache rows"):
+        journal.validate()
+
+    journal.rollback()
+    assert Witness().capture(matcher) == before
+
+
 @pytest.mark.parametrize("configuration", [True, -1, "1", None])
 @pytest.mark.parametrize("stage", ["admission", "candidate"])
 def test_invalid_system_configuration_rejects_before_publication(configuration, stage):

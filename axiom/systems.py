@@ -21,12 +21,22 @@ if TYPE_CHECKING:
 class Systems:
     """Retain System roots and bound touched row/key/edge undo storage."""
 
-    def __init__(self, owner: Matcher, capacity: int = 65536) -> None:
-        """Admit existing Systems before binding any journal handles."""
+    def __init__(
+        self, owner: Matcher, capacity: int = 65536, audit: bool = True
+    ) -> None:
+        """Admit Systems, optionally using owner-certified roots for fast updates.
+
+        The standalone journal defaults to a complete cache-row admission.
+        Matcher transactions may set ``audit=False`` because stable System roots
+        are exclusively mutated through this journal; candidate/replaced roots
+        are still completely admitted before publication.
+        """
         from axiom.system import System
 
         if type(capacity) is not int or capacity <= 0:
             raise ValueError("system capacity must be a positive integer")
+        if type(audit) is not bool:
+            raise TypeError("system audit selection must be a boolean")
         if owner.systems is not None:
             raise RuntimeError("system transaction is already active")
         candidates = [owner.system, owner.phase_base_system]
@@ -34,6 +44,7 @@ class Systems:
             candidates.extend(owner.multi.levels)
         self.owner = owner
         self.capacity = capacity
+        self.audit = audit
         self.thread = get_ident()
         self.active = True
         self.bound = False
@@ -75,8 +86,11 @@ class Systems:
                 raise TypeError("System partitions require plain sets")
             for name in ("lambda_lists", "L_lists"):
                 container = attributes[name]
-                if type(container) is not dict or any(
-                    type(row) is not list or not row for row in container.values()
+                if type(container) is not dict:
+                    raise TypeError("System caches require plain maps and lists")
+                if audit and any(
+                    not self.validrow(row, source)
+                    for source, row in container.items()
                 ):
                     raise TypeError("System caches require plain maps and lists")
                 self.maps[id(container)] = container
@@ -171,7 +185,7 @@ class Systems:
                 matching.remove(edge)
 
     def validate(self) -> None:
-        """Check supported System roots; algorithm certificates remain separate."""
+        """Check candidate roots and every changed cache row before publication."""
         self.check()
         candidates = [self.owner.system, self.owner.phase_base_system]
         if self.owner.multi is not None:
@@ -190,7 +204,8 @@ class Systems:
                 or system.graph.n != self.owner.n
             ):
                 raise ValueError("invalid System candidate configuration")
-            if id(system) not in self.roots and system.journal is not None:
+            original = self.roots.get(id(system))
+            if original is None and system.journal is not None:
                 raise RuntimeError("new System candidate is already journaled")
             attributes = vars(system)
             if attributes.keys() != {
@@ -209,11 +224,50 @@ class Systems:
                 type(getattr(system, name)) is not set for name in ("A", "B", "M")
             ) or type(system.U) not in (set, Vertices):
                 raise TypeError("System candidate requires plain sets")
-            for container in (system.lambda_lists, system.L_lists):
-                if type(container) is not dict or any(
-                    type(row) is not list or not row for row in container.values()
-                ):
+            for name in ("lambda_lists", "L_lists"):
+                container = getattr(system, name)
+                if type(container) is not dict:
                     raise TypeError("System candidate requires plain maps and lists")
+                full = self.audit or original is None or (
+                    container is not original[1][name]
+                )
+                if full:
+                    for source, row in container.items():
+                        if not self.validrow(row, source):
+                            raise TypeError(
+                                "System candidate requires nonempty sorted cache rows"
+                            )
+                    continue
+                address = id(container)
+                for mapaddress, source in self.keys:
+                    if mapaddress != address:
+                        continue
+                    row = container.get(source)
+                    if row is not None and not self.validrow(row, source):
+                        raise TypeError(
+                            "System candidate requires nonempty sorted cache rows"
+                        )
+
+    def validrow(self, row: Any, source: Vertex) -> bool:
+        """Validate one sorted, nonempty dense-vertex cache row."""
+        if (
+            type(source) is not int
+            or not 0 <= source < self.owner.n
+            or type(row) is not list
+            or not row
+        ):
+            return False
+        previous = -1
+        for target in row:
+            if (
+                type(target) is not int
+                or not 0 <= target < self.owner.n
+                or target <= previous
+                or target == source
+            ):
+                return False
+            previous = target
+        return True
 
     def commit(self) -> None:
         """Unbind System undo after successful graph publication."""
