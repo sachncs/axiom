@@ -375,15 +375,37 @@ class Partial:
         return set(self.assignments)
 
     def relabel(self, mapping: dict[Color, Color]) -> None:
-        """Apply a validated global permutation to every assigned color."""
+        """Apply a global permutation without duplicating edge assignments.
+
+        Build and certify the replacement incidence indexes while assignment
+        values are still untouched. Once staging succeeds, changing existing
+        dictionary values cannot resize the assignment table, so the new rows
+        can be published without retaining a second edge-to-color dictionary.
+        """
         expected = set(range(self.palette))
         if set(mapping) != expected or set(mapping.values()) != expected:
             raise ValueError("color relabeling must be a permutation of the palette")
-        self.assignments = {
-            edge: mapping[color] for edge, color in self.assignments.items()
-        }
-        self.reindex()
-        self.validate()
+        incident: dict[Vertex, set[Color]] = {}
+        edgebycolor: dict[tuple[Vertex, Color], Edge] = {}
+        for edge, color in self.assignments.items():
+            left, right = edge
+            if not self.graph.has_edge(left, right):
+                raise AssertionError(f"colored edge is outside graph: {edge}")
+            replacement = mapping[color]
+            if (left, replacement) in edgebycolor or (
+                right,
+                replacement,
+            ) in edgebycolor:
+                raise AssertionError(f"improper coloring at edge {edge}")
+            edgebycolor[(left, replacement)] = edge
+            edgebycolor[(right, replacement)] = edge
+            incident.setdefault(left, set()).add(replacement)
+            incident.setdefault(right, set()).add(replacement)
+
+        for edge, color in self.assignments.items():
+            self.assignments[edge] = mapping[color]
+        self.incident = incident
+        self.index = edgebycolor
 
     def missing(self, vertex: Vertex) -> list[Color]:
         """Return the vertex's missing palette colors in ascending order."""

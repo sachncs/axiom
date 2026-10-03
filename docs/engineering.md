@@ -147,6 +147,16 @@ callsites and whole-fan rollback snapshots remain open. See
 See also [ADR 0080](adrs/0080-color-small-coloring-journal.md) and its
 [rollback allocation record](../benchmarks/results/paper/color-small-rollback.json).
 
+Global `Partial.relabel` now stages graph/properness-checked incident indexes
+for mapped colors, then updates existing assignment values in place. This
+removes its second full edge-to-color dictionary while keeping all fallible
+staging ahead of publication. Five runs on a 200,000-vertex/100,000-edge
+matching reduced traced peak by 56.17% and elapsed relabel time by 53.21%; this
+disconnected component probe is not a `Spectrum.sparsify` or end-to-end claim.
+Invalid permutations and an edge removed during staged certification leave all
+coloring indexes and roots unchanged. See [ADR 0081](adrs/0081-in-place-color-relabel.md)
+and its [raw comparison](../benchmarks/results/paper/in-place-color-relabel.json).
+
 Vizing chain-collision resolution now captures only path/spoke colors and fans
 incident to the collision region, uses local compatibility checks, and restores
 touched coloring cells without replacing container roots. A failure injected

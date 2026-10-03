@@ -1,0 +1,53 @@
+{
+  "benchmark": "partial-in-place-color-relabel",
+  "date": "2026-10-03",
+  "baseline_revision": "187f801",
+  "candidate_revision": "working-tree-after-187f801",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 200000,
+    "colored_edges": 100000,
+    "palette": 4,
+    "graph_shape": "disjoint matching",
+    "operation": "Partial.relabel with a four-color permutation"
+  },
+  "measurement": "Five alternating fresh-state runs; tracemalloc peak and elapsed time for relabel; graph/coloring setup and post-operation full validate excluded",
+  "certificate": "Relabel stages edge membership, properness, and both replacement indexes; independent full coloring validation passed after each sample",
+  "baseline_peak_bytes": [
+    175614488,
+    175614488,
+    175614488,
+    175614488,
+    175614488
+  ],
+  "candidate_peak_bytes": [
+    76972344,
+    76972336,
+    76972336,
+    76972336,
+    76972336
+  ],
+  "baseline_seconds": [
+    0.9370142919942737,
+    0.9221736659965245,
+    0.9293145839910721,
+    0.9303964160062606,
+    0.9321388329990441
+  ],
+  "candidate_seconds": [
+    0.4327513330063084,
+    0.43424862500978634,
+    0.4353317499917466,
+    0.43864687500172295,
+    0.4400377919955645
+  ],
+  "median": {
+    "baseline_peak_bytes": 175614488,
+    "candidate_peak_bytes": 76972336,
+    "peak_reduction_percent": 56.17,
+    "baseline_seconds": 0.9303964160062606,
+    "candidate_seconds": 0.4353317499917466,
+    "elapsed_change_percent": -53.21
+  },
+  "limitations": "Disconnected matching component only; Python traced peak, not RSS; excludes whole Spectrum.sparsify cost and fan relabel replacement-allocation. Five runs on one host."
+}

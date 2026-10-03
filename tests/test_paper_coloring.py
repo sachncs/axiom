@@ -137,6 +137,65 @@ def test_partial_replace_cycles_colors_and_rolls_back_failed_certification(
     } == before
 
 
+def test_partial_relabel_stages_indexes_and_reuses_assignment_storage() -> None:
+    graph = Adjacency(4)
+    for edge in ((0, 1), (0, 2), (2, 3)):
+        graph.add_edge(*edge)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 0)
+    coloring.assign((0, 2), 1)
+    coloring.assign((2, 3), 0)
+    assignments = coloring.assignments
+
+    coloring.relabel({0: 2, 1: 0, 2: 1})
+
+    assert coloring.assignments is assignments
+    assert dict(coloring.items()) == {
+        (0, 1): 2,
+        (0, 2): 0,
+        (2, 3): 2,
+    }
+    coloring.validate()
+
+
+@pytest.mark.parametrize(
+    ("mapping", "removeedge"),
+    [({0: 1, 1: 0}, False), ({0: 2, 1: 1, 2: 0}, True)],
+)
+def test_partial_relabel_failure_preserves_all_state(
+    mapping: dict[int, int], removeedge: bool
+) -> None:
+    graph = Adjacency(3)
+    graph.add_edge(0, 1)
+    graph.add_edge(1, 2)
+    coloring = Partial(graph, 3)
+    coloring.assign((0, 1), 0)
+    coloring.assign((1, 2), 1)
+    if removeedge:
+        graph.remove_edge(1, 2)
+    contents = (
+        dict(coloring.assignments),
+        {vertex: set(colors) for vertex, colors in coloring.incident.items()},
+        dict(coloring.index),
+    )
+    roots = (coloring.assignments, coloring.incident, coloring.index)
+
+    with pytest.raises((AssertionError, ValueError)):
+        coloring.relabel(mapping)
+
+    assert dict(coloring.assignments) == contents[0]
+    assert coloring.incident == contents[1]
+    assert coloring.index == contents[2]
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            roots,
+            strict=True,
+        )
+    )
+
+
 def test_partial_coloring_incidence_rows_scale_with_touched_vertices() -> None:
     graph = Adjacency(100_000)
     graph.add_edge(10, 11)
