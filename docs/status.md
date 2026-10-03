@@ -56,6 +56,13 @@ native allocation. This remains an isolated diagnostic; extension-level resource
 qualification is open. See [ADR 0062](adrs/0062-compact-paper-projection-graphs.md)
 and the [raw comparison](../benchmarks/results/paper/packed-projection.json).
 
+Hierarchy refinement no longer builds a full live-edge set or a second full edge
+set solely for inherited-System matching cuts. It checks selected-edge liveness
+against the phase graph and restricts each System matching by graph membership;
+the owner journal retains exact undo and rejects capacity failure before cuts.
+One `working_edges` set and the isolated working graph still remain. See
+[ADR 0063](adrs/0063-graph-backed-hierarchy-cuts.md).
+
 [Raw full-ring](../benchmarks/results/independent/candidate-soak-sweep-million.json),
 [growth/drain](../benchmarks/results/independent/pulse-long-million.json),
 [hub](../benchmarks/results/independent/hub-steady-million.json),

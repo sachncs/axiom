@@ -734,8 +734,6 @@ def refine_hierarchy(
     # The hierarchy graph is the phase-start snapshot.  ED is supplied as a
     # separate set, so remove it from the live side before selecting the
     # bounded deferred subset ED'.
-    live_edges = set(inserted)
-    live_edges.update(edge for edge in hierarchy.graph.edges() if edge not in deleted)
     retained_deleted = deleted & previous.M
     subgraph = project(hierarchy.graph, previous.M)
     active_colorer = require(colorer)
@@ -792,9 +790,16 @@ def refine_hierarchy(
         edge
         for color in selected_colors
         for edge in classes[color]
-        if edge in live_edges or edge in deferred_deleted
+        if edge in inserted
+        or (edge not in deleted and hierarchy.graph.has_edge(*edge))
+        or edge in deferred_deleted
     }
-    working_edges = (live_edges | deferred_deleted) - (deleted - deferred_deleted)
+    working_edges = set(inserted)
+    working_edges.update(
+        edge
+        for edge in hierarchy.graph.edges()
+        if edge not in deleted or edge in deferred_deleted
+    )
     working_graph = project(hierarchy.graph, working_edges)
     degree = degrees(hierarchy.graph.n)
     for u, v in chosen:
@@ -980,10 +985,9 @@ def refine_hierarchy(
     # their level-specific M/partition state, but refresh the graph reference
     # and derived adjacency indexes so inherited state cannot point at an old
     # phase snapshot.
-    working_edge_set = set(working_graph.edges())
     for level in hierarchy.levels:
         level.graph = working_graph
-        level.restrict(working_edge_set)
+        level.restrict(working_graph)
         level.index()
 
     stored_a: set[Vertex] | Vertices = new_a

@@ -10,7 +10,7 @@ from __future__ import annotations
 from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
-from axiom.types import Edge, Vertex
+from axiom.types import Edge, Graph, Vertex
 from axiom.vertices import Vertices
 
 if TYPE_CHECKING:
@@ -180,23 +180,30 @@ class Systems:
             raise RuntimeError("cannot forget a nonempty System cache row")
         container.pop(source, None)
 
-    def restrict(self, matching: set[Edge], allowed: set[Edge]) -> None:
-        """Log removals first, then delete by iterating only bounded undo cells.
+    def allows(self, allowed: set[Edge] | Graph, edge: Edge) -> bool:
+        """Check matching membership in either an edge set or graph snapshot."""
+        if isinstance(allowed, set):
+            return edge in allowed
+        return allowed.has_edge(*edge)
 
-        The discovery pass streams the retained set and allocates no matching
-        copy. Capacity failure occurs before that pass changes the set.
+    def restrict(self, matching: set[Edge], allowed: set[Edge] | Graph) -> None:
+        """Log removals first, then cut the bounded list of removed edges.
+
+        The discovery pass streams the matching and allocates only a list of
+        removed edges. Capacity failure occurs before matching mutation.
         """
         self.check()
+        cuts: list[Edge] = []
         for edge in matching:
-            if edge in allowed:
+            if self.allows(allowed, edge):
                 continue
             key = id(matching), edge
             if key not in self.edges:
                 self.reserve(1)
                 self.edges[key] = matching
-        for (_, edge), candidate in self.edges.items():
-            if candidate is matching and edge not in allowed and edge in matching:
-                matching.remove(edge)
+            cuts.append(edge)
+        for edge in cuts:
+            matching.discard(edge)
 
     def validate(self) -> None:
         """Check candidate roots and every changed cache row before publication."""

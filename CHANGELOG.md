@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   adjacency rows. Resource/extension qualification remains open; see
   [ADR 0062](docs/adrs/0062-compact-paper-projection-graphs.md) and the
   [raw comparison](benchmarks/results/paper/packed-projection.json).
+- Hierarchy refinement now derives selected-edge liveness from the phase graph
+  and cuts inherited System matchings by `has_edge`, eliminating the full live
+  edge set and the extra working-graph membership set. One deterministic working
+  edge set and isolated graph remain; exact journal capacity/rollback behavior
+  is covered. See [ADR 0063](docs/adrs/0063-graph-backed-hierarchy-cuts.md).
 
 - Matcher update transactions now contain no recursive `deepcopy`: shallow root
   references combine with bounded undo for indexes and phase-clock cells. Failure

@@ -487,10 +487,16 @@ class System:
                     if not added and not self.L_lists[source]:
                         self.journal.forget(self.L_lists, source)
 
-    def restrict(self, allowed: set[Edge]) -> None:
-        """Cut matching edges with registered undo when this System is admitted."""
+    def restrict(self, allowed: set[Edge] | Graph) -> None:
+        """Keep matching edges present in an allowed set or graph snapshot."""
         if self.journal is None:
-            self.M.intersection_update(allowed)
+            if isinstance(allowed, set):
+                self.M.intersection_update(allowed)
+            else:
+                removed = tuple(
+                    edge for edge in self.M if not allowed.has_edge(*edge)
+                )
+                self.M.difference_update(removed)
         else:
             self.journal.restrict(self.M, allowed)
 

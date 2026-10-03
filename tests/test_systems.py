@@ -153,6 +153,73 @@ def test_root_replacements_and_matching_cuts_restore_original_system_state():
     assert Witness().capture(matcher) == before
 
 
+def test_graph_backed_matching_cut_uses_compact_membership_and_rolls_back():
+    matcher = populated(dense=True)
+    system = matcher.system
+    roots = dict(vars(system))
+    before = Witness().capture(matcher)
+    removed = min(system.M)
+    allowed = Packed(16)
+    for edge in system.M:
+        if edge != removed:
+            allowed.add_edge(*edge)
+
+    journal = Systems(matcher)
+    system.restrict(allowed)
+    assert system.M == roots["M"] - {removed}
+    assert len(journal.edges) == 1
+    journal.rollback()
+
+    assert all(vars(system)[name] is value for name, value in roots.items())
+    assert Witness().capture(matcher) == before
+
+    system.restrict(allowed)
+    assert system.M == roots["M"] - {removed}
+
+
+def test_graph_backed_matching_cut_capacity_failure_is_atomic():
+    matcher = populated(dense=True)
+    system = matcher.system
+    original = set(system.M)
+    before = Witness().capture(matcher)
+    removed = set(sorted(system.M)[:2])
+    allowed = Packed(16)
+    for edge in system.M - removed:
+        allowed.add_edge(*edge)
+
+    journal = Systems(matcher, 10)
+    with pytest.raises(MemoryError, match="capacity"):
+        system.restrict(allowed)
+    assert system.M == original
+    journal.rollback()
+    assert Witness().capture(matcher) == before
+
+
+def test_graph_backed_matching_cut_queries_membership_once_before_mutation():
+    matcher = populated(dense=True)
+    system = matcher.system
+    original = set(system.M)
+    removed = min(original)
+
+    class Snapshot:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def has_edge(self, left: int, right: int) -> bool:
+            self.calls += 1
+            if self.calls > len(original):
+                raise AssertionError("graph membership was repeated during commit")
+            return (left, right) in original - {removed}
+
+    snapshot = Snapshot()
+    journal = Systems(matcher)
+    system.restrict(snapshot)  # type: ignore[arg-type]
+    assert snapshot.calls == len(original)
+    assert system.M == original - {removed}
+    journal.rollback()
+    assert system.M == original
+
+
 def test_row_capacity_rejects_before_edit_and_restores_graph_on_retry():
     matcher = populated()
     system = matcher.system

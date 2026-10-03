@@ -69,6 +69,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0060](0060-avoid-rematch-partition-copies.md) | Check A-partition membership directly during rematching instead of copying the full basic partition or multilevel union | 500k-member isolated copy: 35.2 MB/0.162 s; 100k direct lookups: 1.1 KB/0.021 s; paper-engine qualification remains open |
 | [0061](0061-sparse-paper-color-incidence.md) | Retain coloring-index rows only for colored endpoints and count projected degree only at scoped endpoints | Million-vertex/two-edge projection peak: 878.3→224.5 MB; residual is primarily reference Adjacency child rows; end-to-end qualification remains open |
 | [0062](0062-compact-paper-projection-graphs.md) | Build isolated paper color-group projections in budgeted Packed storage instead of per-vertex Python empty sets | Same million-vertex projection: ~224.5 MB traced child to ~13.01 MB combined Python/native allocation (94.2% lower); recursive/resource qualification remains open |
+| [0063](0063-graph-backed-hierarchy-cuts.md) | Derive selected-edge liveness from the phase graph and restrict inherited matchings by graph membership, not full edge-set copies | Removes two O(E) edge-set materializations per hierarchy refinement; exact journal rollback/capacity tests and hierarchy certificates remain required |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each
