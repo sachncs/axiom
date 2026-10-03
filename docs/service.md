@@ -27,6 +27,38 @@ image cap, database pages and persisted batch/history policy are as in
 [durable contracts](durable.md). `queue_capacity` defaults to 1024, caps at 16384,
 and cannot exceed retention. `batch_wait_ms` defaults to 1 and caps at 100.
 
+## Atomic explicit batches
+
+`submit()` is an individually sequenced request; the service may group nearby
+individual requests into one commit for throughput. Use `submit_batch()` when
+the application requires a particular set of updates to share one durable
+transaction:
+
+```python
+batch = graph.submit_batch([
+    Request(3, "delete", 0, 4),
+    Request(4, "insert", 0, 8),
+    Request(5, "insert", 4, 9),
+])
+outcomes = batch.result(timeout=5)
+assert tuple(outcome.sequence for outcome in outcomes) == (3, 4, 5)
+```
+
+The batch must be a nonempty list/tuple no larger than the persisted
+`max_batch`, contain canonicalizable insert/delete requests with contiguous
+sequence numbers, and begin at the next unassigned sequence. Admission consumes
+one queue slot and reserves the entire sequence range; overload rejects the
+whole batch without consuming IDs. A fresh batch is never combined with
+neighboring individual work. Its receipt resolves only after one `Durable.apply`
+transaction commits and publishes all outcomes. An identical retry while the
+batch is pending shares its receipt; partial or conflicting overlaps reject.
+After restart, exact retries are available only while their outcomes remain in
+the retained history. A timeout still does not cancel the admitted batch.
+
+Atomicity is within the batch, not across other preceding/following requests.
+Queries observe committed publications and must compare returned versions as
+described below; `submit_batch()` does not provide a multi-query read snapshot.
+
 ## Admission and acknowledgment
 
 - One application-owned request stream. Coordinate sequence assignment with
@@ -182,6 +214,34 @@ does not establish availability for rejected queries.
 [ADR 0015](adrs/0015-skew-and-offered-load-qualification.md) retain these failing
 qualification observations. They need engineering work, not a changed denominator
 or a claim of completed broad scalability from uniform closed-loop rates.
+
+For reproducible skewed offered-load runs, `benchmarks/overload.py` also supports
+`--workload power-law`. It bootstraps a bounded degree-skewed graph, then applies
+real toggles to a Zipf-weighted chord pool while paced update/query producers run.
+The seed controls graph construction, edge-selection wheel, and query vertices.
+Bootstrap mutations are reported separately from offered/timed updates. Every
+offer is reconciled as acknowledged, Busy-rejected, or producer-missed; query
+offers have the same reconciliation. Output includes update/query latency
+histograms, trace and graph-plus-matching state hashes, peak degree, and exact
+recovery/topology/matching audits. Query versions must be monotone and lie within
+the durable prefix; only the final recovered state receives the full independent
+matching certificate.
+
+Example (fresh database path required):
+
+```bash
+python benchmarks/overload.py --database /private/local/path/power-law.db \
+  --vertices 1000000 --rate 10000 --seconds 10 --query-rate 1000 \
+  --queue-capacity 512 --workload power-law --seed 599 --skew-edges 1024
+```
+
+`--skew-edges` is bounded to 1–8192 per permanent/churn pool; setup therefore
+adds twice that many durable edges, separately from timed offers. Power-law mode
+requires at least 64 vertices and rejects a pool that cannot fit without duplicate
+edges. This same-process paced harness is a workload qualification tool, not a
+network load generator, sustained production result, per-query historical
+matching proof, or hardware power-loss test. One passing sample does not complete
+the skew/adversarial matrix.
 
 Earlier baseline verification: 616 tests, 141 focused optimized-mode tests, strict typing/lint,
 isolated wheel/sdist service/compaction/recovery smoke, documentation examples and

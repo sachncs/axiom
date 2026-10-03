@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
@@ -109,10 +109,12 @@ class Receipt(Generic[_T]):
 class _Work:
     receipts: list[Receipt[object]]
     request: Request | None = None
+    requests: tuple[Request, ...] | None = None
     action: Callable[[Durable], object] | None = None
     started_ns: int = 0
     finished: bool = False
     maintenance: bool = False
+    explicit: bool = False
 
 
 class Service:
@@ -293,6 +295,99 @@ class Service:
             self._accepted_one()
             return receipt
 
+    def submit_batch(self, requests: Sequence[Request]) -> Receipt[tuple[Outcome, ...]]:
+        """Admit one explicitly atomic, bounded durable mutation batch.
+
+        Fresh batches must begin at the next admission sequence and use a
+        contiguous range. A wholly historical batch is an exact retry and is
+        checked by Durable against retained history. A batch is one admission
+        slot and one Durable.apply call; it is never coalesced with submit work.
+        While a fresh batch is pending, only a whole identical retry shares its
+        receipt; partial or conflicting overlaps are rejected.
+        """
+        if type(requests) not in (list, tuple) or not requests:
+            raise ValueError("batch must be a nonempty list or tuple of Requests")
+        if len(requests) > self._batch:
+            raise ValueError("batch exceeds configured durable batch limit")
+        normalized: list[Request] = []
+        for request in requests:
+            if (
+                type(request) is not Request
+                or type(request.operation) is not str
+                or request.operation not in ("insert", "delete")
+            ):
+                raise ValueError("require typed insert/delete Requests")
+            _integer(request.sequence, 1, _MAX, "sequence")
+            _integer(request.u, 0, self._vertices - 1, "u")
+            _integer(request.v, 0, self._vertices - 1, "v")
+            normalized.append(
+                Request(
+                    request.sequence,
+                    request.operation,
+                    min(request.u, request.v),
+                    max(request.u, request.v),
+                )
+            )
+        batch = tuple(normalized)
+        if any(
+            right.sequence != left.sequence + 1
+            for left, right in zip(batch, batch[1:], strict=False)
+        ):
+            raise ValueError("batch request sequences must be contiguous")
+
+        with self._condition:
+            self._admission(update=True)
+            first, last = batch[0].sequence, batch[-1].sequence
+            overlapping = [
+                self._pending.get(sequence) for sequence in range(first, last + 1)
+            ]
+            if any(work is not None for work in overlapping):
+                pending = overlapping[0]
+                if (
+                    pending is not None
+                    and pending.explicit
+                    and pending.action is None
+                    and pending.requests == batch
+                    and all(work is pending for work in overlapping)
+                ):
+                    retry_receipt: Receipt[tuple[Outcome, ...]] = Receipt()
+                    pending.receipts.append(cast(Receipt[object], retry_receipt))
+                    self._accepted_one()
+                    return retry_receipt
+                raise ValueError(
+                    "batch overlaps admitted work with different bounds or payload"
+                )
+            if last < self._next_sequence:
+                receipt: Receipt[tuple[Outcome, ...]] = Receipt()
+                self._reads.append(
+                    _Work(
+                        [cast(Receipt[object], receipt)],
+                        action=lambda owner: owner.apply(batch),
+                        requests=batch,
+                        explicit=True,
+                    )
+                )
+            elif first == self._next_sequence:
+                receipt = Receipt()
+                work = _Work(
+                    [cast(Receipt[object], receipt)],
+                    requests=batch,
+                    explicit=True,
+                )
+                try:
+                    for request in batch:
+                        self._pending[request.sequence] = work
+                    self._updates.append(work)
+                except BaseException:
+                    for request in batch:
+                        self._pending.pop(request.sequence, None)
+                    raise
+                self._next_sequence += len(batch)
+            else:
+                raise ValueError("new batch must begin at the next admission sequence")
+            self._accepted_one()
+            return receipt
+
     def partner(self, vertex: int) -> Receipt[tuple[int, int | None]]:
         """Read the last publication without waiting for the owner's sync barrier."""
         _integer(vertex, 0, self._vertices - 1, "vertex")
@@ -396,7 +491,15 @@ class Service:
 
     def _take_slice(self, queue: deque[_Work]) -> deque[_Work]:
         # Allocate the bounded work container before removing admission records.
-        chosen = deque(islice(queue, self._batch))
+        first = queue[0]
+        if first.explicit:
+            chosen = deque((first,))
+        else:
+            chosen = deque()
+            for work in islice(queue, self._batch):
+                if work.explicit:
+                    break
+                chosen.append(work)
         for _ in chosen:
             queue.popleft()
         return chosen
@@ -437,7 +540,10 @@ class Service:
             self._outstanding, self._completed = outstanding, completed
             self._maintenance -= work.maintenance
             work.finished = True
-            if work.request is not None:
+            if work.requests is not None:
+                for request in work.requests:
+                    self._pending.pop(request.sequence, None)
+            elif work.request is not None:
                 self._pending.pop(work.request.sequence, None)
 
     def _fail(self, error: BaseException, current: deque[_Work]) -> None:
@@ -458,10 +564,24 @@ class Service:
                 if chosen is None:
                     break
                 current = chosen
-                if current[0].request is not None:
+                if current[0].request is not None or (
+                    current[0].requests is not None and current[0].action is None
+                ):
                     started = time.perf_counter_ns()
                     for work in current:
                         work.started_ns = started
+                    if current[0].explicit:
+                        outcomes = self._owner.apply(
+                            cast(tuple[Request, ...], current[0].requests)
+                        )
+                        with self._condition:
+                            self._groups += 1
+                            self._largest_group = max(
+                                self._largest_group, len(outcomes)
+                            )
+                        self._finish(current[0], outcomes, None)
+                        current.popleft()
+                        continue
                     outcomes = self._owner.apply(
                         [cast(Request, work.request) for work in current]
                     )

@@ -381,6 +381,223 @@ def test_uncertain_update_fails_all_waiters_and_recovers_only_committed_prefix(
             )
 
 
+def test_explicit_batch_is_one_isolated_durable_commit_and_exact_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "atomic-batch.db"
+    with create(path, batch_wait_ms=100) as service:
+        calls: list[int] = []
+        original = service._owner._persist
+
+        def counted(rows: list) -> None:
+            calls.append(len(rows))
+            original(rows)
+
+        monkeypatch.setattr(service._owner, "_persist", counted)
+        # Hold admission while enqueueing to make the boundaries deterministic.
+        with service._condition:
+            before = service.submit(Request(1, "insert", 0, 1))
+            batch = service.submit_batch(
+                [Request(2, "insert", 1, 2), Request(3, "insert", 2, 3)]
+            )
+            after = service.submit(Request(4, "delete", 0, 1))
+        assert before.result(5) == Outcome(1, True, 1)
+        assert batch.result(5) == (Outcome(2, True, 2), Outcome(3, True, 3))
+        assert after.result(5) == Outcome(4, True, 4)
+        assert calls == [1, 2, 1]
+        assert service.metrics()["groups"] == 3
+        assert service.metrics()["largest_group"] == 2
+        assert service.status().result(5)["sequence"] == 4
+        assert service.check().result(5)
+        assert service.submit_batch(
+            [Request(2, "insert", 2, 1), Request(3, "insert", 3, 2)]
+        ).result(5) == (Outcome(2, True, 2), Outcome(3, True, 3))
+        with pytest.raises(ValueError, match="payload"):
+            service.submit_batch(
+                [Request(2, "delete", 1, 2), Request(3, "insert", 2, 3)]
+            ).result(5)
+        assert service.metrics()["state"] == "open"
+    with Durable(path) as recovered:
+        assert recovered.status()["sequence"] == 4
+        assert recovered.check()
+
+
+@pytest.mark.parametrize(
+    "batch, message",
+    [
+        ([], "nonempty"),
+        ([Request(1, "insert", 0, 1), Request(3, "insert", 1, 2)], "contiguous"),
+        ([Request(1, "insert", 0, 1), Request(1, "delete", 1, 2)], "contiguous"),
+        ([Request(1, "insert", 0, 1)] * 5, "configured"),
+        ([Request(1, "other", 0, 1)], "typed"),
+        ([Request(True, "insert", 0, 1)], "sequence"),
+        ([Request(1, "insert", 0, 33)], "v"),
+    ],
+)
+def test_invalid_explicit_batch_does_not_consume_sequence_or_admission(
+    tmp_path: Path, batch: list[Request], message: str
+) -> None:
+    with create(tmp_path / "invalid-batch.db") as service:
+        with pytest.raises(ValueError, match=message):
+            service.submit_batch(batch)
+        assert service.metrics()["next_admission_sequence"] == 1
+        assert service.metrics()["accepted"] == 0
+        assert service.submit(Request(1, "insert", 0, 1)).result(5) == Outcome(
+            1, True, 1
+        )
+
+
+def test_batch_capacity_rejection_consumes_no_sequence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with create(
+        tmp_path / "batch-capacity.db", queue_capacity=2, batch_wait_ms=0
+    ) as service:
+        entered, release = threading.Event(), threading.Event()
+        original = service._owner._persist
+
+        def paused(rows: list) -> None:
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test persistence release timed out")
+            original(rows)
+
+        monkeypatch.setattr(service._owner, "_persist", paused)
+        first = service.submit(Request(1, "insert", 0, 1))
+        try:
+            assert entered.wait(5)
+            queued = service.submit(Request(2, "delete", 0, 1))
+            with pytest.raises(BusyError, match="nothing was admitted"):
+                service.submit_batch(
+                    [Request(3, "insert", 0, 2), Request(4, "insert", 1, 2)]
+                )
+            assert service.metrics()["next_admission_sequence"] == 3
+        finally:
+            release.set()
+        assert first.result(5) == Outcome(1, True, 1)
+        assert queued.result(5) == Outcome(2, True, 2)
+        assert service.submit_batch(
+            [Request(3, "insert", 0, 2), Request(4, "insert", 1, 2)]
+        ).result(5) == (Outcome(3, True, 3), Outcome(4, True, 4))
+
+
+def test_pending_batch_retries_share_receipt_but_partial_overlap_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with create(tmp_path / "pending-batch.db", batch_wait_ms=0) as service:
+        entered, release = threading.Event(), threading.Event()
+        original = service._owner._persist
+
+        def paused(rows: list) -> None:
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test persistence release timed out")
+            original(rows)
+
+        monkeypatch.setattr(service._owner, "_persist", paused)
+        batch = [Request(1, "insert", 0, 1), Request(2, "insert", 1, 2)]
+        try:
+            with service._condition:
+                first = service.submit_batch(batch)
+            assert entered.wait(5)
+            barrier = threading.Barrier(8)
+
+            def retry() -> Receipt[tuple[Outcome, ...]]:
+                barrier.wait(timeout=5)
+                return service.submit_batch(
+                    [Request(1, "insert", 1, 0), Request(2, "insert", 2, 1)]
+                )
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                duplicates = [executor.submit(retry) for _ in range(8)]
+                retries = [client.result(5) for client in duplicates]
+            with pytest.raises(ValueError, match="different bounds or payload"):
+                service.submit_batch([Request(2, "insert", 1, 2)])
+            with pytest.raises(ValueError, match="different bounds or payload"):
+                service.submit_batch(
+                    [Request(1, "delete", 0, 1), Request(2, "insert", 1, 2)]
+                )
+            assert service.metrics()["next_admission_sequence"] == 3
+            assert service.metrics()["outstanding"] == 9
+        finally:
+            release.set()
+        expected = (Outcome(1, True, 1), Outcome(2, True, 2))
+        assert first.result(5) == expected
+        assert [receipt.result(5) for receipt in retries] == [expected] * 8
+        assert service.metrics()["accepted"] == service.metrics()["completed"] == 9
+        assert service.check().result(5)
+
+
+def test_historical_batch_retry_cannot_overlap_later_pending_sequence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with create(tmp_path / "historical-overlap.db", batch_wait_ms=0) as service:
+        assert service.submit(Request(1, "insert", 0, 1)).result(5) == Outcome(
+            1, True, 1
+        )
+        entered, release = threading.Event(), threading.Event()
+        original = service._owner._persist
+
+        def paused(rows: list) -> None:
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test persistence release timed out")
+            original(rows)
+
+        monkeypatch.setattr(service._owner, "_persist", paused)
+        second = service.submit(Request(2, "insert", 1, 2))
+        try:
+            assert entered.wait(5)
+            with pytest.raises(ValueError, match="different bounds or payload"):
+                service.submit_batch(
+                    [Request(1, "insert", 0, 1), Request(2, "insert", 1, 2)]
+                )
+            assert service.metrics()["next_admission_sequence"] == 3
+            assert service.metrics()["outstanding"] == 1
+        finally:
+            release.set()
+        assert second.result(5) == Outcome(2, True, 2)
+        assert service.metrics()["accepted"] == service.metrics()["completed"] == 2
+        assert service.check().result(5)
+
+
+@pytest.mark.parametrize("after_commit", [False, True])
+def test_failed_explicit_batch_recovers_only_whole_durable_transaction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    after_commit: bool,
+) -> None:
+    path = tmp_path / f"batch-failure-{after_commit}.db"
+    service = create(path, batch_wait_ms=0)
+    original = service._owner._persist
+
+    def fail(rows: list) -> None:
+        if after_commit:
+            original(rows)
+        raise OSError("injected batch persistence failure")
+
+    monkeypatch.setattr(service._owner, "_persist", fail)
+    receipt = service.submit_batch(
+        [Request(1, "insert", 0, 1), Request(2, "insert", 1, 2)]
+    )
+    with pytest.raises(OSError, match="injected batch"):
+        receipt.result(5)
+    metrics = service.metrics()
+    assert metrics["state"] == "failed"
+    assert metrics["outstanding"] == 0
+    assert metrics["groups"] == metrics["largest_group"] == 0
+    service.close(5)
+    with Durable(path) as recovered:
+        expected_sequence = 2 if after_commit else 0
+        assert recovered.status()["sequence"] == expected_sequence
+        assert recovered.status()["version"] == expected_sequence
+        assert recovered.check()
+        if after_commit:
+            assert recovered.apply(
+                [Request(1, "insert", 0, 1), Request(2, "insert", 1, 2)]
+            ) == (Outcome(1, True, 1), Outcome(2, True, 2))
+
+
 def test_failure_during_acknowledgment_cannot_overwrite_already_delivered_outcome(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

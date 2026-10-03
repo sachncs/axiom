@@ -124,19 +124,27 @@ from axiom.service import Service
 with TemporaryDirectory() as directory:
     path = Path(directory) / "graph.db"
     with Service(path, n=128) as graph:
-        outcome = graph.submit(Request(1, "delete", 0, 1)).result(5)
-        assert outcome.changed  # New stores start with a degree-four ring.
+        outcomes = graph.submit_batch([
+            Request(1, "delete", 0, 1),
+            Request(2, "insert", 0, 4),
+        ]).result(5)
+        assert all(outcome.changed for outcome in outcomes)
         version, partner = graph.partner(0).result(5)
-        assert version == outcome.version and partner is None
+        assert version == outcomes[-1].version and partner == 4
         assert graph.check().result(5)
     with Service(path) as recovered:
-        assert recovered.submit(Request(1, "delete", 0, 1)).result(5) == outcome
+        assert recovered.submit_batch([
+            Request(1, "delete", 0, 1),
+            Request(2, "insert", 0, 4),
+        ]).result(5) == outcomes
 ```
 
 Coordinate sequence assignment with admission order across clients. Receipt
 acceptance is not durability: successful `result()` follows commit/publication.
 A timeout does not cancel accepted work; retry the original ID and payload.
-This is a local component, not an authenticated network daemon.
+`submit_batch()` commits its bounded request list in one durable transaction;
+ordinary `submit()` calls may be opportunistically grouped. This is a local
+component, not an authenticated network daemon.
 
 ### Python API
 
