@@ -1,0 +1,28 @@
+{
+  "benchmark": "adaptive-paper-maximum-degree",
+  "date": "2026-10-04",
+  "baseline_revision": "3930ee1",
+  "candidate_revision": "working-tree-after-3930ee1",
+  "python": "3.14.8",
+  "fixture": {
+    "vertices": 100000,
+    "edges": [[0, 1], [1, 2], [50000, 50001]],
+    "expected_maximum_degree": 2,
+    "storage": "Packed"
+  },
+  "measurement": "Five alternating maximum-degree component probes; graph construction excluded; tracemalloc and wall time",
+  "baseline_seconds": [0.003745, 0.00376, 0.003736, 0.00395, 0.003812],
+  "candidate_seconds": [0.000308, 0.000302, 0.000303, 0.000301, 0.0003],
+  "baseline_peak_bytes": [432, 384, 408, 408, 408],
+  "candidate_peak_bytes": [512, 536, 536, 536, 536],
+  "median": {
+    "baseline_seconds": 0.00376,
+    "candidate_seconds": 0.000302,
+    "elapsed_reduction_percent": 91.97,
+    "baseline_peak_bytes": 408,
+    "candidate_peak_bytes": 536,
+    "peak_increase_bytes": 128
+  },
+  "certificate": "Both methods returned the exact maximum degree, 2.",
+  "limitations": "Component probe only; does not measure complete coloring, recursive seed, RSS, or durable service behavior. The 2m<n crossover is an operation-count rule, not a universally optimized runtime threshold."
+}

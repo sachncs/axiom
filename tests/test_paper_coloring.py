@@ -561,6 +561,49 @@ def test_partition_component_discovery_avoids_isolated_vertex_universe(
     assert leftedges | rightedges == set(graph.edges())
 
 
+def test_paper_maximum_degree_uses_sparse_endpoints_without_extra_storage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Packed(100_000)
+    graph.add_edge(0, 1)
+    graph.add_edge(1, 2)
+    originalrange = range
+    universescans = 0
+
+    def trackrange(*arguments: int) -> range:
+        nonlocal universescans
+        if arguments == (graph.n,):
+            universescans += 1
+        return originalrange(*arguments)
+
+    monkeypatch.setattr("axiom.paper_coloring.range", trackrange, raising=False)
+
+    assert Paper.maximum(graph) == 2
+    assert universescans == 0
+
+
+def test_paper_maximum_degree_keeps_universe_scan_for_dense_graph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Packed(8)
+    for left in range(graph.n):
+        for right in range(left + 1, graph.n):
+            graph.add_edge(left, right)
+    originalrange = range
+    universescans = 0
+
+    def trackrange(*arguments: int) -> range:
+        nonlocal universescans
+        if arguments == (graph.n,):
+            universescans += 1
+        return originalrange(*arguments)
+
+    monkeypatch.setattr("axiom.paper_coloring.range", trackrange, raising=False)
+
+    assert Paper.maximum(graph) == graph.n - 1
+    assert universescans == 1
+
+
 def test_separable_fans_enforce_edge_and_vertex_color_disjointness() -> None:
     fans = Fans()
     first = Fan(0, 1, 2, 0, 1, 1)

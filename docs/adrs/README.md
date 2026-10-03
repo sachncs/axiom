@@ -100,6 +100,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0091](0091-linear-seed-palette-counting.md) | Count seed palette frequencies in one edge pass instead of rescanning the coloring once per color | K34 excess-palette seed stays exactly certified; three-run timing neutral at this scale; asymptotic O(E·C)→O(E+C) |
 | [0092](0092-sparse-paper-partition-components.md) | Discover Euler components from edge endpoints rather than materializing/scanning the full vertex universe | 2,048 labels/3 edges: partition 28.23→0.288 ms and traced peak 192,360→3,264 bytes; final global bound scans remain |
 | [0093](0093-local-paper-partition-degree-audits.md) | Certify partition degree bounds over non-isolated component vertices, which are the only possible violations | 2,048 labels/3 edges: another 41.6% lower median partition time; exact edge partition preserved; no extra memory claim |
+| [0094](0094-adaptive-paper-maximum-degree.md) | Find maximum degree by streaming edge endpoints on sparse graphs and retain a universe scan for denser graphs | 100k labels/3 edges: max-degree probe 3.760→0.302 ms; same result, +128 B median traced scratch |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

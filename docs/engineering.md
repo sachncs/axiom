@@ -1172,3 +1172,8 @@ is not qualified. See [ADR 0092](adrs/0092-sparse-paper-partition-components.md)
 The follow-up now evaluates the same maximum-degree and balanced-output
 certificates only over active component vertices, eliminating those remaining
 universe scans without dropping either check; see [ADR 0093](adrs/0093-local-paper-partition-degree-audits.md).
+The public paper colorer and recursive seed use the same adaptive maximum-degree
+probe: stream edge endpoints when `2m < n`, otherwise scan `n` vertices. On a
+100k-label/3-edge component probe this cut median time 92% with 128 bytes more
+traced scratch. Complete recursive seed qualification remains open; see
+[ADR 0094](adrs/0094-adaptive-paper-maximum-degree.md).

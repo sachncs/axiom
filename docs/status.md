@@ -130,6 +130,8 @@ counts seed palette frequencies in one edge pass, and discovers Euler
 components from live endpoints rather than scanning/materializing isolated
 vertices, and now limits those degree certificates to active components
 ([ADRs 0090–0093](adrs/README.md)). These remain component-level changes;
+an adaptive sparse maximum-degree path also avoids universe scans in Paper.color
+and recursive seeding ([ADR 0094](adrs/0094-adaptive-paper-maximum-degree.md)).
 full-suite verification currently passes 1,271 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.

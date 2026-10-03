@@ -2904,6 +2904,23 @@ class Paper:
     extension: type[Extension] = Extension
 
     @classmethod
+    def maximum(cls, graph: Graph) -> int:
+        """Return the maximum degree, avoiding a universe scan when sparse.
+
+        Every non-isolated vertex is an endpoint of a live edge. When the graph
+        has fewer than half as many edges as vertices, scanning both endpoints
+        per edge is cheaper than visiting the entire vertex universe and needs
+        no additional vertex index. Denser graphs retain the linear universe
+        scan so high-degree endpoints are not repeatedly queried.
+        """
+        if 2 * graph.num_edges() < graph.n:
+            return max(
+                (graph.degree(vertex) for edge in graph.edges() for vertex in edge),
+                default=0,
+            )
+        return max((graph.degree(vertex) for vertex in range(graph.n)), default=0)
+
+    @classmethod
     def color(cls, graph: Graph, delta: int) -> dict[Edge, Color]:
         """Return a certified complete coloring with at most delta + 1 colors.
 
@@ -2920,7 +2937,7 @@ class Paper:
         """
         if not isinstance(delta, int) or isinstance(delta, bool) or delta < 0:
             raise ValueError("delta must be a non-negative integer")
-        maximum = max((graph.degree(vertex) for vertex in range(graph.n)), default=0)
+        maximum = cls.maximum(graph)
         if maximum > delta:
             raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
         alledges = set(graph.edges())
@@ -3096,8 +3113,8 @@ class Paper:
             start = Partial(graph, delta + 1)
             return cls.complete(start, set(graph.edges()), delta)
         left, right = cls.partition(graph)
-        leftdelta = max((left.degree(vertex) for vertex in range(graph.n)), default=0)
-        rightdelta = max((right.degree(vertex) for vertex in range(graph.n)), default=0)
+        leftdelta = cls.maximum(left)
+        rightdelta = cls.maximum(right)
         leftcoloring = cls.seed(left, leftdelta) if left.num_edges() else {}
         rightcoloring = cls.seed(right, rightdelta) if right.num_edges() else {}
         leftpalette = leftdelta + 1
