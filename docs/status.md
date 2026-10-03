@@ -1,6 +1,6 @@
 # Current implementation and qualification status
 
-Updated 2026-10-03. This page describes current components; historical experiment
+Updated 2026-10-04. This page describes current components; historical experiment
 sections retain their source/workload provenance and do not override this status.
 
 | Path | Use | Durability and concurrency |
@@ -125,7 +125,11 @@ defer cache indexing until refinement, borrow read-only update sets, and retain
 a restore fallback for missing deleted edges. Phase synchronization streams
 built-in graph edges and cuts matchings against the resulting graph; the P2
 certificate now examines incident edges instead of rescanning the full matching
-per A vertex. Full-suite verification currently passes 1,249 tests. The
+per A vertex. Recent work also uses sparse degree counts in hierarchy checks,
+counts seed palette frequencies in one edge pass, and discovers Euler
+components from live endpoints rather than scanning/materializing isolated
+vertices ([ADRs 0090–0092](adrs/README.md)). These remain component-level changes;
+full-suite verification currently passes 1,271 tests. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
 Accounting is now migrated to bounded scalar undo with retained Ledger identity;
@@ -164,5 +168,5 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local coverage is
-1,230 passing tests; CI and benchmark results must be attributed to their exact
+1,271 passing tests; CI and benchmark results must be attributed to their exact
 revision, not assumed to qualify every subsequent change.
