@@ -366,8 +366,12 @@ class Multilevel:
             # prior partition and matching state.
             phase_base_graph = snapshot(matcher.graph)
             phase_base_system = build(phase_base_graph, matcher.level_zs[0])
+            working_system = copy(phase_base_system, phase_base_graph)
             matcher.multi = build_hierarchy(
-                phase_base_graph, matcher.level_zs, colorer=recursive_colorer
+                phase_base_graph,
+                matcher.level_zs,
+                colorer=recursive_colorer,
+                first=working_system,
             )
         # Recursive refinement constructs the finest system on a selected
         # working subgraph.  The dynamic update pipeline owns a phase graph

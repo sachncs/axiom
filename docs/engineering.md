@@ -304,6 +304,20 @@ child-to-parent rebases still take a new snapshot and build the System because
 they must fold deferred updates into the new parent phase. See
 [ADR 0057](adrs/0057-reuse-full-rebuild-phase-base.md).
 
+Full rebuilds also use the already-constructed phase-base level-one System as
+the source for a detached hierarchy level-one copy, rather than executing the
+full greedy/promote System builder twice. On an 8,192-vertex degree-four ring,
+the isolated base+level-one stage fell from a 44.7 ms median (two builds) to
+28.8 ms (one build plus copy) across five repeats. A 512-vertex full hierarchy
+measurement was 820 ms versus 816 ms across three repeats—within noise, with
+refinement/coloring dominating. An 8,192-vertex full hierarchy timing exceeded
+80 seconds and was stopped during coloring validation; it is not a result or
+qualification. Thus this removes duplicate level-one work but does not claim
+an end-to-end throughput improvement or address the current scale bottleneck.
+The builder verifies graph/z/idle binding and the existing rebuild boundary
+still checks both phase-base and hierarchy state. See
+[ADR 0058](adrs/0058-reuse-level-one-system-build.md).
+
 ## Implemented foundation, not product qualification
 
 The installed Linux resource drill now passes at one million vertices under a

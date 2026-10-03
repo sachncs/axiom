@@ -107,7 +107,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full rebuilds now reuse their already-captured phase-base graph/System rather
   than snapshotting and rebuilding level one again; incremental parent rebases
   remain separate. See [ADR 0057](docs/adrs/0057-reuse-full-rebuild-phase-base.md).
-- 1,228 local tests pass after phase-base snapshot reuse.
+- Full rebuilds now copy the preserved level-one System into the hierarchy
+  rather than running the full level-one constructor twice. Component gains do
+  not translate into a measured full-hierarchy speedup; see [ADR 0058](docs/adrs/0058-reuse-level-one-system-build.md).
+- 1,230 local tests pass after phase-base System reuse.
 
 - Bounded full paper-state diagnostic comparison, replay-prefix and rollback
   qualification across both modes/storage backends, including shared references

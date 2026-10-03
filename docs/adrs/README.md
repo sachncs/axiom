@@ -64,6 +64,7 @@ Dates use the project's user-facing calendar and are recorded per decision.
 | [0055](0055-share-hierarchy-phase-graph-root.md) | Retain the hierarchy-owned phase graph root instead of cloning it into an unused Matcher mirror | Removes one full native graph copy per multilevel rebuild; identity and failed-update rollback are regression-tested |
 | [0056](0056-reuse-inherited-phase-roots.md) | Reuse immutable inherited graph/System roots across child-phase rebuilds; detach only the refinement working state | Counter test proves one remaining graph snapshot and one working-System copy; injected failure restores inherited roots exactly |
 | [0057](0057-reuse-full-rebuild-phase-base.md) | Reuse the phase-base graph/System already built by a full rebuild instead of snapshotting/rebuilding them again at publication | Counter test proves one full-rebuild graph snapshot; phase-base and hierarchy certificates pass |
+| [0058](0058-reuse-level-one-system-build.md) | Clone the retained level-one System into the hierarchy instead of running the full level-one builder twice | Isolated 8,192-vertex System stage improved 35%; 512-vertex full hierarchy was within noise, so no end-to-end speed claim |
 
 The [engineering assessment](../engineering.md) remains the complete roadmap;
 [current status](../status.md) distinguishes current retained evidence from each

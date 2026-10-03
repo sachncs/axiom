@@ -610,7 +610,10 @@ def require(colorer: Paper | None) -> Paper:
 
 
 def build_hierarchy(
-    graph: Graph, level_zs: list[int], colorer: Paper | None = None
+    graph: Graph,
+    level_zs: list[int],
+    colorer: Paper | None = None,
+    first: System | None = None,
 ) -> Hierarchy:
     r"""Build a multi-level system by recursive refinement.
 
@@ -629,6 +632,11 @@ def build_hierarchy(
             :math:`z` value of each level (coarsest first).
         colorer: Paper colorer used for recursive refinement, or ``None``
             to construct the default strategy.
+        first: An already-built level-one System to refine. It must be idle,
+            bound to ``graph``, and use ``level_zs[0]``. Supplying it avoids a
+            duplicate full level-one construction when the caller must retain
+            the original System separately. The builder may mutate this
+            System during refinement; pass a detached copy to preserve it.
 
     Returns:
         A :class:`Hierarchy` whose ``levels`` list contains one
@@ -648,8 +656,13 @@ def build_hierarchy(
         raise ValueError("level_zs must be strictly decreasing")
 
     active_colorer = require(colorer)
-    first = build_z_system(graph, level_zs[0])
-    system = first
+    system = build_z_system(graph, level_zs[0]) if first is None else first
+    if (
+        system.graph is not graph
+        or system.z != level_zs[0]
+        or system.journal is not None
+    ):
+        raise ValueError("first System must be idle and match the graph and z")
     hierarchy = Hierarchy(
         graph=system.graph,
         k=1,

@@ -9,7 +9,9 @@ from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchies import Hierarchies
 from axiom.hierarchy import Hierarchy, build_hierarchy
+from axiom.rebuild import copy as copysystem
 from axiom.storage import Packed
+from axiom.system import build as buildsystem
 from axiom.vertices import Vertices
 from axiom.witness import Witness
 
@@ -57,6 +59,50 @@ def test_derived_hierarchy_partitions_share_exact_roots_when_possible():
             assert hierarchy.A2 is upper[0]
         else:
             assert all(hierarchy.A2 is not level for level in upper)
+
+
+def test_hierarchy_builder_refines_a_detached_level_one_system():
+    graph = Adjacency(64)
+    for vertex in range(64):
+        graph.add_edge(vertex, (vertex + 1) % 64)
+        graph.add_edge(vertex, (vertex + 7) % 64)
+
+    baseline = build_hierarchy(graph, [8, 4, 2])
+    preserved = buildsystem(graph, 8)
+    roots = (preserved.A, preserved.B, preserved.U, preserved.M)
+    candidate = copysystem(preserved, graph)
+    hierarchy = build_hierarchy(graph, [8, 4, 2], first=candidate)
+
+    assert hierarchy.check()
+    assert preserved.check()
+    assert all(
+        current is original
+        for current, original in zip(
+            (preserved.A, preserved.B, preserved.U, preserved.M), roots, strict=True
+        )
+    )
+    assert [level.M for level in hierarchy.levels] == [
+        level.M for level in baseline.levels
+    ]
+    assert [set(level.A) for level in hierarchy.levels] == [
+        set(level.A) for level in baseline.levels
+    ]
+
+
+def test_hierarchy_builder_rejects_incompatible_initial_system():
+    graph = Adjacency(8)
+    other = Adjacency(8)
+    valid = buildsystem(graph, 4)
+
+    with pytest.raises(ValueError, match="match the graph and z"):
+        build_hierarchy(graph, [4, 2], first=copysystem(valid, other))
+    with pytest.raises(ValueError, match="match the graph and z"):
+        build_hierarchy(graph, [2, 1], first=valid)
+
+    busy = copysystem(valid, graph)
+    busy.journal = object()  # type: ignore[assignment]
+    with pytest.raises(ValueError, match="idle"):
+        build_hierarchy(graph, [4, 2], first=busy)
 
 
 def test_partition_union_and_region_certificates_are_exact_without_materializing():
