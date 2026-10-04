@@ -395,6 +395,11 @@ class Memory(Pressure):
                     )
             finally:
                 chunks.clear()
+        # A failed reconstruction can leave cyclic partially-built Matcher
+        # state unreachable but not yet reclaimed. Release the owner and collect
+        # it before reopening under the same process address-space ceiling.
+        del owner
+        gc.collect()
         with Durable(pressure_database, mode=self.mode, budget=128 << 20) as recovered:
             if recovered.status() != before:
                 raise RuntimeError("pre-persistence OOM changed durable status")

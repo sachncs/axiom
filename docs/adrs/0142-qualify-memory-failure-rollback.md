@@ -38,6 +38,10 @@ the persisted two-operation prefix.
   succeeded under pressure. A hosted run exposed that gap; the probe now uses
   out-of-ring edges and only 64 KiB headroom. A review caught and corrected an
   intermediate candidate whose distinct edges were already ring members.
+- The first out-of-ring run forced `MemoryError`, but immediate reopen still
+  failed while unreachable partially constructed Matcher objects were awaiting
+  cyclic collection. The probe now releases the failed Durable owner and runs
+  collection before testing exact recovery from disk.
 - It avoids replaying the million-operation source history a second time solely
   to seed the isolated memory probe; source integrity is still checked by the
   Service audit and final exact backup restoration.
@@ -52,5 +56,7 @@ the persisted two-operation prefix.
 Local logic/type/full-suite checks pass, but this probe requires the hosted
 Linux 512 MiB address-space run. The first rerun passed the million-update
 cycle and backup but failed because the probe did not actually reject the
-update group. Record the exact failure phase, status, digest, and whether
-recovery was necessary after the corrected rerun before claiming qualification.
+update group. The second rerun forced `MemoryError` but recovery then ran out of
+address space before unreachable Matcher state was collected. Record the exact
+failure phase, status, digest, and whether recovery was necessary after the
+corrected rerun before claiming qualification.
