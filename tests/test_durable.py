@@ -4,12 +4,14 @@ import hashlib
 import json
 import random
 import sqlite3
+from collections.abc import Callable, Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
 
 import pytest
 
 from axiom import core
+from axiom.classes import Classes
 from axiom.core import Matcher
 from axiom.durable import (
     PAPER_CHUNK,
@@ -21,6 +23,7 @@ from axiom.durable import (
     UnavailableError,
     _digest,
 )
+from axiom.types import Edge, Matching
 from axiom.witness import Witness
 
 MODES = ("basic", "multilevel")
@@ -290,6 +293,91 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
     monkeypatch.undo()
     with Durable(path, mode=mode) as recovered:
         assert recovered.status()["sequence"] == len(batch)
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_real_class_admission_failure_retries_durable_group_atomically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """A component journal failure must retry via private smaller chunks."""
+    path = tmp_path / f"real-class-capacity-{mode}.db"
+    store = Durable(path, n=32, width=0, mode=mode, max_batch=136)
+    setup = [
+        Request(sequence, "insert", left, right)
+        for sequence, (left, right) in enumerate(
+            [(left, right) for left in range(32) for right in range(left + 1, 32)][
+                :128
+            ],
+            1,
+        )
+    ]
+    store.apply(setup)
+    matcher = store._matcher
+    matched = next(
+        edge for color in matcher.activecolors for edge in matcher.matchings[color]
+    )
+    remaining = [edge for edge in matcher.graph.edges() if edge != matched][:7]
+    trace = [matched, *remaining]
+    before = state(store)
+    original = Classes.remove
+    original_batch = Matcher.batch
+    injected = False
+    retry_sizes = []
+
+    @contextmanager
+    def observe_batch(
+        target: Matcher,
+        max_operations: int = 256,
+        before_publish: Callable[[], None] | None = None,
+    ) -> Iterator[Matcher]:
+        if injected:
+            retry_sizes.append(max_operations)
+        with original_batch(target, max_operations, before_publish):
+            yield target
+
+    def constrain(
+        journal: Classes,
+        matching: Matching,
+        edge: Edge,
+        color: int | None = None,
+    ) -> None:
+        nonlocal injected
+        if not injected and edge == matched and edge in matching:
+            injected = True
+            capacity = journal.capacity
+            journal.capacity = len(journal.sets) + len(journal.entries)
+            try:
+                original(journal, matching, edge, color)
+            finally:
+                journal.capacity = capacity
+            return
+        original(journal, matching, edge, color)
+
+    monkeypatch.setattr(Classes, "remove", constrain)
+    monkeypatch.setattr(Matcher, "batch", observe_batch)
+    batch = [
+        Request(sequence + 128, "delete", left, right)
+        for sequence, (left, right) in enumerate(trace, 1)
+    ]
+    outcomes = store.apply(batch)
+
+    assert injected
+    assert 4 in retry_sizes
+    assert tuple(outcome.sequence for outcome in outcomes) == tuple(range(129, 137))
+    assert store.status()["sequence"] == 136
+    assert tuple(record.sequence for record in store.history().records) == tuple(
+        range(1, 137)
+    )
+    assert store.check()
+    committed = state(store)
+    committed_witness = witness(store)
+    assert committed != before
+    store.close()
+    monkeypatch.setattr(Classes, "remove", original)
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == committed
+        assert witness(recovered) == committed_witness
         assert recovered.check()
 
 

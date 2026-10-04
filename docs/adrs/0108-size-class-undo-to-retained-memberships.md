@@ -38,8 +38,16 @@ capacity/admission tests.
 
 The regression removes 65,537 original class memberships and verifies exact
 in-place rollback, including set/list roots and seed sharing. The broader
-Durable suite must continue to verify retries and atomic SQLite publication.
-An actual million-vertex smoke with the reported delete group remains a required
-scale regression; this unit fixture proves the former fixed class threshold is
-gone, not that the complete process fits a particular memory budget or that
-every other journal can handle the same operation.
+Durable suite now also drives a real `Classes.remove` admission failure after a
+paper phase boundary in both Basic and Multilevel. Durable retries the 8-request
+group as 4-request private chunks, then commits one contiguous history and
+reopens to the same public state and Witness. This verifies the component-to-
+Durable recovery seam; it deliberately constrains the journal in the test and
+does not claim that production capacity was exhausted.
+
+An actual million-vertex smoke with the originally reported delete trace remains
+a required scale regression. The large membership unit fixture proves the
+former fixed class threshold is gone, not that the full process fits a
+particular memory budget. Views, Systems, hierarchy, auxiliary and clock
+journals still have their own fixed ceilings, so the original failure cannot be
+attributed to the class journal without its exception text and stack trace.
