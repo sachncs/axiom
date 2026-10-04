@@ -22,6 +22,7 @@ from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
+from axiom.matching_index import MatchingIndex
 from axiom.paper_coloring import Fan, Fans, Paper, Partial
 from axiom.partners import Partners
 from axiom.rebuild import Basic, Multilevel
@@ -115,6 +116,7 @@ class Witness:
         Multilevel: frozenset(),
         Clocks: frozenset(),
         Partners: frozenset(),
+        MatchingIndex: frozenset(),
     }
 
     def __init__(
@@ -224,6 +226,8 @@ class Witness:
             content = self.encode(
                 {"n": value.n, "entries": list(value.items())}, depth + 1
             )
+        elif kind is MatchingIndex:
+            content = self.encode({"n": value.n, "graph": value.graph}, depth + 1)
         else:
             attributes = vars(value)
             if attributes.keys() != self.schema[kind]:

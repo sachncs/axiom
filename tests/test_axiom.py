@@ -764,6 +764,22 @@ class TestMatcher:
 
         assert allocated == [matcher.matched_vertices]
 
+    def test_initial_refresh_reuses_empty_matching_edge_index(self, monkeypatch):
+        original = core_module.MatchingIndex
+        allocated = []
+
+        class TrackedMatchingIndex(original):
+            def __init__(self, n, budget=1_073_741_824):
+                super().__init__(n, budget)
+                allocated.append(self)
+
+        monkeypatch.setattr(core_module, "MatchingIndex", TrackedMatchingIndex)
+        graph = Packed(16)
+        graph.ring(2)
+        matcher = Matcher(16, mode="multilevel", graph=graph)
+
+        assert allocated == [matcher.matched_edges]
+
     def test_matching_state_audit_avoids_duplicate_endpoint_indexes(self) -> None:
         class GuardedSet(set):
             def __iter__(self):

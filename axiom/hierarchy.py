@@ -39,7 +39,7 @@ from axiom.paper_coloring import Paper
 from axiom.storage import Packed
 from axiom.system import CacheRow, System, degrees
 from axiom.system import build as build_z_system
-from axiom.types import Edge, Graph, Vertex, canonical
+from axiom.types import Edge, Graph, Matching, Vertex, canonical
 from axiom.vertices import Vertices
 
 
@@ -93,7 +93,7 @@ class Hierarchy:
                 self.A_levels[index] = Vertices(self.graph.n, partition, ordered=False)
 
     def counts(
-        self, matching: set[Edge], ceiling: int
+        self, matching: Matching, ceiling: int
     ) -> dict[Vertex, int] | array[int] | None:
         """Count matching degrees sparsely or densely, failing at the cap."""
         if len(matching) * 36 < self.graph.n:
@@ -551,7 +551,7 @@ class Hierarchy:
                 return False
         return True
 
-    def check_i3(self, matching: set[tuple[int, int]], r: int, z: int) -> bool:
+    def check_i3(self, matching: Matching, r: int, z: int) -> bool:
         r"""Check multi-level invariant (I3).
 
         At most :math:`2\tau` vertices of :math:`A_1` are matched by
@@ -595,7 +595,7 @@ class Hierarchy:
             right in self.A1 and left in self.R1
         )
 
-    def crossing_edges(self, matching: set[Edge]) -> set[Edge]:
+    def crossing_edges(self, matching: Matching) -> set[Edge]:
         """Build the I3 crossing index at initialization and phase boundaries."""
         return {edge for edge in matching if self.has_i3_crossing(edge)}
 
@@ -607,7 +607,7 @@ class Hierarchy:
 
     def maintain_i3(
         self,
-        matching: set[tuple[int, int]],
+        matching: Matching,
         r: int,
         z: int,
         partner_of: Callable[[Vertex], Vertex | None],

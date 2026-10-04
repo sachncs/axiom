@@ -51,6 +51,7 @@ from axiom.hierarchies import Hierarchies
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import partners
+from axiom.matching_index import MatchingIndex
 from axiom.paper_coloring import Paper
 from axiom.partners import Partners
 from axiom.rebuild import Basic, Multilevel
@@ -182,7 +183,10 @@ class Matcher:
             if mode == "multilevel"
             else Vizing()
         )
-        self.matched_edges: Matching = set()
+        matching_budget = (
+            self.graph.memory()["budget"] if isinstance(self.graph, Packed) else budget
+        )
+        self.matched_edges: Matching = MatchingIndex(n, budget=matching_budget)
         self.matched_vertices = Vertices(n)
         self.partner_map = Partners(n)
         self.views: Views | None = None
@@ -702,7 +706,17 @@ class Matcher:
                 "the rebuild invariant is corrupted"
             )
 
-        matching: Matching = set()
+        matching_budget = (
+            self.graph.memory()["budget"] if isinstance(self.graph, Packed) else 1 << 30
+        )
+        matching = self.matched_edges
+        if (
+            type(matching) is not MatchingIndex
+            or len(matching)
+            or self.update_count != 0
+            or self.views is not None
+        ):
+            matching = MatchingIndex(self.n, budget=matching_budget)
         matched = self.matched_vertices
         if (
             not isinstance(matched, Vertices)

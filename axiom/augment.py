@@ -18,10 +18,10 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Callable, Iterable
 
-from axiom.types import Edge, Vertex, canonical
+from axiom.types import Matching, Vertex, canonical
 
 
-def flip(coloring: set[Edge], path: list[Vertex]) -> None:
+def flip(coloring: Matching, path: list[Vertex]) -> None:
     """Flip alternating edges along ``path`` in the matching ``coloring``.
 
     The path must have an odd number of edges, with non-matching edges at
@@ -42,7 +42,7 @@ def flip(coloring: set[Edge], path: list[Vertex]) -> None:
 
 
 def augment(
-    matching: set[Edge],
+    matching: Matching,
     neighbors: Callable[[Vertex], Iterable[Vertex]],
     start: Vertex,
     is_matched: Callable[[Vertex], bool],

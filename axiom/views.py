@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from axiom.capacity import JournalCapacityError
 from axiom.matching import is_maximal_matching
+from axiom.matching_index import MatchingIndex
 from axiom.partners import Partners
 from axiom.vertices import Vertices
 
@@ -37,23 +38,31 @@ class Views:
         self.vertices = owner.matched_vertices
         self.partners = owner.partner_map
         self.crossings = owner.i3_crossings
-        if (
-            type(self.edges) is not set
-            or type(self.vertices) not in (set, Vertices)
-            or not isinstance(self.partners, dict)
-            and type(self.partners) is not Partners
-        ):
-            raise TypeError(
-                "matching views require a plain edge set, a dictionary or compact "
-                "partner map, and a plain set or compact vertex set"
-            )
         if id(self.edges) == id(self.vertices):
             raise ValueError("matching views cannot share a container")
+        if (
+            (not isinstance(self.edges, set) and type(self.edges) is not MatchingIndex)
+            or type(self.vertices) not in (set, Vertices)
+            or (
+                not isinstance(self.partners, dict)
+                and type(self.partners) is not Partners
+            )
+        ):
+            raise TypeError(
+                "matching views require plain sets or compact indexes for edges "
+                "and vertices, and a dictionary or compact partner map"
+            )
         self.edge: dict[tuple[int, int], bool] = {}
         self.vertex: dict[int, tuple[bool, bool, object]] = {}
         self.affected: set[int] = set()
         self.crossing_cells: dict[tuple[int, int], bool] = {}
         self.isolate()
+        self.edge_graph = (
+            self.edges.graph if type(self.edges) is MatchingIndex else None
+        )
+        self.edge_token = (
+            self.edge_graph.begin() if self.edge_graph is not None else None
+        )
         object.__setattr__(owner, "views", self)
 
     def isolate(self) -> None:
@@ -251,6 +260,9 @@ class Views:
     def commit(self) -> None:
         """Release retained cells after publication."""
         self.check()
+        if self.edge_graph is not None and self.edge_token is not None:
+            self.edge_graph.commit(self.edge_token)
+            self.edge_token = None
         self.edge.clear()
         self.vertex.clear()
         self.affected.clear()
@@ -268,11 +280,12 @@ class Views:
             or self.owner.views is not self
         ):
             raise RuntimeError("matching journal cannot roll back here")
-        for edge, present in self.edge.items():
-            if present:
-                self.edges.add(edge)
-            else:
-                self.edges.discard(edge)
+        if self.edge_graph is None:
+            for edge, present in self.edge.items():
+                if present:
+                    self.edges.add(edge)
+                else:
+                    self.edges.discard(edge)
         for vertex, (present, paired, partner) in self.vertex.items():
             if present:
                 self.vertices.add(vertex)
@@ -282,6 +295,9 @@ class Views:
                 self.partners[vertex] = partner  # type: ignore[assignment]
             else:
                 self.partners.pop(vertex, None)
+        if self.edge_graph is not None and self.edge_token is not None:
+            self.edge_graph.rollback(self.edge_token)
+            self.edge_token = None
         self.owner.matched_edges = self.edges
         self.owner.matched_vertices = self.vertices
         self.owner.partner_map = self.partners

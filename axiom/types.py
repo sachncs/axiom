@@ -29,7 +29,7 @@ Limitations:
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, MutableSet
 from typing import Protocol, TypeAlias, runtime_checkable
 
 Vertex: TypeAlias = int
@@ -41,8 +41,8 @@ Edge: TypeAlias = tuple[Vertex, Vertex]
 For canonical ordering we enforce ``u < v`` internally where possible.
 """
 
-Matching: TypeAlias = set[Edge]
-"""A matching is a set of edges without common vertices."""
+Matching: TypeAlias = MutableSet[Edge]
+"""A matching is a mutable set-like collection of edges."""
 
 Color: TypeAlias = int
 """An edge color is represented by a non-negative integer."""
