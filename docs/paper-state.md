@@ -25,6 +25,13 @@ certificates. This removes one O(|M|) hash-membership copy, not the coloring,
 global validation, or result sets. See [ADR 0114](adrs/0114-count-colors-without-edge-buckets.md);
 full allocation and end-to-end qualification remain open.
 
+`Paper.color()` also delays retaining its complete edge certificate until a
+recursive seed has returned, so that set does not overlap the seed's temporary
+edge sets. The final completeness check compares the coloring key view directly
+instead of copying all keys. Full coloring/certification scans remain by design;
+large-graph allocation effects are not yet measured. See [ADR
+0115](adrs/0115-defer-paper-color-edge-snapshot.md).
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |

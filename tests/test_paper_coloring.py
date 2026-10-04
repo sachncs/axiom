@@ -521,6 +521,56 @@ def test_paper_certifies_graph_families(size: int, family: str) -> None:
     assert result == Paper.color(graph, delta)
 
 
+def test_paper_defers_edge_snapshot_until_recursive_seed_returns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Avoid overlapping the result edge set with recursive seed temporaries."""
+
+    class TrackingGraph:
+        def __init__(self) -> None:
+            self.backing = Adjacency(2)
+            self.backing.add_edge(0, 1)
+            self.edge_reads = 0
+
+        @property
+        def n(self) -> int:
+            return self.backing.n
+
+        def edges(self):
+            self.edge_reads += 1
+            return self.backing.edges()
+
+        def __getattr__(self, name: str):
+            return getattr(self.backing, name)
+
+    graph = TrackingGraph()
+
+    def seed(cls, source, delta):
+        assert source is graph
+        assert graph.edge_reads == 0
+        assert delta == 32
+        return {(0, 1): 0}
+
+    monkeypatch.setattr(Paper, "seed", classmethod(seed))
+
+    result = Paper.color(graph, 32)
+
+    assert result == {(0, 1): 0}
+    assert graph.edge_reads == 1
+
+
+def test_paper_certificate_compares_key_view_without_copying_coloring_keys() -> None:
+    class KeyViewOnly(dict):
+        def __iter__(self):
+            raise AssertionError("certificate copied all coloring keys")
+
+    graph = Adjacency(2)
+    graph.add_edge(0, 1)
+    coloring = KeyViewOnly({(0, 1): 0})
+
+    Paper.certify(graph, 1, {(0, 1)}, coloring)
+
+
 @pytest.mark.parametrize("delta", [-1, True, 2.5, "3"])
 def test_paper_rejects_invalid_degree_bounds(delta: object) -> None:
     with pytest.raises(ValueError, match="delta"):

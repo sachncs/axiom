@@ -3064,10 +3064,14 @@ class Paper:
         maximum = cls.maximum(graph)
         if maximum > delta:
             raise ValueError(f"delta={delta} is smaller than maximum degree {maximum}")
-        alledges = set(graph.edges())
-        if delta >= 32 and alledges:
+        if delta >= 32 and graph.num_edges():
             result = cls.seed(graph, delta)
+            # The recursive seed may itself need a complete-edge set in its
+            # fallback. Keep that temporary from overlapping the public
+            # result certificate's retained edge set.
+            alledges = set(graph.edges())
         else:
+            alledges = set(graph.edges())
             start = Partial(graph, delta + 1)
             result = cls.complete(start, alledges, delta)
         cls.certify(graph, delta, alledges, result)
@@ -3078,7 +3082,7 @@ class Paper:
         cls, graph: Graph, delta: int, alledges: set[Edge], coloring: dict[Edge, Color]
     ) -> None:
         """Certify a public colorer result before returning it to callers."""
-        if set(coloring) != alledges:
+        if coloring.keys() != alledges:
             raise RuntimeError("paper colorer returned an incomplete edge coloring")
         certificate = Partial(graph, delta + 1)
         for edge, color in sorted(coloring.items()):

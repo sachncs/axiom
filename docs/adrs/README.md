@@ -167,6 +167,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Sort each changed endpoint's neighbor row once per hierarchy level | Reuse two sorted endpoint rows across the full hierarchy certificate (0112) | Three-level degree-63 hub proves one row read per endpoint; full durable performance qualification remains |
 | Keep external identity mapping in process memory | Persist typed immutable IDs and monotonic fixed-universe slots in SQLite (0113) | Implementation underway; Service behavior and format migration are being tested; dynamic vertices and release qualification remain open |
 | Copy the complete edge coloring into one set per color during hierarchy refinement | Rank color buckets with O(z) counts and scan the existing coloring for selected edges (0114) | Five reference-selection cases plus hierarchy suite pass; allocation/time and end-to-end qualification remain open |
+| Keep the caller's complete edge set alive throughout recursive Paper seeding and copy coloring keys during certification | Defer the edge snapshot until recursive seeding returns and compare mapping keys by view (0115) | Snapshot-order and key-view regressions pass; large-graph allocation impact remains unmeasured |
 
 ## What is not being abandoned
 
