@@ -8,7 +8,6 @@ reader, compatibility mode, or state-image codec in this module.
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
@@ -253,6 +252,11 @@ class Durable:
             raise
 
     def _acquire_owner(self) -> None:
+        # Import only when taking the POSIX owner lock. Durable.__init__ rejects
+        # other platforms before reaching this method, while importing axiom's
+        # algorithm and storage APIs remains portable.
+        import fcntl
+
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW
         self._lock_fd = os.open(str(self._path) + ".owner", flags, 0o600)
         try:

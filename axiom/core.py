@@ -261,6 +261,16 @@ class Matcher:
         if graph_n != n:
             raise ValueError(f"graph.n must equal matcher n ({n}), got {graph_n}")
 
+        if isinstance(graph, Packed):
+            # Packed is the immutable, audited native graph backend. Its native
+            # certificate checks row links, degrees, blocks, counts and index
+            # invariants without retaining an O(m) Python edge list plus two
+            # duplicate edge sets. Keep the exhaustive protocol cross-check
+            # below for caller-defined Graph implementations.
+            if not graph.check():
+                raise ValueError("packed graph failed its native integrity check")
+            return
+
         try:
             listed_edges = list(graph.edges())
             listed_count = graph.num_edges()

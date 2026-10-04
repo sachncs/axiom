@@ -19,6 +19,8 @@ from scripts.verify_resource_envelope import (
     Volume,
 )
 
+SQLITEFULL = getattr(sqlite3, "SQLITE_FULL", 13)
+
 
 def mounted(tmp_path, monkeypatch, capacity=192 << 20):
     original = Path.stat
@@ -177,7 +179,7 @@ def test_full_volume_update_retries_same_id_from_either_commit_prefix(
     class FailedReceipt:
         def result(self, timeout=None):
             error = sqlite3.OperationalError("database or disk is full")
-            error.sqlite_errorcode = sqlite3.SQLITE_FULL
+            error.sqlite_errorcode = SQLITEFULL
             raise error
 
     def submit(service, request):

@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 import math
 import random
+import tracemalloc
 
 import pytest
 
@@ -32,6 +33,22 @@ from axiom.types import canonical
 from axiom.vertices import Vertices
 from axiom.visualize import visualize_adjacency, visualize_matching, visualize_system
 from axiom.witness import Witness
+
+
+def test_packed_graph_admission_uses_bounded_python_memory() -> None:
+    """Native graph validation must not materialize multiple O(m) Python sets."""
+    graph = Packed(30_000)
+    graph.ring(2)
+    assert graph.num_edges() == 60_000
+
+    tracemalloc.start()
+    try:
+        Matcher._Matcher__validate_graph(graph, graph.n)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < 512 << 10
 
 
 @pytest.mark.parametrize("pairs", [16, 128, 512])

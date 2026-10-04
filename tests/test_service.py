@@ -24,6 +24,8 @@ from axiom.durable import (
 )
 from axiom.service import Receipt, Service
 
+SQLITEFULL = getattr(sqlite3, "SQLITE_FULL", 13)
+
 
 def create(path: Path, **options: object) -> Service:
     settings = dict(
@@ -623,14 +625,14 @@ def test_sqlite_full_update_commit_fails_closed_and_recovers_exact_prefix(
         database.execute("BEGIN IMMEDIATE")
         database.execute("INSERT INTO operations VALUES(?, ?, ?, ?, ?, ?, ?)", rows[0])
         error = sqlite3.OperationalError("database or disk is full")
-        error.sqlite_errorcode = sqlite3.SQLITE_FULL
+        error.sqlite_errorcode = SQLITEFULL
         raise error
 
     monkeypatch.setattr(service._owner, "_persist", reject_commit)
     receipt = service.submit(second)
     with pytest.raises(sqlite3.OperationalError) as failure:
         receipt.result(5)
-    assert failure.value.sqlite_errorcode == sqlite3.SQLITE_FULL
+    assert failure.value.sqlite_errorcode == SQLITEFULL
     assert service.metrics()["state"] == "failed"
     with pytest.raises(UnavailableError):
         service.partner(0)
