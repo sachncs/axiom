@@ -332,6 +332,17 @@ class Maintenance:
 class Memory(Pressure):
     """Exercise durable update failure under allocator pressure and recover."""
 
+    @staticmethod
+    def requests(request: Any, vertices: int) -> tuple[Any, ...]:
+        """Create a bounded deterministic group of distinct edge insertions."""
+        count = 4096
+        if type(vertices) is not int or vertices < 2 * (count + 1):
+            raise ValueError("memory workload requires at least 8,194 vertices")
+        return tuple(
+            request(sequence, "insert", 2 * (sequence - 3) + 2, 2 * (sequence - 3) + 3)
+            for sequence in range(3, count + 3)
+        )
+
     def apply(self) -> dict[str, object]:
         """Reject a large durable update atomically under real allocator pressure."""
         if sys.platform != "linux" or resource.getrlimit(resource.RLIMIT_AS) != (
@@ -355,18 +366,16 @@ class Memory(Pressure):
             owner.apply([Request(1, "delete", 0, 1), Request(2, "insert", 0, 1)])
             baseline = pressure_audit.verify(owner)
             before = owner.status()
-            requests = tuple(
-                Request(sequence, "delete" if sequence % 2 else "insert", 0, 1)
-                for sequence in range(3, 4099)
-            )
+            requests = self.requests(Request, self.audit.vertices)
             chunks = []
             while True:
                 try:
-                    chunks.append(bytearray(1 << 20))
+                    chunks.append(bytearray(1 << 16))
                 except MemoryError:
                     break
-            allocated = len(chunks) << 20
-            # Retain only one MiB for the operation's exception and recovery path.
+            allocated = len(chunks) << 16
+            # Keep only one 64 KiB chunk free so the varied update must allocate
+            # its journal, graph deltas, and persistence rows under real pressure.
             del chunks[-1:]
             failure = ""
             try:
