@@ -759,6 +759,7 @@ def refine_hierarchy(
     deleted: set[Edge] | None = None,
     inserted: set[Edge] | None = None,
     colorer: Paper | None = None,
+    restore: bool = False,
 ) -> Hierarchy:
     """Recursively refine a hierarchy using the paper's level construction.
 
@@ -767,12 +768,18 @@ def refine_hierarchy(
     level by selecting the first ``z_prime`` color classes of the previous
     system, then applying the promotion pass that repairs the U-degree and
     B-neighborhood bounds.
+
+    ``restore`` is reserved for child-phase rebuilds whose deletion history
+    can contain edges absent from the inherited phase graph. Such edges are
+    reintroduced only when selected for deferred retention.
     """
     previous = hierarchy.levels[-1]
     z = previous.z
     h = hierarchy.k
     if not 0 < z_prime < z:
         raise ValueError("z_prime must be positive and smaller than the prior z")
+    if type(restore) is not bool:
+        raise ValueError("restore must be a boolean")
 
     deleted = deleted or set()
     inserted = inserted or set()
@@ -787,7 +794,7 @@ def refine_hierarchy(
                     f"{label} edges must be canonical endpoints in [0, n): {edge}"
                 )
     missing = sorted(edge for edge in deleted if not hierarchy.graph.has_edge(*edge))
-    if missing:
+    if missing and not restore:
         raise ValueError(f"deleted edges must belong to the phase graph: {missing}")
     present = sorted(edge for edge in inserted if hierarchy.graph.has_edge(*edge))
     if present:
@@ -839,6 +846,7 @@ def refine_hierarchy(
     deferred_deleted = {
         edge for edge in retained_deleted if coloring[edge] in selected_colors
     }
+    missing_deferred = tuple(edge for edge in missing if edge in deferred_deleted)
     if len(deferred_deleted) > deletion_budget:
         raise RuntimeError(
             "recursive refinement selected too many deleted matching edges: "
@@ -862,7 +870,7 @@ def refine_hierarchy(
         )
         working_graph = project(
             hierarchy.graph,
-            merge(phase_edges, iter(sorted(inserted))),
+            merge(phase_edges, iter(sorted(inserted)), iter(missing_deferred)),
             ordered=True,
         )
     else:
@@ -872,6 +880,7 @@ def refine_hierarchy(
             for edge in hierarchy.graph.edges()
             if edge not in deleted or edge in deferred_deleted
         )
+        working_edges.update(missing_deferred)
         working_graph = project(hierarchy.graph, working_edges)
     degree: SparseDegrees | array[int]
     if len(chosen) * 36 < hierarchy.graph.n:

@@ -58,6 +58,13 @@ removes row-degree-proportional undo memory, not the O(degree) Python-list shift
 time. A one-million-vertex hub diagnostic exposed the former cap and must be
 rerun after this fix. See [ADR 0119](adrs/0119-delta-journal-system-rows.md).
 
+Multilevel child rebuilds no longer clone an entire inherited graph just to
+reinsert missing deletion-history edges before refinement. Strict standalone
+refinement validation remains the default; the child path reintroduces only
+missing edges selected for deferred retention while constructing its detached
+projection. Full parent-boundary graph snapshots remain. See [ADR
+0120](adrs/0120-project-missing-child-deletions.md).
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |

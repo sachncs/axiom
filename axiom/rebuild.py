@@ -331,15 +331,12 @@ class Multilevel:
             deleted = matcher.deleted_edges | previous.deferred_deletions
             phase_base_graph = old_graph
             phase_base_system = base_system
-            # Refinement reads its hierarchy graph and emits a detached
-            # projected graph. Reuse the immutable parent root when all
-            # deleted edges already belong to it; only roots that need
-            # restored edges require a working graph copy.
-            missing = [edge for edge in deleted if not old_graph.has_edge(*edge)]
-            refine_graph = old_graph if not missing else snapshot(old_graph)
-            for left, right in missing:
-                if not refine_graph.has_edge(left, right):
-                    refine_graph.add_edge(left, right)
+            # Refinement streams the immutable parent root into a detached
+            # output graph. Missing phase deletions are metadata for that
+            # projection; only those selected for deferred retention re-enter
+            # the output. Do not clone/mutate the complete parent graph merely
+            # to make those deleted edges visible to validation.
+            refine_graph = old_graph
             working_base_system = copy(base_system, refine_graph, indexed=False)
             matcher.multi = Hierarchy(
                 graph=refine_graph,
@@ -358,6 +355,7 @@ class Multilevel:
                     deleted=deleted,
                     inserted=inserted,
                     colorer=recursive_colorer,
+                    restore=True,
                 )
                 deleted = matcher.multi.deferred_deletions
                 # E_I is incorporated into the graph produced by this

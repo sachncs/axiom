@@ -1972,8 +1972,9 @@ class TestMatcher:
         assert basesystem.check()
         assert algo.multi.check()
 
-    def test_child_rebuild_restores_a_missing_deleted_edge(self, monkeypatch):
-        dense = Adjacency(16)
+    @pytest.mark.parametrize("backend", [Adjacency, Packed])
+    def test_child_rebuild_restores_a_missing_deleted_edge(self, monkeypatch, backend):
+        dense = backend(16)
         for left in range(16):
             for right in range(left + 1, 16):
                 dense.add_edge(left, right)
@@ -1999,9 +2000,7 @@ class TestMatcher:
 
         algo.delete(*edge)
 
-        assert len(snapshotcalls) == 1
-        assert snapshotcalls[0][0] is basegraph
-        assert snapshotcalls[0][1].has_edge(*edge)
+        assert snapshotcalls == []
         assert algo.phase_base_graph is basegraph
         assert algo.phase_base_system is basesystem
         assert not basegraph.has_edge(*edge)

@@ -172,6 +172,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Rebuild the complete uncolored-edge difference after fan construction | Reuse the initial set for fan construction, then scan the original edge universe into the ordered pending list (0117) | Difference-count and completion tests pass; large-graph allocation impact remains unmeasured |
 | Track dense Euler-edge IDs in hash tables during Paper partition | Use byte arrays plus an explicit assigned-edge count (0118) | Empty, disconnected, odd-degree, determinism, coverage, and degree-bound tests pass; large-graph allocation impact remains unmeasured |
 | Copy an entire sorted System cache row into the transaction journal | Retain row identity and journal one inverse per actual row edit (0119) | 65,536-entry row rollback and alias/failure tests pass; post-fix million-vertex hub runs recover exactly but deliver only 1,470 Basic / 215 Multilevel updates/s and replay in 280 / 951 s; not qualified |
+| Clone a complete inherited graph to restore missing child-phase deletions before refinement | Pass the immutable parent graph and reintroduce only missing edges selected for deferral in the detached projection (0120) | Exact reference hierarchy, source immutability, strict validation, and no-snapshot child tests pass; end-to-end allocation savings are not measured |
 
 ## What is not being abandoned
 

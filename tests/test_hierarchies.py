@@ -156,6 +156,65 @@ def test_refinement_color_count_scans_match_reference_with_ties_and_empty_colors
     assert refined.check()
 
 
+@pytest.mark.parametrize("backend", [Adjacency, Packed])
+def test_refinement_restores_only_missing_deletions_selected_for_deferral(backend):
+    graph = backend(16)
+    for left in range(16):
+        for right in range(left + 1, 16):
+            graph.add_edge(left, right)
+    hierarchy = build_hierarchy(graph, [8])
+    deleted = set(hierarchy.levels[-1].M)
+    for edge in deleted:
+        graph.remove_edge(*edge)
+    source_edges = set(graph.edges())
+
+    with pytest.raises(ValueError, match="deleted edges must belong"):
+        refine_hierarchy(hierarchy, 4, deleted=deleted)
+    restored = backend(16)
+    for edge in sorted(source_edges | deleted):
+        restored.add_edge(*edge)
+    system = copysystem(hierarchy.levels[-1], restored, indexed=False)
+    reference = Hierarchy(
+        graph=restored,
+        k=1,
+        levels=[system],
+        A_levels=[system.A],
+        N_levels=[system.B],
+        R_levels=[system.U],
+        L_levels=[],
+    )
+    expected = refine_hierarchy(reference, 4, deleted=deleted)
+    refined = refine_hierarchy(hierarchy, 4, deleted=deleted, restore=True)
+
+    assert refined.deferred_deletions <= deleted
+    assert set(refined.graph.edges()) == source_edges | refined.deferred_deletions
+    assert set(graph.edges()) == source_edges
+    assert set(refined.graph.edges()) == set(expected.graph.edges())
+    assert refined.deferred_deletions == expected.deferred_deletions
+    assert refined.A_levels == expected.A_levels
+    assert refined.N_levels == expected.N_levels
+    assert refined.R_levels == expected.R_levels
+    assert refined.L_levels == expected.L_levels
+    assert [
+        (level.A, level.B, level.U, level.M, level.lambda_lists, level.L_lists)
+        for level in refined.levels
+    ] == [
+        (level.A, level.B, level.U, level.M, level.lambda_lists, level.L_lists)
+        for level in expected.levels
+    ]
+    assert refined.check()
+
+
+@pytest.mark.parametrize("restore", [0, 1, None, "yes"])
+def test_refinement_requires_boolean_restore_policy(restore):
+    graph = Adjacency(8)
+    graph.add_edge(0, 1)
+    hierarchy = build_hierarchy(graph, [2])
+
+    with pytest.raises(ValueError, match="restore must be a boolean"):
+        refine_hierarchy(hierarchy, 1, restore=restore)
+
+
 def test_sparse_hierarchy_check_does_not_allocate_vertex_degree_arrays(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
