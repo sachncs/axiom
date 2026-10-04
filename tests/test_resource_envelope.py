@@ -652,6 +652,68 @@ def test_memory_workload_allocates_distinct_edges_across_a_real_group():
         Memory.requests(Request, 16384)
 
 
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_checkpoint_pressure_setup_retains_committed_wal_pages(tmp_path, mode):
+    from axiom.durable import Outcome
+    from axiom.service import Service
+
+    path = tmp_path / f"checkpoint-pressure-{mode}.db"
+    audit = Audit(256, 256)
+    requests = tuple(
+        Request(sequence, "delete" if sequence % 2 else "insert", 0, 1)
+        for sequence in range(1, 257)
+    )
+    with Service(
+        path,
+        n=audit.vertices,
+        mode=mode,
+        max_batch=MAX_BATCH,
+        max_operations=8192,
+    ) as service:
+        outcomes = service.submit_batch(requests).result(10)
+        assert len(outcomes) == len(requests)
+        assert all(outcome.changed for outcome in outcomes)
+        assert outcomes[-1] == Outcome(256, True, 257)
+        wal = path.with_name(path.name + "-wal")
+        assert wal.is_file() and wal.stat().st_size > 32
+        with path.open("rb") as database:
+            header = database.read(100)
+        page_size = int.from_bytes(header[16:18], "big")
+        page_size = 65536 if page_size == 1 else page_size
+        database_pages = path.stat().st_size // page_size
+        frame_size = page_size + 24
+        with wal.open("rb") as log:
+            log.seek(32)
+            transaction_pages = 0
+            growth_commits = []
+            while frame := log.read(frame_size):
+                assert len(frame) == frame_size
+                page_number = int.from_bytes(frame[:4], "big")
+                committed_pages = int.from_bytes(frame[4:8], "big")
+                transaction_pages = max(transaction_pages, page_number)
+                if committed_pages:
+                    growth_commits.append(
+                        committed_pages > database_pages
+                        and transaction_pages > database_pages
+                    )
+                    transaction_pages = 0
+        assert growth_commits and growth_commits[-1]
+        with sqlite3.connect(path) as verifier:
+            assert verifier.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+
+    with Durable(path, mode=mode) as recovered:
+        assert audit.verify(recovered, retry=False)
+        page = recovered.history(1, 256)
+        assert page.latest_sequence == 256 and not page.has_more
+        assert tuple(
+            (record.sequence, record.operation, record.u, record.v, record.changed)
+            for record in page.records
+        ) == tuple(
+            (request.sequence, request.operation, request.u, request.v, True)
+            for request in requests
+        )
+
+
 @pytest.mark.parametrize("count", [0, None])
 def test_volume_rejects_stalled_writes_and_releases_only_owned_file(
     tmp_path, monkeypatch, count

@@ -419,21 +419,77 @@ class Disk(Pressure):
     """Require fail-stop at the SQLite barrier and exact recovery after ENOSPC."""
 
     def apply(self) -> dict[str, object]:
-        """Qualify physical-full checkpoint and update commits independently."""
+        """Qualify physical-full WAL checkpoint and update commits independently."""
         self.volume.inspect(False)
-        from axiom.durable import Durable, Request, UnavailableError
+        from axiom.durable import Durable, RecoveryError, Request, UnavailableError
         from axiom.service import Service
 
-        database = self.volume.path / "graph.db"
+        checkpoint_audit = Audit(256, 256)
+        checkpoint_database = self.volume.path / "checkpoint-full.db"
         service = Service(
-            database, mode=self.mode, budget=128 << 20, queue_capacity=4096
+            checkpoint_database,
+            n=checkpoint_audit.vertices,
+            mode=self.mode,
+            budget=128 << 20,
+            queue_capacity=4096,
+            max_batch=256,
+            max_operations=8192,
         )
         try:
+            requests = tuple(
+                Request(sequence, "delete" if sequence % 2 else "insert", 0, 1)
+                for sequence in range(1, 257)
+            )
+            outcomes = service.submit_batch(requests).result(30)
+            if len(outcomes) != len(requests) or not all(
+                outcome.changed for outcome in outcomes
+            ):
+                raise RuntimeError("checkpoint pressure setup did not change edges")
+            wal = checkpoint_database.with_name(checkpoint_database.name + "-wal")
+            with checkpoint_database.open("rb") as source:
+                header = source.read(100)
+            if header[:16] != b"SQLite format 3\x00":
+                raise RuntimeError("checkpoint pressure database header is invalid")
+            page_size = int.from_bytes(header[16:18], "big")
+            page_size = 65536 if page_size == 1 else page_size
+            database_pages = checkpoint_database.stat().st_size // page_size
+            wal_size = wal.stat().st_size if wal.is_file() else 0
+            frame_size = page_size + 24
+            if wal_size <= 32 or (wal_size - 32) % frame_size:
+                raise RuntimeError("checkpoint pressure setup did not retain WAL pages")
+            transaction_pages = 0
+            growth_commits = []
+            with wal.open("rb") as log:
+                log.seek(32)
+                while frame := log.read(frame_size):
+                    if len(frame) != frame_size:
+                        raise RuntimeError("checkpoint pressure WAL frame is truncated")
+                    page = int.from_bytes(frame[:4], "big")
+                    committed_pages = int.from_bytes(frame[4:8], "big")
+                    transaction_pages = max(transaction_pages, page)
+                    if committed_pages:
+                        growth_commits.append(
+                            committed_pages > database_pages
+                            and transaction_pages > database_pages
+                        )
+                        transaction_pages = 0
+            if not growth_commits or not growth_commits[-1]:
+                raise RuntimeError(
+                    "checkpoint pressure WAL lacks a committed database-growth frame"
+                )
+            with sqlite3.connect(checkpoint_database) as verifier:
+                integrity = verifier.execute("PRAGMA integrity_check").fetchone()
+            if integrity != ("ok",):
+                raise RuntimeError("checkpoint pressure WAL failed SQLite integrity")
             written = self.volume.fill()
             try:
                 service.checkpoint().result(30)
-            except sqlite3.DatabaseError as error:
-                if getattr(error, "sqlite_errorcode", None) != SQLITEFULL:
+            except RecoveryError as error:
+                cause = error.__cause__
+                if (
+                    not isinstance(cause, sqlite3.Error)
+                    or getattr(cause, "sqlite_errorcode", None) != SQLITEFULL
+                ):
                     raise
             else:
                 raise RuntimeError("full filesystem did not reject checkpoint")
@@ -448,8 +504,21 @@ class Disk(Pressure):
         finally:
             self.volume.release()
             service.close(30)
-        with Durable(database, mode=self.mode, budget=128 << 20) as owner:
-            digest = self.audit.verify(owner)
+        with Durable(checkpoint_database, mode=self.mode, budget=128 << 20) as owner:
+            checkpoint_digest = checkpoint_audit.verify(owner)
+            history = owner.history(1, 256)
+            if history.latest_sequence != 256 or history.has_more:
+                raise RuntimeError("checkpoint recovery history boundary differs")
+            if len(history.records) != 256 or any(
+                record.sequence != request.sequence
+                or record.operation != request.operation
+                or record.u != request.u
+                or record.v != request.v
+                or not record.changed
+                or record.version != request.sequence + 1
+                for request, record in zip(requests, history.records, strict=True)
+            ):
+                raise RuntimeError("checkpoint recovery history is not exact")
 
         update_audit = Audit(self.audit.vertices, 2)
         update_database = self.volume.path / "disk-update.db"
@@ -465,7 +534,15 @@ class Disk(Pressure):
             update_digest = update_audit.verify(owner)
 
         update = self.update(update_database, update_digest, update_audit)
-        return {"written": written, "digest": digest, "update": update}
+        return {
+            "digest": update["digest"],
+            "checkpoint": {
+                "written": written,
+                "digest": checkpoint_digest,
+                "verified": True,
+            },
+            "update": update,
+        }
 
     def update(
         self, database: Path, digest: str, audit: Audit | None = None

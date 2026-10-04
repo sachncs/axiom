@@ -1,6 +1,6 @@
 # ADR 0142: Exercise paper update rollback under memory exhaustion
 
-- Status: implemented; qualification rerun pending
+- Status: hosted memory-pressure and exact-recovery stage passed; disk gate remains pending
 - Date: 2026-10-04
 
 ## Context
@@ -53,10 +53,13 @@ the persisted two-operation prefix.
 
 ## Verification
 
-Local logic/type/full-suite checks pass, but this probe requires the hosted
-Linux 512 MiB address-space run. The first rerun passed the million-update
-cycle and backup but failed because the probe did not actually reject the
-update group. The second rerun forced `MemoryError` but recovery then ran out of
-address space before unreachable Matcher state was collected. Record the exact
-failure phase, status, digest, and whether recovery was necessary after the
-corrected rerun before claiming qualification.
+Local logic/type/full-suite checks pass. Earlier hosted attempts exposed two
+probe flaws: same-edge requests did not allocate, and the first corrected run
+did not collect partially built Matcher state before disk reopen.
+
+The installed Linux run on `bc02b7e` ([resource job 111408654605](https://github.com/sachncs/axiom/actions/runs/37192873974/job/111408654605))
+completed the memory stage: the 4,096-edge group hit `MemoryError`, the failed
+owner was released, and after cyclic collection the database reopened with the
+same status and exact baseline matching/topology digest. The run then failed in
+the independent disk-checkpoint stage; this memory result remains valid, but the
+overall resource envelope is not qualified.

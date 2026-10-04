@@ -1,8 +1,8 @@
 # 0020: Isolated resource exhaustion and exact recovery
 
 Date: 2026-10-02. Status: prior million-vertex Linux exhaustion/recovery stages
-passed; revised physical update-commit ENOSPC gate pending; production deployment
-quotas pending; hardware power-loss deferred by user.
+passed; revised physical checkpoint/update-commit ENOSPC gates pending;
+production deployment quotas pending; hardware power-loss deferred by user.
 
 ## Decision
 
@@ -28,11 +28,19 @@ original retry outcome. Compare partner digests across the entire data flow;
 a different valid matching is not an exact recovery. Restore a copy, never mutate
 the backup master. Remove only the exclusively created, owned ballast file.
 
-The disk drill has two separately opened full-volume phases. The first preserves
-the checkpoint failure/recovery test. The second submits a unique request ID for
-an insert of an already-present ring edge. This intentionally exercises the
-SQLite operation/history commit while leaving graph topology and matching
-unchanged. If the call acknowledges success, recovery must retain that outcome.
+The disk drill has two separately opened full-volume phases. The first uses a
+small independent ring and commits 256 alternating real edge changes, verifies
+that uncheckpointed WAL pages remain, fills the volume, then requires the
+explicit checkpoint to fail and the service to fail-stop. This avoids testing
+an empty-WAL checkpoint, which correctly succeeds even when the volume is full.
+The probe validates a WAL frame references a page beyond the database's current
+page count and recognizes `SQLITE_FULL` through Durable's documented
+`RecoveryError` cause. After releasing only owned ballast, reopen and audit the
+acknowledged graph.
+The second submits a unique request ID for an insert of an already-present ring
+edge. This intentionally exercises the SQLite operation/history commit while
+leaving graph topology and matching unchanged. If the call acknowledges success,
+recovery must retain that outcome.
 If SQLite reports `SQLITE_FULL`, the Service must enter fail-stop and reject
 reads while commit outcome is uncertain. Once only the harness-owned ballast is
 removed, recovery may expose either the old prefix or the request already
@@ -59,10 +67,12 @@ state and lifecycle; polymorphism is used where behavior actually varies.
 
 Local component coverage exercises unsafe mounts, file ownership, partial/stalled
 writes, flush errors, invalid references, changed topology, changed exact matching
-and retry data flow. Unit/fault-injection coverage of the update branch is not
-evidence of real update-commit ENOSPC. Do not claim that qualification until the
-installed Linux disk job runs the revised worker successfully and archives the
-resulting report. The prior archived reports predate this update-commit stage.
+and retry data flow. Unit/fault-injection coverage is not evidence of real
+checkpoint or update-commit ENOSPC. A hosted run confirmed that the prior
+checkpoint phase used an empty WAL and therefore succeeded on a full volume; the
+revised phase seeds and checks WAL pages before filling. Do not claim
+qualification until the installed Linux disk job runs both revised phases and
+archives the resulting report.
 
 [CI job 110611262441](https://github.com/sachncs/axiom/actions/runs/36934396108/job/110611262441)
 passed on source `3a4eee38b4ca64c3855e8174a09b10580be87b20`, Ubuntu 24.04,
