@@ -40,4 +40,17 @@ edges. Matcher child-rebuild tests for both backends confirm the graph snapshot
 helper is not called and inherited roots remain intact. These deterministic
 correctness checks do not quantify end-to-end runtime or allocation savings. A
 probe-count test verifies that the restore path checks only the edges selected
-for deferred retention.
+for deferred retention. As an isolated native-storage calibration, a fresh
+one-million-vertex degree-four `Packed` ring used 37,000,264 accounted bytes;
+`Packed.copy()` created another 37,000,264-byte store in 7.444 ms and passed an
+independent topology audit. This single-run microprobe estimates the full
+native allocation and copy work avoided for that graph shape; it is not a
+child-rebuild, RSS, or throughput measurement. It was run against source commit
+`ca168a5` with:
+
+```sh
+uv run python -c 'import time; from axiom.storage import Packed
+start=time.perf_counter_ns(); graph=Packed(1_000_000,budget=1<<30); graph.ring(2); build=time.perf_counter_ns()-start
+start=time.perf_counter_ns(); clone=graph.copy(); copied=time.perf_counter_ns()-start
+print(graph.memory(), clone.memory(), round(copied/1e6, 3), clone.check())'
+```
