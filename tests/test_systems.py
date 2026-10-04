@@ -1,6 +1,8 @@
 """System identity, aliased rows, refinement cuts and exact transactional undo."""
 
+from array import array
 from concurrent.futures import ThreadPoolExecutor
+from sys import getsizeof
 
 import pytest
 
@@ -111,7 +113,7 @@ def test_shared_rows_have_one_first_write_record_and_restore_all_external_aliase
     alias = {0: values}
     journal.edit(alias, 0, 5, True)
     journal.edit(original, 0, 4, False)
-    assert len(journal.changes) == 3 and values == [1, 5, 15]
+    assert len(journal.changes) == 3 and list(values) == [1, 5, 15]
     system.index()
     assert system.lambda_lists is not original
     journal.rollback()
@@ -227,7 +229,7 @@ def test_row_capacity_rejects_before_edit_and_restores_graph_on_retry():
     journal = Systems(matcher, 10)
     with pytest.raises(MemoryError, match="capacity"):
         journal.edit(system.lambda_lists, 0, 4, True)
-    assert system.lambda_lists[0] == [1, 15]
+    assert list(system.lambda_lists[0]) == [1, 15]
     journal.rollback()
     assert Witness().capture(matcher) == before
     journal = Systems(matcher)
@@ -257,7 +259,7 @@ def test_skewed_cache_row_capacity_failure_restores_aliases_and_allows_retry():
     matcher = Matcher(40)
     system = matcher.system
     container = system.lambda_lists
-    container[0] = list(range(1, 33))
+    container[0] = array("I", range(1, 33))
     row = container[0]
     alias = row
     original_row = tuple(row)
@@ -294,7 +296,7 @@ def test_large_system_cache_row_uses_constant_bounded_undo_and_preserves_identit
     matcher = Matcher(70_000)
     system = matcher.system
     container = system.lambda_lists
-    row = list(range(1, 65_537))
+    row = array("I", range(1, 65_537))
     original = tuple(row)
     container[0] = row
 
@@ -309,6 +311,36 @@ def test_large_system_cache_row_uses_constant_bounded_undo_and_preserves_identit
 
     assert container[0] is row
     assert tuple(row) == original
+
+
+def test_packed_rows_are_compact_and_rollback_preserves_array_alias_and_state():
+    matcher = populated()
+    system = matcher.system
+    row = system.lambda_lists[0]
+    assert type(row) is array and row.typecode == "I" and row.itemsize == 4
+
+    graph = Packed(4097)
+    for target in range(1, 4097):
+        graph.add_edge(0, target)
+    indexed = System(graph, 1, U=set(range(4097)))
+    indexed.index()
+    hubrow = indexed.lambda_lists[0]
+    assert type(hubrow) is array and hubrow.typecode == "I"
+    assert getsizeof(hubrow) < getsizeof(list(hubrow))
+
+    before = Witness().capture(matcher)
+    alias = row
+    journal = Systems(matcher)
+    journal.edit(system.lambda_lists, 0, row[0], False)
+    journal.edit(system.lambda_lists, 0, row[-1], False)
+    journal.forget(system.lambda_lists, 0)
+    assert 0 not in system.lambda_lists
+    journal.edit(system.lambda_lists, 0, 4, True)
+    journal.rollback()
+
+    assert system.lambda_lists[0] is alias
+    assert tuple(alias) == (1, 15)
+    assert Witness().capture(matcher) == before
 
 
 def test_partial_matching_cut_capacity_failure_restores_each_removed_edge():

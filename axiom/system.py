@@ -48,12 +48,14 @@ from bisect import bisect_left
 from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias, Union
 
 from axiom.graph import Adjacency
 from axiom.storage import Packed
 from axiom.types import Edge, Graph, Matching, Vertex, canonical
 from axiom.vertices import Vertices
+
+CacheRow: TypeAlias = Union[list[Vertex], "array[int]"]
 
 if TYPE_CHECKING:
     from axiom.systems import Systems
@@ -103,8 +105,8 @@ class System:
     B: set[Vertex] | Vertices = field(default_factory=set)
     U: set[Vertex] | Vertices = field(default_factory=set)
     M: set[Edge] = field(default_factory=set)
-    lambda_lists: dict[Vertex, list[Vertex]] = field(default_factory=dict)
-    L_lists: dict[Vertex, list[Vertex]] = field(default_factory=dict)
+    lambda_lists: dict[Vertex, CacheRow] = field(default_factory=dict)
+    L_lists: dict[Vertex, CacheRow] = field(default_factory=dict)
     journal: Systems | None = field(
         default_factory=lambda: None, init=False, repr=False, compare=False
     )
@@ -333,7 +335,8 @@ class System:
             type(self.lambda_lists) is not dict
             or any(vertex not in self.U for vertex in self.lambda_lists)
             or any(
-                type(row) is not list or not row for row in self.lambda_lists.values()
+                not self.valid_cache_row(row) or not row
+                for row in self.lambda_lists.values()
             )
         ):
             return False
@@ -360,7 +363,10 @@ class System:
         if (
             type(self.L_lists) is not dict
             or any(vertex not in self.A for vertex in self.L_lists)
-            or any(type(row) is not list or not row for row in self.L_lists.values())
+            or any(
+                not self.valid_cache_row(row) or not row
+                for row in self.L_lists.values()
+            )
         ):
             return False
         for a in self.A:
@@ -414,15 +420,31 @@ class System:
                 w for w in self.graph.neighbors(u) if w in self.B or w in self.U
             )
             if values:
-                self.lambda_lists[u] = values
+                self.lambda_lists[u] = self.cache_row(values)
         self.L_lists = {}
         for a in self.A:
             values = sorted(w for w in self.graph.neighbors(a) if w in self.U)
             if values:
-                self.L_lists[a] = values
+                self.L_lists[a] = self.cache_row(values)
+
+    def cache_row(self, values: list[Vertex]) -> CacheRow:
+        """Choose compact fixed-width rows only for the owned Packed backend."""
+        if type(self.graph) is Packed:
+            return array("I", values)
+        return values
+
+    def valid_cache_row(self, values: object) -> bool:
+        """Require backend-appropriate mutable row storage and 32-bit labels."""
+        if type(self.graph) is Packed:
+            return (
+                type(values) is array
+                and values.typecode == "I"
+                and values.itemsize == 4
+            )
+        return type(values) is list
 
     @staticmethod
-    def change(values: list[Vertex], value: Vertex, added: bool) -> None:
+    def change(values: CacheRow, value: Vertex, added: bool) -> None:
         """Apply a delta to a sorted unique list without sorting the whole row.
 
         Lookup is logarithmic; insertion/removal still shifts O(row length)
@@ -461,7 +483,7 @@ class System:
                 if self.journal is None:
                     values = self.lambda_lists.get(source)
                     if values is None and added:
-                        values = []
+                        values = self.cache_row([])
                         self.lambda_lists[source] = values
                     if values is not None:
                         self.change(values, target, added)
@@ -475,7 +497,7 @@ class System:
                 if self.journal is None:
                     values = self.L_lists.get(source)
                     if values is None and added:
-                        values = []
+                        values = self.cache_row([])
                         self.L_lists[source] = values
                     if values is not None:
                         self.change(values, target, added)
@@ -836,6 +858,21 @@ def build(graph: Graph, z: int) -> System:
     """
     if not isinstance(z, int) or isinstance(z, bool) or z <= 0:
         raise ValueError(f"z must be a positive integer, got {z!r}")
+    # If the cap exceeds every host degree, the greedy M can never saturate a
+    # vertex. Thus S=A=B=empty, U=V, and the paper's U-U removal discards every
+    # greedy edge. Construct that exact final state directly instead of
+    # transiently retaining all graph edges in a Python set and scanning a
+    # million unchanged U vertices in the promotion loop.
+    if type(graph) in (Adjacency, Packed) and all(
+        graph.degree(vertex) < z for vertex in range(graph.n)
+    ):
+        system = System(
+            graph=graph,
+            z=z,
+            U=Vertices(graph.n, range(graph.n)),
+        )
+        system.index()
+        return system
     # --- Step 1: greedy maximal M with degree cap z ---
     M: set[Edge] = set()
     # Matching degrees are bounded integers indexed by dense vertex labels;
@@ -862,18 +899,33 @@ def build(graph: Graph, z: int) -> System:
     # the greedy edge set before creating the system.  S is determined from
     # the capped greedy pass, while deg_M below is updated to describe the
     # actual matching retained by the system.
-    S = {v for v in range(graph.n) if deg_M[v] == z}
+    saturated_count = sum(degree == z for degree in deg_M)
+    S: set[Vertex] | Vertices
+    if graph.n and saturated_count * 8 >= graph.n:
+        S = Vertices(graph.n, (v for v in range(graph.n) if deg_M[v] == z))
+    else:
+        S = {v for v in range(graph.n) if deg_M[v] == z}
     ucount = graph.n - len(S)
     U_set: set[Vertex] | Vertices
     if graph.n and ucount * 12 >= graph.n:
         U_set = Vertices(graph.n, (v for v in range(graph.n) if deg_M[v] < z))
     else:
         U_set = {v for v in range(graph.n) if deg_M[v] < z}
-    removed_u_u = {edge for edge in M if edge[0] in U_set and edge[1] in U_set}
-    for u, v in removed_u_u:
-        M.remove((u, v))
-        deg_M[u] -= 1
-        deg_M[v] -= 1
+    # Do not materialize a second graph-sized set of matching edges here.
+    # On large sparse graphs this temporary overlaps both the greedy M and
+    # the Lambda/L row maps constructed by index(), substantially increasing
+    # the build peak.  Stream the host edges instead; only matching edges
+    # whose endpoints are both in U can be removed by the paper's rule.
+    for u, v in graph.edges():
+        if u in U_set and v in U_set and (u, v) in M:
+            M.remove((u, v))
+            deg_M[u] -= 1
+            deg_M[v] -= 1
+    # CPython sets retain a large hash table after mass removals.  In the
+    # common low-z-saturation case all greedy M edges are U-U, so explicitly
+    # release that table before the persistent neighbor indexes are built.
+    if not M:
+        M.clear()
 
     A_values: list[Vertex] = []
     B_values: list[Vertex] = []
@@ -900,6 +952,9 @@ def build(graph: Graph, z: int) -> System:
     )
 
     system = System(graph=graph, z=z, A=A, B=B, U=U_set, M=M)
+    # These construction-only containers can be large on production graphs.
+    # Release them before materializing the persistent Lambda/L indexes.
+    del S, A_values, B_values
     system.index()
 
     # --- Step 2: iteratively promote U-vertices to B.  We keep looping

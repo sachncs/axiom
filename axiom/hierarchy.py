@@ -37,7 +37,7 @@ from axiom.graph import Adjacency, empty
 from axiom.hierarchies import Hierarchies
 from axiom.paper_coloring import Paper
 from axiom.storage import Packed
-from axiom.system import System, degrees
+from axiom.system import CacheRow, System, degrees
 from axiom.system import build as build_z_system
 from axiom.types import Edge, Graph, Vertex, canonical
 from axiom.vertices import Vertices
@@ -78,7 +78,7 @@ class Hierarchy:
     A_levels: list[set[Vertex] | Vertices] = field(default_factory=list)
     N_levels: list[set[Vertex] | Vertices] = field(default_factory=list)
     R_levels: list[set[Vertex] | Vertices] = field(default_factory=list)
-    L_levels: list[dict[Vertex, list[Vertex]]] = field(default_factory=list)
+    L_levels: list[dict[Vertex, CacheRow]] = field(default_factory=list)
     deferred_deletions: set[Edge] = field(default_factory=set)
     journal: Hierarchies | None = field(
         default_factory=lambda: None, init=False, repr=False, compare=False
@@ -312,7 +312,7 @@ class Hierarchy:
                         if neighbor in level.B or neighbor in level.U
                     ]
                     lambda_value = level.lambda_lists.get(vertex)
-                    if lambda_row and lambda_value != lambda_row:
+                    if lambda_row and list(lambda_value or ()) != lambda_row:
                         return f"level {index} Lambda row differs at {vertex}"
                     if not lambda_row and lambda_value is not None:
                         return f"level {index} has empty Lambda row at {vertex}"
@@ -328,7 +328,7 @@ class Hierarchy:
                 if vertex in level.A:
                     l_row = [neighbor for neighbor in neighbors if neighbor in level.U]
                     l_value = level.L_lists.get(vertex)
-                    if l_row and l_value != l_row:
+                    if l_row and list(l_value or ()) != l_row:
                         return f"level {index} L row differs at {vertex}"
                     if not l_row and l_value is not None:
                         return f"level {index} has empty L row at {vertex}"
@@ -522,7 +522,7 @@ class Hierarchy:
                     for neighbor in self.graph.neighbors(vertex)
                     if neighbor in self.R_levels[index]
                 )
-                if self.L_levels[index].get(vertex, []) != expected:
+                if list(self.L_levels[index].get(vertex, [])) != expected:
                     return False
         if self.R_levels[-1] != system.U:
             return False
@@ -547,7 +547,7 @@ class Hierarchy:
                 for neighbor in self.graph.neighbors(vertex)
                 if neighbor in system.B or neighbor in system.U
             )
-            if system.lambda_lists.get(vertex, []) != expected:
+            if list(system.lambda_lists.get(vertex, [])) != expected:
                 return False
         return True
 
@@ -1204,14 +1204,15 @@ def project(graph: Graph, edges: Iterable[Edge], *, ordered: bool = False) -> Gr
 
 def lists(
     graph: Graph, vertices: Iterable[Vertex], region: Collection[Vertex]
-) -> dict[Vertex, list[Vertex]]:
+) -> dict[Vertex, CacheRow]:
     """Index each supplied vertex's sorted neighbors in the requested region."""
-    return {
-        vertex: sorted(
+    result: dict[Vertex, CacheRow] = {}
+    for vertex in vertices:
+        values = sorted(
             neighbor for neighbor in graph.neighbors(vertex) if neighbor in region
         )
-        for vertex in vertices
-    }
+        result[vertex] = values
+    return result
 
 
 # Preserve the existing public helper while sharing the class-owned primitive.

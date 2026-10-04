@@ -5,18 +5,19 @@
 
 ## Context
 
-The installed 1,000,000-vertex Linux resource worker failed under its 512 MiB
-address-space limit before reaching the exhaustion stages. `Matcher` validation
-retained `list(graph.edges())`, a Python edge set, a second adjacency edge set,
-and per-row neighbor lists while validating its built-in `Packed` graph. This
-duplicated millions of edges in Python and caused `MemoryError` during ordinary
-construction. The custom-graph protocol still needs the exhaustive cross-view
-validation because those implementations are caller supplied.
+The first installed 1,000,000-vertex Linux resource worker failed under its
+512 MiB address-space limit during `Matcher` admission. Validation retained
+`list(graph.edges())`, a Python edge set, a second adjacency edge set, and
+per-row neighbor lists while validating built-in `Packed`. This duplicated
+millions of edges in Python. The custom-graph protocol still needs exhaustive
+cross-view validation because those implementations are caller supplied. The
+subsequent worker passed admission but exposed a separate paper-index peak,
+addressed by ADR 0128; the constrained qualification remains open.
 
 ## Decision
 
-For the immutable native `Packed` type only, use its native `check()` integrity
-certificate after validating the graph universe and required protocol methods.
+For the non-subclassable native `Packed` type only, use its native `check()`
+integrity certificate after validating the graph universe and required protocol methods.
 Reject a false result. Keep the existing exhaustive edge/adjacency comparison
 for `Adjacency` and caller-defined Graph implementations. Do not catch native
 allocation failure and treat it as successful validation; it must reject
@@ -44,11 +45,11 @@ change to graph concurrency semantics.
 ## Verification
 
 The direct admission test validates a 60,000-edge Packed graph with less than
-512 KiB of traced Python temporary memory. The full local suite passes (1,267
-passed, one optional matplotlib report skipped), including the allocation
-regression. A subprocess test also imports and uses the paper/storage APIs while
-simulating an unavailable `fcntl`, and confirms Durable/Service reject the
-non-POSIX boundary. Hosted Windows and constrained Linux runs are still
-required. The previous installed job failed inside the old `adjacency_edges`
-construction before this optimization; no constrained Linux result is claimed
-yet.
+512 KiB of traced Python temporary memory. The complete local suite passes
+(1,270 passed; one optional matplotlib report skipped), including follow-on
+compact-row and direct-build changes. A subprocess test also imports and uses
+the paper/storage APIs while simulating an unavailable `fcntl`, and confirms
+Durable/Service reject the non-POSIX boundary. The latest installed job passed
+the old `adjacency_edges` admission point and failed later in paper index
+construction; ADRs 0128–0129 address that second peak, but a successful
+constrained Linux resource run is still required.

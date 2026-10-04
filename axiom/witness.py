@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import math
+from array import array
 from dataclasses import fields
 from typing import Any
 
@@ -169,7 +170,7 @@ class Witness:
         kind = type(value)
         if kind is tuple:
             return ["tuple", [self.encode(item, depth + 1) for item in value]]
-        if kind not in (dict, list, set, Packed) and kind not in self.schema:
+        if kind not in (dict, list, array, set, Packed) and kind not in self.schema:
             return self.atom(value, depth)
         address = id(value)
         if address in self.references:
@@ -181,6 +182,8 @@ class Witness:
         self.objects.append(value)
         if kind is list:
             content = [self.encode(item, depth + 1) for item in value]
+        elif kind is array:
+            content = [value.typecode, [self.encode(item, depth + 1) for item in value]]
         elif kind is set:
             content = self.order(value, depth + 1)
         elif kind is dict:

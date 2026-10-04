@@ -8,17 +8,19 @@ journals and shallow root record.
 
 from __future__ import annotations
 
+from array import array
 from bisect import bisect_left
 from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
 from axiom.capacity import JournalCapacityError
+from axiom.storage import Packed
 from axiom.types import Edge, Graph, Vertex
 from axiom.vertices import Vertices
 
 if TYPE_CHECKING:
     from axiom.core import Matcher
-    from axiom.system import System
+from axiom.system import CacheRow, System
 
 
 class Systems:
@@ -52,8 +54,9 @@ class Systems:
         self.active = True
         self.bound = False
         self.roots: dict[int, tuple[System, dict[str, Any]]] = {}
-        self.maps: dict[int, dict[Vertex, list[Vertex]]] = {}
-        self.changes: list[tuple[list[Vertex], Vertex, bool]] = []
+        self.maps: dict[int, dict[Vertex, CacheRow]] = {}
+        self.mapcompact: dict[int, bool] = {}
+        self.changes: list[tuple[CacheRow, Vertex, bool]] = []
         self.keys: dict[tuple[int, Vertex], tuple[bool, Any]] = {}
         self.edges: dict[tuple[int, Edge], set[Edge]] = {}
         self.size = 0
@@ -102,11 +105,17 @@ class Systems:
             for name in ("lambda_lists", "L_lists"):
                 container = attributes[name]
                 if type(container) is not dict:
-                    raise TypeError("System caches require plain maps and lists")
+                    raise TypeError("System caches require plain maps")
+                packed = type(system.graph) is Packed
+                compact = self.mapcompact.get(id(container))
+                if compact is not None and compact != packed:
+                    raise TypeError("shared cache maps require matching graph backends")
+                self.mapcompact[id(container)] = packed
                 if audit and any(
-                    not self.validrow(row, source) for source, row in container.items()
+                    not self.cachemap(container, row, source)
+                    for source, row in container.items()
                 ):
-                    raise TypeError("System caches require plain maps and lists")
+                    raise TypeError("System caches require backend-compatible rows")
                 self.maps[id(container)] = container
             self.reserve(len(attributes))
             self.roots[id(system)] = system, dict(attributes)
@@ -140,7 +149,7 @@ class Systems:
 
     def edit(
         self,
-        container: dict[Vertex, list[Vertex]],
+        container: dict[Vertex, CacheRow],
         source: Vertex,
         target: Vertex,
         added: bool,
@@ -160,7 +169,7 @@ class Systems:
                 return
             if address not in self.maps:
                 raise RuntimeError("new cache rows require an admitted System map")
-            values = []
+            values = array("I") if self.mapcompact.get(address, False) else []
         position = bisect_left(values, target)
         present = position < len(values) and values[position] == target
         if added != present:
@@ -172,7 +181,7 @@ class Systems:
             container[source] = values
         System.change(values, target, added)
 
-    def forget(self, container: dict[Vertex, list[Vertex]], source: Vertex) -> None:
+    def forget(self, container: dict[Vertex, CacheRow], source: Vertex) -> None:
         """Remove an empty cache row while retaining its original map cell."""
         self.check()
         address = id(container)
@@ -272,7 +281,13 @@ class Systems:
             for name in ("lambda_lists", "L_lists"):
                 container = getattr(system, name)
                 if type(container) is not dict:
-                    raise TypeError("System candidate requires plain maps and lists")
+                    raise TypeError("System candidate requires plain maps")
+                packed = type(system.graph) is Packed
+                compact = self.mapcompact.get(id(container))
+                if compact is not None and compact != packed:
+                    raise TypeError("shared cache maps require matching graph backends")
+                self.maps[id(container)] = container
+                self.mapcompact[id(container)] = packed
                 full = (
                     self.audit
                     or original is None
@@ -280,7 +295,7 @@ class Systems:
                 )
                 if full:
                     for source, row in container.items():
-                        if not self.validrow(row, source):
+                        if not self.cachemap(container, row, source):
                             raise TypeError(
                                 "System candidate requires nonempty sorted cache rows"
                             )
@@ -290,7 +305,7 @@ class Systems:
                     if mapaddress != address:
                         continue
                     row = container.get(source)
-                    if row is not None and not self.validrow(row, source):
+                    if row is not None and not self.cachemap(container, row, source):
                         raise TypeError(
                             "System candidate requires nonempty sorted cache rows"
                         )
@@ -300,9 +315,11 @@ class Systems:
         if (
             type(source) is not int
             or not 0 <= source < self.owner.n
-            or type(row) is not list
+            or type(row) not in (list, array)
             or not row
         ):
+            return False
+        if type(row) is array and (row.typecode != "I" or row.itemsize != 4):
             return False
         previous = -1
         for target in row:
@@ -316,6 +333,18 @@ class Systems:
             previous = target
         return True
 
+    def cachemap(
+        self,
+        container: dict[Vertex, CacheRow],
+        row: Any,
+        source: Vertex,
+        packed: bool | None = None,
+    ) -> bool:
+        """Validate row representation against its admitted graph backend."""
+        if packed is None:
+            packed = self.mapcompact.get(id(container), False)
+        return (type(row) is array) == packed and self.validrow(row, source)
+
     def commit(self) -> None:
         """Unbind System undo after successful graph publication."""
         self.check()
@@ -325,6 +354,7 @@ class Systems:
         self.keys.clear()
         self.edges.clear()
         self.maps.clear()
+        self.mapcompact.clear()
         self.roots.clear()
         self.active = False
         object.__setattr__(self.owner, "systems", None)
@@ -352,6 +382,7 @@ class Systems:
         self.keys.clear()
         self.edges.clear()
         self.maps.clear()
+        self.mapcompact.clear()
         self.roots.clear()
         self.active = False
         object.__setattr__(self.owner, "systems", None)

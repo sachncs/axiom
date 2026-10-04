@@ -262,7 +262,7 @@ class Matcher:
             raise ValueError(f"graph.n must equal matcher n ({n}), got {graph_n}")
 
         if isinstance(graph, Packed):
-            # Packed is the immutable, audited native graph backend. Its native
+            # Packed is the fixed-contract, audited native graph backend. Its
             # certificate checks row links, degrees, blocks, counts and index
             # invariants without retaining an O(m) Python edge list plus two
             # duplicate edge sets. Keep the exhaustive protocol cross-check

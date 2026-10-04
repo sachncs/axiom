@@ -191,7 +191,7 @@ def test_delta_matches_full_index_and_retains_unaffected_rows(backend, edge):
     for (name, vertex), (values, original) in rows.items():
         current = getattr(system, name).get(vertex)
         if vertex in edge and current is None:
-            assert original and values == []
+            assert original and not values
         else:
             assert current is values
     previous = Witness().capture(system)
@@ -281,7 +281,7 @@ def test_endpoint_membership_uses_original_partitions_without_union():
     system.U = Union(system.U)
     system.graph.add_edge(1, 2)
     system.update(1, 2, True)
-    assert system.lambda_lists[2] == [1, 3]
+    assert list(system.lambda_lists[2]) == [1, 3]
     assert system.check_p2()
     system.M.add((0, 2))
     assert not system.check_p2()
