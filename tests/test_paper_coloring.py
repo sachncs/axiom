@@ -2137,6 +2137,39 @@ def test_modify_types_batch_membership_does_not_rescan_all_fans() -> None:
     fans.compatible(coloring)
 
 
+def test_modify_types_does_not_rescan_unrelated_fans_after_local_flip() -> None:
+    class CountedFans(Fans):
+        def __init__(self) -> None:
+            super().__init__()
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return super().__iter__()
+
+    count = 128
+    graph = Adjacency(3 * count)
+    fans = CountedFans()
+    for index in range(count):
+        center = 3 * index
+        graph.add_edge(center, center + 1)
+        graph.add_edge(center, center + 2)
+        fans.add(Fan(center, center + 1, center + 2, 0, 10, 10))
+    coloring = Partial(graph, 100)
+    blocks, ignored = Spectrum.blocks(100, 10)
+    selected = Fan(0, 1, 2, 0, 10, 10)
+
+    Spectrum.modify(coloring, fans, (selected,), blocks, 0)
+
+    # The two whole-collection passes are the entry and exit compatibility
+    # certificates. The mutation sweep must use affected-vertex fan rows.
+    assert fans.iterations == 2
+    assert len(fans) == count
+    coloring.validate()
+    fans.validate()
+    fans.compatible(coloring)
+
+
 def test_modify_types_rejects_mixed_fan_block_batches() -> None:
     graph = Adjacency(6)
     for edge in ((0, 1), (0, 2), (3, 4), (3, 5)):

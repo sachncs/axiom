@@ -2564,9 +2564,6 @@ class Spectrum:
         fansbefore: set[Fan] | None = None
         affectedvertices: set[Vertex] = set()
         try:
-            coloring.validate()
-            fans.validate()
-            fans.compatible(coloring)
             if not batch:
                 raise ValueError("Modify-Types requires a non-empty fan batch")
             if any(fan not in fans.members for fan in batch):
@@ -2631,7 +2628,15 @@ class Spectrum:
             for path, source, targetcolor in uniquepaths:
                 fans.flip(coloring, list(path), source, targetcolor)
 
-            for fan in tuple(fans):
+            affectedfans = {
+                fan
+                for vertex in affectedvertices
+                for fan in fans.vertices.get(vertex, ())
+            }
+            for fan in sorted(
+                affectedfans,
+                key=lambda item: (item.center, item.first, item.second),
+            ):
                 if any(
                     fan.color(vertex) not in coloring.missing(vertex)
                     for vertex in fan.vertices
