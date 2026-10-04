@@ -186,6 +186,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Verify matching state by constructing duplicate endpoint and partner indexes | Check cardinality plus direct endpoint/partner membership (0131) | Guarded collection test proves no duplicate index traversal; hosted 512 MiB replay qualification remains pending |
 | Audit color classes and maximality by rebuilding Python endpoint sets | Reuse matched-vertex index and a compact fixed-width color marker array (0132) | Full guarded Matcher audit and corruption tests pass locally; hosted constrained replay remains pending |
 | Retain one Python set entry per matched vertex in the million-vertex Matcher | Store matched-vertex membership in the fixed-universe `Vertices` index and rebuild it directly during refresh (0133) | Full suite, exact logical rollback, Ruff and mypy pass locally; hosted 512 MiB update qualification is pending |
+| Audit million-vertex recovery through millions of individually locked point reads | Verify partners and topology in version-pinned `read_snapshot` chunks bounded by `MAX_READS` (0134) | 47 focused resource-envelope tests pass; hosted resource worker must still complete within its existing deadline |
 
 ## What is not being abandoned
 

@@ -19,6 +19,7 @@ import sqlite3
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+from array import array
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -118,7 +119,7 @@ class Audit:
         self, owner: Any, sequence: int | None = None, retry: bool = True
     ) -> str:
         """Check exact topology, proper/maximal matching and an optional retry."""
-        from axiom.durable import Outcome, Request
+        from axiom.durable import MAX_READS, Outcome, Request
 
         self.inspect()
         state = owner.status()
@@ -138,44 +139,66 @@ class Audit:
             or not owner.check()
         ):
             raise RuntimeError("resource recovery control/certificate disagrees")
+        version = self.sequence + 1
         digest = hashlib.sha256()
-        partners = []
-        for vertex in range(self.vertices):
-            version, partner = owner.partner(vertex)
-            if version != self.sequence + 1:
+        partners = array("i", [-1]) * self.vertices
+        batch_size = MAX_READS // 4
+        for start in range(0, self.vertices, batch_size):
+            stop = min(self.vertices, start + batch_size)
+            snapshot = owner.read_snapshot(
+                tuple(range(start, stop)), (), expected_version=version
+            )
+            if snapshot.version != version or len(snapshot.partners) != stop - start:
                 raise RuntimeError("resource recovery partner version differs")
-            partners.append(partner)
+            for offset, partner in enumerate(snapshot.partners):
+                if partner is not None and (
+                    type(partner) is not int or not 0 <= partner < self.vertices
+                ):
+                    raise RuntimeError("resource recovery matching is not proper")
+                partners[start + offset] = -1 if partner is None else partner
         matched = 0
         for vertex, partner in enumerate(partners):
             if (
                 self.partner_reference is not None
-                and partner != self.partner_reference[vertex]
+                and (None if partner < 0 else partner) != self.partner_reference[vertex]
             ):
                 raise RuntimeError("resource recovery exact matching differs")
-            if partner is not None:
-                if (
-                    partner == vertex
-                    or not 0 <= partner < self.vertices
-                    or partners[partner] != vertex
-                    or not owner.has_edge(vertex, partner)[1]
-                ):
+            if partner >= 0:
+                if partner == vertex or partners[partner] != vertex:
                     raise RuntimeError("resource recovery matching is not proper")
                 matched += vertex < partner
             digest.update(
-                (partner if partner is not None else 0xFFFFFFFF).to_bytes(4, "little")
+                (partner if partner >= 0 else 0xFFFFFFFF).to_bytes(4, "little")
             )
         if matched != self.vertices // 2:
             raise RuntimeError("resource recovery perfect matching differs")
-        for vertex in range(self.vertices):
-            for offset in (1, 2):
-                if owner.has_edge(vertex, (vertex + offset) % self.vertices) != (
-                    self.sequence + 1,
-                    True,
-                ):
-                    raise RuntimeError("resource recovery ring topology differs")
-                neighbor = (vertex + offset) % self.vertices
-                if partners[vertex] is None and partners[neighbor] is None:
-                    raise RuntimeError("resource recovery matching is not maximal")
+        for start in range(0, self.vertices, batch_size):
+            stop = min(self.vertices, start + batch_size)
+            edges = []
+            for vertex in range(start, stop):
+                partner = partners[vertex]
+                if partner >= 0:
+                    edges.append((vertex, partner))
+                for offset in (1, 2):
+                    neighbor = (vertex + offset) % self.vertices
+                    edges.append((vertex, neighbor))
+            snapshot = owner.read_snapshot((), tuple(edges), expected_version=version)
+            if snapshot.version != version or len(snapshot.has_edges) != len(edges):
+                raise RuntimeError("resource recovery topology version differs")
+            edge_index = 0
+            for vertex in range(start, stop):
+                partner = partners[vertex]
+                if partner >= 0:
+                    if not snapshot.has_edges[edge_index]:
+                        raise RuntimeError("resource recovery matching is not proper")
+                    edge_index += 1
+                for offset in (1, 2):
+                    neighbor = (vertex + offset) % self.vertices
+                    if not snapshot.has_edges[edge_index]:
+                        raise RuntimeError("resource recovery ring topology differs")
+                    edge_index += 1
+                    if partners[vertex] < 0 and partners[neighbor] < 0:
+                        raise RuntimeError("resource recovery matching is not maximal")
         if retry:
             request = Request(self.sequence, "insert", 0, 1)
             if owner.apply([request]) != (

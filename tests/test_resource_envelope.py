@@ -3,6 +3,7 @@
 import errno
 import os
 import sqlite3
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -151,6 +152,74 @@ def test_reference_verifies_real_updates_exact_topology_partners_and_retry(
     with Durable(path, mode=mode) as recovered:
         assert Audit(8, 4).verify(recovered) == digest
         assert recovered.check()
+
+
+def test_reference_reads_exact_state_in_bounded_version_pinned_batches(
+    tmp_path, monkeypatch
+):
+    from axiom.durable import MAX_READS
+
+    path = tmp_path / "batched-audit.db"
+    with Durable(path, n=8) as owner:
+        owner.apply(
+            [
+                Request(seq, "delete" if seq % 2 else "insert", 0, 1)
+                for seq in range(1, 5)
+            ]
+        )
+        original = owner.read_snapshot
+        calls = []
+
+        def snapshot(vertices, edges, *, expected_version=None):
+            calls.append((len(vertices) + len(edges), expected_version))
+            return original(vertices, edges, expected_version=expected_version)
+
+        monkeypatch.setattr(owner, "read_snapshot", snapshot)
+        digest = Audit(8, 4).verify(owner)
+
+        assert len(digest) == 64
+        assert len(calls) < 8
+        assert all(size <= MAX_READS for size, _ in calls)
+        assert {version for _, version in calls} == {5}
+        assert sum(size for size, _ in calls) == 8 + 8 + 16
+
+
+@pytest.mark.parametrize("corruption", ["nonperfect", "missingedge"])
+def test_reference_rejects_malformed_snapshot_state(tmp_path, monkeypatch, corruption):
+    path = tmp_path / f"malformed-{corruption}.db"
+    with Durable(path, n=8) as owner:
+        owner.apply(
+            [
+                Request(seq, "delete" if seq % 2 else "insert", 0, 1)
+                for seq in range(1, 5)
+            ]
+        )
+        original = owner.read_snapshot
+        changed = False
+
+        def snapshot(vertices, edges, *, expected_version=None):
+            nonlocal changed
+            result = original(vertices, edges, expected_version=expected_version)
+            if changed or not vertices and not edges:
+                return result
+            if corruption == "missingedge" and not edges:
+                return result
+            changed = True
+            if corruption == "nonperfect" and vertices:
+                partners = list(result.partners)
+                counterpart = partners[0]
+                partners[0] = partners[counterpart] = None
+                return replace(result, partners=tuple(partners))
+            if corruption == "missingedge" and edges:
+                edge_state = list(result.has_edges)
+                edge_state[0] = False
+                return replace(result, has_edges=tuple(edge_state))
+            return result
+
+        monkeypatch.setattr(owner, "read_snapshot", snapshot)
+        message = "perfect matching" if corruption == "nonperfect" else "proper"
+        with pytest.raises(RuntimeError, match=message):
+            Audit(8, 4).verify(owner, retry=False)
 
 
 @pytest.mark.parametrize("committed", [False, True])
