@@ -515,7 +515,7 @@ class Disk(Pressure):
                     or checkpoint["checkpointed_pages"] > checkpoint["wal_pages"]
                 ):
                     raise RuntimeError("full-volume checkpoint result is invalid")
-                if service.metrics()["state"] != "ready":
+                if service.metrics()["state"] != "open":
                     raise RuntimeError(
                         "successful checkpoint changed service availability"
                     )
