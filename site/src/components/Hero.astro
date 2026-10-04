@@ -4,15 +4,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 <section class="hero shell" id="top">
   <div class="hero__content">
-    <span class="eyebrow">Axiom / dynamic graph infrastructure</span>
-    <h1>Keep the graph.<br /><span>Keep it moving.</span></h1>
-    <p class="hero__sub">Durable, deterministic maximal matching for changing graphs. Insert edges, remove edges, and query a coherent answer through one Python service.</p>
+    <span class="eyebrow">Axiom / alpha state</span>
+    <h1>Assignments that<br /><span>adapt with the graph.</span></h1>
+    <p class="hero__sub">A deterministic maximal-matching engine for changing graphs. Basic and Multilevel are integrated with a durable local service; resource and deployment qualification is still in progress.</p>
     <div class="hero__cta">
-      <a class="btn btn--primary" href={`${base}/production/`}>Start building <span aria-hidden="true">↗</span></a>
-      <a class="hero__link" href={`${base}/playground/`}>Follow a real update <span aria-hidden="true">→</span></a>
+      <a class="btn btn--primary" href={`${base}/get-started/`}>Try the alpha <span aria-hidden="true">↗</span></a>
+      <a class="hero__link" href={`${base}/upcoming/`}>See what’s next <span aria-hidden="true">→</span></a>
     </div>
-    <div class="hero__note"><span class="hero__mark" aria-hidden="true">◆</span><p><strong>1 million vertices. 10k+ durable updates/s.</strong><br />Measured with concurrent queries on the declared degree-four workload. <a href={`${base}/production/`}>See the evidence.</a></p></div>
-    <p class="hero__trust mono">OPEN SOURCE &nbsp; / &nbsp; PYTHON + C++ &nbsp; / &nbsp; SQLITE</p>
+    <div class="hero__note"><span class="hero__mark" aria-hidden="true">◆</span><p><strong>Research preview — not production-qualified.</strong><br />The latest million-vertex Linux gate exposed memory failures in startup/recovery. <a href={`${base}/production/`}>Read the current evidence.</a></p></div>
+    <p class="hero__trust mono">BASIC + MULTILEVEL &nbsp; / &nbsp; SQLITE DURABILITY &nbsp; / &nbsp; ALPHA</p>
   </div>
   <Replay />
 </section>

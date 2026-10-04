@@ -2,8 +2,8 @@
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const nodes = [[180,40],[279,81],[320,180],[279,279],[180,320],[81,279],[40,180],[81,81]];
 ---
-<article class="replay" aria-label="Verified native eight-vertex update and recovery trace">
-  <header class="replay__head"><span class="mono">NATIVE / EIGHT VERTICES</span><span class="replay__badge">Verified trace</span></header>
+<article class="replay" aria-label="Verified eight-vertex Basic paper-mode update and recovery trace">
+  <header class="replay__head"><span class="mono">BASIC / EIGHT VERTICES</span><span class="replay__badge">Verified small trace</span></header>
   <div class="replay__graph">
     <svg viewBox="0 0 360 360" role="img" aria-labelledby="trace-title trace-desc">
       <title id="trace-title">Recovered matching at committed version three</title>
@@ -19,7 +19,7 @@ const nodes = [[180,40],[279,81],[320,180],[279,279],[180,320],[81,279],[40,180]
     <li><span>02</span><code>insert(0, 1)</code><strong>v3 · partner 1</strong></li>
     <li><span>↳</span><code>close → reopen</code><strong>v3 · partner 1</strong></li>
   </ol>
-  <footer><span>Real package results. Not a browser engine.</span><a href={`${base}/playground/`}>Reproduce →</a></footer>
+  <footer><span>Small deterministic example; not scale qualification.</span><a href={`${base}/playground/`}>Reproduce →</a></footer>
 </article>
 <style>
   .replay { overflow:hidden; border:1px solid var(--line-strong); border-radius:12px; background:var(--bg-2); box-shadow:0 16px 40px -28px rgba(20,45,35,.25); }

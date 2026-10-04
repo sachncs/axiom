@@ -2,13 +2,14 @@ export const SITE = {
   title: "Axiom",
   tagline: "Deterministic dynamic graph matching",
   description:
-    "Deterministic maximal matching: a native SQLite-backed local service and separate paper research modes, with measured million-vertex qualification.",
+    "Alpha-stage deterministic maximal matching with Basic and Multilevel paper modes, SQLite durability, and qualification still in progress.",
   paper: "https://arxiv.org/abs/2605.00797v1",
 } as const;
 
 export const NAV = [
   { label: "Production", href: "production/" },
   { label: "Research", href: "research/" },
+  { label: "Upcoming", href: "upcoming/" },
   { label: "Docs", href: "docs/" },
   { label: "Walkthrough", href: "playground/" },
   { label: "GitHub", href: "https://github.com/sachncs/axiom" },
@@ -16,24 +17,24 @@ export const NAV = [
 
 export const METRICS = [
   {
-    value: "10,998/s",
-    label: "real durable updates",
-    note: "30-minute degree-four stage",
+    value: "2",
+    label: "paper matching modes",
+    note: "basic + multilevel",
   },
   {
     value: "1 million",
-    label: "vertices measured",
-    note: "queries + exact recovery",
+    label: "Basic updates exercised",
+    note: "recovery gate still fails",
   },
   {
     value: "0",
-    label: "runtime dependencies",
-    note: "stdlib + bundled C++ extension",
+    label: "modes deployment-qualified",
+    note: "qualification is open",
   },
   {
-    value: "3.10+",
-    label: "supported Python",
-    note: "typed and tested through 3.13",
+    value: "10k/s",
+    label: "durable update target",
+    note: "not yet demonstrated",
   },
 ] as const;
 
@@ -61,6 +62,7 @@ export const FOOTER_LINKS = [
       { label: "Research", href: "research/" },
       { label: "Examples", href: "examples/" },
       { label: "Changelog", href: "changelog/" },
+      { label: "Alpha state & upcoming", href: "upcoming/" },
       { label: "Contributing", href: "contributing/" },
     ],
   },

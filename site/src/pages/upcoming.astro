@@ -1,0 +1,66 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+const phases = [
+  {
+    number: "01–04",
+    title: "Make the engines fit and recover",
+    text: "Reduce Basic/Multilevel memory peaks, eliminate avoidable graph-sized work, and pass constrained startup, update, backup, pressure, and replay tests before claiming scale.",
+    state: "Active · blocking",
+  },
+  {
+    number: "05–07",
+    title: "Strengthen the durable user contract",
+    text: "Qualify external-ID recovery and lifecycle rules; stress atomic batches and version-coherent query snapshots under load, failure, and bounded-resource conditions.",
+    state: "Partially implemented",
+  },
+  {
+    number: "08–12",
+    title: "Build application-facing capabilities",
+    text: "Add bipartite constraints, bounded versioned events, stable observability, deterministic replay/history, and factual matching explanations. Introduce transport only after local semantics are qualified.",
+    state: "Upcoming · API design first",
+  },
+  {
+    number: "13",
+    title: "Gate releases on evidence",
+    text: "Verify reproducible packages and independent research, durability, performance, and deployment gates for each matcher mode. Keep weighted/maximum/capacity matching as separate future engines.",
+    state: "Release gate · open",
+  },
+] as const;
+---
+<DocLayout title="Alpha state" eyebrow="What’s upcoming · no promised dates" description="Current Axiom alpha status, the work blocking qualification, and the engineering phases ahead." next={{ label: "Current evidence", href: "/production/" }}>
+  <div class="doc-callout"><p><strong>Alpha, not production-ready.</strong> The latest hosted Linux resource gate fails both paper modes. Multilevel runs out of memory during million-vertex startup under a 512 MiB address-space cap. Basic completes one million updates and a backup, but runs out of memory during disk-pressure recovery. The 10k durable-updates/s target and billion-vertex capacity are not established.</p></div>
+
+  <h2>What the team is working toward</h2>
+  <p>First make the current two-mode product bounded and recoverable at its declared scale. Then broaden adversarial qualification and complete the durable user-facing contracts. No calendar dates are attached: a phase advances only when its evidence passes.</p>
+
+  <div class="phase-list">
+    {phases.map((phase) => (
+      <article class="phase-card">
+        <span class="phase-card__number mono">PHASE {phase.number}</span>
+        <div><h3>{phase.title}</h3><p>{phase.text}</p></div>
+        <span class="phase-card__state">{phase.state}</span>
+      </article>
+    ))}
+  </div>
+
+  <h2>Qualification before expansion</h2>
+  <ul>
+    <li>Pass the 512 MiB / 192 MiB hosted resource envelope for both Basic and Multilevel, including recovery—not only update throughput.</li>
+    <li>Repeat uniform, skewed, burst, overload, rollback, and restart workloads; retain latency, memory, storage, and deterministic-state evidence.</li>
+    <li>Publish each mode’s actual limits. Do not transfer removed native-engine benchmarks or guarantees to the paper modes.</li>
+  </ul>
+
+  <div class="doc-callout"><p>Hardware power-loss qualification is deferred for this version. Maximum-cardinality, weighted, preference, and capacity matching are separate future-engine questions, not promises in this alpha.</p></div>
+  <p>Follow the detailed <a class="text-link" href="https://github.com/sachncs/axiom/tree/master/plan">13-phase engineering plan</a>, the <a class="text-link" href="../roadmap/">product roadmap</a>, and the <a class="text-link" href="../production/">current qualification evidence</a>.</p>
+</DocLayout>
+
+<style>
+  .phase-list { display:grid; gap:12px; margin:28px 0 46px; }
+  .phase-card { display:grid; grid-template-columns:100px minmax(0,1fr) 190px; align-items:start; gap:20px; padding:22px 0; border-top:1px solid var(--line); }
+  .phase-card:last-child { border-bottom:1px solid var(--line); }
+  .phase-card__number { color:var(--cobalt); font-size:11px; padding-top:5px; }
+  .phase-card h3 { margin:0 0 8px; font-size:20px; letter-spacing:-.025em; }
+  .phase-card p { margin:0; color:var(--ink-dim); line-height:1.65; }
+  .phase-card__state { justify-self:end; border:1px solid var(--line-strong); border-radius:999px; padding:6px 10px; color:var(--ink-dim); font-size:11px; line-height:1.3; text-align:center; }
+  @media(max-width:650px) { .phase-card { grid-template-columns:1fr; gap:8px; } .phase-card__state { justify-self:start; } }
+</style>

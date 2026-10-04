@@ -27,9 +27,11 @@ with TemporaryDirectory() as directory:
     with Service(path) as recovered:
         assert recovered.submit(Request(1, "delete", 0, 1)).result(5) == outcome`;
 ---
-<DocLayout title="Durable service & evidence" eyebrow="Updated 2026-10-04" description="The Basic/Multilevel durable service boundary, historical measurements, and remaining qualification." next={{ label: "Architecture", href: "/architecture/" }}>
+<DocLayout title="Alpha status & evidence" eyebrow="Updated 2026-10-04" description="Current Basic/Multilevel service contracts, failed qualification gates, historical evidence boundaries, and next steps." next={{ label: "What’s upcoming", href: "/upcoming/" }}>
   <h2>Choose the right path</h2>
-  <p><strong>Service → Durable → Matcher</strong> is the local integration path. The only matching modes are paper-derived <code>basic</code> (default) and <code>multilevel</code>; their mode identity is persisted and recovery replays the recorded operation stream through that mode. <code>Packed</code> supplies compact graph storage only, not a third matching algorithm. Both modes maintain maximal, not maximum, matching. Durable behavior is still being independently qualified.</p>
+  <p><strong>Service → Durable → Matcher</strong> is the local integration path. The only matching modes are paper-derived <code>basic</code> (default) and <code>multilevel</code>; their mode identity is persisted and recovery replays the recorded operation stream through that mode. <code>Packed</code> supplies compact graph storage only, not a third matching algorithm. Both modes maintain maximal, not maximum, matching. This is an alpha/research preview: neither mode is deployment-qualified.</p>
+  <h2>Latest hard-resource gate</h2>
+  <p>On hosted Linux with a 512 MiB address-space limit and dedicated 192 MiB ext4 volume, the Basic run completed 1,000,000 durable updates in 110.443 seconds (~9,054/s), 14,971 partner queries, backup, and memory-pressure recovery. It then failed during disk-pressure recovery: replay ran out of memory building System indexes. The Multilevel run failed earlier, during initial matching refresh. The 10k/s goal is not achieved, and neither result passes the full gate. <a class="text-link" href="https://github.com/sachncs/axiom/actions/runs/37202924572">Inspect the CI run</a>.</p>
   <h2>Executable first use</h2>
   <p>Install from the repository on GIL-enabled CPython 3.10+ with a C++17 compiler/development headers for <code>Packed</code>. The storage build is platform-specific; there are no third-party runtime Python libraries. Use a private local POSIX directory. New Service stores start with a degree-four ring.</p>
   <pre data-verify="python" data-copy={example}><code>{example}</code></pre>
@@ -37,7 +39,7 @@ with TemporaryDirectory() as directory:
   <ul>
     <li>SQLite FULL-WAL operation history is durable authority; in-memory matching state is maintained by the selected paper mode. Accepted receipts are not durable acknowledgment; successful <code>result()</code> follows commit and publication.</li>
     <li>Coordinate ordered request IDs with admission across threads. Busy means no admission; bounded retries reuse the original ID and payload. Timeout does not cancel accepted work. Retired retry IDs reject explicitly.</li>
-    <li>Partner queries return coupled committed versions. Other queries share owner scheduling; wait for an update receipt before requesting read-your-write behavior. Calls do not form an atomic multi-query snapshot.</li>
+    <li>Partner queries return coupled committed versions. <code>read_snapshot()</code> provides bounded version-coherent multi-query results; it is not long-lived MVCC or historical state retention.</li>
     <li>Queue, paper journals, graph allocations, backups and history have explicit bounds. Those do not impose aggregate RSS/page-cache or whole-filesystem quotas.</li>
     <li>Backup publishes a fresh, self-contained immutable image. Unused pages are compacted privately; never copy only the live main database or delete the source/master to hide insufficient restore headroom.</li>
   </ul>
@@ -48,10 +50,11 @@ with TemporaryDirectory() as directory:
     {runs.map(([name, run, file]) => <tr><td>{name}</td><td>{Math.round(run.real_acknowledged_updates_per_second).toLocaleString("en-US")}</td><td>{run.partner_queries.toLocaleString("en-US")}</td><td><a class="text-link" href={`https://github.com/sachncs/axiom/blob/master/benchmarks/results/independent/${file}`}>Report & provenance</a></td></tr>)}
   </tbody></table>
   <p>Growth/drain uses an explicitly selected <code>MallocLargeCache=0</code> macOS launch policy; measured owner peak is about 208 MB rather than 913 MB at default launch. Hub initial average degree is 4.131064, not exactly four. Burst windows reject offers explicitly. Degree-64 measured throughput is 6,640/s and fails the 10k target. None of these is a universal or loss-free rate promise.</p>
-  <h2>Hard-resource and recovery evidence</h2>
-  <p>The combined burst/hub stage delivers 10,431 real durable changes/s, with 59 checkpoints and exact recovery. It also rejects 56,554 offers; twelve accepted updates take at least one second from scheduled offer to acknowledgment. Ack/query p99 upper bounds are 247.7/2.4 ms. These losses and tails are part of the result, not a loss-free or tight-latency claim.</p>
-  <p>The installed Linux changing-density drill completes 1,040,000 real edits, actual allocation/disk exhaustion, same-owner memory recovery, fail-stop/reopen disk recovery and exact immutable-backup restore. Limits remain 512 MiB address space and a dedicated 192 MiB ext4 image. Compact backup is 26.1 MB; active-work peak RSS is 240.7 MB. <a class="text-link" href="https://github.com/sachncs/axiom/blob/master/benchmarks/results/resource-growth-envelope.json">Raw Linux report</a>. This is not a throughput or hardware power-loss test.</p>
+  <h2>Historical native-engine reports</h2>
+  <p>The following reports were produced by the removed native matching engine. They are retained for provenance only and are not evidence for Basic or Multilevel.</p>
+  <p>The historical combined burst/hub result delivered 10,431 real durable changes/s, with 59 checkpoints and exact recovery, while rejecting 56,554 offers; twelve accepted updates took at least one second from scheduled offer to acknowledgment. Do not interpret those rates as current capacity.</p>
+  <p>The historical Linux changing-density drill completed 1,040,000 edits and resource exhaustion under a 512 MiB address-space cap and a dedicated 192 MiB ext4 image. It does not qualify current paper-mode recovery or hardware power-loss behavior.</p>
   <h2>Active and deferred scope</h2>
-  <p><strong>Active:</strong> broad repeated skew/arrival qualification and independent end-to-end validation of durable Basic and Multilevel, including rollback, exact replay recovery, coherent reads, backups, overload, and hard-resource failure. Previous native-engine performance evidence is not transferable.</p>
-  <p><strong>Deferred by user:</strong> deployment aggregate quotas/monitoring/transport integration, tighter latency/background maintenance, hardware power-loss qualification and larger-scale/billion-vertex qualification. Deferral is not a guarantee. Axiom is a local component, not turnkey distributed/network infrastructure.</p>
+  <p><strong>Active:</strong> memory hardening, end-to-end recovery at scale, repeatable skew/adversarial qualification, deployment sizing/monitoring, and independent release gates for both modes. Previous native-engine performance evidence is not transferable.</p>
+  <p><strong>Deferred:</strong> physical power-loss qualification for this version. Billion-vertex capacity is unproven, not an accepted limit or guarantee. Axiom is a local component, not turnkey distributed/network infrastructure.</p>
 </DocLayout>

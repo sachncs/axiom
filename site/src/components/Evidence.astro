@@ -1,51 +1,47 @@
 ---
-import sweep from "../../../benchmarks/results/independent/candidate-soak-sweep-million.json";
-import pulse from "../../../benchmarks/results/independent/pulse-long-million.json";
-import hub from "../../../benchmarks/results/independent/hub-steady-million.json";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-const runs = [
-  { name: "Full-ring churn", label: "30 minutes", report: sweep },
-  { name: "Growth & drain", label: "10 minutes", report: pulse },
-  { name: "65,536-degree hub", label: "3 minutes", report: hub },
-];
+const run = "https://github.com/sachncs/axiom/actions/runs/37202924572";
 ---
 <section class="section shell evidence" aria-labelledby="evidence-title">
-  <div class="evidence__panel">
-    <div class="evidence__intro">
-      <span class="eyebrow">Measured, not imagined</span>
-      <h2 id="evidence-title">Speed is only useful<br />if the state <span class="gradient-text">survives.</span></h2>
-      <p>Real insertions and deletions. Durable acknowledgments. Concurrent partner queries. Exact recovery checked against the final topology and matching.</p>
-      <a class="text-link" href={`${base}/production/`}>Inspect the workloads & raw evidence →</a>
-      <div class="evidence__certificate mono"><span aria-hidden="true">✓</span> Recovery certificates passed in all three stages</div>
-    </div>
-    <div class="evidence__chart" aria-label="Measured durable update throughput">
-      <div class="evidence__caption mono"><span>1M vertices / local service</span><span>real updates/s</span></div>
-      {runs.map(({name, label, report}) => <div class="evidence__run">
-        <div class="evidence__row"><span>{name}<small>{label}</small></span><strong>{Math.round(report.real_acknowledged_updates_per_second).toLocaleString("en-US")}</strong></div>
-        <div class="evidence__track" aria-hidden="true"><span style={`width: ${report.real_acknowledged_updates_per_second / 12000 * 100}%`}></span><i></i></div>
-      </div>)}
-      <div class="evidence__axis mono"><span>0</span><span>10k target</span><span>12k</span></div>
-      <p class="evidence__scope">M3 Pro · 18 GiB · macOS/APFS. Degree-four ring; hub average degree 4.131064. Growth/drain uses MallocLargeCache=0. Includes final acknowledgment drain; not a loss-free or universal guarantee. Degree-64 misses the target.</p>
-    </div>
+  <div class="evidence__head">
+    <span class="eyebrow">Current qualification · Linux resource gate</span>
+    <h2 id="evidence-title">Measure the system<br /><span class="gradient-text">that ships now.</span></h2>
+    <p>Historical native-engine rates are not evidence for today’s paper modes. The current 512 MiB address-space qualification exposes unresolved memory failures.</p>
   </div>
+  <div class="evidence__grid">
+    <article class="evidence__card">
+      <span class="evidence__state">Basic · incomplete</span>
+      <h3>Updates complete.<br />Recovery still fails.</h3>
+      <p>1,000,000 durable updates in 110.443 seconds (~9,054/s), with 14,971 partner queries and backup completed. Disk-pressure recovery then raised <code>MemoryError</code> rebuilding System indexes.</p>
+    </article>
+    <article class="evidence__card evidence__card--alert">
+      <span class="evidence__state">Multilevel · failed</span>
+      <h3>Startup exceeds<br />the resource cap.</h3>
+      <p>The million-vertex service could not finish its initial matching refresh under the 512 MiB address-space limit. This run does not qualify startup, updates, or recovery.</p>
+    </article>
+  </div>
+  <div class="evidence__foot">
+    <span class="mono">Run 37202924572 · 512 MiB address cap · 192 MiB ext4 volume</span>
+    <a class="text-link" href={run}>Inspect workflow logs ↗</a>
+  </div>
+  <p class="evidence__scope">The Basic figures come from this run’s Basic matrix job; its later recovery step failed. These are constrained resource diagnostics, not a throughput qualification or production-readiness claim. The 10k durable updates/s target remains unproven for Basic and Multilevel.</p>
+  <a class="evidence__more" href={`${base}/upcoming/`}>See the alpha roadmap →</a>
 </section>
 <style>
   .evidence { padding-block: 38px 68px; }
-  .evidence__panel { display:grid; grid-template-columns: 1fr 1fr; gap: 60px; padding: clamp(24px,4vw,48px); border: 1px solid var(--line-strong); border-radius: var(--r-xl); background: var(--bg-3); }
+  .evidence__head { max-width: 760px; }
   .evidence h2 { font-size: clamp(30px,3.3vw,44px); line-height:1.1; letter-spacing:-.045em; margin:24px 0 18px; }
-  .evidence__intro > p { color:var(--ink-dim); font-size:16px; margin-bottom:24px; }
-  .evidence__certificate { margin-top:32px; padding-top:20px; border-top:1px solid var(--line); color:var(--ink-dim); font-size:11px; }
-  .evidence__certificate span { color:var(--mint); }
-  .evidence__caption { display:flex; justify-content:space-between; gap:12px; font-size:10px; color:var(--ink-faint); padding-bottom:22px; border-bottom:1px solid var(--line); }
-  .evidence__run { margin-top:24px; }
-  .evidence__row { display:flex; justify-content:space-between; align-items:center; gap:16px; font-size:14px; }
-  .evidence__row small { display:block; color:var(--ink-faint); font-size:11px; }
-  .evidence__row strong { font-size:25px; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
-  .evidence__track { position:relative; height:8px; background:var(--surface-3); border-radius:4px; margin-top:10px; }
-  .evidence__track span { display:block; height:100%; border-radius:4px; background:var(--brand-grad); }
-  .evidence__track i { position:absolute; left:83.3333%; top:-4px; height:16px; border-left:1px dashed var(--ink); }
-  .evidence__axis { position:relative; display:flex; justify-content:space-between; margin-top:14px; color:var(--ink-faint); font-size:10px; }
-  .evidence__axis span:nth-child(2) { position:absolute; left:83.3333%; transform:translateX(-50%); white-space:nowrap; }
-  .evidence__scope { color:var(--ink-faint); font-size:11px; line-height:1.7; margin:22px 0 0; }
-  @media(max-width:860px) { .evidence__panel { grid-template-columns:1fr; gap:32px; } }
+  .evidence__head > p { color:var(--ink-dim); font-size:16px; max-width:690px; }
+  .evidence__grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:32px; }
+  .evidence__card { border:1px solid var(--line-strong); border-radius:var(--r-xl); padding:clamp(22px,3vw,34px); background:var(--bg-2); }
+  .evidence__card--alert { border-color:color-mix(in srgb, var(--amber) 52%, var(--line)); }
+  .evidence__state { font:11px var(--font-mono); color:var(--cobalt); text-transform:uppercase; letter-spacing:.06em; }
+  .evidence__card--alert .evidence__state { color:var(--amber); }
+  .evidence h3 { font-size:clamp(22px,2.6vw,31px); line-height:1.14; letter-spacing:-.035em; margin:20px 0 12px; }
+  .evidence__card p { color:var(--ink-dim); font-size:14px; line-height:1.7; margin:0; }
+  .evidence__foot { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding-top:20px; margin-top:20px; border-top:1px solid var(--line); }
+  .evidence__foot .mono { color:var(--ink-faint); font-size:10px; }
+  .evidence__scope { max-width:780px; color:var(--ink-faint); font-size:12px; line-height:1.7; margin:18px 0 10px; }
+  .evidence__more { color:var(--cobalt); font-size:13px; font-weight:650; }
+  @media(max-width:700px) { .evidence__grid { grid-template-columns:1fr; } }
 </style>

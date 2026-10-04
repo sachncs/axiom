@@ -93,10 +93,10 @@ for (const asset of ["favicon.svg", "logo.svg", "og.svg"]) {
   if (!paths.every(geometry => svg.includes(`d="${geometry}"`))) failures.push(`${asset}: brand geometry diverges from mark.svg`);
 }
 if (!home.includes('data-theme="light"')) failures.push("home: expected ivory/teal default theme");
-if (!home.includes("Verified native eight-vertex update and recovery trace")) failures.push("home: missing verified native trace");
+if (!home.includes("Verified eight-vertex Basic paper-mode update and recovery trace")) failures.push("home: missing verified Basic trace");
 if (!walkthrough.includes('data-verify="python"') || !walkthrough.includes("recovered.submit")) failures.push("walkthrough: missing executable reopen/retry verification");
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log(`Checked ${files.length} HTML pages, internal links, metadata, and the verified native walkthrough.`);
+console.log(`Checked ${files.length} HTML pages, internal links, metadata, and the verified Basic walkthrough.`);

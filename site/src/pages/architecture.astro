@@ -3,8 +3,8 @@ import DocLayout from "../layouts/DocLayout.astro";
 ---
 <DocLayout title="Architecture" eyebrow="Under the hood" description="The internal boundaries that make updates observable, deterministic, and safe to validate." next={{ label: "Research status", href: "/research/" }}>
   <h2>The state boundary</h2>
-  <p>The production boundary is bounded Service admission → native incremental repair and validation → SQLite FULL-WAL commit → coherent publication → acknowledgment. SQLite checkpoints plus the committed tail are complete durable authority; C++ is the compact live compute representation, not a replacement storage database. Queries carry committed versions, and exact retry/recovery semantics survive restart. See <a class="text-link" href="../production/">production contracts and evidence</a>.</p>
-  <p>The remaining sections describe the separate paper/research architecture. Its whole-state Python snapshot migration is active, not completed.</p>
+  <p>The intended production boundary is bounded Service admission → Basic or Multilevel paper repair and validation → SQLite FULL-WAL commit → coherent publication → acknowledgment. SQLite operation history is the current recovery authority; paper state is reconstructed by replay, not restored from a paper-state checkpoint. C++ provides compact graph storage only. The boundary is integrated but resource/deployment qualification remains open. See <a class="text-link" href="../production/">current contracts and evidence</a>.</p>
+  <p>The paper matcher owns the live matching and derived indexes. Its graph-sized snapshot and allocation work is still being reduced; the latest million-vertex resource gate exposed failures in Multilevel startup and Basic recovery.</p>
   <p>Axiom treats one accepted update as a transaction over related state. The graph is the source of truth for edges; the matching and partner map are the fast inspection view; z-system indexes and hierarchy levels are derived structures. None of those views is public until they agree.</p>
   <table class="doc-table">
     <thead><tr><th>State</th><th>Owns</th><th>Must agree with</th></tr></thead>
@@ -19,7 +19,7 @@ import DocLayout from "../layouts/DocLayout.astro";
   <h2>One update, four boundaries</h2>
   <ol>
     <li><strong>Validate.</strong> Reject malformed vertices, self-loops, missing deletions, and unsupported operations before mutating the accepted state.</li>
-    <li><strong>Stage.</strong> Snapshot the coupled state and apply the graph operation to the working view.</li>
+    <li><strong>Stage.</strong> Journal touched coupled state and apply the graph operation to its owned views.</li>
     <li><strong>Repair.</strong> Rematch the affected neighborhood, update indexes, and rebuild a phase or level when its schedule requires it.</li>
     <li><strong>Commit or roll back.</strong> Run the relevant validators. A valid state becomes visible; a failed repair restores the prior state and reports the failure.</li>
   </ol>
@@ -29,7 +29,7 @@ import DocLayout from "../layouts/DocLayout.astro";
   <p>The <code>basic</code> engine owns one z-system and its phase/subphase schedule. Inserts and deletes update the graph, repair local matching state, and refresh the indexes used by the next operation. Validators check matching validity, maximality, graph identity, and index consistency.</p>
 
   <h2>Multilevel: derived, not parallel</h2>
-  <p>The <code>multilevel</code> engine derives child state from phase-start snapshots and the required edge subsets; it does not maintain unrelated copies of the whole graph. Each level carries its threshold, inherited structure, local partitions, and deferred work. A schedule boundary rebuilds the affected hierarchy, then validates level ordering, shared graph identity, and the cross-level (I3) condition before commit.</p>
+  <p>The <code>multilevel</code> engine derives child state from phase-start snapshots and required edge subsets. Each level carries its threshold, inherited structure, local partitions, and deferred work. A schedule boundary rebuilds the affected hierarchy, then validates level ordering, shared graph identity, and the cross-level (I3) condition before commit. The implementation still has graph-sized roots and currently fails the million-vertex 512 MiB startup gate.</p>
   <p>This is why multilevel is useful for implementation and research evaluation, but remains labelled <strong>Research validation</strong>: the complete paper-faithful coloring construction and ABB+26 end-to-end bound are not claimed yet.</p>
 
   <h2>What is intentionally not hidden</h2>

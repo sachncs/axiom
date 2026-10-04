@@ -7,10 +7,10 @@ import DocLayout from "../layouts/DocLayout.astro";
     <thead><tr><th>Mode</th><th>Use it when</th><th>Status</th></tr></thead>
     <tbody>
       <tr><td><code>basic</code></td><td>The default single-level matcher for local durable service or direct in-memory use.</td><td>Supported; qualification active</td></tr>
-      <tr><td><code>multilevel</code></td><td>The recursive hierarchy matcher for local durable service or direct in-memory use.</td><td>Supported; qualification active</td></tr>
+      <tr><td><code>multilevel</code></td><td>The recursive hierarchy matcher for local durable service or direct in-memory use.</td><td>Available; resource qualification currently fails at startup</td></tr>
     </tbody>
   </table>
-  <p>Both modes use the same SQLite-backed <code>Durable</code> and thread-safe local <code>Service</code> path. <code>basic</code> is the default; choose <code>multilevel</code> explicitly when you need the recursive hierarchy. Performance and deployment qualification is still active—see <a class="text-link" href="../production/">current production status</a>.</p>
+  <p>Both modes use the same SQLite-backed <code>Durable</code> and thread-safe local <code>Service</code> path. <code>basic</code> is the default; choose <code>multilevel</code> explicitly when you need the recursive hierarchy. Neither mode is deployment-qualified. The latest constrained run fails Basic recovery and Multilevel startup—see <a class="text-link" href="../production/">current alpha status</a>.</p>
 
   <h2><code>basic</code></h2>
   <p>The single-level path maintains one z-system and its matching state. It is the best mode for learning the API, writing integration tests, and establishing a baseline for experiments.</p>

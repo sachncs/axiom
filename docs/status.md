@@ -6,6 +6,14 @@ API, checkpoints, tests, benchmarks, and compatibility path have been removed.
 Historical ADRs and result artifacts remain for provenance only; they are not
 current product behavior or qualification evidence for the paper methods.
 
+The latest hosted hard-resource run (`37202924572`) is not green. Under a 512
+MiB address-space cap and a dedicated 192 MiB ext4 volume, Multilevel fails
+during initial matching refresh. Basic completed 1,000,000 durable updates in
+110.443 seconds (~9,054/s), 14,971 partner queries, backup, and memory-pressure
+recovery, but failed during disk-pressure recovery while rebuilding `System`
+indexes. This is diagnostic evidence only: neither mode has passed the complete
+gate, and the 10k/s target is not qualified.
+
 | Path | Use | Durability and concurrency |
 | --- | --- | --- |
 | `Service` → `Durable` → `Matcher(mode="basic" or "multilevel")` | Local durable integration | Both modes use the same commit-before-ack path; bounded batch/replay tests pass; qualification remains active |
@@ -16,12 +24,12 @@ The methods maintain proper maximal matching, not maximum matching. Durable
 recovery replays the persisted operation stream through its recorded paper mode;
 it does not restore or reinterpret the removed native matcher format. C++ is
 limited to compact graph storage, while SQLite is the durable operation authority.
-One-million-vertex Basic smoke qualification currently passes exact recovery,
-but a degree-four-ring workload measured about 506 real updates/s and about
-1.54 GB process peak RSS. This differs from the separate high-degree hub-churn
-workload below and should not be read as a contradictory run.
-That short run does not approach the 10k/s target or establish efficient
-million-vertex memory use. A targeted Multilevel change replaced full
+An earlier local one-million-vertex Basic smoke measured about 506 real
+updates/s and about 1.54 GB process peak RSS on its degree-four-ring workload.
+It predates the constrained hosted run above and is retained as a separate
+workload result, not as evidence of successful exact recovery at the hard cap.
+Neither run establishes the 10k/s target or efficient million-vertex memory
+use. A targeted Multilevel change replaced full
 matching/seed scans on every update with a rollback-aware I3 crossing index.
 On one 128k trace (128 durable updates, batch 32), measured throughput moved
 from 49 to 3,057 updates/s. A one-million-vertex, batch-256 Multilevel smoke

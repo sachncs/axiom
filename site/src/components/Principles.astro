@@ -1,12 +1,12 @@
 <section class="section shell principles" aria-labelledby="principles-title">
   <div class="section-head">
     <span class="eyebrow">One update. A complete path.</span>
-    <h2 id="principles-title">Fast repair. Durable state.<br /><span class="gradient-text">One coherent answer.</span></h2>
+    <h2 id="principles-title">Incremental repair. Durable state.<br /><span class="gradient-text">One coherent answer.</span></h2>
     <p>A local graph component with explicit contracts at every boundary. No hidden network service. No silent admission on overload.</p>
   </div>
   <div class="principles__grid">
-    <article><span class="principles__number mono">01 / COMPUTE</span><div class="principles__symbol" aria-hidden="true">◇ → ◈</div><h3>Repair, not recompute.</h3><p>Compact native graph state and incremental maximal-matching repair. Deterministic updates without copying the whole graph.</p><code>Engine</code></article>
-    <article><span class="principles__number mono">02 / COMMIT</span><div class="principles__symbol" aria-hidden="true">▱ ≡ ▱</div><h3>Acknowledge durably.</h3><p>SQLite FULL-WAL checkpoints and committed tails. Exact recovery and bounded retry history, with explicit failure semantics.</p><code>Durable</code></article>
+    <article><span class="principles__number mono">01 / COMPUTE</span><div class="principles__symbol" aria-hidden="true">◇ → ◈</div><h3>Repair, not recompute.</h3><p>Basic and Multilevel paper modes maintain maximal matching over compact graph storage. Their million-vertex memory envelope is still being qualified.</p><code>Matcher</code></article>
+    <article><span class="principles__number mono">02 / COMMIT</span><div class="principles__symbol" aria-hidden="true">▱ ≡ ▱</div><h3>Acknowledge durably.</h3><p>SQLite FULL-WAL operation history is the recovery authority. The selected paper mode replays that history; constrained recovery currently has an open memory failure.</p><code>Durable</code></article>
     <article><span class="principles__number mono">03 / PUBLISH</span><div class="principles__symbol" aria-hidden="true">↳ [ v, p ]</div><h3>Query a coherent version.</h3><p>Thread-safe admission, one mutation owner and partner queries coupled to committed versions. Bounded queues reject overload.</p><code>Service</code></article>
   </div>
 </section>

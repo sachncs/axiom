@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "description": "Axiom — premium product site for a faster deterministic fully dynamic maximal matching algorithm.",
+  "description": "Axiom — alpha product site for durable deterministic maximal matching with Basic and Multilevel modes.",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

@@ -55,6 +55,6 @@ with TemporaryDirectory() as directory:
     <li>Reinsert the edge. The version advances again; the matching audit passes, without assuming which valid maximal matching is selected.</li>
     <li>Close and reopen the SQLite store. All eight versioned partner results and every possible edge match the committed pre-close snapshot. Retrying request two returns its original outcome without another mutation; changing its payload rejects.</li>
   </ol>
-  <p>SQLite commit precedes successful receipt completion. A receipt timeout does not cancel accepted work. Multi-query snapshots and arbitrary network storage are not implied by this example.</p>
+  <p>SQLite commit precedes successful receipt completion. A receipt timeout does not cancel accepted work. For several queries at one committed version, use the bounded <code>read_snapshot()</code> API. This local example does not imply an arbitrary network service.</p>
 </DocLayout>
 <style>.trace { max-width:520px; margin:32px 0; }</style>

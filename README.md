@@ -13,9 +13,9 @@
 </p>
 
 Start with the [Axiom product site](https://sachncs.github.io/axiom/) for the
-getting-started guide, Basic/Multilevel walkthrough, API reference, and current
-implementation status. This repository is the source for contributors and
-release engineering.
+getting-started guide, current alpha state, Basic/Multilevel walkthrough, API
+reference, and qualification status. This repository is the source for
+contributors and release engineering.
 
 **Axiom** maintains a deterministic **maximal**, not maximum-cardinality, matching
 under online edge insertions and deletions. It offers exactly two matching modes,
@@ -24,25 +24,27 @@ SQLite-backed `Durable` state and the thread-safe local `Service`. Compact nativ
 `Packed` storage remains a graph container only; there is no alternate native
 matching algorithm or compatibility backend.
 
-## Current status — 2026-10-04
+## Current status — 2026-10-04 (alpha)
 
-- **Historical measurement (removed native matcher):** million-vertex, average-degree-4 full-ring churn sustained
-  10,998 real durable updates/s for 30 minutes, with coherent queries and exact
-  recovery. Ten-minute growth/drain and three-minute degree-65,536 hub stages
-  also exceeded 10k/s. Combined hub/burst delivered 10,431/s, with explicit
-  rejections and twelve scheduled-offer-to-ack tails beyond one second.
-  These are declared workload/hardware results, not a
-  universal rate or loss-free admission guarantee.
-- **Current paper path:** Basic and Multilevel are persisted modes; the durable
-  owner replays operations under the recorded mode. This integration is in
-  implementation/qualification, and former native-matcher performance results
-  do not establish paper-mode scale or reliability.
-- **Active:** broader repeatability/skew qualification, end-to-end durable failure
-  and recovery testing, and release qualification of both modes.
-- **Deferred by user:** deployment quota/monitoring/transport integration,
-  tighter latency/background maintenance, hardware power-loss qualification,
-  and larger-scale/billion-vertex qualification. No guarantees are inferred from
-  those deferrals. Degree-64 throughput currently fails the 10k target.
+- **Supported matchers:** `basic` (default) and `multilevel`. Both are paper-
+  derived modes on the same SQLite-backed `Durable`/thread-safe local `Service`
+  path. `Packed` is compact graph storage, not a matching method.
+- **Qualification is not complete.** Hosted Linux resource run `37202924572`
+  fails Multilevel startup under a 512 MiB address-space cap while building
+  matching state. Basic completed 1,000,000 durable updates in 110.443 seconds
+  (~9,054/s) with 14,971 partner queries and a backup, but disk-pressure
+  recovery failed while replaying the graph under the same cap. These are
+  failure-stage diagnostics, not release qualifications or a sustained 10k/s
+  result.
+- **Next engineering gates:** reduce paper-engine memory peaks; pass both-mode
+  constrained startup, update, backup, pressure, and recovery runs; then finish
+  repeatability/skew/adversarial and deployment qualification. See the
+  [alpha-state page](https://sachncs.github.io/axiom/upcoming/) and
+  [phase plans](plan/).
+- **Historical only:** rates from the removed native matching engine do not
+  qualify Basic or Multilevel and are not current product claims.
+- **Explicitly not claimed:** billion-vertex capacity, maximum-cardinality
+  matching, network-service readiness, or hardware power-loss qualification.
 
 See [current status and evidence](docs/status.md), [engineering](docs/engineering.md),
 [operations](docs/operations.md), and [ADRs](docs/adrs/README.md).
@@ -52,10 +54,8 @@ See [current status and evidence](docs/status.md), [engineering](docs/engineerin
 ## Features
 
 - **Two paper matching modes** &mdash; `Matcher` supports `basic` and `multilevel`; both can use compact native `Packed` graph storage. `Durable` persists updates and `Service` provides bounded thread-safe admission and queries. There is no separate native matching algorithm. See [modes](docs/modes.md), [storage](docs/storage.md), [durability](docs/durable.md), and [service contracts](docs/service.md).
-- **Two operating modes**
-  - `basic` &mdash; the single-level z-subgraph implementation
-  - `multilevel` &mdash; the recursive *k*-level z-subgraph implementation
-- **Two canonical modes** &mdash; select `basic` or `multilevel` with the `mode=` string.
+- **Alpha release state** &mdash; both modes are available for research and integration testing; constrained resource and deployment gates remain open. See the [upcoming work](https://sachncs.github.io/axiom/upcoming/).
+- **Two matching modes** &mdash; `basic` is the single-level z-subgraph implementation; `multilevel` is the recursive *k*-level implementation. Select one with `mode=`.
 - **z-subgraph system** &mdash; the (*A*, *B*, *U*) partition, *S* = *A* &cup; *B* saturation, &Lambda;(*u*) and *L*(*a*) index lists, and their implemented validators.
 - **Multi-level hierarchy** &mdash; the recursive hierarchy and I3 repair path are implemented and checked, without claiming the paper's complete dynamic theorem.
 - **Deterministic edge colouring** &mdash; `basic` uses fan-based Vizing colouring; `multilevel` uses deterministic paper fan operations, Vizing activation, and checked u-edge reduction, with no silent fallback. The complete ABB+26 near-linear bound is not claimed.
