@@ -825,39 +825,34 @@ def refine_hierarchy(
             )
         u_colors.add(color)
         v_colors.add(color)
-    # Keep empty color classes in the candidate order.  The paper reindexes
-    # color classes by nondecreasing deleted-edge count, then selects the
-    # first z' classes.  This makes the retained deleted subset satisfy the
-    # required |E_D'| <= |E_D| z'/z bound without dropping a selected edge.
-    # Empty classes still participate in the first ``z_prime`` selection.
-    classes: dict[int, set[Edge]] = {color: set() for color in range(z + 1)}
-    for edge, color in coloring.items():
-        classes[color].add(edge)
+    # Rank colors by retained deletions without building one Python edge set
+    # per color. The coloring already provides the edge -> color index, so a
+    # compact count row is sufficient and empty colors still participate.
+    deletion_counts = [0] * (z + 1)
+    for edge in retained_deleted:
+        deletion_counts[coloring[edge]] += 1
     ordered_colors = sorted(
-        classes,
-        key=lambda color: (len(classes[color] & retained_deleted), color),
+        range(z + 1), key=lambda color: (deletion_counts[color], color)
     )
     selected_colors = set(ordered_colors[:z_prime])
     deletion_budget = len(retained_deleted) * z_prime // z
-    deferred_candidates = sorted(
-        edge
-        for color in selected_colors
-        for edge in classes[color]
-        if edge in retained_deleted
-    )
-    if len(deferred_candidates) > deletion_budget:
+    deferred_deleted = {
+        edge for edge in retained_deleted if coloring[edge] in selected_colors
+    }
+    if len(deferred_deleted) > deletion_budget:
         raise RuntimeError(
             "recursive refinement selected too many deleted matching edges: "
-            f"selected={len(deferred_candidates)}, budget={deletion_budget}"
+            f"selected={len(deferred_deleted)}, budget={deletion_budget}"
         )
-    deferred_deleted = set(deferred_candidates)
     chosen = {
         edge
-        for color in selected_colors
-        for edge in classes[color]
-        if edge in inserted
-        or (edge not in deleted and hierarchy.graph.has_edge(*edge))
-        or edge in deferred_deleted
+        for edge, color in coloring.items()
+        if color in selected_colors
+        and (
+            edge in inserted
+            or (edge not in deleted and hierarchy.graph.has_edge(*edge))
+            or edge in deferred_deleted
+        )
     }
     if isinstance(hierarchy.graph, (Adjacency, Packed)):
         phase_edges = (

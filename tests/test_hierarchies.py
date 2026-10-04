@@ -120,6 +120,42 @@ def test_refinement_compares_coloring_keys_without_copying_edge_sets() -> None:
     assert refined.check()
 
 
+@pytest.mark.parametrize("delete_count", [0, 1, 3, 11, 36])
+def test_refinement_color_count_scans_match_reference_with_ties_and_empty_colors(
+    delete_count: int,
+) -> None:
+    """The count-row path preserves class order and the deferred-edge budget."""
+    graph = Adjacency(16)
+    for left in range(16):
+        for right in range(left + 1, 16):
+            graph.add_edge(left, right)
+    base = build_hierarchy(graph, [8])
+    previous = base.levels[-1]
+    deleted_matching = set(sorted(previous.M)[:delete_count])
+    nonmatching = next(edge for edge in sorted(graph.edges()) if edge not in previous.M)
+    deleted = deleted_matching | {nonmatching}
+
+    coloring = Paper.color(project(graph, previous.M), previous.z)
+    retained = deleted & previous.M
+    classes = {color: set() for color in range(previous.z + 1)}
+    for edge, color in coloring.items():
+        classes[color].add(edge)
+    order = sorted(
+        classes,
+        key=lambda color: (len(classes[color] & retained), color),
+    )
+    selected = set(order[:4])
+    expected = {
+        edge for color in selected for edge in classes[color] if edge in retained
+    }
+
+    refined = refine_hierarchy(base, 4, deleted=deleted)
+
+    assert refined.deferred_deletions == expected
+    assert len(expected) <= len(retained) * 4 // previous.z
+    assert refined.check()
+
+
 def test_sparse_hierarchy_check_does_not_allocate_vertex_degree_arrays(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

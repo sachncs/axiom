@@ -17,6 +17,14 @@ and exit certificates remain, so neither change eliminates state-sized audit
 work. See [ADR 0111](adrs/0111-localize-modify-types-fan-repair.md) and
 [ADR 0112](adrs/0112-reuse-hierarchy-endpoint-neighbor-rows.md).
 
+Recursive hierarchy refinement no longer duplicates the complete lower-level
+edge coloring into per-color Python sets to rank classes and select deferred
+edges. It counts deleted edges in a `z + 1` row and scans the existing coloring
+for selected results, preserving empty-color ordering and all independent
+certificates. This removes one O(|M|) hash-membership copy, not the coloring,
+global validation, or result sets. See [ADR 0114](adrs/0114-count-colors-without-edge-buckets.md);
+full allocation and end-to-end qualification remain open.
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |
