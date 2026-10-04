@@ -29,22 +29,15 @@ Native `Packed` metadata uses three uint32 arrays and one byte per vertex (13
 bytes per vertex, excluding vector capacity and container objects). Adjacency
 uses reusable four-neighbor blocks of 24 bytes; occupancy is derived from the
 row degree and tail-block position rather than stored redundantly in every
-block. In the production `Engine`,
-partners add 4 bytes per vertex and the hierarchical free-vertex bitmap about
-0.127 bytes per vertex. The published-partner first-write index is now sparse:
-it has eight inline entries and grows with vertices touched in an active batch,
-not with the graph universe. Its dynamic open-addressed capacity is budgeted,
-retained for reuse after large batches, and grows with old/new coexistence
-accounted. Thus a degree-four graph using roughly one adjacency block per vertex
-has an idle structural baseline near 41.13 bytes per vertex: about 41 GB
-(38.3 GiB) at one billion vertices, before allocator/capacity slack, active
-batch indexes/journals, SQLite, Python, or process overhead. The default 1 GiB
-graph budget cannot hold that representation. This is an order-of-magnitude
-estimate, not a billion-vertex capacity claim; uint32 block addresses
-additionally cap higher-density graphs at fewer than 4.3 billion adjacency
-blocks. `Engine.memory()` and
-`Packed.memory()` report retained native allocation under the graph budget, not
-this broader process footprint.
+block. `Packed` owns graph adjacency only; matching state and repair structures
+belong to the selected paper mode. Historic per-vertex accounting for the
+removed native matcher is retained in old benchmark artifacts, but does not
+describe the current product. Whole-process memory also includes Python paper
+indexes/journals, SQLite, allocator capacity, and audit scratch. No
+billion-vertex capacity claim follows from the storage-layer estimate; uint32
+block addresses additionally cap higher-density graphs at fewer than 4.3
+billion adjacency blocks. `Packed.memory()` reports retained native graph
+allocation, not whole-process memory.
 
 Moderate-degree rows use bounded scans; rows reaching degree 128 receive
 an open-addressed membership/location index. Neighbor iteration sorts a temporary
@@ -106,8 +99,12 @@ collections, and rebuild paths may construct replacement structures. Native
 local edge certificates rely on a sealed storage type with tested two-endpoint
 mutation semantics; callers cannot subclass or override its mutators. Custom
 graph backends retain full edge-set mutation certificates. Mandatory
-matching/hierarchy/coloring checks are not disabled. Paper matching remains
-nondurable and is not yet integrated into the SQLite-backed production service.
+matching/hierarchy/coloring checks are not disabled. A direct `Matcher` remains
+caller-owned and in-memory; `Durable` and `Service` run both paper modes through
+SQLite-backed operation-log persistence. Their recovery is deterministic but
+linear in retained history, and current performance/resource qualification is
+well below the accepted production target. See [durable contracts](durable.md)
+and [current status](status.md).
 
 ## Reproduce the measurements
 

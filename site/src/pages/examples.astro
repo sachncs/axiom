@@ -2,7 +2,7 @@
 import DocLayout from "../layouts/DocLayout.astro";
 ---
 <DocLayout title="Examples" eyebrow="Practical usage" description="Copyable workflows for live updates, reproducible traces, mode comparisons, and benchmark interpretation." next={{ label: "Read the architecture", href: "/architecture/" }}>
-  <div class="doc-callout"><p><strong>Research examples.</strong> These recipes use nondurable paper modes. Use <a class="text-link" href="../production/">Service</a> for native durable local integration; do not transfer the paper theorem to that production algorithm.</p></div>
+  <div class="doc-callout"><p><strong>Paper matching modes.</strong> The examples show the in-memory <code>Matcher</code> API. For durable updates and concurrent local clients, use <a class="text-link" href="../production/">Service</a>, which routes Basic and Multilevel through the same SQLite-backed transaction path. Do not infer the paper's complete asymptotic theorem from the current implementation.</p></div>
 
   <h2>Maintain a live stream</h2>
   <p>Keep the matcher as the owner of graph state. Feed it updates in order and inspect the matching after each operation.</p>

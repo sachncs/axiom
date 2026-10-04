@@ -3,16 +3,18 @@
 ## What is Axiom?
 
 Axiom maintains deterministic maximal matching through online edge changes.
-Its native SQLite-backed local `Service` is distinct from the nondurable Python
-paper/research `Matcher`. See [current status](status.md) for measured evidence
-and active/deferred work; neither path promises maximum-cardinality matching.
+Its only matching methods are paper-derived `basic` and `multilevel`, both
+available through SQLite-backed `Durable` and thread-safe local `Service`.
+`Packed` is compact graph storage only. See [current status](status.md) for
+qualification and active/deferred work; no mode promises maximum-cardinality
+matching.
 
 ## Why C++ and SQLite, rather than replacing one with the other?
 
-C++ provides compact adjacency, partner arrays and bounded local repair/undo.
-SQLite FULL-WAL checkpoints plus committed tail are complete durable authority.
-They solve different problems. Engine alone is nondurable; `Durable` and
-thread-safe `Service` add persistence/publication and bounded concurrency.
+C++ provides compact mutable adjacency in `Packed`; the Basic/Multilevel paper
+algorithms maintain matching state. SQLite FULL-WAL operation history is the
+durable authority, and `Durable`/`Service` provide recovery/publication and
+bounded concurrency. Storage and matching are separate responsibilities.
 
 ## Can I scale to a million or billion vertices?
 

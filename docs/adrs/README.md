@@ -158,6 +158,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Full matching and seed scans on each Multilevel update | Rollback-aware incremental I3 crossing index and immediate seed-edge removal (0103) | One matched 128k trace improved from 49 to 3,057 durable updates/s; 1m batch-256 smoke measured 3,136/s and 81 ms ack p99; still below 10k/s and not qualification |
 | Full H-tilde edge-set scan on every ProcUpdate | Sparse source-to-target H-tilde index journaled with the existing reverse index (0104) | Synthetic 100k-edge empty-source cleanup avoids a 4.27 ms global scan; added index memory and end-to-end throughput remain unmeasured |
 | Rescan every coloring assignment and fan for each Extend color group | Temporary assignment-by-color index and exact fan-type index (0105) | Isolated 100k-edge/10-group selection was 2.69× faster with ~852 KB traced index cost; whole Extend/RSS remain unqualified |
+| Validate every accumulated inserted edge before a local hierarchy delta | Explicitly trust only Matcher-journaled E_I sets on the incremental branch; keep full validation for direct/full sync (0106) | No-iteration regression plus local endpoint certificates; end-to-end throughput and full-sync audits remain |
 
 ## What is not being abandoned
 

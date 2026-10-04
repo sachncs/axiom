@@ -1,9 +1,8 @@
 # Axiom Documentation
 
-Axiom has a native SQLite-backed local matching service and separate Python
-paper/research modes. Start with [current status](status.md): implementation,
-measured evidence, active repeatability/skew and paper-engine integration, and explicitly
-deferred work. The production engine does not inherit the paper theorem.
+Axiom exposes two matching modes—`basic` and `multilevel`—with optional compact
+native `Packed` graph storage. Start with [current status](status.md) for current
+implementation, evidence, active work, and explicitly deferred qualification.
 
 ## Contents
 
@@ -13,7 +12,7 @@ deferred work. The production engine does not inherit the paper theorem.
 - **[Build and CI](ci.md)** — Astro-only publishing and package/resource gates.
 - **[Service](service.md)** — thread-safe bounded admission, receipts and queries.
 - **[Durability](durable.md)** — SQLite authority, checkpoints, retries and backups.
-- **[Native engine](engine.md)** and **[storage](storage.md)** — compact compute state and budgets.
+- **[Storage](storage.md)** — compact `Packed` graph state and its resource limits.
 - **[Engineering](engineering.md)**, **[operations](operations.md)** and **[ADRs](adrs/README.md)** — qualification, migration rationale and deferrals.
 
 - **[Getting started](getting-started.md)** &mdash; install Axiom and run your first maximal matching.
@@ -30,7 +29,7 @@ purpose:
 
 - `axiom.service` — concurrent clients and bounded single-owner scheduling.
 - `axiom.durable` — FULL-WAL commits, exact recovery and checkpoint/history policy.
-- `axiom.engine` / `axiom.native` — compact incremental matching and storage.
+- `axiom.storage` — compact native graph storage exposed as `Packed`.
 - `axiom.backup` — private compaction and immutable no-overwrite publication.
 
 - `axiom.core` &mdash; `Matcher`, the orchestrator (graph, matching, z-system, augment, rebuild dispatch).

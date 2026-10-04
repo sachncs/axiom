@@ -1,7 +1,7 @@
-"""Measure bounded concurrent clients, FULL-WAL acknowledgments and partner reads.
+"""Measure concurrent paper-matcher clients, FULL-WAL acknowledgments and reads.
 
-Streaming histograms include queue wait and native checkpoint maintenance. The
-fixed-pool closed-loop workload is not an open-loop overload or power-cut test.
+Streaming histograms include queue wait and SQLite commit work. The fixed-pool
+closed-loop workload is not an open-loop overload or power-cut test.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class Histogram:
 def live_digest(service: Service, vertices: int, status: dict) -> str:
     """Capture exact live partners through bounded coherent matching pages."""
     if not service.check().result(10):
-        raise RuntimeError("live native audit failed")
+        raise RuntimeError("live paper audit failed")
     partners = array("I", [0xFFFFFFFF]) * vertices
     start, count, version = 0, 0, status["version"]
     while True:
@@ -105,7 +105,7 @@ def measure(
     window: int = 64,
     query_window: int = 128,
     queue_capacity: int = 512,
-    checkpoint_interval: int = 32768,
+    mode: str = "basic",
     timeout_seconds: int = 120,
     duration_seconds: int | None = None,
     hub_degree: int = 0,
@@ -165,7 +165,7 @@ def measure(
         path,
         n=vertices,
         queue_capacity=queue_capacity,
-        checkpoint_interval=checkpoint_interval,
+        mode=mode,
     )
     construction = time.perf_counter() - tick
     hub_edges = {(0, v) for v in range(3, hub_degree - 1)} if hub_degree else set()
@@ -354,7 +354,7 @@ def measure(
     removed = {originals[i] for i in range(width) if toggled[i]}
     extra = hub_edges | {extras[i] for i in range(width) if toggled[i]}
     tick = time.perf_counter()
-    with Durable(path) as recovered:
+    with Durable(path, mode=mode) as recovered:
         recovery = time.perf_counter() - tick
         tick = time.perf_counter()
         if (
@@ -375,11 +375,12 @@ def measure(
         raise RuntimeError("acknowledged update count differs from trace")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
-        "scope": "bounded closed-loop clients + committed partner reads (1:1 query/update mix) + FULL-WAL + native checkpoint retirement; NOT open-loop overload/power-cut qualification",
+        "scope": "bounded closed-loop paper matcher clients + committed partner reads (1:1 query/update mix) + SQLite FULL-WAL + operation-log replay; NOT open-loop overload/power-cut qualification",
         "query_policy": "one partner query per admitted real update; drain all credits",
         "python": platform.python_version(),
         "platform": platform.platform(),
         "sqlite": final["sqlite"],
+        "paper_mode": mode,
         "vertices": vertices,
         "edges": initial["edges"],
         "average_degree": 2 * initial["edges"] / vertices,
@@ -410,8 +411,8 @@ def measure(
         "exact_recovery_passed": True,
         "trace_digest": trace.hexdigest(),
         "matching_digest": matching_digest,
-        "initial_native_bytes": initial["native_bytes"],
-        "final_native_bytes": final["native_bytes"],
+        "initial_paper_graph_bytes": initial["graph_bytes"],
+        "final_paper_graph_bytes": final["graph_bytes"],
         "sampled_database_wal_shm_peak_bytes": disk_peak,
         "process_peak_rss_bytes": rss if sys.platform == "darwin" else rss * 1024,
         "final_status": final,
@@ -436,7 +437,7 @@ def main() -> None:
     parser.add_argument("--window", type=int, default=64)
     parser.add_argument("--query-window", type=int, default=128)
     parser.add_argument("--queue-capacity", type=int, default=512)
-    parser.add_argument("--checkpoint-interval", type=int, default=32768)
+    parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--duration", type=int)
     parser.add_argument("--hub-degree", type=int, default=0)
@@ -452,7 +453,7 @@ def main() -> None:
                 window=args.window,
                 query_window=args.query_window,
                 queue_capacity=args.queue_capacity,
-                checkpoint_interval=args.checkpoint_interval,
+                mode=args.mode,
                 timeout_seconds=args.timeout,
                 duration_seconds=args.duration,
                 hub_degree=args.hub_degree,

@@ -1,5 +1,12 @@
 # Bounded backup and independent disaster restore
 
+> Historical native-matcher result only. The native matching engine described
+> below was removed on 2026-10-04. These timings are not evidence for the current
+> `basic` or `multilevel` paper modes and must not be used as their performance
+> or reliability qualification. Current paper-mode measurements must be
+> generated with `benchmarks/backup.py` and archived separately with mode,
+> environment, and database-size details.
+
 Core/backup source `e661452`, benchmark `ab37b27`. Isolated installed wheel SHA-256
 `006372521cf3d12a57e851a6a17aae8c8a244dc50520a777f3fe585aafcbe1d2`.
 Apple M3 Pro, 18 GiB, internal SSD/APFS, macOS 26.7.1, CPython 3.14.7,

@@ -1,5 +1,10 @@
 # Queued concurrent-client stage
 
+> Historical: these service runs used the former native matching Engine, which
+> was removed from the product on 2026-10-04. Raw measurements and manifests are
+> preserved for provenance only. They do not qualify current durable Basic or
+> Multilevel matching, even where the SQLite/Service mechanisms overlap.
+
 Short source `546464e`, service `1a6bafb`. Apple M3 Pro / 18 GiB / internal SSD/APFS;
 software versions are recorded in raw JSON. Fresh sequential processes/databases;
 no overlapping local build/test jobs during retained measurements.

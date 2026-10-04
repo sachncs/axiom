@@ -93,7 +93,11 @@ recovery at about 506 durable real updates/s and about 1.54 GB process peak RSS.
 A 128k Multilevel smoke trace passed exact recovery at about 49 updates/s,
 657 ms ack p99, and 322 MB process peak RSS. Both are short, non-repeatable
 smoke checks, and neither approaches the 10k/s target; they expose a major
-throughput and memory gap, especially for Multilevel. Remaining gates include
+throughput and memory gap, especially for Multilevel. The Multilevel throughput
+figure is the pre-ADR-0103 baseline and has since been superseded by a one-off
+3,136 updates/s, batch-256 million-vertex smoke; the newer result remains below
+target and is not a repeatable qualification. The Basic figure remains the
+latest recorded million-vertex Basic smoke. Remaining gates include
 repeatability/skew/adversarial testing, memory reduction, recovery-time limits,
 installed deployment checks, and sustained throughput. Hardware power-loss and
 billion-vertex qualification remain deferred. The paper’s complete theoretical

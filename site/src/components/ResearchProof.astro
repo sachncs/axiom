@@ -6,7 +6,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     <div><span class="eyebrow">Paper algorithm integration</span><h2 id="research-proof-title">Explore the paper.<br /><span class="gradient-text">Inspect the boundary.</span></h2></div>
     <div class="research-proof__paper"><strong>A Faster Deterministic Algorithm for<br />Fully Dynamic Maximal Matching</strong><span>Julia Chuzhoy · Sanjeev Khanna · Junkai Song · STOC 2026</span><a class="text-link" href="https://arxiv.org/abs/2605.00797v1" target="_blank" rel="noopener">Read the paper ↗</a></div>
   </div>
-  <p class="research-proof__scope">Durable basic/multilevel modes through the production service are now required integration work, not a permanent research-only endpoint. This integration is not implemented yet. The native backend’s measurements do not qualify the paper algorithm or transfer its complexity guarantee.</p>
+  <p class="research-proof__scope">Basic and Multilevel share the durable local service, bounded SQLite batches, and deterministic operation-log recovery. This integration is implemented; qualification is not complete. The latest one-million-vertex Multilevel smoke measured about 3,136 real updates/s at batch 256 (81 ms acknowledgment p99); a separate 4,096-operation atomic group measured 1,559/s with a 2.60 s p99. The 10k/s target remains unmet. Historical measurements from the removed native matcher do not qualify these paper modes or transfer its complexity guarantees.</p>
   <div class="research-proof__map">
     <div class="research-proof__row research-proof__header"><span>Paper area</span><span>Axiom status</span></div>
     <div class="research-proof__row"><span>Subgraph system</span><strong class="is-done">Implemented</strong></div>

@@ -225,7 +225,7 @@ class Matcher:
         self.H: dict[Vertex, set[Vertex]] = {}
         self.H_reverse: dict[Vertex, set[Vertex]] = {}
         self.H_tilde: set[tuple[Vertex, Vertex]] = set()
-        self.H_tilde_outgoing: dict[Vertex, set[Vertex]] = {}
+        self.Htildeoutgoing: dict[Vertex, set[Vertex]] = {}
         self.H_tilde_reverse: dict[Vertex, set[Vertex]] = {}
         self.S_hat: set[Vertex] = set()
 
@@ -370,7 +370,7 @@ class Matcher:
         self.H = {}
         self.H_reverse = {}
         self.H_tilde = set()
-        self.H_tilde_outgoing = {}
+        self.Htildeoutgoing = {}
         self.H_tilde_reverse = {}
         self.S_hat = set()
         if self.system is None:
@@ -477,28 +477,26 @@ class Matcher:
             return
         if self.auxiliary is None:
             self.H_tilde.add(edge)
-            self.H_tilde_outgoing.setdefault(source, set()).add(target)
+            self.Htildeoutgoing.setdefault(source, set()).add(target)
             self.H_tilde_reverse.setdefault(target, set()).add(source)
         else:
             self.auxiliary.member(self.H_tilde, edge, True)
-            self.auxiliary.add(self.H_tilde_outgoing, source, target)
+            self.auxiliary.add(self.Htildeoutgoing, source, target)
             self.auxiliary.add(self.H_tilde_reverse, target, source)
 
     def __remove_h_tilde_source(self, source: Vertex) -> None:
         """Remove all outgoing ``H_tilde`` edges for one source."""
-        outgoing = self.H_tilde_outgoing.get(source, set())
+        outgoing = self.Htildeoutgoing.get(source, set())
         for target in sorted(outgoing):
             edge = source, target
             if self.auxiliary is None:
                 self.H_tilde.remove(edge)
                 outgoing.remove(target)
                 if not outgoing:
-                    self.H_tilde_outgoing.pop(source, None)
+                    self.Htildeoutgoing.pop(source, None)
             else:
                 self.auxiliary.member(self.H_tilde, edge, False)
-                self.auxiliary.discard(
-                    self.H_tilde_outgoing, source, target, empty=True
-                )
+                self.auxiliary.discard(self.Htildeoutgoing, source, target, empty=True)
             incoming = self.H_tilde_reverse.get(target)
             if incoming is not None:
                 if self.auxiliary is None:
@@ -883,6 +881,7 @@ class Matcher:
                     self.graph,
                     excluded_edges=self.inserted_edges,
                     changed_edge=edge,
+                    journaled=True,
                 )
             else:
                 self.__update_cached_lists(u, v, added=True)
@@ -970,6 +969,7 @@ class Matcher:
                     self.graph,
                     excluded_edges=self.inserted_edges,
                     changed_edge=edge,
+                    journaled=True,
                 )
             else:
                 self.__update_cached_lists(u, v, added=False)

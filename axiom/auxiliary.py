@@ -17,7 +17,7 @@ class Auxiliary:
         "inserted_incident_counts",
         "H",
         "H_reverse",
-        "H_tilde_outgoing",
+        "Htildeoutgoing",
         "H_tilde_reverse",
     )
     sets = ("inserted_edges", "deleted_edges", "bad_vertices", "H_tilde", "S_hat")
@@ -126,7 +126,7 @@ class Auxiliary:
             raise TypeError("auxiliary edge index requires a plain dictionary")
         address = id(container)
         rootname = self.mapnames.get(address)
-        if rootname in ("H_reverse", "H_tilde_outgoing", "H_tilde_reverse"):
+        if rootname in ("H_reverse", "Htildeoutgoing", "H_tilde_reverse"):
             self.changedkeys.setdefault(rootname, set()).add(key)
         values = container.get(key)
         if values is None:
@@ -158,7 +158,7 @@ class Auxiliary:
         """Discard one indexed edge and optionally remove its empty bucket."""
         self.check()
         rootname = self.mapnames.get(id(container))
-        if rootname in ("H_reverse", "H_tilde_outgoing", "H_tilde_reverse"):
+        if rootname in ("H_reverse", "Htildeoutgoing", "H_tilde_reverse"):
             self.changedkeys.setdefault(rootname, set()).add(key)
         values = container.get(key)
         if values is None:
@@ -268,7 +268,7 @@ class Auxiliary:
                 owner.H
                 or owner.H_reverse
                 or owner.H_tilde
-                or owner.H_tilde_outgoing
+                or owner.Htildeoutgoing
                 or owner.H_tilde_reverse
                 or owner.S_hat
             )
@@ -339,8 +339,8 @@ class Auxiliary:
                 if (source, target) not in owner.H_tilde:
                     return False
 
-        for source in self.changedkeys.get("H_tilde_outgoing", ()):
-            for target in owner.H_tilde_outgoing.get(source, set()):
+        for source in self.changedkeys.get("Htildeoutgoing", ()):
+            for target in owner.Htildeoutgoing.get(source, set()):
                 if (source, target) not in owner.H_tilde:
                     return False
 
@@ -355,7 +355,7 @@ class Auxiliary:
             )
             if (edge in owner.H_tilde) != wantededge:
                 return False
-            if (target in owner.H_tilde_outgoing.get(source, set())) != wantededge:
+            if (target in owner.Htildeoutgoing.get(source, set())) != wantededge:
                 return False
             if (source in owner.H_tilde_reverse.get(target, set())) != wantededge:
                 return False
@@ -376,7 +376,7 @@ class Auxiliary:
                 owner.H
                 or owner.H_reverse
                 or owner.H_tilde
-                or owner.H_tilde_outgoing
+                or owner.Htildeoutgoing
                 or owner.H_tilde_reverse
                 or owner.S_hat
             )
@@ -423,7 +423,7 @@ class Auxiliary:
             expected_tilde_outgoing.setdefault(source, set()).add(target)
         return (
             owner.H_tilde_reverse == expected_tilde_reverse
-            and owner.H_tilde_outgoing == expected_tilde_outgoing
+            and owner.Htildeoutgoing == expected_tilde_outgoing
         )
 
     def restore(self) -> None:

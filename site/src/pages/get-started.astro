@@ -9,7 +9,7 @@ import { INSTALL } from "../lib/data";
   <pre data-copy={INSTALL.pip}><code>{INSTALL.pip}</code></pre>
 
   <h2>Create a matcher</h2>
-  <p>For durable local integration, start with <a class="text-link" href="../production/">Service and its production contracts</a>. The examples below use the separate nondurable paper/research Matcher. Choose one of its two supported modes explicitly.</p>
+  <p>The examples below use the in-memory <code>Matcher</code> API. For durable local operation, use <a class="text-link" href="../production/">Durable or the thread-safe Service</a>; both use the same two supported matching modes, <code>basic</code> and <code>multilevel</code>. Basic is the default.</p>
   <pre data-verify="python" data-copy={`from axiom import Matcher
 
 matcher = Matcher(n=6, mode="basic")
@@ -45,7 +45,7 @@ True`}</code></pre>
     <li><strong>Maximality is maintained</strong> after each accepted update.</li>
     <li><strong>Both modes are deterministic</strong> for the same input sequence.</li>
   </ol>
-  <div class="doc-callout"><p><strong>Research implementation.</strong> Both paper modes are nondurable and require external serialization. Their snapshot migration is active. The native Service is a different algorithm and does not inherit the paper theorem.</p></div>
+  <div class="doc-callout"><p><strong>Implementation and qualification are distinct.</strong> Durable and Service support both Basic and Multilevel, including bounded atomic update batches and version-coherent read snapshots. Current paper-mode performance and deployment reliability are not yet qualified against the project targets. The former native matcher and native checkpoint path have been removed; historical native measurements do not qualify these modes.</p></div>
 
   <h2>Use the state safely</h2>
   <p><code>matching()</code>, <code>partners()</code>, and <code>stats()</code> return inspection data. They do not become a second mutation API. Keep one owner for each matcher and serialize updates when a stream is shared across workers.</p>

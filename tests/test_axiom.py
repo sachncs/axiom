@@ -1269,7 +1269,7 @@ class TestMatcher:
         algo.H_reverse = {2: {0}}
         algo.inserted_edges = {(1, 2)}
         algo.H_tilde = {(1, 2)}
-        algo.H_tilde_outgoing = {1: {2}}
+        algo.Htildeoutgoing = {1: {2}}
         algo.H_tilde_reverse = {2: {1}}
         algo.bad_vertices = {2}
 
@@ -1280,14 +1280,14 @@ class TestMatcher:
     def test_proc_update_preserves_incoming_h_tilde_targets(self) -> None:
         algo = Matcher(4, mode="multilevel")
         algo.H_tilde = {(1, 2), (2, 3)}
-        algo.H_tilde_outgoing = {1: {2}, 2: {3}}
+        algo.Htildeoutgoing = {1: {2}, 2: {3}}
         algo.H_tilde_reverse = {2: {1}, 3: {2}}
         algo.matched_vertices = {2}
 
         algo._Matcher__proc_update(2)
 
         assert algo.H_tilde == {(1, 2)}
-        assert algo.H_tilde_outgoing == {1: {2}}
+        assert algo.Htildeoutgoing == {1: {2}}
         assert algo.H_tilde_reverse == {2: {1}}
 
     def test_proc_update_removes_tilde_edges_without_scanning_global_edge_set(self):
@@ -1297,13 +1297,13 @@ class TestMatcher:
 
         algo = Matcher(4, mode="multilevel")
         algo.H_tilde = GuardedSet({(0, 1), (1, 2)})
-        algo.H_tilde_outgoing = {0: {1}, 1: {2}}
+        algo.Htildeoutgoing = {0: {1}, 1: {2}}
         algo.H_tilde_reverse = {1: {0}, 2: {1}}
 
         algo._Matcher__remove_h_tilde_source(0)
 
         assert algo.H_tilde == {(1, 2)}
-        assert algo.H_tilde_outgoing == {1: {2}}
+        assert algo.Htildeoutgoing == {1: {2}}
         assert algo.H_tilde_reverse == {2: {1}}
 
     def test_rematch_rejects_partition_corruption_instead_of_scanning_graph(
@@ -2186,6 +2186,45 @@ class TestHierarchy:
             hierarchy.sync_graph(graph, excluded_edges={(1, 0)})
         with pytest.raises(ValueError, match="changed_edge"):
             hierarchy.sync_graph(graph, changed_edge=(0, 0))
+
+    def test_incremental_hierarchy_sync_does_not_scan_unrelated_exclusions(self):
+        class GuardedSet(set):
+            def __iter__(self):
+                raise AssertionError("incremental sync scanned the E_I set")
+
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(graph, [2])
+
+        hierarchy.sync_graph(
+            graph,
+            excluded_edges=GuardedSet({(2, 3)}),
+            changed_edge=(0, 1),
+            journaled=True,
+        )
+
+        assert hierarchy.graph.has_edge(0, 1)
+        assert hierarchy.check()
+
+    def test_hierarchy_sync_trusts_only_explicit_journaled_exclusions(self):
+        class GuardedSet(set):
+            def __iter__(self):
+                raise AssertionError("untrusted exclusions must be validated")
+
+        graph = Adjacency(4)
+        graph.add_edge(0, 1)
+        hierarchy = build_hierarchy(graph, [2])
+        excluded = GuardedSet({(2, 3)})
+
+        with pytest.raises(AssertionError, match="must be validated"):
+            hierarchy.sync_graph(graph, excluded_edges=excluded, changed_edge=(0, 1))
+
+        with pytest.raises(AssertionError, match="must be validated"):
+            hierarchy.sync_graph(
+                graph,
+                excluded_edges=excluded,
+                journaled=True,
+            )
 
     def test_hierarchy_check_detects_stale_intermediate_matching_edge(self) -> None:
         graph = Adjacency(8)

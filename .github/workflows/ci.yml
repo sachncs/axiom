@@ -83,8 +83,6 @@ jobs:
         run: |
           clang++ -std=c++17 -fsanitize=address,undefined -fno-omit-frame-pointer -O1 -g native/test_storage.cpp -o "$RUNNER_TEMP/axiom-storage-test"
           "$RUNNER_TEMP/axiom-storage-test"
-          clang++ -std=c++17 -fsanitize=address,undefined -fno-omit-frame-pointer -O1 -g native/test_engine.cpp -o "$RUNNER_TEMP/axiom-engine-test"
-          "$RUNNER_TEMP/axiom-engine-test"
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

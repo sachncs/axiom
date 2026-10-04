@@ -25,8 +25,9 @@ def test_histogram_is_bounded_and_never_hides_percentile_overflow() -> None:
     assert summary["p99_upper_ns"] is None and summary["max_ns"] == 2_000_000_000
 
 
-def test_streaming_concurrent_trace_counts_real_acks_queries_and_checkpoints(
-    tmp_path: Path,
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_streaming_concurrent_trace_counts_real_acks_queries_and_replay(
+    tmp_path: Path, mode: str
 ) -> None:
     result = measure(
         tmp_path / "benchmark.db",
@@ -37,7 +38,7 @@ def test_streaming_concurrent_trace_counts_real_acks_queries_and_checkpoints(
         window=16,
         query_window=16,
         queue_capacity=64,
-        checkpoint_interval=64,
+        mode=mode,
     )
     assert result["real_acknowledged_updates"] == 400
     assert result["partner_queries"] == 400
@@ -45,7 +46,8 @@ def test_streaming_concurrent_trace_counts_real_acks_queries_and_checkpoints(
     assert result["query_queue_wait"]["count"] == result["partner_queries"]
     assert result["service_metrics"]["peak_outstanding"] <= 64
     assert result["service_metrics"]["largest_group"] <= 256
-    assert result["final_status"]["checkpoint_generation"] >= 2
+    assert result["paper_mode"] == mode
+    assert result["final_status"]["history_operations"] == 400
     assert result["independent_audit_passed"] and result["exact_recovery_passed"]
     assert "NOT open-loop overload/power-cut" in result["scope"]
 
@@ -62,7 +64,6 @@ def test_duration_stops_admission_then_drains_and_audits_actual_completed_prefix
         window=16,
         query_window=16,
         queue_capacity=32,
-        checkpoint_interval=64,
         duration_seconds=1,
         timeout_seconds=11,
     )
@@ -85,7 +86,7 @@ def test_update_trace_and_matching_do_not_depend_on_query_or_batch_schedule(
         window=16,
         query_window=8,
         queue_capacity=32,
-        checkpoint_interval=64,
+        mode="multilevel",
     )
     second = measure(
         tmp_path / "two.db",
@@ -96,7 +97,7 @@ def test_update_trace_and_matching_do_not_depend_on_query_or_batch_schedule(
         window=8,
         query_window=16,
         queue_capacity=32,
-        checkpoint_interval=64,
+        mode="multilevel",
     )
     assert first["trace_digest"] == second["trace_digest"]
     assert first["matching_digest"] == second["matching_digest"]
@@ -115,7 +116,7 @@ def test_hub_trace_forces_matched_deletion_and_preserves_exact_skewed_topology(
         window=8,
         query_window=8,
         queue_capacity=32,
-        checkpoint_interval=64,
+        mode="multilevel",
         hub_degree=48,
     )
     assert result["hub_bootstrap_real_updates"] == 44
@@ -123,10 +124,10 @@ def test_hub_trace_forces_matched_deletion_and_preserves_exact_skewed_topology(
     assert result["edges"] == 128 + 44
     assert result["final_status"]["sequence"] == 446
     assert result["independent_audit_passed"] and result["exact_recovery_passed"]
-    with Durable(path) as restored:
-        assert restored.partner(0)[1] is None and restored.partner(1)[1] is None
+    with Durable(path, mode="multilevel") as restored:
         assert not restored.has_edge(0, 1)[1] and restored.has_edge(0, 47)[1]
         assert all(restored.has_edge(0, v)[1] for v in range(3, 47))
+        assert restored.check()
 
 
 def test_hub_bootstrap_failure_releases_owner_for_recovery(tmp_path, monkeypatch):

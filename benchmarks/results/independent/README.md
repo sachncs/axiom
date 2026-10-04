@@ -1,5 +1,10 @@
 # Separate-process offered-load stage
 
+> Historical native-matcher qualification: all service rates and memory figures
+> in this report predate removal of the native matching Engine (2026-10-04).
+> Preserve these runs for reproducibility only; they do not qualify Basic or
+> Multilevel.
+
 For independently paced skew qualification, the current runner accepts
 `--workload hub --degree 65536 --width 2`. It first durably adds 65,532 spokes
 to the degree-four ring; the million-vertex initial average degree becomes

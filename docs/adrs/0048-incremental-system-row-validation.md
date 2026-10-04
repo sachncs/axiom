@@ -68,4 +68,7 @@ Ordinary updates validate only touched cache rows; rebuild candidates remain
 fully audited. This reduces repeated compute but does not improve retained
 storage. The next profiled costs are stale matching cleanup, graph lookups,
 transaction entry/exit and remaining row-level auxiliary certificates. The
-paper engine is still nondurable and not integrated into the production service.
+Historical status note (2026-10-04): the paper Basic and Multilevel modes are now
+integrated into the SQLite-backed Durable/Service path by ADR 0023. This ADR's
+System-row validation decision remains in force; older wording about paper-mode
+durability and integration is superseded.

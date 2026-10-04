@@ -20,8 +20,9 @@ partner digest. Count the altered edge/degree envelope explicitly, not as an
 unchanged degree-four graph. Limit D to 262144 and use bounded setup groups;
 setup errors close the owner before reporting failure.
 
-`benchmarks/overload.py` offers hot-edge changes on a paced clock without waiting
-for acknowledgments. Pending receipts are bounded; full admission counts explicit
+The historical `benchmarks/overload.py` harness offered hot-edge changes on a
+paced clock without waiting for acknowledgments. It was removed with the native
+matching Engine on 2026-10-04. Pending receipts were bounded; full admission counted explicit
 `BusyError` and does not consume an update ID. Count scheduled, missed, rejected,
 accepted and acknowledged work separately and require their exact reconciliation.
 Late producers skip/count overdue slots rather than generating an unbounded
@@ -138,7 +139,7 @@ offered workload. [Raw counts and limitations](../../benchmarks/results/overload
 
 ### Deterministic power-law Service offered-load profile
 
-`benchmarks/overload.py --workload power-law` adds a paced real-edge workload.
+The historical `benchmarks/overload.py --workload power-law` added a paced real-edge workload.
 With a fixed seed it constructs a bounded degree-skewed ring-plus-spokes graph,
 bootstraps permanent and toggleable edges through `Service`, then chooses timed
 edge toggles from a bounded Zipf-weighted selection wheel (exponent 1.2). The

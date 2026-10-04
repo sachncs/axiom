@@ -10,10 +10,12 @@ the matcher; it does not select a matching algorithm.
 from axiom.durable import Durable, Request
 
 with Durable("graph.db", n=128, mode="basic") as graph:
-    outcomes = graph.apply([
-        Request(1, "insert", 0, 4),
-        Request(2, "delete", 0, 4),
-    ])
+    outcomes = graph.apply(
+        [
+            Request(1, "insert", 0, 4),
+            Request(2, "delete", 0, 4),
+        ]
+    )
     assert graph.check()
 
 # Reopen by replaying the exact committed operation stream.

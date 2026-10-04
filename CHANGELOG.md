@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — 2026-10-04
 
+- Removed the separate native matching Engine from source builds and the product
+  API. Only `basic` and `multilevel` select matching algorithms; `Packed` remains
+  the compact native graph-storage extension. Engine-only tests, benchmarks,
+  checkpoint guides, and verifier calls are removed or rewritten. Historical
+  ADRs and raw results remain explicitly historical and do not qualify paper
+  modes. See [ADR 0023](docs/adrs/0023-durable-paper-integration.md).
+
 - `Service.submit_batch()` now admits an explicit bounded batch as one
   FULL-WAL transaction, with contiguous sequence IDs, exact pending/historical
   retry rules, one commit boundary and atomic failure recovery. Ordinary
@@ -18,9 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   concurrency/failure coverage. It is a serialized query group, not historical
   MVCC. See [service contract](docs/service.md#version-coherent-multi-query-reads).
 - `Durable.history()` and `Service.history()` expose bounded retained operation
-  pages, including no-op outcomes, versions, chain digests and the checkpoint
-  retirement floor. Corrupt pages fail closed; retired history is not invented.
-  Import/replay verification and historical graph queries remain future work.
+  pages, including no-op outcomes, versions and hash-chain digests. The bounded
+  operation log is append-only; there is no graph checkpoint or history
+  retirement floor. Corrupt pages fail closed. Historical graph queries remain
+  unsupported.
 - Paper fan collection replacement swaps indexed roots instead of sorting and
   discarding a complete tuple; nested rollback preserves exact index identities.
   A multilevel parent boundary reuses the synchronized phase graph rather than
@@ -31,15 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   x86_64/ARM64 and Windows x86_64 for CPython 3.10–3.13. Release publication
   aggregation and hosted runner results remain separate gates; see
   [CI responsibilities](docs/ci.md).
-- Seeded million-vertex power-law workload results now retain exact trace,
+- Historical former-native million-vertex power-law results retain exact trace,
   graph/matching digests, overload losses, recovery evidence and resource data.
   Two 10k-offer runs delivered 9.54k/s (below target); two 12k-offer runs
-  delivered 11.15k/s, but only for ten-second source-checkout samples. This is
-  not sustained or installed-wheel qualification; see [qualification record](benchmarks/results/overload/README.md).
-- A 60-second, 12k-offer source-checkout probe delivered 11,348 real updates/s
+  delivered 11.15k/s, but only for ten-second source-checkout samples. These do
+  not qualify Basic or Multilevel; see [historical record](benchmarks/results/overload/README.md).
+- A historical 60-second former-native probe delivered 11,348 real updates/s
   with 59,451 queries and exact recovery; 5.4% of scheduled update slots were
-  missed by the colocated producer. Ack p99 upper was 181.4 ms. This adds
-  duration evidence but does not establish a production SLA.
+  missed by the colocated producer. Ack p99 upper was 181.4 ms. These figures
+  do not establish a paper-mode production SLA.
 
 ### Added — engineering through 2026-10-03
 

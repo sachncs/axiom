@@ -1,4 +1,11 @@
-# Profiled checkpoint diagnostic
+# Historical native-matcher checkpoint diagnostics
+
+The separate native matching Engine and its checkpoint codec were removed from
+the product on 2026-10-04. The raw JSON below is preserved unchanged for
+provenance only; these native image, replay, and timing results do not describe
+the current Basic/Multilevel durable path or qualify its recovery behavior.
+
+## Profiled checkpoint diagnostic
 
 These results identify maintenance costs, **not** unprofiled update throughput
 or an acknowledgment-latency qualification. Apple M3 Pro / 18 GiB / internal

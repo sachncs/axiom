@@ -1,173 +1,168 @@
-"""Self-contained WAL backups, exact restore, admission and failure boundaries."""
+"""Self-contained SQLite backup and exact paper-mode restore coverage."""
 
 import hashlib
-import shutil
+import os
 import sqlite3
-import subprocess
-import sys
-import threading
 from pathlib import Path
 
 import pytest
 
 from axiom import backup
 from axiom.backup import BackupError
-from axiom.durable import BusyError, Durable, ExpiredError, Outcome, Request
-from axiom.service import Service
+from axiom.durable import Durable, Outcome, Request
+from axiom.witness import Witness
+
+MODES = ("basic", "multilevel")
 
 
-def create(path: Path, checkpointed: bool = True) -> Durable:
-    return Durable(
-        path,
-        n=16,
-        width=0,
-        max_batch=4,
-        max_operations=32 if checkpointed else 64,
-        checkpoint_interval=8 if checkpointed else None,
-        retain_operations=8 if checkpointed else None,
-    )
+def edits() -> list[Request]:
+    return [
+        Request(1, "insert", 0, 1),
+        Request(2, "insert", 2, 3),
+        Request(3, "delete", 1, 0),
+        Request(4, "insert", 0, 2),
+        Request(5, "delete", 3, 2),
+        Request(6, "insert", 4, 5),
+    ]
 
 
-def edit(sequence: int) -> Request:
-    return Request(sequence, "insert" if sequence % 2 else "delete", 0, 1)
-
-
-def state(store: Durable) -> tuple:
+def graphstate(store: Durable) -> tuple:
     status = store.status()
+    vertices = status["vertices"]
     return (
-        tuple(store.partner(u) for u in range(16)),
+        status["mode"],
+        status["sequence"],
+        status["version"],
+        status["edges"],
+        status["matching"],
+        tuple(store.partner(vertex) for vertex in range(vertices)),
         tuple(
-            (u, v)
-            for u in range(16)
-            for v in range(u + 1, 16)
-            if store.has_edge(u, v)[1]
-        ),
-        tuple(
-            status[key]
-            for key in (
-                "sequence",
-                "version",
-                "retired_floor",
-                "checkpoint_sequence",
-                "checkpoint_generation",
-                "retained_operations",
-            )
+            (left, right)
+            for left in range(vertices)
+            for right in range(left + 1, vertices)
+            if store.has_edge(left, right)[1]
         ),
     )
 
 
-@pytest.mark.parametrize("checkpointed", [False, True])
-def test_backup_captures_uncheckpointed_wal_and_exact_retry_retirement(
-    tmp_path: Path, checkpointed: bool
+def witness(store: Durable) -> bytes:
+    return Witness().capture(store._matcher)
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_backup_restores_exact_mode_witness_and_retries_from_wal(
+    tmp_path: Path, mode: str
 ) -> None:
-    path, destination = tmp_path / "source.db", tmp_path / "backup.db"
-    with create(path, checkpointed) as source:
-        # Establish a main-file baseline, then keep subsequent commits in WAL.
+    source_path = tmp_path / f"source-{mode}.db"
+    backup_path = tmp_path / f"backup-{mode}.db"
+    with Durable(source_path, n=20, width=0, mode=mode) as source:
         source._db().execute("PRAGMA wal_checkpoint(TRUNCATE)")
         source._db().execute("PRAGMA wal_autocheckpoint=0")
-        for seq in range(1, 38):
-            assert source.apply([edit(seq)]) == (Outcome(seq, True, seq),)
-        before = state(source)
-        stale = tmp_path / "unsafe-main-only.db"
-        shutil.copyfile(path, stale)
-        connection = sqlite3.connect(stale)
-        try:
-            assert connection.execute("SELECT sequence FROM control").fetchone() == (0,)
-        finally:
-            connection.close()
-        result = source.backup(destination)
-        assert state(source) == before and source.check()
-        assert result["sequence"] == result["version"] == 37
-        assert result["bytes"] == destination.stat().st_size
-        assert result["sha256"] == hashlib.sha256(destination.read_bytes()).hexdigest()
-        assert destination.stat().st_mode & 0o777 == 0o600
-        assert not Path(str(destination) + "-wal").exists()
-        assert not Path(str(destination) + "-shm").exists()
-        source.apply([edit(38)])
-        with Durable(destination) as restored:
-            assert state(restored) == before and restored.check()
-            assert restored.apply([edit(37)]) == (Outcome(37, True, 37),)
-            if checkpointed:
-                with pytest.raises(ExpiredError):
-                    restored.apply([edit(1)])
-            else:
-                assert restored.apply([edit(1)]) == (Outcome(1, True, 1),)
-            assert restored.apply([edit(38)]) == (Outcome(38, True, 38),)
-        assert state(source) != before
+        expected_outcomes = source.apply(edits())
+        expected_state = graphstate(source)
+        expected_witness = witness(source)
+        receipt = source.backup(backup_path)
+        assert graphstate(source) == expected_state
+        assert witness(source) == expected_witness
+        assert source.check()
+
+        assert receipt["sequence"] == expected_state[1] == 6
+        assert receipt["version"] == expected_state[2]
+        assert receipt["path"] == str(backup_path)
+        assert receipt["bytes"] == backup_path.stat().st_size
+        assert receipt["sha256"] == hashlib.sha256(backup_path.read_bytes()).hexdigest()
+        assert backup_path.stat().st_mode & 0o777 == 0o600
+        assert not Path(f"{backup_path}-wal").exists()
+        assert not Path(f"{backup_path}-shm").exists()
+
+        later = Request(7, "insert", 6, 7)
+        assert source.apply([later]) == (Outcome(7, True, expected_state[2] + 1),)
+
+    with Durable(backup_path, mode=mode) as restored:
+        assert graphstate(restored) == expected_state
+        assert witness(restored) == expected_witness
+        assert restored.apply(edits()) == expected_outcomes
+        assert restored.apply([later]) == (Outcome(7, True, expected_state[2] + 1),)
+        assert restored.check()
 
 
 @pytest.mark.parametrize("suffix", ["", ".owner", "-wal", "-shm", "-journal"])
-def test_backup_never_publishes_over_source_or_reserved_sidecars(
+def test_backup_refuses_source_and_reserved_sidecar_paths(
     tmp_path: Path, suffix: str
 ) -> None:
-    path = tmp_path / "source.db"
-    with create(path) as source:
-        before = state(source)
+    source_path = tmp_path / "source.db"
+    with Durable(source_path, n=8, width=0) as source:
+        before = graphstate(source)
         with pytest.raises(ValueError, match="distinct"):
-            source.backup(Path(str(path) + suffix))
-        assert state(source) == before and source.check()
+            source.backup(Path(f"{source_path}{suffix}"))
+        assert graphstate(source) == before
+        assert source.check()
 
 
 @pytest.mark.parametrize("existing", ["file", "symlink", "sidecar", "owned"])
-def test_backup_refuses_existing_or_owned_destination_without_overwrite(
+def test_backup_never_overwrites_or_uses_an_owned_destination(
     tmp_path: Path, existing: str
 ) -> None:
-    target = tmp_path / "backup.db"
-    with create(tmp_path / "source.db") as source:
-        before = state(source)
-        other = None
+    destination = tmp_path / "backup.db"
+    with Durable(tmp_path / "source.db", n=8, width=0) as source:
+        owner = None
         if existing == "owned":
-            other = create(target)
+            owner = Durable(destination, n=8, width=0)
         elif existing == "symlink":
-            target.symlink_to(source._path)
+            destination.symlink_to(source._path)
         else:
-            protected = target if existing == "file" else Path(str(target) + "-wal")
-            protected.touch()
+            target = destination if existing == "file" else Path(f"{destination}-wal")
+            target.touch()
         try:
             with pytest.raises((BackupError, ValueError)):
-                source.backup(target)
-            assert state(source) == before and source.check()
+                source.backup(destination)
+            assert source.check()
             if existing == "file":
-                assert target.read_bytes() == b""
-            if other:
-                assert other.status()["sequence"] == 0 and other.check()
+                assert destination.read_bytes() == b""
+            if owner is not None:
+                assert owner.status()["sequence"] == 0
+                assert owner.check()
         finally:
-            if other:
-                other.close()
+            if owner is not None:
+                owner.close()
 
 
 @pytest.mark.parametrize(
     "stage", ["copy", "sync", "before_publish", "after_link", "after_publish"]
 )
-def test_backup_failure_never_changes_source_or_leaves_partial_published_image(
+def test_backup_failure_preserves_source_and_only_publishes_complete_images(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stage: str
 ) -> None:
     destination = tmp_path / "backup.db"
-    target = {"copy": "_copy_pages", "sync": "_sync_file"}.get(stage, "_publish")
-    original = getattr(backup, target)
+    helper = {"copy": "_copy_pages", "sync": "_sync_file"}.get(stage, "_publish")
+    original = getattr(backup, helper)
 
-    def failed(*args: object) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
         if stage == "after_link":
-            import os
+            os.link(*args, **kwargs)
+        elif stage == "after_publish":
+            original(*args, **kwargs)
+        raise OSError("injected backup failure")
 
-            os.link(*args)
-        elif stage in ("copy", "after_publish"):
-            original(*args)
-        raise OSError("injected backup I/O failure")
-
-    with create(tmp_path / "source.db") as source:
-        source.apply([edit(1)])
-        before = state(source)
-        monkeypatch.setattr(backup, target, failed)
+    with Durable(tmp_path / "source.db", n=16, width=0, mode="multilevel") as source:
+        source.apply(edits())
+        before = graphstate(source)
+        before_witness = witness(source)
+        monkeypatch.setattr(backup, helper, fail)
         with pytest.raises(BackupError):
             source.backup(destination)
-        assert state(source) == before and source.check()
+        assert graphstate(source) == before
+        assert witness(source) == before_witness
+        assert source.check()
         assert not list(tmp_path.glob(".axiom-backup-*"))
         assert destination.exists() == (stage in ("after_link", "after_publish"))
         if destination.exists():
-            with Durable(destination) as restored:
-                assert state(restored) == before and restored.check()
-        assert source.apply([edit(2)]) == (Outcome(2, True, 2),)
+            with Durable(destination, mode="multilevel") as restored:
+                assert graphstate(restored) == before
+                assert witness(restored) == before_witness
+                assert restored.check()
+        monkeypatch.undo()
+        assert source.apply([Request(7, "insert", 6, 7)])[0].sequence == 7
 
 
 @pytest.mark.parametrize(
@@ -181,211 +176,67 @@ def test_backup_failure_never_changes_source_or_leaves_partial_published_image(
         {"timeout": True},
     ],
 )
-def test_invalid_backup_policy_does_not_create_destination(
+def test_invalid_backup_bounds_create_no_image_or_owner_file(
     tmp_path: Path, options: dict
 ) -> None:
     destination = tmp_path / "backup.db"
-    with create(tmp_path / "source.db") as source, pytest.raises(ValueError):
+    with (
+        Durable(tmp_path / "source.db", n=8, width=0) as source,
+        pytest.raises(ValueError),
+    ):
         source.backup(destination, **options)
-    assert not destination.exists() and not Path(str(destination) + ".owner").exists()
+    assert not destination.exists()
+    assert not Path(f"{destination}.owner").exists()
 
 
-def test_backup_size_limit_rejects_before_copy_and_source_remains_usable(
+def test_backup_size_limit_and_private_compaction_leave_source_unchanged(
     tmp_path: Path,
-):
-    destination = tmp_path / "backup.db"
-    with Durable(
-        tmp_path / "source.db",
-        n=150000,
-        width=0,
-        max_batch=1,
-        checkpoint_interval=8,
-        retain_operations=8,
-    ) as source:
-        source.checkpoint()
-        assert (
-            source._db().execute("PRAGMA page_count").fetchone()[0]
-            * source._db().execute("PRAGMA page_size").fetchone()[0]
-            > 1 << 20
-        )
-        with pytest.raises(BackupError, match="max_bytes"):
-            source.backup(destination, max_bytes=1 << 20)
-        assert not destination.exists()
-        assert source.check() and source.apply([edit(1)]) == (Outcome(1, True, 1),)
-
-
-def bloat(store: Durable) -> tuple[int, int]:
-    # Reproduce freed SQLite pages without changing authoritative graph tables.
-    connection = store._db()
-    connection.execute("CREATE TABLE scratch (payload BLOB)")
-    connection.execute("INSERT INTO scratch VALUES (zeroblob(2097152))")
-    connection.execute("DROP TABLE scratch")
-    connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    pages = connection.execute("PRAGMA page_count").fetchone()[0]
-    free = connection.execute("PRAGMA freelist_count").fetchone()[0]
-    assert free > 400
-    return pages, free
-
-
-def test_compact_backup_preserves_graph_history_and_live_source_pages(tmp_path: Path):
-    destination = tmp_path / "backup.db"
-    with create(tmp_path / "source.db") as source:
-        for seq in range(1, 20):
-            source.apply([edit(seq)])
-        pages, free = bloat(source)
-        before = state(source)
-        records = {
-            table: source._db().execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
-            for table in ("control", "operations", "checkpoints")
-        }
-        contents = source._path.read_bytes()
-        manifest = source.backup(destination)
-        assert source._path.read_bytes() == contents
-        assert state(source) == before
-        assert source._db().execute("PRAGMA page_count").fetchone() == (pages,)
-        assert source._db().execute("PRAGMA freelist_count").fetchone() == (free,)
-        connection = sqlite3.connect(destination)
-        try:
-            assert connection.execute("PRAGMA freelist_count").fetchone() == (0,)
-            assert connection.execute("PRAGMA page_count").fetchone()[0] < pages - 400
-            for table, rows in records.items():
-                assert (
-                    connection.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
-                    == rows
-                )
-        finally:
-            connection.close()
-        assert manifest["bytes"] == destination.stat().st_size
-        assert (
-            manifest["sha256"] == hashlib.sha256(destination.read_bytes()).hexdigest()
-        )
-        assert destination.stat().st_mode & 0o777 == 0o600
-        assert not list(tmp_path.glob(".axiom-backup-*"))
-        with Durable(destination) as restored:
-            assert state(restored) == before and restored.check()
-            assert restored.apply([edit(19)]) == (Outcome(19, True, 19),)
-            with pytest.raises(ExpiredError):
-                restored.apply([edit(1)])
-            assert restored.apply([edit(20)]) == source.apply([edit(20)])
-            assert state(restored) == state(source)
-
-
-@pytest.mark.parametrize("failure", ["full", "memory", "deadline"])
-def test_compaction_failure_is_local_and_unpublished(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
-):
-    original = sqlite3.connect
-    callbacks = []
-
-    class Connection(sqlite3.Connection):
-        def set_progress_handler(self, callback, count):
-            callbacks.append(callback)
-            return super().set_progress_handler(
-                callback, 1 if callback is not None and failure == "deadline" else count
-            )
-
-        def execute(self, sql, parameters=()):
-            if sql == "VACUUM INTO ?":
-                if failure == "full":
-                    raise sqlite3.OperationalError("database or disk is full")
-                if failure == "memory":
-                    raise MemoryError("injected compaction allocation failure")
-                monkeypatch.setattr(backup.time, "monotonic", lambda: float("inf"))
-            return super().execute(sql, parameters)
-
-    destination = tmp_path / "backup.db"
-    with create(tmp_path / "source.db") as source:
-        source.apply([edit(1)])
-        pages, free = bloat(source)
-        before = state(source)
-        with monkeypatch.context() as patch:
-            patch.setattr(
-                backup.sqlite3,
-                "connect",
-                lambda *args, **kwargs: original(*args, **kwargs, factory=Connection),
-            )
-            with pytest.raises(MemoryError if failure == "memory" else BackupError):
-                source.backup(destination)
-        assert callbacks[0] is not None and callbacks[-1] is None
-        assert not destination.exists()
-        assert not list(tmp_path.glob(".axiom-backup-*"))
-        for suffix in ("-wal", "-shm", "-journal"):
-            assert not Path(str(destination) + suffix).exists()
-        assert state(source) == before and source.check()
-        assert source._db().execute("PRAGMA page_count").fetchone() == (pages,)
-        assert source._db().execute("PRAGMA freelist_count").fetchone() == (free,)
-        # Reset the injected clock too before the independent successful retry.
-        monkeypatch.undo()
-        assert source.backup(destination)["sequence"] == 1
-        assert source.apply([edit(2)]) == (Outcome(2, True, 2),)
-
-
-def test_service_backup_blocks_mutations_but_not_partner_reads_and_failure_is_local(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    entered, release = threading.Event(), threading.Event()
-    original = backup._copy_pages
+    source_path, destination = tmp_path / "source.db", tmp_path / "backup.db"
+    with Durable(source_path, n=16, width=0) as source:
+        source.apply(edits())
+        database = source._db()
+        database.execute("CREATE TABLE scratch (payload BLOB)")
+        database.execute("INSERT INTO scratch VALUES (zeroblob(2097152))")
+        database.execute("DROP TABLE scratch")
+        database.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        page_count = database.execute("PRAGMA page_count").fetchone()[0]
+        free_count = database.execute("PRAGMA freelist_count").fetchone()[0]
+        assert free_count > 400
+        before = graphstate(source)
+        before_witness = witness(source)
+        source_bytes = source_path.read_bytes()
 
-    def paused(*args: object) -> None:
-        entered.set()
-        if not release.wait(5):
-            raise RuntimeError("backup test release timed out")
-        original(*args)
+        with pytest.raises(BackupError, match="max_bytes"):
+            source.backup(tmp_path / "too-small.db", max_bytes=1 << 20)
+        assert not (tmp_path / "too-small.db").exists()
 
-    destination = tmp_path / "backup.db"
-    with Service(
-        tmp_path / "source.db",
-        n=16,
-        width=0,
-        queue_capacity=8,
-        max_batch=4,
-        checkpoint_interval=8,
-        retain_operations=8,
-        max_operations=32,
-        batch_wait_ms=0,
-    ) as service:
-        assert service.submit(edit(1)).result(5) == Outcome(1, True, 1)
-        monkeypatch.setattr(backup, "_copy_pages", paused)
-        receipt = service.backup(destination)
-        try:
-            assert entered.wait(5)
-            update = service.submit(edit(2))
-            assert service.partner(0).result(0) == (1, 1)
-            assert not receipt.done() and not update.done()
-            assert service.metrics()["maintenance_outstanding"] == 1
-            accepted = service.metrics()["accepted"]
-            for _ in range(10):
-                for operation in (
-                    service.check,
-                    service.checkpoint,
-                    lambda: service.backup(tmp_path / "rejected.db"),
-                ):
-                    with pytest.raises(BusyError, match="maintenance"):
-                        operation()
-            assert service.metrics()["accepted"] == accepted
-            assert not (tmp_path / "rejected.db").exists()
-            with pytest.raises(BusyError):
-                service._owner.partner(0)
-            with pytest.raises(BusyError):
-                Durable(destination)
-        finally:
-            release.set()
-        assert receipt.result(5)["sequence"] == 1
-        assert update.result(5) == Outcome(2, True, 2)
-        assert service.metrics()["maintenance_outstanding"] == 0
-        with pytest.raises(BackupError):
-            service.backup(destination).result(5)
-        assert service.metrics()["state"] == "open"
-        assert service.metrics()["maintenance_outstanding"] == 0
-        assert service.submit(edit(3)).result(5) == Outcome(3, True, 3)
-        with Durable(destination) as restored:
-            assert restored.partner(0) == (1, 1) and restored.check()
+        receipt = source.backup(destination)
+        assert source_path.read_bytes() == source_bytes
+        assert database.execute("PRAGMA page_count").fetchone() == (page_count,)
+        assert database.execute("PRAGMA freelist_count").fetchone() == (free_count,)
+        assert graphstate(source) == before
+        assert witness(source) == before_witness
+        assert source.check()
+
+        with sqlite3.connect(destination) as copied:
+            assert copied.execute("PRAGMA quick_check").fetchone() == ("ok",)
+            assert copied.execute("PRAGMA freelist_count").fetchone() == (0,)
+            assert copied.execute("PRAGMA page_count").fetchone()[0] < page_count - 400
+            assert copied.execute("SELECT count(*) FROM operations").fetchone() == (6,)
+        assert receipt["bytes"] == destination.stat().st_size
+        assert receipt["sha256"] == hashlib.sha256(destination.read_bytes()).hexdigest()
+
+    with Durable(destination, mode="basic") as restored:
+        assert graphstate(restored) == before
+        assert witness(restored) == before_witness
+        assert restored.check()
 
 
 @pytest.mark.parametrize(
     "status,total,deadline", [(5, 10, 10), (6, 10, 10), (0, 1000000, 10), (0, 10, 0)]
 )
-def test_copy_progress_rejects_contention_size_growth_and_deadline(
+def test_copy_progress_rejects_contention_size_growth_and_expired_deadline(
     monkeypatch: pytest.MonkeyPatch, status: int, total: int, deadline: float
 ) -> None:
     class Source:
@@ -396,71 +247,3 @@ def test_copy_progress_rejects_contention_size_growth_and_deadline(
     monkeypatch.setattr(backup.time, "monotonic", lambda: 1)
     with pytest.raises(BackupError):
         backup._copy_pages(Source(), None, 4096, 1 << 20, deadline)
-
-
-def test_source_control_disagreement_refuses_backup_and_disables_owner(tmp_path: Path):
-    destination = tmp_path / "backup.db"
-    with create(tmp_path / "source.db") as source:
-        source._db().execute("UPDATE control SET sequence=1")
-        from axiom.durable import UnavailableError
-
-        with pytest.raises(UnavailableError, match="control"):
-            source.backup(destination)
-        with pytest.raises(UnavailableError):
-            source.partner(0)
-    assert not destination.exists()
-
-
-@pytest.mark.parametrize(
-    "stage", ["during_copy", "before_publish", "after_link", "after_publish"]
-)
-def test_process_death_during_backup_leaves_only_absent_or_complete_destination(
-    tmp_path: Path, stage: str
-) -> None:
-    source, destination = tmp_path / "source.db", tmp_path / "backup.db"
-    with Durable(
-        source,
-        n=150000 if stage == "during_copy" else 16,
-        width=0,
-        max_batch=4,
-        max_operations=32,
-        checkpoint_interval=8,
-        retain_operations=8,
-    ) as store:
-        store.checkpoint()
-        store.apply([edit(1)])
-        before = state(store)
-    script = """
-import os, sys
-from pathlib import Path
-from axiom import backup
-from axiom.durable import Durable
-source, destination, stage = sys.argv[1:]
-target = '_copy_pages' if stage == 'during_copy' else '_publish'
-original = getattr(backup, target)
-def die(*args):
-    if stage == 'during_copy':
-        source, target = args[:2]
-        def partial(status, remaining, total):
-            os._exit(73 if remaining > 0 else 74)
-        source.backup(target, pages=1, progress=partial, sleep=0)
-    elif stage == 'after_link':
-        os.link(*args)
-    elif stage != 'before_publish':
-        original(*args)
-    os._exit(73)
-setattr(backup, target, die)
-with Durable(source) as store:
-    store.backup(Path(destination))
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", script, str(source), str(destination), stage], timeout=10
-    )
-    assert result.returncode == 73
-    assert destination.exists() == (stage in ("after_link", "after_publish"))
-    if destination.exists():
-        with Durable(destination) as restored:
-            assert state(restored) == before and restored.check()
-    with Durable(source) as restored:
-        assert state(restored) == before and restored.check()
-        assert restored.apply([edit(2)]) == (Outcome(2, True, 2),)

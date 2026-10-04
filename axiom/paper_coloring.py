@@ -704,8 +704,8 @@ class Fans:
         visit only candidate pairs rather than every fan in the parent set.
         """
         ordered = tuple(sorted(set(colors)))
-        possible_pairs = len(ordered) * (len(ordered) - 1) // 2
-        if possible_pairs <= len(self.types):
+        pairs = len(ordered) * (len(ordered) - 1) // 2
+        if pairs <= len(self.types):
             selected = [
                 fan
                 for pair in combinations(ordered, 2)
@@ -715,8 +715,8 @@ class Fans:
             allowed = frozenset(ordered)
             selected = [
                 fan
-                for fan_type, group in self.types.items()
-                if fan_type <= allowed
+                for fantype, group in self.types.items()
+                if fantype <= allowed
                 for fan in group
             ]
         return tuple(

@@ -1,6 +1,6 @@
 # Production operations and remaining qualification
 
-The local native Service is a delivered component, not a turnkey network daemon.
+The local SQLite-backed Service is a delivered component, not a turnkey network daemon.
 This runbook distinguishes its enforced bounds from deployment controls that the
 embedding application must supply. Do not claim a production release solely from
 a throughput sample or green unit tests. See [current roadmap](engineering.md)
@@ -11,8 +11,8 @@ and [resource evidence](adrs/0020-resource-exhaustion-and-recovery.md).
 Use one mutation owner for a connected graph, one application-coordinated ordered
 request stream, and a private local POSIX directory. Never let a second process
 write the database directly or delete its persistent owner-lock file to bypass
-ownership. SQLite checkpoint plus committed tail is the complete durable authority;
-native graph/matching memory is its live compute representation. Independent graphs
+ownership. SQLite operation history is the durable authority; paper matching
+state and compact native graph storage are its live compute representation. Independent graphs
 may use independent owners. Arbitrary partitions of one graph are not independent.
 
 Keep database, WAL and shared-memory companions together during operation. A copy
@@ -75,13 +75,15 @@ status, audit, checkpoint or backup calls when the owner is slow.
 - Track `outstanding/capacity`, update admission limit, maintenance outstanding,
   accepted/completed counts and Busy rates. Sustained saturation requires bounded
   backpressure/rejection, not another unlimited queue.
-- Track committed sequence, checkpoint sequence/generation, retired floor and
-  retained operations. Admission sequence is not a durable watermark; counters
-  from separate calls are not an atomic combined graph snapshot.
-- Track acknowledgment/query p99 and maxima separately from native execution;
+- Track committed sequence, operation-history usage versus its configured bound,
+  SQLite WAL pages and database pages. WAL checkpoints are physical SQLite
+  maintenance only; there is no paper graph checkpoint or retired history
+  floor. Admission sequence is not a durable watermark; counters from separate
+  calls are not an atomic combined graph snapshot.
+- Track acknowledgment/query p99 and maxima separately from paper repair time;
   include timeouts, failures and producer/transport losses in reports.
 - Measure process and deployment memory, filesystem free space, database/WAL and
-  backup bytes. Track growth across repeated checkpoints, not just one final size.
+  backup bytes. Track recovery duration as retained history grows.
 
 Thresholds and alert integration belong to the deployment; this repository does
 not yet ship an external monitoring collector or supervisor. Current latency is
@@ -91,8 +93,9 @@ On 2026-10-02 the user explicitly deferred remaining deployment aggregate
 quotas, monitoring/supervision and transport integration, alongside tighter
 latency, hardware power-loss and larger-scale qualification. The operating
 responsibilities above remain documented future requirements, not promises of
-an installed deployment. Repeatability/skew and durable paper-engine integration stay
-active; see [current status](status.md).
+an installed deployment. Durable paper integration is implemented; repeatability,
+skew and service/deployment qualification stay active. See
+[current status](status.md).
 
 ## Failure and restart
 

@@ -1,8 +1,8 @@
-"""Measure acknowledged FULL-WAL native updates with committed partner queries.
+"""Measure paper-matcher updates committed by SQLite FULL-WAL.
 
-The default short v1 trace includes SQLite WAL checkpoints. Explicit v2 traces
-also include native checkpoint/history retirement. Neither is a production soak
-or concurrent-client qualification. Use a fresh process and dedicated local path.
+The trace measures durable grouped acknowledgments, committed partner reads,
+and replay recovery. It is not a production soak or concurrent-client test.
+Use a fresh process and a dedicated local database path.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from axiom.durable import Durable, ExpiredError, Request
+from axiom.durable import Durable, Request
 
 
 def canonical(u: int, v: int) -> tuple[int, int]:
@@ -51,7 +51,7 @@ def certificate(
     if not store.check() or store.status()["edges"] != (
         width * vertices + size - len(removed)
     ):
-        raise RuntimeError("native audit/edge count failed")
+        raise RuntimeError("paper audit/edge count failed")
     version = store.status()["version"]
     partners = array("I")
     digest = hashlib.sha256()
@@ -113,13 +113,13 @@ def measure(
     batch: int,
     seed: int,
     *,
-    checkpoint_interval: int | None = None,
+    mode: str = "basic",
 ) -> dict:
     """Churn a stable edge pool, acknowledge every real edit, and verify recovery."""
-    limit = 250000 if checkpoint_interval is not None else 32768
-    if vertices < 8 or not 1 <= pairs <= limit or not 2 <= batch <= 256 or batch % 2:
+    limit = 32768
+    if vertices < 8 or not 1 <= pairs <= limit or not 2 <= batch <= 4096 or batch % 2:
         raise ValueError(
-            f"require n>=8, 1<=pairs<={limit} and an even batch in [2,256]"
+            f"require n>=8, 1<=pairs<={limit} and an even batch in [2,4096]"
         )
     if path.exists():
         raise ValueError("benchmark requires a fresh database path")
@@ -143,7 +143,7 @@ def measure(
     sampled_disk_peak = 0
     retry_checks = 0
     tick = time.perf_counter()
-    store = Durable(path, n=vertices, checkpoint_interval=checkpoint_interval)
+    store = Durable(path, n=vertices, mode=mode, max_batch=batch)
     construction = time.perf_counter() - tick
     initial = store.status()
     try:
@@ -211,7 +211,7 @@ def measure(
     finally:
         store.close()
     tick = time.perf_counter()
-    with Durable(path) as recovered:
+    with Durable(path, mode=mode) as recovered:
         recovery = time.perf_counter() - tick
         tick = time.perf_counter()
         if (
@@ -225,13 +225,6 @@ def measure(
             raise RuntimeError("recovery changed exact deterministic matching")
         if recovered.apply(requests) != outcomes:
             raise RuntimeError("recovery changed retained retry outcomes")
-        if final["retired_floor"]:
-            try:
-                recovered.apply([Request(1, "delete", *originals[0])])
-            except ExpiredError:
-                pass
-            else:
-                raise RuntimeError("recovered retired ID did not expire")
         recovery_audit = time.perf_counter() - tick
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
@@ -244,17 +237,11 @@ def measure(
         }
 
     return {
-        "scope": (
-            "FULL-WAL durable group commits + committed partner queries + "
-            "SQLite WAL checkpoints + native checkpoint/retirement; "
-            "NOT soak/concurrent-client qualification"
-            if checkpoint_interval is not None
-            else "FULL-WAL durable group commits + committed partner queries + "
-            "SQLite WAL checkpoints; NOT native checkpoint/soak qualification"
-        ),
+        "scope": "paper matcher + SQLite FULL-WAL group commits, partner queries, and operation-log replay; NOT soak/concurrent-client qualification",
         "python": platform.python_version(),
         "platform": platform.platform(),
         "sqlite": final["sqlite"],
+        "paper_mode": mode,
         "vertices": vertices,
         "edges": 2 * vertices,
         "average_degree": 4,
@@ -262,17 +249,11 @@ def measure(
         "seed": seed,
         "pairs": pairs,
         "batch_limit": batch,
-        "checkpoint_interval": final["checkpoint_interval"],
-        "checkpoint_generation": final["checkpoint_generation"],
-        "checkpoint_sequence": final["checkpoint_sequence"],
-        "retired_floor": final["retired_floor"],
-        "retained_operations": final["retained_operations"],
-        "retained_retry_recovery_passed": True,
-        "expired_retry_recovery_verified": bool(final["retired_floor"]),
+        "operation_history_entries": final["history_operations"],
+        "operation_history_limit": final["max_operations"],
+        "retry_recovery_passed": True,
         "synchronous": "FULL",
         "fullfsync": True,
-        "checkpoint_fullfsync": True,
-        "wal_autocheckpoint_pages": 256,
         "real_acknowledged_updates": 2 * pairs,
         "partner_queries": pairs,
         "retry_outcomes_verified": retry_checks,
@@ -286,8 +267,8 @@ def measure(
         "recovery_audit_seconds": recovery_audit,
         "independent_audit_passed": True,
         "exact_recovery_passed": True,
-        "initial_native_bytes": initial["native_bytes"],
-        "final_native_bytes": final["native_bytes"],
+        "initial_paper_graph_bytes": initial["graph_bytes"],
+        "final_paper_graph_bytes": final["graph_bytes"],
         "sampled_database_wal_shm_peak_bytes": sampled_disk_peak,
         "process_peak_rss_bytes": rss if sys.platform == "darwin" else rss * 1024,
         "acknowledged_latency": summary(latencies),
@@ -304,7 +285,7 @@ def main() -> None:
     parser.add_argument("--pairs", type=int, default=20000)
     parser.add_argument("--batch", type=int, default=256)
     parser.add_argument("--seed", type=int, default=599)
-    parser.add_argument("--checkpoint-interval", type=int)
+    parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
     args = parser.parse_args()
     print(
         json.dumps(
@@ -314,7 +295,7 @@ def main() -> None:
                 args.pairs,
                 args.batch,
                 args.seed,
-                checkpoint_interval=args.checkpoint_interval,
+                mode=args.mode,
             ),
             indent=2,
         )

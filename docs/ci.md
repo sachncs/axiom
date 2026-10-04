@@ -1,6 +1,6 @@
 # Build, validation and publishing
 
-Updated 2026-10-03. Astro is the only site build. Repository Markdown documents
+Updated 2026-10-04. Astro is the only site build. Repository Markdown documents
 are engineering references, not a second Jekyll website. There is no Ruby,
 Bundler, Gemfile, Jekyll theme or Jekyll deployment job. Obsolete `.nojekyll`
 markers and the unused duplicate social-preview generator/assets are removed;
@@ -10,7 +10,7 @@ historical changelog entries retain their original context.
 
 | Workflow | Responsibility | Publication |
 | --- | --- | --- |
-| `ci.yml` | Lint/types, normal and optimized Python 3.10–3.13, native sanitizers, clean wheel/sdist installs, Linux/macOS/Windows native-wheel matrix, reproducibility/dependency checks, stress and actual Linux resource recovery | None |
+| `ci.yml` | Lint/types, normal and optimized Python 3.10–3.13, Packed-storage sanitizers, clean wheel/sdist installs, Linux/macOS/Windows storage-wheel matrix, reproducibility/dependency checks, stress and actual Linux resource recovery | None |
 | `pages.yml` | Astro type/build/link checks and real installed Python documentation examples, on PR and master | Deploy only master push/manual runs; PR builds have read-only permissions |
 | `release.yml` | Tag/version and research-gap gates, quality checks, native release-wheel matrix, completeness validation, source reproducibility, attestations/signatures | Explicit version tags only; no publication from ordinary CI |
 
@@ -22,9 +22,8 @@ same validated Astro build is the deployed artifact.
 
 Clean wheel and source installs call `scripts/verify_install.py` with isolated
 Python rather than repeating long shell-embedded Python programs. It verifies
-paper/native storage, native publication/rollback/image roundtrip, legacy
-durability, checkpoint retirement, exact retries/recovery, bounded service drain,
-coherent queries and backup restore. Full tests and sanitizers remain separate;
+Basic/Multilevel matching, Packed storage, durable reopen for both methods, and a
+Service acknowledgment/query smoke path. Full tests and sanitizers remain separate;
 this script is an artifact integration gate, not their replacement.
 
 The `cross-platform-wheels` CI job builds CPython 3.10–3.13 wheels on native
@@ -41,9 +40,9 @@ after this check. The workflow trigger and job guards are version-tag-only;
 ordinary CI has no publishing credentials or publication path.
 
 Linux wheels use manylinux repair; musllinux is intentionally excluded. The
-Windows wheel verifies the installed native matching/storage extension and
-paper Python paths only: `Durable`/`Service` require a POSIX owner lock and are
-not supported on Windows. No Windows ARM64 support is claimed. The release matrix is configured in
+Windows wheel verifies the installed Packed storage extension and paper
+matching APIs only: `Durable`/`Service` require a POSIX owner lock and are not
+supported on Windows. No Windows ARM64 support is claimed. The release matrix is configured in
 `.github/workflows/release.yml`; its artifact completeness is validated at
 runtime because the authoritative wheel filenames are produced by the native
 builders.

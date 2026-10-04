@@ -3,14 +3,14 @@ import DocLayout from "../layouts/DocLayout.astro";
 ---
 <DocLayout title="Changelog" eyebrow="Project continuity" description="A concise record of user-visible changes, implementation milestones, and research-status updates." next={{ label: "Contribute", href: "/contributing/" }}>
   <h2>Current direction</h2>
-  <p>Updated 2026-10-03. Native deterministic matching, SQLite FULL-WAL durability, thread-safe bounded Service, exact checkpoints/history/retries and compact immutable backups are implemented. Million-vertex full-ring, growth/drain and first independently paced hub stages exceed 10k real durable updates/s with exact recovery. Broader repeatability/skew, paper snapshot migration and durable basic/multilevel service integration remain active.</p>
+  <p>Updated 2026-10-04. The product now has only the paper-derived <code>basic</code> and <code>multilevel</code> matching modes, both routed through SQLite FULL-WAL Durable and the thread-safe bounded Service. Atomic multi-update batches, same-sequence retries, coherent reads, backups, and deterministic operation-log recovery are implemented. The former native matching Engine and its graph-checkpoint format are removed. Current Basic/Multilevel performance is not qualified: a 1M-vertex Multilevel smoke measured 3,136 updates/s at batch 256 (81 ms acknowledgment p99), while a 4,096-operation atomic group measured 1,559/s (2.60 s p99). Broad repeatability/skew, remaining paper snapshot migration, and deployment qualification remain active.</p>
   <h2>Reliability and storage</h2>
   <p>Linux changing-density allocation/disk exhaustion and backup restore pass under unchanged hard limits. Backup compaction fixes restore ENOSPC without vacuuming the live database. A macOS allocator launch profile addresses measured freed-region residency; it is not a portable quota. Degree-64 throughput fails the current target.</p>
   <p>Deployment integration/aggregate quotas, tighter latency, physical power loss and billion-vertex qualification are explicitly deferred, not guarantees. <a class="text-link" href="../production/">See current contracts, raw evidence and limits.</a></p>
   <h2>Product surface</h2>
   <ul>
     <li>Added native routes for getting started, the playground, concepts, modes, API reference, examples, architecture, research status, and contribution guidance.</li>
-    <li>Removed the browser simulation and scroll animation scripts. Replaced mock terminal tabs with a verified native service example and an exact deletion/insertion/query/reopen walkthrough.</li>
+    <li>Removed the browser simulation and scroll animation scripts. Replaced mock terminal tabs with a verified durable Service example and an exact deletion/insertion/query/reopen walkthrough.</li>
     <li>Changed the default palette to ivory, charcoal and teal; fixed collapsed-menu spacing and added keyboard menu dismissal.</li>
     <li>Made the first-use path executable in CI, including installation, updates, matching inspection, partner lookup, statistics, and maximality checks.</li>
   </ul>
@@ -19,7 +19,7 @@ import DocLayout from "../layouts/DocLayout.astro";
     <li>Canonicalized the public API around <code>basic</code> and <code>multilevel</code>; legacy names and compatibility wrappers are not supported.</li>
     <li>Added atomic update validation and rollback-safe state exposure across graph, matching, index, and hierarchy state.</li>
     <li>Hardened recursive schedules, graph identity, deferred deletion checks, and deterministic verification.</li>
-    <li>Durable <code>basic</code>/<code>multilevel</code> integration through Service is now required active work. It is not implemented yet; native throughput does not qualify the paper algorithms.</li>
+    <li>Durable <code>basic</code>/<code>multilevel</code> integration is implemented; exact failure-boundary, skew, scale, and installed deployment qualification continues. Historical native throughput does not qualify the paper algorithms.</li>
   </ul>
   <p>For source-level history, use the repository as an engineering reference after starting with the public documentation.</p>
 </DocLayout>

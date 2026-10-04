@@ -1,9 +1,4 @@
-"""Measure a bounded owner backup and independent disaster restore.
-
-Uses real ring/chord churn, native checkpoints plus an uncheckpointed tail,
-then checks every expected edge and exact matching partners after restore.
-This is not a power-cut or concurrent-overload qualification.
-"""
+"""Measure paper-mode SQLite backup and exact restore from a fresh store."""
 
 from __future__ import annotations
 
@@ -18,110 +13,115 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from axiom.durable import Durable, ExpiredError, Request
-from benchmarks.durable import certificate
+from axiom.durable import Durable, Request
 
 
 def measure(
-    source: Path, destination: Path, vertices: int, updates: int = 40000
+    source: Path,
+    destination: Path,
+    vertices: int = 32,
+    updates: int = 8,
+    *,
+    mode: str = "basic",
 ) -> dict:
-    """Create checkpoint/tail state, backup, close source and restore exact state."""
-    if vertices < 8 or not 32768 < updates <= 250000 or updates % 4:
-        raise ValueError(
-            "require n>=8 and a multiple of four updates in (32768,250000]"
-        )
-    recovery_path = Path(str(destination) + ".restore")
-    if any(path.exists() for path in (source, destination, recovery_path)):
-        raise ValueError("benchmark requires fresh source and destination paths")
-    tick = time.perf_counter()
-    with Durable(source, n=vertices, checkpoint_interval=32768) as store:
-        construction = time.perf_counter() - tick
+    """Commit real edge transitions, back up, restore, and compare graph state."""
+    if (
+        type(vertices) is not int
+        or vertices < 8
+        or vertices % 2
+        or type(updates) is not int
+        or not 2 <= updates <= 100_000
+        or mode not in ("basic", "multilevel")
+    ):
+        raise ValueError("invalid paper backup envelope")
+    restored_path = Path(str(destination) + ".restore")
+    if any(path.exists() for path in (source, destination, restored_path)):
+        raise ValueError("backup measurement requires fresh paths")
+    started = time.perf_counter_ns()
+    with Durable(source, n=vertices, mode=mode, max_batch=256) as store:
+        construction_ns = time.perf_counter_ns() - started
+        requests = []
+        outcomes = []
         for first in range(1, updates + 1, 256):
-            requests = []
+            group = []
             for sequence in range(first, min(first + 256, updates + 1)):
                 operation, edge = (
                     ("delete", (0, 1)),
-                    ("insert", (0, 4)),
-                    ("delete", (0, 4)),
+                    ("insert", (0, 3)),
+                    ("delete", (0, 3)),
                     ("insert", (0, 1)),
                 )[(sequence - 1) % 4]
-                requests.append(Request(sequence, operation, *edge))
-            result = store.apply(requests)
+                group.append(Request(sequence, operation, *edge))
+            result = store.apply(group)
             if any(not outcome.changed for outcome in result):
-                raise RuntimeError("bootstrap contains non-real transitions")
-        expected = certificate(store, set(), set(), vertices)
-        status = store.status()
-        tick = time.perf_counter()
+                raise RuntimeError("backup trace must contain real transitions")
+            requests.extend(group)
+            outcomes.extend(result)
+        expected = (
+            store.status(),
+            store.partner(0),
+            store.partner(1),
+            store.partner(2),
+        )
+        backup_started = time.perf_counter_ns()
         manifest = store.backup(destination)
-        backup_seconds = time.perf_counter() - tick
-        if store.status() != status:
-            raise RuntimeError("backup changed source status")
-    tick = time.perf_counter()
-    shutil.copyfile(destination, recovery_path)
-    clone_seconds = time.perf_counter() - tick
-    tick = time.perf_counter()
-    with Durable(recovery_path) as restored:
-        recovery_seconds = time.perf_counter() - tick
-        if restored.status() != status:
-            # Runtime SQLite/native capacities can differ; compare logical state.
-            for key in (
-                "sequence",
-                "version",
-                "edges",
-                "matching",
-                "retired_floor",
-                "checkpoint_sequence",
-                "checkpoint_generation",
-            ):
-                if restored.status()[key] != status[key]:
-                    raise RuntimeError("backup logical status disagrees")
-        tick = time.perf_counter()
-        if certificate(restored, set(), set(), vertices) != expected:
-            raise RuntimeError("backup exact topology/partner recovery failed")
-        audit_seconds = time.perf_counter() - tick
-        if restored.apply([requests[-1]]) != (result[-1],):
-            raise RuntimeError("backup did not preserve original retry result")
-        try:
-            restored.apply([Request(1, "delete", 0, 1)])
-        except ExpiredError:
-            pass
-        else:
-            raise RuntimeError("backup lost retry retirement")
+        backup_ns = time.perf_counter_ns() - backup_started
+        if store.status() != expected[0]:
+            raise RuntimeError("backup changed source state")
+    clone_started = time.perf_counter_ns()
+    shutil.copyfile(destination, restored_path)
+    clone_ns = time.perf_counter_ns() - clone_started
+    restore_started = time.perf_counter_ns()
+    with Durable(restored_path, mode=mode) as restored:
+        recovery_ns = time.perf_counter_ns() - restore_started
+        actual = (
+            restored.status(),
+            restored.partner(0),
+            restored.partner(1),
+            restored.partner(2),
+        )
+        if actual != expected or not restored.check():
+            raise RuntimeError("restored paper graph/matching differs from source")
+        if restored.apply([requests[-1]]) != (outcomes[-1],):
+            raise RuntimeError("backup did not preserve request retry result")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
-        "scope": "bounded owner backup + independent exact disaster restore; NOT power-cut/overload qualification",
+        "scope": "SQLite backup/restore of paper Durable state; not power-loss qualification",
         "python": platform.python_version(),
         "platform": platform.platform(),
-        "sqlite": status["sqlite"],
+        "mode": mode,
         "vertices": vertices,
-        "edges": 2 * vertices,
-        "bootstrap_real_updates": updates,
-        "construction_seconds": construction,
-        "backup_seconds": backup_seconds,
-        "restore_clone_seconds": clone_seconds,
-        "restore_seconds": recovery_seconds,
-        "independent_restore_audit_seconds": audit_seconds,
-        "independent_exact_restore_passed": True,
-        "retry_and_expiry_passed": True,
-        "matching_digest": expected,
+        "updates": updates,
+        "construction_ns": construction_ns,
+        "backup_ns": backup_ns,
+        "restore_clone_ns": clone_ns,
+        "restore_open_ns": recovery_ns,
+        "exact_restore_passed": True,
+        "retry_result_preserved": True,
+        "source_status": expected[0],
         "manifest": manifest,
-        "source_status": status,
-        "process_peak_rss_bytes": rss if sys.platform == "darwin" else rss * 1024,
-        "max_backup_bytes": 64 << 20,
+        "peak_rss_bytes": rss if sys.platform == "darwin" else rss * 1024,
     }
 
 
 def main() -> None:
-    """Print one installed-package backup/restore qualification record."""
+    """Run paper-mode backup/restore and print its qualification report."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--vertices", type=int, default=32000)
     parser.add_argument("--updates", type=int, default=40000)
+    parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
     args = parser.parse_args()
     print(
         json.dumps(
-            measure(args.source, args.destination, args.vertices, args.updates),
+            measure(
+                args.source,
+                args.destination,
+                args.vertices,
+                args.updates,
+                mode=args.mode,
+            ),
             indent=2,
         )
     )

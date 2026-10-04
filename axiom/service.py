@@ -1,6 +1,6 @@
 """Bounded asynchronous admission to one certified FULL-WAL mutation owner.
 
-This local threaded service explicitly selects the native production backend.
+The service selects one of the paper matching modes, Basic or Multilevel.
 It does not provide network transport, caller authentication or a latency SLA.
 """
 
@@ -18,6 +18,7 @@ from typing import Generic, TypeVar, cast
 from axiom.durable import (
     MAX_READS,
     BusyError,
+    CapacityError,
     Durable,
     HistoryPage,
     Outcome,
@@ -143,13 +144,13 @@ class Service:
         query_reserve: int | None = None,
         max_batch: int | None = None,
         batch_wait_ms: float = 1.0,
-        checkpoint_interval: int | None = None,
-        retain_operations: int | None = None,
         max_operations: int | None = None,
         max_database_bytes: int = 64 << 20,
-        max_snapshot_bytes: int = 64 << 20,
+        mode: str = "basic",
     ) -> None:
-        """Open native checkpoint v2 and start its single local mutation worker."""
+        """Open a selected paper mode and start its single local mutation worker."""
+        if mode not in ("basic", "multilevel"):
+            raise ValueError("mode must be 'basic' or 'multilevel'")
         _integer(queue_capacity, 1, 16384, "queue_capacity")
         if query_reserve is None:
             query_reserve = min(1, queue_capacity - 1)
@@ -159,8 +160,6 @@ class Service:
         )
         if type(batch_wait_ms) not in (int, float) or not 0 <= batch_wait_ms <= 100:
             raise ValueError("batch_wait_ms must be finite in [0,100]")
-        if not Path(path).exists() and checkpoint_interval is None:
-            checkpoint_interval = 32768
         self._condition = threading.Condition()
         self._close_lock = threading.Lock()
         self._updates: deque[_Work] = deque()
@@ -183,28 +182,19 @@ class Service:
         self._owner = Durable(
             path,
             n=n,
+            mode=mode,
             width=width,
             budget=budget,
             max_batch=max_batch,
-            checkpoint_interval=checkpoint_interval,
-            retain_operations=retain_operations,
             max_operations=max_operations,
             max_database_bytes=max_database_bytes,
-            max_snapshot_bytes=max_snapshot_bytes,
         )
         try:
             status = self._owner.status()
-            if not status["checkpoint_interval"]:
-                raise ValueError(
-                    "Service requires checkpoint v2; no implicit v1 migration"
-                )
-            if queue_capacity > int(status["retain_operations"]):
-                raise ValueError(
-                    "queue capacity must not exceed persisted retry retention"
-                )
             self._vertices = int(status["vertices"])
             self._next_sequence = int(status["sequence"]) + 1
             self._batch = int(status["max_batch"])
+            self._max_operations = int(status["max_operations"])
             self._thread = threading.Thread(
                 target=self._run, name="axiom-durable-owner", daemon=True
             )
@@ -276,6 +266,9 @@ class Service:
                 raise ValueError(
                     "pending retry payload differs from its accepted request"
                 )
+            if pending is None and request.sequence == self._next_sequence:
+                if request.sequence > self._max_operations:
+                    raise CapacityError("durable operation history is exhausted")
             receipt: Receipt[Outcome] = Receipt()
             if pending is not None:
                 pending.receipts.append(cast(Receipt[object], receipt))
@@ -371,6 +364,8 @@ class Service:
                     )
                 )
             elif first == self._next_sequence:
+                if last > self._max_operations:
+                    raise CapacityError("durable operation history is exhausted")
                 receipt = Receipt()
                 work = _Work(
                     [cast(Receipt[object], receipt)],
@@ -392,26 +387,9 @@ class Service:
             return receipt
 
     def partner(self, vertex: int) -> Receipt[tuple[int, int | None]]:
-        """Read the last publication without waiting for the owner's sync barrier."""
+        """Queue a partner read on the serialized owner stream."""
         _integer(vertex, 0, self._vertices - 1, "vertex")
-        with self._condition:
-            self._admission()
-            receipt: Receipt[tuple[int, int | None]] = Receipt()
-            started = time.perf_counter_ns()
-            self._accepted_one()
-            try:
-                value = self._owner._committed_partner(vertex)
-            except BaseException as error:
-                if not isinstance(error, MemoryError):
-                    self._failure, self._closing = error, True
-                    self._condition.notify_all()
-                receipt._finish(None, error, started)
-            else:
-                receipt._finish(value, None, started)
-            finally:
-                self._outstanding -= 1
-                self._completed += 1
-            return receipt
+        return self._read(lambda owner: owner.partner(vertex))
 
     def has_edge(self, u: int, v: int) -> Receipt[tuple[int, bool]]:
         """Admit committed topology with its matching-compatible version."""

@@ -7,35 +7,47 @@ import pytest
 from benchmarks.durable import measure
 
 
-def test_bounded_durable_trace_has_exact_recovery_and_query_certificates(
-    tmp_path: Path,
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_bounded_paper_trace_has_exact_recovery_and_query_certificates(
+    tmp_path: Path, mode: str
 ) -> None:
-    result = measure(tmp_path / "benchmark.db", 64, 80, 16, 599)
+    result = measure(tmp_path / f"benchmark-{mode}.db", 64, 80, 16, 599, mode=mode)
     assert result["real_acknowledged_updates"] == 160
     assert result["partner_queries"] == 80
     assert result["edges"] == 128 and result["average_degree"] == 4
     assert result["independent_audit_passed"] and result["exact_recovery_passed"]
     assert result["synchronous"] == "FULL" and result["fullfsync"]
-    assert "NOT native checkpoint/soak" in result["scope"]
+    assert result["paper_mode"] == mode
+    assert result["operation_history_entries"] == 160
+    assert "SQLite FULL-WAL" in result["scope"]
 
 
-def test_checkpoint_trace_includes_maintenance_and_preserves_exact_recovery(
+def test_multilevel_trace_reports_sqlite_and_paper_storage_separately(
     tmp_path: Path,
 ) -> None:
-    result = measure(
-        tmp_path / "checkpoint.db", 64, 120, 16, 599, checkpoint_interval=64
-    )
+    result = measure(tmp_path / "multilevel.db", 64, 120, 16, 599, mode="multilevel")
     assert result["real_acknowledged_updates"] == 240
-    assert result["checkpoint_generation"] == 3
-    assert result["checkpoint_sequence"] == 192
-    assert result["checkpoint_interval"] == 64
-    assert result["retained_retry_recovery_passed"]
+    assert result["paper_mode"] == "multilevel"
+    assert result["initial_paper_graph_bytes"] > 0
+    assert result["final_paper_graph_bytes"] > 0
+    assert result["sampled_database_wal_shm_peak_bytes"] > 0
     assert result["independent_audit_passed"] and result["exact_recovery_passed"]
-    assert "native checkpoint/retirement" in result["scope"]
-    assert "NOT soak/concurrent-client" in result["scope"]
+    assert "operation-log replay" in result["scope"]
 
 
-@pytest.mark.parametrize("n,pairs,batch", [(7, 8, 16), (64, 0, 16), (64, 8, 17)])
+def test_benchmark_accepts_the_production_batch_limit(
+    tmp_path: Path,
+) -> None:
+    result = measure(tmp_path / "large-batch.db", 64, 8, 4096, 599, mode="multilevel")
+    assert result["batch_limit"] == 4096
+    assert result["real_acknowledged_updates"] == 16
+    assert result["exact_recovery_passed"]
+
+
+@pytest.mark.parametrize(
+    "n,pairs,batch",
+    [(7, 8, 16), (64, 0, 16), (64, 8, 17), (64, 8, 4098)],
+)
 def test_benchmark_rejects_invalid_envelope_before_creating_database(
     tmp_path: Path,
     n: int,

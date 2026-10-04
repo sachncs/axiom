@@ -1,5 +1,9 @@
 # Durable checkpoint/retirement stage, not production qualification
 
+> Historical native-matcher results: this checkpoint-retirement path was removed
+> with the separate native matching Engine on 2026-10-04. Raw measurements are
+> retained for provenance and do not qualify current Basic/Multilevel recovery.
+
 Source: `525cbca` (durable implementation `f9b5d9b`). Apple M3 Pro, 18 GiB RAM,
 internal SSD/APFS; software versions are in each raw JSON. Fresh sequential Python
 processes, fresh private local database paths, default native/image/database caps,

@@ -1,8 +1,11 @@
 # Getting Started
 
 For durable local integration, start with [Service](service.md) and
-[current status](status.md). The examples below use the separate nondurable
-paper/research `Matcher`; they are not million-vertex service benchmarks.
+[current status](status.md). The `Matcher` examples below are direct in-memory
+uses of the same Basic/Multilevel implementations; they are locally atomic but
+do not persist updates. Use `Durable` or `Service` when you need SQLite-backed
+commit-before-acknowledgment and recovery. These small examples are not scale
+benchmarks.
 Source installation requires a C++17 compiler and CPython development headers.
 
 ## Install

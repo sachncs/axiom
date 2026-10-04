@@ -8,13 +8,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
-from test_engine import Reference
 
+from axiom import service as service_module
+from axiom.core import Matcher
 from axiom.durable import (
     BusyError,
     CapacityError,
     Durable,
-    ExpiredError,
     HistoryPage,
     Outcome,
     ReadSnapshot,
@@ -32,8 +32,6 @@ def create(path: Path, **options: object) -> Service:
         query_reserve=0,  # Legacy full-capacity tests; reservation tested separately.
         max_batch=4,
         batch_wait_ms=100,
-        checkpoint_interval=8,
-        retain_operations=32,
         max_operations=64,
     )
     settings.update(options)
@@ -51,11 +49,154 @@ def completed(receipts: list[Receipt]) -> list:
     return [receipt.result(timeout=5) for receipt in receipts]
 
 
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_service_passes_selected_mode_and_does_not_require_checkpoint_format(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    observed: list[str] = []
+
+    class Owner:
+        def __init__(self, path: Path, *, mode: str, **options: object) -> None:
+            observed.append(mode)
+
+        def status(self) -> dict[str, int]:
+            return {
+                "vertices": 8,
+                "sequence": 0,
+                "max_batch": 4,
+                "max_operations": 16,
+            }
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(service_module, "Durable", Owner)
+    with Service(tmp_path / f"{mode}.db", mode=mode, queue_capacity=8) as service:
+        assert service.metrics()["state"] == "open"
+    assert observed == [mode]
+
+
+def test_service_defaults_to_basic_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed: list[str] = []
+
+    class Owner:
+        def __init__(self, path: Path, *, mode: str, **options: object) -> None:
+            observed.append(mode)
+
+        def status(self) -> dict[str, int]:
+            return {
+                "vertices": 8,
+                "sequence": 0,
+                "max_batch": 4,
+                "max_operations": 16,
+            }
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(service_module, "Durable", Owner)
+    with Service(tmp_path / "default.db", queue_capacity=8):
+        pass
+    assert observed == ["basic"]
+
+
+def test_history_exhaustion_rejects_synchronously_without_poisoning_service(
+    tmp_path: Path,
+) -> None:
+    with Service(
+        tmp_path / "bounded-history.db",
+        n=8,
+        width=0,
+        queue_capacity=4,
+        max_batch=4,
+        max_operations=2,
+        batch_wait_ms=0,
+    ) as service:
+        first = Request(1, "insert", 0, 1)
+        second = Request(2, "insert", 2, 3)
+        assert service.submit(first).result(5) == Outcome(1, True, 1)
+        assert service.submit(second).result(5) == Outcome(2, True, 2)
+        with pytest.raises(CapacityError, match="history is exhausted"):
+            service.submit(Request(3, "delete", 0, 1))
+        with pytest.raises(CapacityError, match="history is exhausted"):
+            service.submit_batch(
+                [Request(3, "delete", 0, 1), Request(4, "delete", 2, 3)]
+            )
+        assert service.submit(first).result(5) == Outcome(1, True, 1)
+        assert service.status().result(5)["sequence"] == 2
+        assert service.metrics()["state"] == "open"
+
+
+@pytest.mark.parametrize("mode", ["native", "", None, 1])
+def test_service_rejects_unsupported_modes_before_opening_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: object
+) -> None:
+    def unexpected(*args: object, **options: object) -> object:
+        raise AssertionError("invalid mode must be rejected before owner creation")
+
+    monkeypatch.setattr(service_module, "Durable", unexpected)
+    with pytest.raises(ValueError, match="mode must be 'basic' or 'multilevel'"):
+        Service(tmp_path / "invalid.db", mode=mode)  # type: ignore[arg-type]
+
+
+def test_partner_read_waits_in_serialized_owner_queue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entered, release = threading.Event(), threading.Event()
+
+    class Owner:
+        def __init__(self, path: Path, *, mode: str, **options: object) -> None:
+            assert mode == "basic"
+            self.sequence = 0
+            self.partner_value: int | None = None
+
+        def status(self) -> dict[str, int]:
+            return {
+                "vertices": 8,
+                "sequence": self.sequence,
+                "max_batch": 4,
+                "max_operations": 16,
+            }
+
+        def apply(self, requests: list[Request]) -> tuple[Outcome, ...]:
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test release timed out")
+            results = []
+            for request in requests:
+                self.sequence = request.sequence
+                self.partner_value = (
+                    request.v if request.operation == "insert" else None
+                )
+                results.append(Outcome(request.sequence, True, request.sequence))
+            return tuple(results)
+
+        def partner(self, vertex: int) -> tuple[int, int | None]:
+            return self.sequence, self.partner_value
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(service_module, "Durable", Owner)
+    with Service(tmp_path / "queued-partner.db", n=8, queue_capacity=8) as service:
+        mutation = service.submit(Request(1, "insert", 0, 1))
+        try:
+            assert entered.wait(5)
+            query = service.partner(0)
+            assert not query.done()
+        finally:
+            release.set()
+        assert mutation.result(5) == Outcome(1, True, 1)
+        assert query.result(5) == (1, 1)
+
+
 def test_grouped_single_requests_preserve_results_versions_and_exact_recovery(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "graph.db"
-    with create(path) as service:
+    with create(path, max_operations=128) as service:
         for first in range(1, 101, 4):
             receipts = [service.submit(r) for r in edits(first, 4)]
             assert completed(receipts) == [
@@ -66,7 +207,7 @@ def test_grouped_single_requests_preserve_results_versions_and_exact_recovery(
                 assert receipt.done() and timing is not None
                 assert timing.admitted_ns <= timing.started_ns <= timing.completed_ns
         status = service.status().result(5)
-        assert status["sequence"] == 100 and status["checkpoint_generation"] == 12
+        assert status["sequence"] == 100 and status["mode"] == "basic"
         assert service.partner(0).result(5) == (100, None)
         assert service.has_edge(0, 1).result(5) == (100, False)
         assert service.check().result(5)
@@ -152,7 +293,7 @@ def test_capacity_includes_active_work_and_queries_and_does_not_consume_rejected
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with create(
-        tmp_path / "graph.db", queue_capacity=4, max_batch=2, batch_wait_ms=0
+        tmp_path / "graph.db", queue_capacity=5, max_batch=2, batch_wait_ms=0
     ) as service:
         entered, release = threading.Event(), threading.Event()
         original = service._owner._persist
@@ -169,13 +310,11 @@ def test_capacity_includes_active_work_and_queries_and_does_not_consume_rejected
             assert entered.wait(5)
             pending = [service.submit(r) for r in edits(2, 2)]
             query = service.partner(0)
-            assert query.done() and query.result(0) == (0, None)
+            assert not query.done()
             duplicate = service.submit(edits(1, 1)[0])
             with pytest.raises(BusyError, match="nothing was admitted"):
                 service.submit(edits(4, 1)[0])
-            with pytest.raises(BusyError):
-                service.partner(1)
-            assert service.metrics()["outstanding"] == 4
+            assert service.metrics()["outstanding"] == 5
             assert service.metrics()["next_admission_sequence"] == 4
             with pytest.raises(TimeoutError, match="may still commit"):
                 first.result(0)
@@ -184,48 +323,10 @@ def test_capacity_includes_active_work_and_queries_and_does_not_consume_rejected
             release.set()
         assert first.result(5) == Outcome(1, True, 1)
         assert completed(pending) == [Outcome(2, True, 2), Outcome(3, True, 3)]
+        assert query.result(5) in ((1, 1), (3, 1))
         assert duplicate.result(5) == first.result(5)
         assert service.submit(edits(4, 1)[0]).result(5) == Outcome(4, True, 4)
-        assert service.metrics()["peak_outstanding"] == 4
-
-
-@pytest.mark.parametrize("maintenance", [False, True])
-def test_partner_reads_published_state_during_owner_sync_without_queueing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, maintenance: bool
-) -> None:
-    with create(tmp_path / "graph.db", batch_wait_ms=0) as service:
-        assert service.submit(Request(1, "insert", 0, 1)).result(5) == Outcome(
-            1, True, 1
-        )
-        entered, release = threading.Event(), threading.Event()
-        target = "_persist_checkpoint" if maintenance else "_persist"
-        original = getattr(service._owner, target)
-
-        def paused(payload: object) -> None:
-            entered.set()
-            if not release.wait(5):
-                raise RuntimeError("test sync release timed out")
-            original(payload)
-
-        monkeypatch.setattr(service._owner, target, paused)
-        work = (
-            service.checkpoint()
-            if maintenance
-            else service.submit(Request(2, "delete", 0, 1))
-        )
-        try:
-            assert entered.wait(5)
-            for _ in range(100):
-                for vertex, partner in ((0, 1), (1, 0), (2, None)):
-                    receipt = service.partner(vertex)
-                    assert receipt.done() and receipt.result(0) == (1, partner)
-            assert not work.done()
-            assert service.metrics()["outstanding"] == 1
-        finally:
-            release.set()
-        work.result(5)
-        assert service.partner(0).result(0) == ((1, 1) if maintenance else (2, None))
-        assert service.check().result(5)
+        assert service.metrics()["peak_outstanding"] == 5
 
 
 def test_read_snapshot_is_one_queue_operation_and_copies_bounded_inputs(
@@ -345,8 +446,6 @@ def test_default_read_reservation_preserves_queries_under_full_update_admission(
         width=0,
         queue_capacity=4,
         max_batch=1,
-        checkpoint_interval=8,
-        retain_operations=8,
         max_operations=32,
         batch_wait_ms=0,
     ) as service:
@@ -367,19 +466,18 @@ def test_default_read_reservation_preserves_queries_under_full_update_admission(
             for request in (edits(4, 1)[0], edits(1, 1)[0]):
                 with pytest.raises(BusyError, match="query slots reserved"):
                     service.submit(request)
-            for _ in range(100):
-                assert service.partner(0).result(0) == (0, None)
-            assert service.metrics()["outstanding"] == 3
+            queries = [service.partner(0)]
+            assert not queries[0].done()
+            assert service.metrics()["outstanding"] == 4
             assert service.metrics()["query_reserve"] == 1
             assert service.metrics()["next_admission_sequence"] == 4
-            status = service.status()  # Other reads still share the global bound.
             with pytest.raises(BusyError, match="outstanding"):
-                service.partner(0)
+                service.status()
         finally:
             release.set()
         assert first.result(5) == Outcome(1, True, 1)
         assert completed(pending) == [Outcome(2, True, 2), Outcome(3, True, 3)]
-        assert status.result(5)["sequence"] in (1, 2, 3)
+        assert completed(queries)[0] in ((1, 1), (3, 1))
         assert service.submit(edits(4, 1)[0]).result(5) == Outcome(4, True, 4)
         assert service.metrics()["peak_outstanding"] == 4
 
@@ -391,14 +489,12 @@ def test_single_slot_service_defaults_to_no_reservation(tmp_path):
         width=0,
         queue_capacity=1,
         max_batch=1,
-        checkpoint_interval=8,
-        retain_operations=8,
         max_operations=32,
         batch_wait_ms=0,
     ) as service:
         assert service.metrics()["query_reserve"] == 0
         assert service.submit(edits(1, 1)[0]).result(5) == Outcome(1, True, 1)
-        assert service.partner(0).result(0) == (1, 1)
+        assert service.partner(0).result(5) == (1, 1)
 
 
 def test_close_timeout_stops_admission_but_drains_without_cancelling_accepted_work(
@@ -445,15 +541,13 @@ def test_uncertain_update_fails_all_waiters_and_recovers_only_committed_prefix(
     path = tmp_path / "graph.db"
     service = create(path)
     entered, release = threading.Event(), threading.Event()
-    original = (
-        service._owner._publish if stage == "after_publish" else service._owner._persist
-    )
+    original = service._owner._persist
 
     def failed(payload: object) -> None:
         entered.set()
         if not release.wait(5):
             raise RuntimeError("test failure release timed out")
-        if stage in ("after_commit", "after_publish"):
+        if stage == "after_commit":
             original(payload)
         elif stage == "partial_write":
             db = service._owner._db()
@@ -461,8 +555,26 @@ def test_uncertain_update_fails_all_waiters_and_recovers_only_committed_prefix(
             db.execute("INSERT INTO operations VALUES(?,?,?,?,?,?,?)", payload[0])
         raise OSError("injected persistence/publication failure")
 
-    target = "_publish" if stage == "after_publish" else "_persist"
-    monkeypatch.setattr(service._owner, target, failed)
+    if stage == "after_publish":
+        from axiom.views import Views
+
+        original_commit = Views.commit
+        injected = False
+
+        def cleanup_failure(owner: Views) -> None:
+            nonlocal injected
+            if injected:
+                return original_commit(owner)
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test cleanup release timed out")
+            original_commit(owner)
+            injected = True
+            raise OSError("injected post-publication cleanup failure")
+
+        monkeypatch.setattr(Views, "commit", cleanup_failure)
+    else:
+        monkeypatch.setattr(service._owner, "_persist", failed)
     current = [service.submit(r) for r in edits(1, 4)]
     try:
         assert entered.wait(5)
@@ -472,7 +584,9 @@ def test_uncertain_update_fails_all_waiters_and_recovers_only_committed_prefix(
     finally:
         release.set()
     for receipt in current + [duplicate]:
-        with pytest.raises(OSError, match="injected"):
+        with pytest.raises(
+            (OSError, RuntimeError), match="injected|publication cleanup"
+        ):
             receipt.result(5)
     for receipt in queued:
         with pytest.raises(UnavailableError):
@@ -749,20 +863,17 @@ def test_failure_during_acknowledgment_cannot_overwrite_already_delivered_outcom
         assert recovered.apply(edits(1, 4))[0] == first
 
 
-def test_fresh_capacity_failure_rolls_back_group_and_stops_sequenced_service(
+def test_fresh_capacity_failure_rejects_without_admission_or_fail_stop(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "capacity.db"
-    with create(path, max_batch=2, max_snapshot_bytes=40 + 8 * 33 + 8) as service:
-        with service._condition:
-            receipts = [
-                service.submit(Request(1, "insert", 0, 1)),
-                service.submit(Request(2, "insert", 1, 2)),
-            ]
-        for receipt in receipts:
-            with pytest.raises(CapacityError):
-                receipt.result(5)
-    assert service.metrics()["state"] == "failed"
+    with create(path, queue_capacity=1, max_batch=2, max_operations=1) as service:
+        with pytest.raises(CapacityError):
+            service.submit_batch(
+                [Request(1, "insert", 0, 1), Request(2, "insert", 1, 2)]
+            )
+        assert service.metrics()["state"] == "open"
+        assert service.status().result(5)["sequence"] == 0
     with Durable(path) as recovered:
         assert recovered.status()["sequence"] == 0 and recovered.status()["edges"] == 0
         assert recovered.check()
@@ -786,24 +897,12 @@ def test_bounded_group_container_failure_preserves_all_admission_records(
     assert service.metrics()["accepted"] == service.metrics()["completed"] == 4
 
 
-def test_nonmutating_rejections_and_checkpoint_reservation_failure_allow_reuse(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_nonmutating_rejections_allow_reuse(tmp_path: Path) -> None:
     with create(tmp_path / "graph.db", batch_wait_ms=0) as service:
         assert service.submit(Request(1, "insert", 0, 1)).result(5).changed
         with pytest.raises(RuntimeError, match="stale"):
             service.page(version=0).result(5)
-        original = service._owner._checkpoint_record
-
-        def fail_record() -> object:
-            raise MemoryError("injected pre-persistence reservation failure")
-
-        monkeypatch.setattr(service._owner, "_checkpoint_record", fail_record)
-        with pytest.raises(MemoryError):
-            service.checkpoint().result(5)
-        assert service.metrics()["state"] == "open"
-        monkeypatch.setattr(service._owner, "_checkpoint_record", original)
-        assert service.checkpoint().result(5)["generation"] == 1
+        assert service.checkpoint().result(5)["wal_pages"] >= 0
         assert service.submit(Request(2, "delete", 0, 1)).result(5) == Outcome(
             2, True, 2
         )
@@ -855,15 +954,22 @@ from axiom.service import Service
 from axiom.durable import Request
 stage = sys.argv[2]
 s = Service(sys.argv[1], n=33, width=0, queue_capacity=16, max_batch=4,
-            batch_wait_ms=100, checkpoint_interval=8, retain_operations=32,
+            batch_wait_ms=100,
             max_operations=64)
-name = '_publish' if stage == 'after_publish' else '_persist'
-original = getattr(s._owner, name)
-def die(payload):
-    if stage != 'before_commit':
-        original(payload)
-    os._exit(73)
-setattr(s._owner, name, die)
+if stage == 'after_publish':
+    from axiom.views import Views
+    original = Views.commit
+    def die(owner):
+        original(owner)
+        os._exit(73)
+    Views.commit = die
+else:
+    original = s._owner._persist
+    def die(payload):
+        if stage != 'before_commit':
+            original(payload)
+        os._exit(73)
+    s._owner._persist = die
 with s._condition:
     receipts = [s.submit(Request(seq, 'insert' if seq % 2 else 'delete', 0, 1))
                 for seq in range(1, 9)]
@@ -886,13 +992,10 @@ raise RuntimeError('death injection did not run')
 def test_expired_retry_refuses_without_new_mutation_or_disabling_service(
     tmp_path: Path,
 ) -> None:
-    with create(
-        tmp_path / "graph.db", queue_capacity=4, retain_operations=4
-    ) as service:
+    with create(tmp_path / "graph.db", queue_capacity=4) as service:
         for first in range(1, 21, 4):
             completed([service.submit(r) for r in edits(first, 4)])
-        with pytest.raises(ExpiredError):
-            service.submit(edits(1, 1)[0]).result(5)
+        assert service.submit(edits(1, 1)[0]).result(5) == Outcome(1, True, 1)
         assert service.status().result(5)["sequence"] == 20
         assert service.metrics()["state"] == "open"
         assert service.submit(edits(20, 1)[0]).result(5) == Outcome(20, True, 20)
@@ -902,21 +1005,24 @@ def test_concurrent_clients_and_queries_agree_with_exact_versioned_reference(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "graph.db"
-    rng, reference = random.Random(821), Reference(33)
+    rng, reference = random.Random(821), Matcher(33, mode="basic")
     requests, expected, partners = [], [], {0: {}}
+    version = 0
     for seq in range(1, 513):
         adding, u, v = bool(rng.randrange(2)), rng.randrange(33), rng.randrange(33)
-        requests.append(Request(seq, "insert" if adding else "delete", u, v))
-        changed = reference.edit(u, v, adding)
-        expected.append(Outcome(seq, changed, reference.version))
-        partners[reference.version] = dict(reference.partners)
+        operation = "insert" if adding else "delete"
+        requests.append(Request(seq, operation, u, v))
+        existed = reference.graph.has_edge(u, v)
+        getattr(reference, operation)(u, v)
+        changed = (not existed and u != v) if adding else (existed and u != v)
+        version += changed
+        expected.append(Outcome(seq, changed, version))
+        partners[version] = dict(reference.partner_map)
     with create(
         path,
         queue_capacity=64,
         max_batch=8,
-        retain_operations=64,
-        checkpoint_interval=32,
-        max_operations=128,
+        max_operations=1024,
     ) as service:
         admission = threading.Lock()
         barrier = threading.Barrier(8)
@@ -960,7 +1066,7 @@ def test_concurrent_clients_and_queries_agree_with_exact_versioned_reference(
         assert service.metrics()["peak_outstanding"] <= 64
     with Durable(path) as recovered:
         for u in range(33):
-            assert recovered.partner(u)[1] == reference.partners.get(u)
+            assert recovered.partner(u)[1] == reference.partner_map.get(u)
             for v in range(u + 1, 33):
                 assert recovered.has_edge(u, v)[1] == reference.graph.has_edge(u, v)
 
@@ -976,7 +1082,6 @@ def test_concurrent_clients_and_queries_agree_with_exact_versioned_reference(
         {"batch_wait_ms": float("inf")},
         {"batch_wait_ms": True},
         {"batch_wait_ms": 10**1000},
-        {"queue_capacity": 33},
         {"maintenance_capacity": 0},
         {"maintenance_capacity": True},
         {"maintenance_capacity": 65},
@@ -997,18 +1102,14 @@ def test_invalid_service_policy_releases_any_acquired_owner(
             assert store.check()
 
 
-def test_service_does_not_implicitly_upgrade_legacy_and_defaults_new_store_to_v2(
-    tmp_path: Path,
-) -> None:
-    legacy = tmp_path / "legacy.db"
-    with Durable(legacy, n=16):
-        pass
-    with pytest.raises(ValueError, match="v2"):
-        Service(legacy)
-    with Durable(legacy) as store:
-        assert store.check()
-    with Service(tmp_path / "new.db", n=16) as service:
-        assert service.status().result(5)["checkpoint_interval"] == 32768
+def test_store_mode_is_persisted_and_mismatch_is_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "mode.db"
+    with Service(path, n=16, width=0) as service:
+        assert service.status().result(5)["mode"] == "basic"
+    from axiom.durable import RecoveryError
+
+    with pytest.raises(RecoveryError, match="mode"):
+        Service(path, mode="multilevel")
 
 
 @pytest.mark.parametrize("timeout", [-1, True, float("inf"), float("nan"), 10**1000])

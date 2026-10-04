@@ -43,6 +43,13 @@ about 852 KB of temporary traced Python allocation; whole Extend peak RSS and
 connected adversarial performance remain unqualified. See
 [ADR 0105](adrs/0105-index-extend-projection-by-color.md).
 
+Multilevel's local hierarchy synchronization now avoids revalidating the whole
+accumulated inserted-edge overlay before applying a single endpoint delta. The
+fast path is explicit for Matcher-journaled state; direct calls and full rebuilds
+still validate every excluded edge. This removes repeated O(|E_I|) validation,
+with exact transaction rollback and boundary audits retained; no throughput gain
+is claimed yet. See [ADR 0106](adrs/0106-trust-journaled-hierarchy-exclusions.md).
+
 ## Historical evidence from the removed native matcher
 
 The following rates and resource drills were recorded against the former native
@@ -168,6 +175,9 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
 - Recursive Extend uses one temporary sparse assignment-by-color index and
   indexed fan types to avoid repeating parent scans; the O(m) temporary index
   is included in the remaining peak-memory qualification (ADR 0105).
+- Incremental hierarchy sync trusts only the journal-owned E_I set and validates
+  its changed-edge delta; direct and full rebuild calls keep exhaustive checks
+  (ADR 0106).
 
 ## Still active
 
@@ -210,7 +220,7 @@ refinement matching degrees avoid allocating n zero counters while preserving
 the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
 refinement cycle detection uses a strict U-decrease guard instead of copying
 U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
-Full-suite verification currently passes 1,112 tests and one optional plotting
+Full-suite verification currently passes 1,114 tests and one optional plotting
 test is skipped because matplotlib is unavailable. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
@@ -251,6 +261,6 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local validation is
-1,112 passing tests and one optional plotting skip; mypy and Ruff pass. CI and
+1,114 passing tests and one optional plotting skip; mypy and Ruff pass. CI and
 benchmark results must be attributed to their exact revision, not assumed to
 qualify every subsequent change.

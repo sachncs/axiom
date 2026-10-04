@@ -1,8 +1,9 @@
 # Paper state and migration oracle
 
-The durable paper integration is **not implemented**. `axiom.witness.Witness`
-is a bounded diagnostic comparison oracle, not a checkpoint decoder, persistence
-API or mutation journal. The Matcher update path no longer calls `deepcopy`:
+Durable paper integration now routes both `basic` and `multilevel` through the
+same SQLite operation-log owner. `axiom.witness.Witness` remains a bounded
+diagnostic comparison oracle, not a checkpoint decoder or persistence API. The
+Matcher update path no longer calls `deepcopy`:
 transactions retain shallow attribute roots and enlist owner-specific journals.
 That removes recursive copy allocation; it does not establish durable paper
 state, billion-vertex support, or zero state-proportional work in every journal.
@@ -21,8 +22,10 @@ state, billion-vertex support, or zero state-proportional work in every journal.
 
 Fans and partial coloring are temporary construction/repair state, not persistent
 Matcher attributes. Their rollback is checked independently during real fan
-collisions and chain routing. Exact fan indexes still matter: comparing only
-membership or the resulting complete coloring misses state corruption.
+collisions and chain routing. Durable recovery recreates them by replaying the
+committed update stream through the persisted mode; there is no compact paper
+state codec or snapshot compaction. Exact fan indexes still matter: comparing
+only membership or the resulting complete coloring misses state corruption.
 
 Alternating `Partial.flip()` now updates only its path and endpoint indexes,
 rejecting endpoint color conflicts before mutation. A matching full-reindex
@@ -34,8 +37,9 @@ incidence entries before removing the old value. Injected mid-reservation
 failure restores exact roots and entries. A failure spanning multiple fan
 updates in `Fans.flip()` now uses a path-endpoint-sized reverse journal; an
 injected second-endpoint failure restores exact coloring/fan Witness state.
-Rollback failure remains fail-stop, and Matcher-wide durable integration is not
-implemented.
+Rollback failure remains fail-stop. Durable transactions compose these paper
+journals in bounded private slices, with one SQLite commit per caller batch;
+recovery remains proportional to the stored operation history.
 
 The oracle includes every instance field of the supported records. Unknown
 types and unexpected instance fields reject rather than disappear. Default

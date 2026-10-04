@@ -38,13 +38,14 @@ ASan/UBSan pass 200,000 differential storage edits (now 256 vertices to cross th
 new boundary) and 100,000 matching edits. Lint/format/types pass. These are
 correctness gates, not throughput qualification.
 
-`benchmarks/index.py` uses the public `Trial` class to compare fixed real traces
+The removed `benchmarks/index.py` used a public `Trial` class to compare fixed real traces
 and partner checks without producer misses changing the workload. Constructor,
 timed updates, native allocation, process RSS, checkpoint hash and exact matching
 hash remain separate. The [installed comparison](../../benchmarks/results/independent/index-policy-fixed.json)
 uses 18 sequential fresh processes: three baseline/candidate repetitions per
 degree, 8,192 vertices and 200,000 real edits each. All checkpoint and matching
-hashes agree. Degree-64 native allocation falls from 20,621,024 to 3,843,808 bytes
+hashes agree. This is historical evidence for the removed native matcher, not
+current `Packed` or paper-mode qualification. Degree-64 native allocation fell from 20,621,024 to 3,843,808 bytes
 (81.4%), but median core rate falls from 2.862 million to 1.751 million updates/s
 (38.8%). Degree-four median falls about 2.7%; degree-16 is approximately unchanged.
 This is an explicit compute/memory tradeoff, not a throughput improvement. The

@@ -128,7 +128,7 @@ byte/native budgets and unpublished export are exercised. Valid alternative
 matching images retain their supplied partners rather than recomputing them.
 ASan/UBSan includes checkpoint round trips during 100,000 differential edits,
 2,000 mutated images, and corrupt source export/fail-stop. Independently certified
-million-vertex images are measured in [checkpoint contracts](../checkpoint.md).
+million-vertex images are documented in the [historical checkpoint reports](../../benchmarks/results/checkpoint/README.md); the native Engine codec itself was removed from the product on 2026-10-04.
 
 The 29 focused durable-checkpoint tests cover repeated compaction beyond the table
 cap, exact graph/partner recovery and retained retries, expired IDs, policy

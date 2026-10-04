@@ -13,32 +13,32 @@
 </p>
 
 Start with the [Axiom product site](https://sachncs.github.io/axiom/) for the
-getting-started guide, executable native walkthrough, API reference, and honest
+getting-started guide, Basic/Multilevel walkthrough, API reference, and current
 implementation status. This repository is the source for contributors and
 release engineering.
 
 **Axiom** maintains a deterministic **maximal**, not maximum-cardinality, matching
-under online edge insertions and deletions. It has two distinct paths: a native
-incremental matching engine with a durable SQLite-backed, thread-safe local
-service, and Python research modes based on the Chuzhoy–Khanna–Song paper.
-The production engine does not claim the paper's coloring/hierarchy theorem.
+under online edge insertions and deletions. It offers exactly two matching modes,
+`basic` and `multilevel`, implemented by the paper matcher and integrated with
+SQLite-backed `Durable` state and the thread-safe local `Service`. Compact native
+`Packed` storage remains a graph container only; there is no alternate native
+matching algorithm or compatibility backend.
 
-## Current status — 2026-10-03
+## Current status — 2026-10-04
 
-- **Measured target:** million-vertex, average-degree-4 full-ring churn sustained
+- **Historical measurement (removed native matcher):** million-vertex, average-degree-4 full-ring churn sustained
   10,998 real durable updates/s for 30 minutes, with coherent queries and exact
   recovery. Ten-minute growth/drain and three-minute degree-65,536 hub stages
   also exceeded 10k/s. Combined hub/burst delivered 10,431/s, with explicit
   rejections and twelve scheduled-offer-to-ack tails beyond one second.
   These are declared workload/hardware results, not a
   universal rate or loss-free admission guarantee.
-- **Reliability:** bounded admission/undo/history, FULL-WAL acknowledgments,
-  versioned reads, exact checkpoints/retries, immutable compact backups, and
-  Linux allocation/disk-exhaustion recovery are implemented. 1,155 local tests pass.
-- **Active:** broader repeatability/skew qualification, paper-state snapshot
-  migration, and durable basic/multilevel integration through the production
-  service. Paper modes are not a permanent nondurable endpoint; persistence
-  integration is required but not yet implemented or independently qualified.
+- **Current paper path:** Basic and Multilevel are persisted modes; the durable
+  owner replays operations under the recorded mode. This integration is in
+  implementation/qualification, and former native-matcher performance results
+  do not establish paper-mode scale or reliability.
+- **Active:** broader repeatability/skew qualification, end-to-end durable failure
+  and recovery testing, and release qualification of both modes.
 - **Deferred by user:** deployment quota/monitoring/transport integration,
   tighter latency/background maintenance, hardware power-loss qualification,
   and larger-scale/billion-vertex qualification. No guarantees are inferred from
@@ -51,7 +51,7 @@ See [current status and evidence](docs/status.md), [engineering](docs/engineerin
 
 ## Features
 
-- **Explicit native production path** &mdash; `Engine` provides compact matching and local rollback; `Durable` adds SQLite FULL-WAL authority; thread-safe `Service` adds bounded group admission, coherent queries and maintenance. The standalone engine is in-memory, not durable. See [engine](docs/engine.md), [durability](docs/durable.md), and [service contracts](docs/service.md).
+- **Two paper matching modes** &mdash; `Matcher` supports `basic` and `multilevel`; both can use compact native `Packed` graph storage. `Durable` persists updates and `Service` provides bounded thread-safe admission and queries. There is no separate native matching algorithm. See [modes](docs/modes.md), [storage](docs/storage.md), [durability](docs/durable.md), and [service contracts](docs/service.md).
 - **Two operating modes**
   - `basic` &mdash; the single-level z-subgraph implementation
   - `multilevel` &mdash; the recursive *k*-level z-subgraph implementation
@@ -88,13 +88,13 @@ This pulls in `pytest`, `pytest-cov`, `mypy`, `ruff`, and `hypothesis`.
 ## Runtime model
 
 Axiom's CI supports CPython 3.10–3.13; performance evidence also uses 3.14.
-GIL-enabled CPython and local POSIX ownership/storage are required for the native
-service; free-threaded builds reject. `Service` supports concurrent clients,
-while its mutation worker is the sole owner. `Engine`/`Durable` are owner-bound.
-Research `Matcher` instances are
-stateful and are not thread-safe; protect an instance with an external lock if
-multiple threads can access it. Independent matcher instances may be used
-concurrently.
+`Durable` requires local POSIX ownership/storage. `Service` supports concurrent
+clients while one mutation worker owns the paper matcher and SQLite connection.
+Direct `Matcher` instances are stateful and owner-thread-bound; synchronize
+access externally if multiple threads share one. Independent matcher instances
+may be used concurrently. Performance qualification is currently scoped to
+GIL-enabled CPython; free-threaded Python is not a supported qualification
+target yet.
 
 The live graph and its matching/index state use `O(n + m)` storage in the
 single-level implementation. `multilevel` retains the recursive hierarchy and
@@ -124,19 +124,26 @@ from axiom.service import Service
 with TemporaryDirectory() as directory:
     path = Path(directory) / "graph.db"
     with Service(path, n=128) as graph:
-        outcomes = graph.submit_batch([
-            Request(1, "delete", 0, 1),
-            Request(2, "insert", 0, 4),
-        ]).result(5)
+        outcomes = graph.submit_batch(
+            [
+                Request(1, "delete", 0, 1),
+                Request(2, "insert", 0, 4),
+            ]
+        ).result(5)
         assert all(outcome.changed for outcome in outcomes)
         version, partner = graph.partner(0).result(5)
         assert version == outcomes[-1].version and partner == 4
         assert graph.check().result(5)
     with Service(path) as recovered:
-        assert recovered.submit_batch([
-            Request(1, "delete", 0, 1),
-            Request(2, "insert", 0, 4),
-        ]).result(5) == outcomes
+        assert (
+            recovered.submit_batch(
+                [
+                    Request(1, "delete", 0, 1),
+                    Request(2, "insert", 0, 4),
+                ]
+            ).result(5)
+            == outcomes
+        )
 ```
 
 Coordinate sequence assignment with admission order across clients. Receipt
@@ -148,7 +155,9 @@ component, not an authenticated network daemon.
 
 ### Python API
 
-The following examples use the separate, nondurable paper/research API.
+The following examples use the direct in-memory paper Matcher API. For durable
+operation and concurrent callers, use `Durable` or `Service` with an explicit
+`basic` or `multilevel` mode.
 
 ```python
 from axiom import Matcher
@@ -233,7 +242,7 @@ Each Axiom module owns one clear responsibility:
 |---|---|
 | `axiom.service` | Thread-safe bounded local admission, receipts and single-owner scheduling |
 | `axiom.durable` | SQLite FULL-WAL authority, checkpoints/history/retries and exact recovery |
-| `axiom.engine` / `axiom.native` | Compact native deterministic incremental maximal matching and storage |
+| `axiom.core` / `axiom.storage` | Basic/multilevel paper matching and compact native graph storage (`Packed`) |
 | `axiom.backup` | Private-image compaction and immutable no-overwrite backup publication |
 | `axiom.core` | The `Matcher` orchestrator: graph, matching, z-system, augment, rebuild dispatch |
 | `axiom.graph` | `Adjacency`: the dynamic undirected graph (BST-replacement: hash sets) |

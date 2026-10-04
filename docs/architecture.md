@@ -1,10 +1,11 @@
 # Architecture
 
-This document describes the module boundaries of Axiom and the
-data flow through the paper/research algorithm below. The production path is
-`Service → Durable → native Engine`: bounded single-owner admission, incremental
-repair/certification, SQLite FULL-WAL commit, coherent publication, acknowledgment.
-SQLite is complete durable authority; C++ is compact live compute state.
+This document describes the module boundaries and paper algorithm data flow.
+The product supports exactly two matching modes: `basic` and `multilevel`, with
+`basic` as the default. `Service → Durable → Matcher` owns bounded admission,
+paper-state mutation, SQLite FULL-WAL commit, publication, and acknowledgment.
+`Packed` is an optional compact native graph-storage implementation, not a
+matching algorithm or a third mode.
 See [service](service.md), [durability](durable.md), [current status](status.md)
 and [ADRs](adrs/README.md). Matcher `deepcopy` has been removed; durable paper
 integration and broader adversarial qualification remain active.

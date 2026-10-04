@@ -1,543 +1,142 @@
-"""Offer arrivals from a separate process through bounded local datagrams.
+"""Measure real paper-mode edge updates and verify their durable replay.
 
-This isolates producer GIL scheduling, not a production network protocol.
-Producer-missed, IPC-dropped, server-rejected and acknowledged counts stay distinct.
+This local benchmark reports accepted updates, partner-query latency, and
+recovery cost. It is a repeatable workload, not network or power-loss
+qualification. Use a fresh database for each run.
 """
 
 from __future__ import annotations
 
 import argparse
-import errno
 import json
-import multiprocessing
 import platform
 import resource
-import socket
-import struct
 import sys
-import threading
 import time
-from abc import ABC, abstractmethod
-from collections import deque
-from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from axiom.durable import BusyError, Durable, Request
+from axiom.durable import Durable, Request
 from axiom.service import Service
-from benchmarks.durable import certificate
-from benchmarks.overload import Burst, Schedule
-from benchmarks.service import Histogram, live_digest
-
-_PACKET = struct.Struct("<BQ")
-
-
-@dataclass
-class Traffic(ABC):
-    """Constant-space deterministic real edits and an exact query reference."""
-
-    vertices: int
-
-    def __post_init__(self):
-        """Reject invalid universes before evaluating a trace."""
-        if (
-            type(self.vertices) is not int
-            or not 8 <= self.vertices <= 1000000
-            or self.vertices % 2
-        ):
-            raise ValueError("require bounded even vertices")
-
-    @abstractmethod
-    def edge(self, sequence: int) -> tuple[int, int]:
-        """Choose endpoints deterministically from accepted sequence."""
-        raise NotImplementedError
-
-    def action(self, sequence: int) -> str:
-        """Alternate real deletion/reinsertion of one matched edge."""
-        return "delete" if sequence % 2 else "insert"
-
-    def prepare(self, service: Service) -> int:
-        """Return setup edits excluded from independently offered traffic."""
-        return 0
-
-    def audit(self, store: Durable, sequence: int, width: int) -> str:
-        """Certify the exact accepted prefix independently after recovery."""
-        removed = {self.edge(sequence)} if sequence % 2 else set()
-        return certificate(store, set(), removed, self.vertices, width)
-
-    def partner(self, version: int, vertex: int = 0) -> int | None:
-        """Predict an endpoint's exact committed partner, including genesis."""
-        sequence = version - 1
-        if sequence % 2 and vertex in self.edge(sequence):
-            return None
-        return vertex ^ 1
-
-
-class Hot(Traffic):
-    """Exercise one repeatedly deleted and reinserted matched edge."""
-
-    def edge(self, sequence: int) -> tuple[int, int]:
-        """Use a fixed working set, preserving the previous benchmark trace."""
-        return 0, 1
-
-
-class Sweep(Traffic):
-    """Traverse every matched ring edge before reusing an endpoint pair."""
-
-    def edge(self, sequence: int) -> tuple[int, int]:
-        """Derive endpoints from admission sequence, not dropped offer slots."""
-        vertex = 2 * (((sequence - 1) // 2) % (self.vertices // 2))
-        return vertex, vertex + 1
-
-
-class Pulse(Traffic):
-    """Grow by one disjoint chord per pair, then drain every added chord."""
-
-    def edge(self, sequence: int) -> tuple[int, int]:
-        """Antipodal chords are distinct and absent from every supported ring."""
-        vertex = (sequence - 1) % (self.vertices // 2)
-        return vertex, vertex + self.vertices // 2
-
-    def action(self, sequence: int) -> str:
-        """Insert half a universe of chords, then delete them in the same order."""
-        return (
-            "insert"
-            if (sequence - 1) % self.vertices < self.vertices // 2
-            else "delete"
-        )
-
-    def partner(self, version: int, vertex: int = 0) -> int | None:
-        """All endpoints stay matched; added chords never invalidate matching."""
-        return vertex ^ 1
-
-    def audit(self, store: Durable, sequence: int, width: int) -> str:
-        """Stream the exact active chord interval without a graph-sized set."""
-        phase, half = sequence % self.vertices, self.vertices // 2
-        start, stop = (0, phase) if phase <= half else (phase - half, half)
-        return certificate(
-            store,
-            ((vertex, vertex + half) for vertex in range(start, stop)),
-            set(),
-            self.vertices,
-            width,
-            size=stop - start,
-        )
-
-
-@dataclass
-class Hub(Traffic):
-    """Force indexed hub repair with all permanent neighbors already matched."""
-
-    degree: int
-
-    def __post_init__(self):
-        """Validate setup before opening a database or launching the producer."""
-        super().__post_init__()
-        if type(self.degree) is not int or not 6 <= self.degree <= min(
-            self.vertices - 3, 262144
-        ):
-            raise ValueError("require bounded hub degree")
-
-    def prepare(self, service: Service) -> int:
-        """Add real hub spokes through bounded durable service admission."""
-        chunk = min(256, int(service.metrics()["update_admission_limit"]))
-        count = 0
-        for start in range(3, self.degree - 1, chunk):
-            receipts = [
-                service.submit(Request(count + offset + 1, "insert", 0, vertex))
-                for offset, vertex in enumerate(
-                    range(start, min(start + chunk, self.degree - 1))
-                )
-            ]
-            for offset, receipt in enumerate(receipts):
-                outcome = receipt.result(30)
-                sequence = count + offset + 1
-                if (
-                    not outcome.changed
-                    or outcome.sequence != sequence
-                    or outcome.version != sequence + 1
-                ):
-                    raise RuntimeError("hub setup is not an exact real transition")
-            count += len(receipts)
-        return count
-
-    def edge(self, sequence: int) -> tuple[int, int]:
-        """Remove the matched edge, churn an unmatched chord, then rematch."""
-        return 0, 1 if sequence % 4 in (0, 1) else self.degree - 1
-
-    def partner(self, version: int, vertex: int = 0) -> int | None:
-        """Account for setup sequence and both free endpoints during repair."""
-        sequence = version - 1 - (self.degree - 4)
-        return None if sequence % 4 and vertex in (0, 1) else vertex ^ 1
-
-    def audit(self, store: Durable, sequence: int, width: int) -> str:
-        """Stream permanent spokes and the precise partial-cycle chord."""
-        if width != 2:
-            raise ValueError("hub trace requires degree-four ring")
-        stop = self.degree if sequence % 4 == 2 else self.degree - 1
-        removed = {(0, 1)} if sequence % 4 else set()
-        return certificate(
-            store,
-            ((0, vertex) for vertex in range(3, stop)),
-            removed,
-            self.vertices,
-            width,
-            size=stop - 3,
-        )
-
-
-def _produce(
-    channel, result, started, rate, query_rate, seconds, ipc_batch=1, arrival="steady"
-):
-    """Send without blocking on IPC or update acknowledgment; return fixed counters."""
-    stop = threading.Event()
-    counters = [[0, 0, 0], [0, 0, 0]]
-    failures = []
-
-    def offer(kind, offered_rate):
-        policy = Burst if arrival == "burst" and kind == 0 else Schedule
-        schedule = policy(started, offered_rate, seconds, stop)
-        sent = dropped = 0
-        packet = bytearray()
-
-        def flush():
-            nonlocal sent, dropped
-            count = len(packet) // _PACKET.size
-            try:
-                written = channel.send(packet, socket.MSG_DONTWAIT)
-                if written != len(packet):
-                    raise RuntimeError("partial datagram send")
-            except OSError as error:
-                if error.errno not in (errno.EAGAIN, errno.EWOULDBLOCK, errno.ENOBUFS):
-                    raise
-                dropped += count
-            else:
-                sent += count
-            packet.clear()
-
-        try:
-            for due in schedule:
-                packet.extend(_PACKET.pack(kind, due))
-                if len(packet) == ipc_batch * _PACKET.size:
-                    flush()
-            if packet:
-                flush()
-        except BaseException as error:
-            failures.append(repr(error))
-            stop.set()
-        finally:
-            counters[kind] = [sent, dropped, schedule.missed]
-
-    threads = [
-        threading.Thread(target=offer, args=(0, rate)),
-        threading.Thread(target=offer, args=(1, query_rate)),
-    ]
-    try:
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        result.send(
-            (counters, failures, rss if sys.platform == "darwin" else rss * 1024)
-        )
-        # Keep the datagram endpoint alive until all reported sends are drained.
-        # macOS can reset a receiving socketpair when its peer closes.
-        if not result.poll(30) or result.recv() != "drained":
-            raise RuntimeError("independent offer receiver did not confirm drain")
-    finally:
-        channel.close()
-        result.close()
 
 
 def measure(
     path: Path,
-    vertices: int,
-    rate: int,
-    seconds: int,
+    vertices: int = 10000,
+    updates: int = 1000,
     *,
-    query_rate: int = 1000,
-    queue_capacity: int = 512,
-    ipc_bytes: int = 16384,
-    ipc_batch: int = 1,
-    workload: str = "hot",
-    arrival: str = "steady",
-    width: int = 2,
-    limit: int = 64 << 20,
-    budget: int = 1 << 30,
-    degree: int = 0,
+    mode: str = "basic",
+    batch: int = 32,
 ) -> dict:
-    """Reconcile every external offer, bounded admission, publication and recovery."""
+    """Run alternating real deletes/inserts through Service and audit replay."""
     if (
-        any(
-            type(value) is not int
-            for value in (
-                vertices,
-                rate,
-                seconds,
-                query_rate,
-                queue_capacity,
-                ipc_bytes,
-                ipc_batch,
-                width,
-                limit,
-                budget,
-                degree,
-            )
-        )
-        or not 8 <= vertices <= 1000000
+        type(vertices) is not int
+        or vertices < 8
         or vertices % 2
-        or not 10 <= rate <= 100000
-        or not 1 <= seconds <= 1800
-        or not 10 <= query_rate <= 10000
-        or not 2 <= queue_capacity <= 4096
-        or not 1024 <= ipc_bytes <= 65536
-        or not 1 <= ipc_batch <= 64
-        or width not in (2, 8, 32)
-        or width >= vertices // 2
-        or not 1 << 20 <= limit <= 1 << 30
-        or not 1 << 20 <= budget <= 1 << 40
+        or type(updates) is not int
+        or not 1 <= updates <= 1_000_000
+        or type(batch) is not int
+        or not 1 <= batch <= 256
+        or mode not in ("basic", "multilevel")
     ):
-        raise ValueError("invalid bounded independent-load envelope")
-    choices = {"hot": Hot, "sweep": Sweep, "pulse": Pulse, "hub": Hub}
-    if not isinstance(workload, str) or workload not in choices:
-        raise ValueError("require hot, sweep, pulse or hub workload")
-    if arrival not in ("steady", "burst"):
-        raise ValueError("require steady or burst arrival")
-    if (workload == "hub" and width != 2) or (workload != "hub" and degree != 0):
-        raise ValueError("hub degree requires hub workload and degree-four ring")
-    traffic = (
-        Hub(vertices, degree) if workload == "hub" else choices[workload](vertices)
-    )
+        raise ValueError("invalid paper-mode load envelope")
     if path.exists():
         raise ValueError("benchmark requires a fresh database")
-    context = multiprocessing.get_context("spawn")
-    receive, send = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
-    receive.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, ipc_bytes)
-    send.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, ipc_bytes)
-    send_bytes = send.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
-    receive.settimeout(0.01)
-    report, writer = context.Pipe(duplex=True)
-    service = None
-    process = None
-    pending = deque()
-    ack, offered_ack, queries = Histogram(), Histogram(), Histogram()
-    received = [0, 0]
-    accepted = busy = query_busy = query_count = peak_pending = 0
-    previous = 1
+    latencies: list[int] = []
+    query_latencies: list[int] = []
+    service = Service(path, n=vertices, mode=mode, max_batch=batch)
+    started = time.perf_counter_ns()
     try:
-        service = Service(
-            path,
-            n=vertices,
-            width=width,
-            budget=budget,
-            max_snapshot_bytes=limit,
-            max_database_bytes=limit,
-            queue_capacity=queue_capacity,
-        )
-        tick = time.perf_counter_ns()
-        bootstrap = traffic.prepare(service)
-        setup = (time.perf_counter_ns() - tick) / 10**9
-        previous = bootstrap + 1
-        # Spawn/import startup is excluded but measured arrival timestamps are
-        # never reset to reception. The producer may still miss late startup slots.
-        started = time.perf_counter_ns() + 1_000_000_000
-        process = context.Process(
-            target=_produce,
-            args=(send, writer, started, rate, query_rate, seconds, ipc_batch, arrival),
-        )
-        process.start()
-        send.close()
-        writer.close()
-        deadline = started + (seconds + 30) * 1_000_000_000
-        final = None
-
-        def finish(item):
-            sequence, receipt, due = item
-            outcome = receipt.result(30)
-            if (
-                outcome.sequence != sequence
-                or not outcome.changed
-                or outcome.version != sequence + 1
+        completed = 0
+        while completed < updates:
+            count = min(batch, updates - completed)
+            requests, admitted = [], []
+            for offset in range(count):
+                sequence = completed + offset + 1
+                action, edge = (
+                    ("delete", (0, 1)),
+                    ("insert", (0, 3)),
+                    ("delete", (0, 3)),
+                    ("insert", (0, 1)),
+                )[(sequence - 1) % 4]
+                requests.append(Request(sequence, action, *edge))
+                admitted.append(time.perf_counter_ns())
+            outcomes = service.submit_batch(requests).result(60)
+            acknowledged = time.perf_counter_ns()
+            if any(
+                not result.changed or result.version != result.sequence + 1
+                for result in outcomes
             ):
-                raise RuntimeError("expected a real durable edge change")
-            now = time.perf_counter_ns()
-            timing = receipt.timing()
-            if timing is None:
-                raise RuntimeError("completed receipt lacks timing")
-            ack.record(now - timing.admitted_ns)
-            offered_ack.record(now - due)
-
-        while True:
-            while pending and pending[0][1].done():
-                finish(pending.popleft())
-            if final is None and report.poll():
-                final = report.recv()
-            if final is not None and sum(received) == sum(c[0] for c in final[0]):
-                break
-            if time.perf_counter_ns() > deadline:
-                raise TimeoutError("independent producer/IPC drain exceeded deadline")
-            if final is None and not process.is_alive() and not report.poll():
-                raise RuntimeError("independent producer exited without counters")
-            try:
-                data = receive.recv(_PACKET.size * ipc_batch + 1)
-            except TimeoutError:
-                continue
-            if not data or len(data) % _PACKET.size:
-                raise RuntimeError("invalid independent offer packet")
-            for kind, due in _PACKET.iter_unpack(data):
-                if kind not in (0, 1) or not started <= due < started + seconds * 10**9:
-                    raise RuntimeError("invalid independent offer timestamp/kind")
-                received[kind] += 1
-                if kind == 1:
-                    vertex = traffic.edge(2 * received[kind] - 1)[0]
-                    try:
-                        version, partner = service.partner(vertex).result(0)
-                    except BusyError:
-                        query_busy += 1
-                        continue
-                    if version < previous or partner != traffic.partner(
-                        version, vertex
-                    ):
-                        raise RuntimeError(
-                            "query disagrees with exact committed prefix"
-                        )
-                    previous = version
-                    query_count += 1
-                    queries.record(time.perf_counter_ns() - due)
-                else:
-                    request = Request(
-                        bootstrap + accepted + 1,
-                        traffic.action(accepted + 1),
-                        *traffic.edge(accepted + 1),
-                    )
-                    try:
-                        receipt = service.submit(request)
-                    except BusyError:
-                        busy += 1
-                    else:
-                        accepted += 1
-                        pending.append((bootstrap + accepted, receipt, due))
-                        peak_pending = max(peak_pending, len(pending))
-                        if len(pending) > queue_capacity + 256:
-                            raise RuntimeError("client receipt envelope exceeded")
-        counters, failures, producer_rss = final
-        report.send("drained")
-        if failures:
-            raise RuntimeError(f"independent producer failed: {failures}")
-        process.join(5)
-        if process.is_alive() or process.exitcode != 0:
-            raise RuntimeError("independent producer did not finish cleanly")
-        before_drain = ack.count
-        for item in pending:
-            finish(item)
-        elapsed = (time.perf_counter_ns() - started) / 10**9
-        status, metrics = service.status().result(10), service.metrics()
-        if (
-            sum(counters[0]) != rate * seconds
-            or sum(counters[1]) != query_rate * seconds
-            or received != [c[0] for c in counters]
-            or accepted + busy != received[0]
-            or query_count + query_busy != received[1]
-            or ack.count != accepted
-            or status["sequence"] != bootstrap + accepted
-            or metrics["outstanding"]
-        ):
-            raise RuntimeError("external offer/admission/completion counts disagree")
-        expected = live_digest(service, vertices, status)
-        buffers = {
-            "requested_bytes": ipc_bytes,
-            "receive_bytes": receive.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF),
-            "send_bytes": send_bytes,
-        }
+                raise RuntimeError("workload did not produce real committed edits")
+            latencies.extend(acknowledged - item for item in admitted)
+            completed += count
+            query_started = time.perf_counter_ns()
+            version, partner = service.partner(0).result(30)
+            query_latencies.append(time.perf_counter_ns() - query_started)
+            if version != completed + 1:
+                raise RuntimeError("partner query disagrees with acknowledged prefix")
+            last_partner = partner
+        status = service.status().result(30)
+        if status["sequence"] != updates or status["mode"] != mode:
+            raise RuntimeError("service status disagrees with completed workload")
     finally:
-        receive.close()
-        send.close()
-        report.close()
-        writer.close()
-        if process is not None and process.pid is not None:
-            if process.is_alive():
-                process.terminate()
-            process.join(5)
-            if process.is_alive():
-                process.kill()
-                process.join(5)
-        if service is not None:
-            service.close(30)
-    with Durable(
-        path, budget=budget, max_snapshot_bytes=limit, max_database_bytes=limit
-    ) as recovered:
-        if traffic.audit(recovered, accepted, width) != expected:
-            raise RuntimeError("independent-load exact recovery failed")
+        service.close(60)
+    elapsed = time.perf_counter_ns() - started
+    recovery_started = time.perf_counter_ns()
+    with Durable(path, mode=mode) as recovered:
+        recovery_ns = time.perf_counter_ns() - recovery_started
+        if not recovered.check() or recovered.status()["sequence"] != updates:
+            raise RuntimeError("paper-mode replay recovery failed audit")
+        if recovered.partner(0) != (updates + 1, last_partner):
+            raise RuntimeError("recovered matching differs from committed state")
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
-        "scope": "separate-process paced arrivals over bounded local datagrams; NOT production network/power-cut qualification",
+        "scope": "local Service workload and Durable replay; not network or power-loss qualification",
         "python": platform.python_version(),
         "platform": platform.platform(),
+        "mode": mode,
         "vertices": vertices,
-        "workload": workload,
-        "hub_initial_degree": degree,
-        "bootstrap_real_updates": bootstrap,
-        "bootstrap_seconds": setup,
-        "arrival": arrival,
-        "active_update_rate": rate * (4 if arrival == "burst" else 1),
-        "width": width,
-        "limits": {"native": budget, "snapshot": limit, "database": limit},
-        "rate": rate,
-        "query_rate": query_rate,
-        "seconds": seconds,
-        "ipc_buffers": buffers,
-        "ipc_batch": ipc_batch,
-        "planned_updates": rate * seconds,
-        "producer_missed_updates": counters[0][2],
-        "ipc_dropped_updates": counters[0][1],
-        "busy_updates": busy,
-        "real_acknowledged_updates": accepted,
-        "acknowledged_before_drain": before_drain,
-        "offering_and_drain_seconds": elapsed,
-        "real_acknowledged_updates_per_second": accepted / elapsed,
-        "planned_queries": query_rate * seconds,
-        "producer_missed_queries": counters[1][2],
-        "ipc_dropped_queries": counters[1][1],
-        "busy_queries": query_busy,
-        "partner_queries": query_count,
-        "peak_client_receipts": peak_pending,
-        "service_metrics": metrics,
+        "updates": updates,
+        "batch": batch,
+        "elapsed_seconds": elapsed / 1e9,
+        "acknowledged_updates_per_second": updates / (elapsed / 1e9),
+        "ack_latency_ns": {
+            "p50": sorted(latencies)[len(latencies) // 2],
+            "max": max(latencies),
+        },
+        "partner_query_latency_ns": {
+            "p50": sorted(query_latencies)[len(query_latencies) // 2],
+            "max": max(query_latencies),
+        },
+        "recovery_seconds": recovery_ns / 1e9,
+        "recovery_audit_passed": True,
         "final_status": status,
-        "acknowledged_latency": ack.summary(),
-        "offered_to_acknowledged_latency": offered_ack.summary(),
-        "offered_query_latency": queries.summary(),
-        "matching_digest": expected,
-        "independent_exact_audit_and_recovery_passed": True,
-        "owner_process_peak_rss_bytes": rss if sys.platform == "darwin" else rss * 1024,
-        "producer_process_peak_rss_bytes": producer_rss,
+        "process_peak_rss_bytes": rss if sys.platform == "darwin" else rss * 1024,
     }
 
 
-def main():
-    """Run bounded independent arrivals and print all loss classes."""
+def main() -> None:
+    """Print one bounded paper-mode workload report."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, required=True)
-    parser.add_argument("--vertices", type=int, default=32000)
-    parser.add_argument("--rate", type=int, default=10000)
-    parser.add_argument("--seconds", type=int, default=10)
-    parser.add_argument("--query-rate", type=int, default=1000)
-    parser.add_argument("--queue-capacity", type=int, default=512)
-    parser.add_argument("--ipc-bytes", type=int, default=16384)
-    parser.add_argument("--ipc-batch", type=int, default=1)
-    parser.add_argument(
-        "--workload", choices=("hot", "sweep", "pulse", "hub"), default="hot"
-    )
-    parser.add_argument("--degree", type=int, default=0)
-    parser.add_argument("--arrival", choices=("steady", "burst"), default="steady")
-    parser.add_argument("--width", type=int, choices=(2, 8, 32), default=2)
-    parser.add_argument("--limit", type=int, default=64 << 20)
-    parser.add_argument("--budget", type=int, default=1 << 30)
+    parser.add_argument("--vertices", type=int, default=10000)
+    parser.add_argument("--updates", type=int, default=1000)
+    parser.add_argument("--batch", type=int, default=32)
+    parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
     args = parser.parse_args()
-    options = vars(args)
-    options["path"] = options.pop("database")
-    print(json.dumps(measure(**options), indent=2))
+    print(
+        json.dumps(
+            measure(
+                args.database,
+                args.vertices,
+                args.updates,
+                mode=args.mode,
+                batch=args.batch,
+            ),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

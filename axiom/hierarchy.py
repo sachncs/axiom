@@ -154,6 +154,7 @@ class Hierarchy:
         *,
         excluded_edges: set[Edge] | None = None,
         changed_edge: Edge | None = None,
+        journaled: bool = False,
     ) -> None:
         r"""Synchronize the phase graph and its adjacency indexes.
 
@@ -168,8 +169,16 @@ class Hierarchy:
                 "cannot synchronize a hierarchy with a graph of a different size"
             )
         excluded = excluded_edges or set()
-        for label, edges in (("excluded_edges", excluded),):
-            for edge in edges:
+        # Full synchronization accepts arbitrary caller-provided exclusions, so
+        # validate their complete shape before constructing a replacement. The
+        # incremental changed-edge path is fed the matcher's journal-maintained
+        # E_I set; validating every unrelated entry here would turn each local
+        # update into O(|E_I|). That set is audited at rebuild/full-sync
+        # boundaries, while the current edge and its effect are certified below.
+        if type(journaled) is not bool:
+            raise TypeError("journaled must be a boolean")
+        if changed_edge is None or not journaled:
+            for edge in excluded:
                 if (
                     not isinstance(edge, tuple)
                     or len(edge) != 2
@@ -180,7 +189,8 @@ class Hierarchy:
                     or not 0 <= edge[0] < edge[1] < graph.n
                 ):
                     raise ValueError(
-                        f"{label} must contain canonical edges in [0, n): {edge!r}"
+                        "excluded_edges must contain canonical edges in [0, n): "
+                        f"{edge!r}"
                     )
         if changed_edge is not None:
             left, right = changed_edge

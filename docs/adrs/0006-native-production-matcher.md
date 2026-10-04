@@ -54,7 +54,7 @@ failure, and eventual matching consistency are not part of this decision.
 
 ## Evidence
 
-`axiom.engine.Engine` now implements compact partners, shared graph/partner budget,
+At the time of this record, `axiom.engine.Engine` implemented compact partners, shared graph/partner budget,
 joint journals, immediate certificates, independent full audits, private batch
 visibility, and bounded/versioned pages. Reference tests exercise deterministic
 decisions, proper maximality, budget rejection, and exact batch rollback.
@@ -63,7 +63,9 @@ A 100,000-edit differential C++ run passed ASan/UBSan.
 Three short million-vertex average-degree-4 runs with real churn and matching
 queries produced approximately 686k–720k in-memory updates/s. Exact public-query
 graph/matching audits passed. This is compute headroom, **not** durable 10k/s
-qualification. See [contracts/results](../engine.md). The separate bounded
+qualification. The implementation was removed on 2026-10-04; preserved raw reports
+are indexed in [historical Engine results](../../benchmarks/results/engine/README.md).
+The separate bounded
 [durable layer](../durable.md) adds FULL-WAL commit/replay and retry outcomes;
 opt-in native checkpoint/retirement and bounded local aggregation (ADR 0011) are
 now implemented. Maintenance/soak and full-service qualification remain pending.

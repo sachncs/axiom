@@ -37,7 +37,7 @@ with TemporaryDirectory() as directory:
                 )
         assert recovered.check().result(5)`;
 ---
-<DocLayout title="A real update, end to end" eyebrow="Reproducible walkthrough" description="Execute the native service, acknowledge a real deletion and insertion, query committed versions, and reopen the durable store." next={{label:"Production contracts", href:"/production/"}}>
+<DocLayout title="A real update, end to end" eyebrow="Reproducible walkthrough" description="Run the durable local Service, acknowledge a real deletion and insertion, query committed versions, and reopen the store." next={{label:"Production contracts", href:"/production/"}}>
   <p>No browser simulation. This trace is produced by the installed Python package and verified by the site’s example checks. The graph is an eight-vertex degree-four ring; it is not a throughput benchmark.</p>
   <div class="trace"><Replay /></div>
   <h2>Run the same path</h2>

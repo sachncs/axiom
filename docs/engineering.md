@@ -1,51 +1,57 @@
 # Scalability and reliability: engineering assessment
 
-This is a measured improvement plan with an initial native-storage implementation,
-not a claim that the full scalability or durability roadmap has been delivered.
-Production matching semantics remain unchanged. `Matcher` now defaults to bounded
-native `Packed` graph storage; the Python `Adjacency` reference remains explicitly
-available to callers. The separately durable native matching service remains a
-different algorithm and is not substituted for paper modes.
+This document retains the project's engineering history and qualification
+evidence. **Current product boundary (2026-10-04): only paper-derived `basic` and
+`multilevel` matching are supported; `basic` is the default. The former native
+matching Engine has been removed.** `Packed` remains compact graph storage only.
+Historical native-engine results in this document are not evidence for either
+current matching mode.
 
-The accepted production target is now **10,000 real edge updates/s at 1,000,000
+The accepted performance target is **10,000 real edge updates/s at 1,000,000
 vertices and average degree 4**, including durable acknowledgments and coherent
-matching queries. The user approved a separate native incremental maximal-matching
-production backend; the paper/coloring/hierarchy engine remains available and is
-not silently replaced. The rate is demonstrated in scoped stages; **full production
-qualification is not complete**. See the explicit rationale,
-contracts, alternatives, and implementation status in [architecture decision
+matching queries. Earlier native-engine rates were measured on a different
+algorithm and do not qualify Basic or Multilevel. The paper-backed durable path
+requires its own repeatable qualification. See the rationale, contracts,
+alternatives, and current implementation status in [architecture decision
 records](adrs/README.md).
 
 ## Current roadmap status
 
-Scope update 2026-10-03: basic/multilevel must also be integrated into the durable
-production service, not left as a permanent nondurable research-only path. This
-is required implementation work, coupled to the paper journal migration. Preserve
-explicit algorithm identity and qualify each mode independently; the native
-10k measurements cannot be advertised as paper-engine performance. See
-[ADR 0023](adrs/0023-durable-paper-integration.md).
+Current implementation (2026-10-04): **Basic and Multilevel are the only
+supported matching modes; Basic is the default.** Both are available through
+SQLite-backed `Durable` and the thread-safe local `Service`, including atomic
+batch updates and bounded version-coherent read snapshots. The native matcher,
+native checkpoint path, and compatibility reader have been removed. `Packed`
+is graph storage, not a matcher. See [ADR
+0023](adrs/0023-durable-paper-integration.md) and the complete
+[product roadmap](product-roadmap.md).
 
-Scope update 2026-10-04: the user supplied a new active **17-point product
-objective**, covering paper-engine hardening, durable paper modes, broad
-qualification, deployment, and the external-ID/service API. This supersedes the
-narrower 2026-10-02 scope statement below; see the requirement-by-requirement
-[product roadmap](product-roadmap.md). The explicit hardware power-loss
-qualification deferral remains in force. Neither historical measurements nor
-native-mode evidence confer qualification on paper modes.
+**Active engineering:** remove remaining state-sized paper-engine allocations
+and global work; qualify Basic and Multilevel independently for repeatability,
+skew, adversarial updates, sustained performance, recovery cost, and service
+resource limits. Durable recovery currently replays operation history; there
+is no paper-state decoder/checkpoint. **Deferred:** physical hardware power-loss
+qualification is deferred for this version. Arbitrary external IDs, dynamic
+vertices, network transport, and billion-vertex support are not implemented or
+claimed.
 
-Historical measurements below retain their original scope; they are not claims
-that later-delivered production components are absent.
+Historical native-engine rates and deployment measurements preserved below are
+provenance only, not qualification of current paper modes. Any older statement
+in this engineering archive that native matching/checkpoints are implemented,
+that paper modes are nondurable, or that their durable integration remains open
+describes a superseded state. The authoritative current status is the summary
+above and the product roadmap.
 
 | Workstream | Delivered | Remaining evidence or engineering |
 | --- | --- | --- |
 | Compact storage and local transactions | 24-byte derived-occupancy blocks, sparse committed-partner journal index, bounded undo and local certificates | Wider degree/churn performance repeats and deployment sizing |
-| Durable authority and recovery | SQLite FULL-WAL, exact images, bounded history/retries, fail-stop recovery | Deployment recovery objectives; hardware power-loss deferred by user for this version |
-| Concurrent clients and overload | Single-owner Service, locked admission/publication, bounded receipts, read reservation | Production transport/retry integration if required; broader sustained burst/skew qualification |
-| Million-vertex 10k durable updates/s | Independent 30-minute hot/full-ring soaks at 10.97k/11.00k/s with queries and exact recovery | Broader degree/growth/skew/burst runs and repeatability; all misses/drops/rejections remain explicit |
-| Resource failure and backups | Installed Linux growth/drain, allocation/disk exhaustion and compact backup/source recovery passed | Aggregate deployment memory/page-cache and filesystem quota setup; operational alerting |
-| Latency | Current measured latency accepted for this version | Tighter SLA and background maintenance deferred by user |
-| Paper engine | Coloring/fan rollback regressions, sparse coloring incidence rows, compact `Packed` color-group projection snapshots, exact root/cell journals, failure-atomic fan relabel/update, path-local alternating flips, endpoint-local aggregate rollback, bounded Vizing/fan color transactions, local hierarchy refinement scans, indexed fan ownership checks, local Color-Small repair, and local Pruning.reduce certificates | Broader repeatability/adversarial/resource qualification, global repairs outside scoped paths, snapshot migration, and durable service integration remain open |
-| Paper undo migration | Matcher recursive `deepcopy` removed; accounting, views, classes, sparse System/H/color caches, compact dense A/B/U and hierarchy partitions/counters, shared derived roots, streamed hierarchy projections, child parent-graph reuse with missing-edge fallback, read-only update-set sharing, local refinement witnesses, streamed phase synchronization, graph-backed matching cuts, local P2 certificates, bounded Vizing collision rollback, bounded PruneVFans rollback, and Pruning.construct parent journal | Sparse A/B remain Python sets; opaque custom graphs retain materializing fallbacks; each child refinement still detaches a System; parent-boundary rebases, multi-source A/N/R construction, other fan/pruning snapshots, some admission/certificate work and phase-boundary audits remain state-sized; durable paper integration remains active |
+| Durable authority and recovery | SQLite FULL-WAL operation history, bounded admission/retries, and fail-stop recovery for both paper modes | Replay-at-scale/recovery objectives and deployment qualification; hardware power-loss is deferred |
+| Concurrent clients and overload | Single-owner paper-backed Service, locked admission/publication, bounded receipts, and coherent reads | Broader sustained burst/skew/resource qualification and transport integration if required |
+| Million-vertex 10k durable updates/s | **Not qualified for Basic or Multilevel.** Preserved 10.97k/11.00k/s hot/full-ring figures are historical native-matcher results only. | Repeatable million-vertex paper-mode tests with durable acknowledgments, coherent queries, exact recovery, and full resource accounting |
+| Resource failure and backups | Historical native-path Linux growth/drain, exhaustion, and backup evidence is preserved; it does not qualify paper-backed Service | Repeat on Basic and Multilevel; characterize aggregate process/page-cache use, filesystem quotas, and operational alerting |
+| Latency | Existing latency acceptance is a version-level product decision, not paper-mode performance qualification | Measure repeatable paper-mode update/query tails; tighter SLA and background maintenance are deferred by user |
+| Paper engine | Focused coloring/fan rollback, sparse coloring incidence, bounded journals, and local refinement/pruning optimizations have regression coverage | Broad repeatability/adversarial/resource qualification and remaining global repairs/snapshots are open; durable integration is implemented, not a remaining gate |
+| Paper undo migration | Matcher recursive `deepcopy` removed; local journals and sparse/indexed paths cover multiple graph, coloring, fan, and hierarchy mutations | Sparse A/B remain Python sets; opaque custom graphs retain materializing fallbacks; child refinement, parent-boundary rebases, multi-source A/N/R construction, other fan/pruning snapshots, some admission/certificate work and phase-boundary audits remain state-sized |
 | Billion vertices | Storage arithmetic and architectural constraints documented | 10m/100m/1b qualification and any cross-partition algorithm; no support claim |
 
 Hierarchy refinement's `ProcProcess` witness lookup no longer scans every
@@ -445,10 +451,11 @@ Generated tests run complete Lambda/L cache equality checks after each update.
 On the same 8,192-vertex trace, rate improved from 436.54 to 610.30 updates/s
 (1.40×), with matching certificate and repair counters unchanged; the
 512-vertex profile fell from 0.1035 to 0.0733 seconds (29.2%). Sampled memory
-stayed level. This remains a
-bounded nondurable diagnostic. The new profile's leading cost is now deletion
-cleanup's scan of the matching plus graph lookups; durable paper integration
-and state-sized snapshot/admission work remain open. See [ADR 0048](adrs/0048-incremental-system-row-validation.md)
+stayed level. This remains a bounded in-memory component diagnostic, not an
+end-to-end durable throughput result. The new profile's leading cost is deletion
+cleanup's scan of the matching plus graph lookups; durable integration is
+implemented, while paper-mode qualification and state-sized snapshot/admission
+work remain open. See [ADR 0048](adrs/0048-incremental-system-row-validation.md)
 and its [raw record](../benchmarks/results/paper/system-certificates.json).
 
 Deletion no longer performs that global scan. Under the Matcher ownership rule,
@@ -571,30 +578,33 @@ records evidence, class responsibilities and public single-word naming conventio
 for new work. This is not a production RSS/page-cache quota, throughput test or
 hardware power-loss validation; those deployment/release gates remain separate.
 
-The explicit native production core `axiom.engine.Engine` now implements compact
-partner state and certified deterministic local matching repair without global
-snapshots. Three short million-vertex average-degree-4 churn runs with partner
-queries measured approximately 686k–720k in-memory real updates/s, with exact
-independent graph/proper-maximal matching audits and about 134.5–134.6 MB peak RSS.
-These runs have **no durable acknowledgments** and do not qualify sustained
-maintenance/recovery/service behavior. See [native core contracts/results](engine.md).
+### Historical result: removed native matcher
 
-The separate `axiom.durable.Durable` layer now publishes only after SQLite FULL-WAL
-commit, preserves original retry outcomes, verifies bounded deterministic replay,
-and fails closed on persistence/publication uncertainty. Three short million-vertex
-runs with committed matching queries and SQLite WAL checkpoints measured
+The former `axiom.engine.Engine` implemented compact partner state and
+deterministic local matching repair. Three short million-vertex average-degree-4
+churn runs measured approximately 686k–720k in-memory updates/s with exact
+independent audits and about 134.5–134.6 MB peak RSS. This implementation and its
+standalone documentation have been removed. These artifacts are retained as
+historical provenance only: they have no durable acknowledgments and do not
+qualify the current Basic or Multilevel methods.
+
+The former native-backed `axiom.durable.Durable` implementation published only
+after SQLite FULL-WAL commit and verified deterministic replay. Three short
+million-vertex runs with committed matching queries and SQLite WAL checkpoints measured
 approximately 30.4k–30.9k real acknowledged changes/s, with independent exact
 audits/recovery, acknowledgment p99 14.4–15.5 ms, and 132.7–133.1 MB peak RSS.
 This uses 256-operation groups and only 1.29–1.32-second traces. Native graph
 checkpoint/concurrent performance, full resource admission, broad/skewed workloads,
-limits and sustained/soak qualification remain open; this is **not** goal completion.
+limits and sustained/soak qualification remained open. This is historical native
+path evidence, not qualification of the current paper-backed Durable implementation.
 See [durable contracts/results](durable.md) and [ADR 0009](adrs/0009-sqlite-wal-durable-owner.md).
 
 Exact native checkpoint encoding/restoration is implemented separately. A
 million-vertex image is 24,000,040 bytes; reusable row-audit scratch reduced
 encoding from 163 ms to 20–21 ms and restore from 177 ms to about 28 ms on the
 declared development machine, with identical image/matching hashes and independent
-audits. [Checkpoint contracts/results](checkpoint.md) describe the limits.
+audits. The codec was removed with the native matcher; see the
+[historical checkpoint reports](../benchmarks/results/checkpoint/README.md).
 Opt-in durable v2 now atomically publishes exact images and retires history while
 retaining a declared retry window; expired IDs explicitly reject. Crash, corruption
 and disk-full tests exercise old/new generation recovery. Legacy v1 keeps its
@@ -744,16 +754,18 @@ every final neighbor row against the original ring:
 - Process peak RSS, including Python, trace samples, and audit: 83.4–83.8 MB.
 - Whole timed-trace rate: 3.31–3.56 million real storage edits/s.
 
-These short, cache-friendly, fixed-degree traces are **not matcher throughput,
-durable acknowledged throughput, long-running churn, or a billion-scale result**.
+These short, cache-friendly, fixed-degree traces are **historical storage-only
+measurements**, not matcher throughput, durable acknowledged throughput,
+long-running churn, or a billion-scale result.
 The native byte budget excludes Python objects, allocator overhead, audit scratch,
 and other containers. Each derived graph currently has its own budget, not a shared
 service-level quota. The paper `Matcher` update path no longer uses recursive
 `deepcopy`, but remaining paper operations still materialize graph-sized scopes,
 indexes, or snapshots and some hierarchy checks/rebuilds perform global work.
-Native production journals/certificates, FULL-WAL recovery and local bounded
-admission are delivered; paper-state migration and full-service qualification
-remain open.
+The storage/journal figures and native matching/service results elsewhere in
+this archive describe the removed native matcher. Current paper-backed
+`Durable`/`Service` integration is implemented; paper-mode performance and
+deployment qualification remain open.
 
 See [native storage contracts and reproduction](storage.md) and the raw
 [seed 599](../benchmarks/results/storage/million-599.json),
@@ -817,11 +829,13 @@ count alone is insufficient: average degree 64 means 32,000,000 edges, and a
 complete million-vertex graph would have roughly 500 billion edges. The service
 needs an explicit edge-count and degree/workload envelope.
 
-**Can we reliably maintain it?** Million-vertex native Service stages now have
-durable acknowledgments, coherent queries, exact recovery, and actual Linux
-resource-exhaustion evidence, as described above. Complete deployment qualification
-remains open. The retained Python paper full-state snapshot/scan path is not the
-production scaling solution, and exception rollback alone is not durability.
+**Can we reliably maintain it?** Million-vertex native Service measurements
+below are historical evidence for a removed matcher and do not establish the
+current paper modes' envelope. Basic and Multilevel have durable acknowledgments,
+coherent queries, and deterministic recovery by operation replay, but their
+million-vertex performance, recovery-at-scale, and deployment limits are not
+qualified. Remaining state-sized work and exception rollback alone do not
+establish production scalability or durability.
 Do not extrapolate either small-graph rates or short stages into an unconditional
 million-vertex throughput/reliability promise.
 
@@ -832,11 +846,12 @@ accounted and persisted external-ID mapping if needed. The existing API has a
 fixed vertex universe; its insertion/deletion methods mutate **edges**, not the
 vertex universe. A vertex-lifecycle API would need its own invariants.
 
-Introduce a native compact storage/algorithm backend, keeping Python as the
-control, reference, testing, and experiment layer. Port or optimize the measured
-hot paths only with differential tests against the reference engine. A native
-adjacency container alone does not eliminate Python snapshots or full hierarchy
-scans; storage, transactional mutation, and validation must be designed together.
+Keep `basic` and `multilevel` as the only matching algorithms. Continue using
+`Packed` only for compact graph storage; do not add a separate native matching
+backend. Optimize paper-mode hot paths only with differential tests and exact
+rollback coverage. Compact adjacency alone does not eliminate Python snapshots
+or full hierarchy scans; storage, transactional mutation, and validation must
+be designed together.
 
 For scale intuition, a static CSR backbone with 64-bit offsets and 32-bit
 neighbors has these raw array sizes:
@@ -1004,9 +1019,9 @@ view. The latter may be easier to scale but is a **different API contract**, not
 a silent optimization of the present engine. Neither design has been built or
 qualified by this benchmark.
 
-Production transaction journaling, incremental certificates and the native backend
-are delivered. The next scale work is staged qualification; the paper engine
-retains separate snapshot/hierarchy optimization work. Measurements do not demonstrate that the current
+Production transaction journaling and incremental certificates are implemented
+for the paper-backed service. The next scale work is staged qualification and
+remaining snapshot/hierarchy optimization. Measurements do not demonstrate that the current
 algorithm, implementation, or proposed architecture will meet a billion-vertex
 service's compute, memory, or reliability requirements.
 
@@ -1052,7 +1067,7 @@ repeated baseline/candidate runs; widen the experiment if observed variation is
 near the gate. Do not accept gains obtained by dropping validation or sampling
 different traces.
 
-### 2. Matcher recursive-copy removal: delivered; paper integration remains
+### 2. Matcher recursive-copy removal: delivered; durable integration implemented
 
 `Matcher.__atomic_update` now records shallow attribute roots and delegates
 in-place edits to bounded owner journals for graph storage, views, classes,
@@ -1063,12 +1078,12 @@ rollback. This avoids recursively traversing and allocating the full object
 graph; it is not a claim of constant-time transaction admission, since some
 certificates and System admission passes remain state-sized.
 
-Remaining engineering: audit every paper mutation site; route fan, chain-flip,
-coloring, and phase transitions through the same enclosing transaction; add
-adversarial negative/boundary coverage for each owner; measure transient journal
-memory and latency; and integrate explicitly selected basic/multilevel modes into
-durable service/recovery. Keep graph identity and exact failure rollback. A rollback
-failure remains fail-stop, never a silent success.
+Remaining engineering: continue auditing paper mutation sites; add adversarial
+negative/boundary coverage for each owner; measure transient journal memory and
+latency; and remove or bound the remaining state-sized admission, certificate,
+snapshot, and hierarchy work. Both supported modes are already integrated into
+durable service/recovery. Keep graph identity and exact failure rollback; a
+rollback failure remains fail-stop, never a silent success.
 
 ### 3. Make invariant maintenance incremental, not optional
 

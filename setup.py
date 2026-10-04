@@ -1,4 +1,4 @@
-"""Build the compact native graph storage alongside the Python reference engine."""
+"""Build compact native graph storage for the paper matching modes."""
 
 import sys
 
@@ -10,15 +10,6 @@ setup(
             "axiom.storage",
             ["native/storage.cpp"],
             depends=["native/store.hpp"],
-            language="c++",
-            extra_compile_args=["/std:c++17"]
-            if sys.platform == "win32"
-            else ["-std=c++17", "-g0"],
-        ),
-        Extension(
-            "axiom.engine",
-            ["native/engine.cpp"],
-            depends=["native/engine.hpp", "native/store.hpp", "native/free_index.hpp"],
             language="c++",
             extra_compile_args=["/std:c++17"]
             if sys.platform == "win32"

@@ -1,5 +1,9 @@
 # Paced offered-load and saturation stage
 
+> Historical native-matcher results: the matching Engine used for these reports
+> was removed from the product on 2026-10-04. Raw data is retained for provenance
+> only and does not qualify current Basic or Multilevel matching.
+
 Benchmark source `a3eef31`, native `b8c36e7`, service `c5dd095`, installed wheel
 SHA-256 `1d6085644c20cd36b1eddb1fea1583276aa2e1309b853b4f9f7cf7869b8b47a1`.
 Apple M3 Pro / 18 GiB / internal SSD/APFS, macOS 26.7.1, CPython 3.14.7,

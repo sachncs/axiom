@@ -43,7 +43,7 @@ class Witness:
                 "H",
                 "H_reverse",
                 "H_tilde",
-                "H_tilde_outgoing",
+                "Htildeoutgoing",
                 "H_tilde_reverse",
                 "S_hat",
                 "accountant",

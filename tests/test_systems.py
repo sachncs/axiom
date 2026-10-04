@@ -236,6 +236,43 @@ def test_row_capacity_rejects_before_edit_and_restores_graph_on_retry():
     assert Witness().capture(matcher) == before
 
 
+def test_skewed_cache_row_capacity_failure_restores_aliases_and_allows_retry():
+    matcher = Matcher(40)
+    system = matcher.system
+    container = system.lambda_lists
+    container[0] = list(range(1, 33))
+    row = container[0]
+    alias = row
+    original_row = tuple(row)
+    original_roots = dict(vars(system))
+    before = Witness().capture(matcher)
+    target = original_row[0]
+
+    constrained = Systems(matcher)
+    # Isolate a deterministic row-budget failure after map-key admission.
+    constrained.capacity = constrained.size + 4
+    with pytest.raises(MemoryError, match="capacity"):
+        constrained.edit(container, 0, target, False)
+
+    assert container is system.lambda_lists
+    assert container[0] is row is alias
+    assert tuple(row) == original_row
+    constrained.rollback()
+    assert all(vars(system)[name] is value for name, value in original_roots.items())
+    assert container is system.lambda_lists and container[0] is row is alias
+    assert tuple(row) == original_row
+    assert Witness().capture(matcher) == before
+
+    retry = Systems(matcher)
+    retry.edit(container, 0, target, False)
+    assert container[0] is row is alias
+    assert tuple(row) == original_row[1:]
+    retry.rollback()
+    assert container[0] is row is alias
+    assert tuple(row) == original_row
+    assert Witness().capture(matcher) == before
+
+
 def test_partial_matching_cut_capacity_failure_restores_each_removed_edge():
     matcher = populated(dense=True)
     before = Witness().capture(matcher)
