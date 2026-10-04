@@ -19,6 +19,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from abc import ABC, abstractmethod
 from array import array
@@ -30,6 +31,112 @@ SQLITEFULL = 13
 RESOURCE_HISTORY_LIMIT = 1_000_000
 RESOURCE_BATCH = 256
 RESOURCE_AUDIT_TIMEOUT = 180
+QUERY_BUCKETS = (0.1, 0.25, 0.5, 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000)
+
+
+class QueryWorker:
+    """Run one bounded partner read at a time and retain fixed-size metrics."""
+
+    def __init__(self, service: Any, vertices: int, timeout: float = 30):
+        """Bind the installed service and bounded vertex domain for the worker."""
+        self.service = service
+        self.vertices = vertices
+        self.timeout = timeout
+        self.stopping = threading.Event()
+        self.thread = threading.Thread(target=self.run, name="partner-query-load")
+        self.error: BaseException | None = None
+        self.count = 0
+        self.total = 0
+        self.version = 0
+        self.minimum: int | None = None
+        self.maximum = 0
+        self.buckets = [0] * (len(QUERY_BUCKETS) + 1)
+
+    def start(self) -> None:
+        """Start the background load before durable updates begin."""
+        self.thread.start()
+
+    def run(self) -> None:
+        """Issue sequentially numbered partner reads until asked to stop."""
+        try:
+            while not self.stopping.is_set():
+                vertex = self.count % self.vertices
+                started = time.perf_counter_ns()
+                read = self.service.partner(vertex).result(self.timeout)
+                elapsed = time.perf_counter_ns() - started
+                if (
+                    type(read) is not tuple
+                    or len(read) != 2
+                    or type(read[0]) is not int
+                    or read[0] < self.version
+                    or (
+                        read[1] is not None
+                        and (
+                            type(read[1]) is not int or not 0 <= read[1] < self.vertices
+                        )
+                    )
+                ):
+                    raise RuntimeError("partner query returned an invalid vertex")
+                self.version = read[0]
+                self.count += 1
+                self.total += elapsed
+                self.minimum = (
+                    elapsed if self.minimum is None else min(self.minimum, elapsed)
+                )
+                self.maximum = max(self.maximum, elapsed)
+                milliseconds = elapsed / 1_000_000
+                bucket = next(
+                    (
+                        index
+                        for index, limit in enumerate(QUERY_BUCKETS)
+                        if milliseconds <= limit
+                    ),
+                    len(QUERY_BUCKETS),
+                )
+                self.buckets[bucket] += 1
+        except BaseException as error:
+            self.error = error
+            self.stopping.set()
+
+    def check(self) -> None:
+        """Fail promptly if the query worker has encountered an error."""
+        if self.error is not None:
+            raise RuntimeError("partner-query load failed") from self.error
+
+    def stop(self) -> dict[str, object]:
+        """Stop and drain the one outstanding read, then return bounded metrics."""
+        self.stopping.set()
+        self.thread.join(self.timeout + 5)
+        if self.thread.is_alive():
+            raise RuntimeError("partner-query worker did not stop")
+        self.check()
+        if self.count == 0:
+            raise RuntimeError("partner-query worker completed no reads")
+        minimum = self.minimum if self.minimum is not None else 0
+        return {
+            "count": self.count,
+            "latency_ms": {
+                "minimum": minimum / 1_000_000,
+                "mean": self.total / self.count / 1_000_000,
+                "maximum": self.maximum / 1_000_000,
+                "p50_upper_bound": self.percentile(0.50),
+                "p95_upper_bound": self.percentile(0.95),
+                "p99_upper_bound": self.percentile(0.99),
+                "p999_upper_bound": self.percentile(0.999),
+                "buckets_ms_upper_bounds": (*QUERY_BUCKETS, None),
+                "bucket_counts": tuple(self.buckets),
+            },
+        }
+
+    def percentile(self, quantile: float) -> float | None:
+        """Return the fixed-histogram upper bound for a requested quantile."""
+        target = max(1, int(self.count * quantile + 0.999999))
+        observed = 0
+        for index, count in enumerate(self.buckets):
+            observed += count
+            if observed >= target:
+                return QUERY_BUCKETS[index] if index < len(QUERY_BUCKETS) else None
+        return None
 
 
 @dataclass
@@ -520,14 +627,17 @@ class Disk(Pressure):
                         "successful checkpoint changed service availability"
                     )
                 status = service.status().result(5)
+                status_version = status.get("version")
+                if type(status_version) is not int:
+                    raise RuntimeError("service returned an invalid logical version")
                 live_partners = [-1] * checkpoint_audit.vertices
                 page_start = 0
                 matching_count = 0
                 while True:
                     version, edges, following = service.page(
-                        page_start, 256, status["version"]
+                        page_start, 256, status_version
                     ).result(5)
-                    if version != status["version"]:
+                    if version != status_version:
                         raise RuntimeError(
                             "successful checkpoint changed matching-page version"
                         )
@@ -560,8 +670,8 @@ class Disk(Pressure):
                 )
                 if (
                     partner < 0
-                    or first_read != (status["version"], partner)
-                    or second_read != (status["version"], 0)
+                    or first_read != (status_version, partner)
+                    or second_read != (status_version, 0)
                 ):
                     raise RuntimeError("successful checkpoint corrupted matching reads")
         finally:
@@ -685,6 +795,43 @@ class Envelope:
     audit: Audit
     mode: str = "basic"
 
+    def update(self, service: Any) -> tuple[float, dict[str, object]]:
+        """Qualify durable updates while a bounded partner-read thread is active."""
+        from axiom.durable import Outcome, Request
+
+        worker = QueryWorker(service, self.audit.vertices)
+        worker.start()
+        updates_started = time.perf_counter()
+        update_seconds = 0.0
+        try:
+            for first in range(1, self.audit.sequence + 1, RESOURCE_BATCH):
+                end = min(first + RESOURCE_BATCH, self.audit.sequence + 1)
+                receipts = [
+                    service.submit(Request(seq, *self.audit.operation(seq)))
+                    for seq in range(first, end)
+                ]
+                for seq, receipt in zip(range(first, end), receipts, strict=True):
+                    if receipt.result(30) != Outcome(seq, True, seq + 1):
+                        raise RuntimeError(
+                            "resource envelope acknowledged a wrong update"
+                        )
+                worker.check()
+                crossed_progress_mark = (end - 1) // 100000 > (first - 1) // 100000
+                if crossed_progress_mark or end == self.audit.sequence + 1:
+                    metrics = service.metrics()
+                    print(
+                        f"resource updates={end - 1} "
+                        f"update_seconds={time.perf_counter() - updates_started:.3f} "
+                        f"query_count={worker.count} "
+                        f"groups={metrics['groups']} "
+                        f"largest_group={metrics['largest_group']}",
+                        flush=True,
+                    )
+            update_seconds = time.perf_counter() - updates_started
+        finally:
+            queries = worker.stop()
+        return update_seconds, queries
+
     def run(self) -> dict[str, object]:
         """Enforce worker limits before loading the engine and creating graph state."""
         capacity = self.volume.inspect()
@@ -693,7 +840,7 @@ class Envelope:
             raise ValueError("mode must be 'basic' or 'multilevel'")
         limit = 512 << 20
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-        from axiom.durable import Durable, Outcome, Request
+        from axiom.durable import Durable
         from axiom.service import Service
 
         database = self.volume.path / "graph.db"
@@ -714,31 +861,10 @@ class Envelope:
                 f"initialization_seconds={updates_started - started:.3f}",
                 flush=True,
             )
-            for first in range(1, self.audit.sequence + 1, RESOURCE_BATCH):
-                end = min(first + RESOURCE_BATCH, self.audit.sequence + 1)
-                receipts = [
-                    service.submit(Request(seq, *self.audit.operation(seq)))
-                    for seq in range(first, end)
-                ]
-                for seq, receipt in zip(range(first, end), receipts, strict=True):
-                    if receipt.result(30) != Outcome(seq, True, seq + 1):
-                        raise RuntimeError(
-                            "resource envelope acknowledged a wrong update"
-                        )
-                crossed_progress_mark = (end - 1) // 100000 > (first - 1) // 100000
-                if crossed_progress_mark or end == self.audit.sequence + 1:
-                    metrics = service.metrics()
-                    print(
-                        f"resource updates={end - 1} "
-                        f"update_seconds={time.perf_counter() - updates_started:.3f} "
-                        f"total_seconds={time.perf_counter() - started:.3f} "
-                        f"groups={metrics['groups']} "
-                        f"largest_group={metrics['largest_group']}",
-                        flush=True,
-                    )
+            update_seconds, queries = self.update(service)
             print(
                 f"resource phase=service-updates-complete "
-                f"seconds={time.perf_counter() - updates_started:.3f}",
+                f"seconds={update_seconds} query_count={queries['count']}",
                 flush=True,
             )
             state = Maintenance(self.audit).verify(service)
@@ -787,6 +913,8 @@ class Envelope:
             "vertices": self.audit.vertices,
             "paper_mode": self.mode,
             "sequence": self.audit.sequence,
+            "update_seconds": update_seconds,
+            "updates_per_second": self.audit.sequence / update_seconds,
             "cycle": self.audit.vertices if isinstance(self.audit, Cycle) else 0,
             "limits": {
                 "address": resource.getrlimit(resource.RLIMIT_AS),
@@ -796,6 +924,7 @@ class Envelope:
             "working": working,
             "state": state,
             "metrics": metrics,
+            "partner_queries": queries,
             "backup": manifest["bytes"],
             "digest": digest,
             "pressure": results,

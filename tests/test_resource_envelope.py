@@ -3,6 +3,7 @@
 import errno
 import os
 import sqlite3
+import threading
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -781,6 +782,104 @@ def test_checkpoint_disk_full_fail_stops_and_recovers_exact_history(
             (outcome.sequence, request.operation, request.u, request.v, outcome.changed)
             for request, outcome in zip(requests, outcomes, strict=True)
         )
+
+
+def test_service_update_qualification_reports_concurrent_partner_reads():
+    from concurrent.futures import Future
+
+    class Receipt:
+        def __init__(self, result):
+            self.value = result
+
+        def result(self, timeout=None):
+            return self.value
+
+    class Service:
+        def __init__(self):
+            self.queried = threading.Event()
+            self.query_count = 0
+
+        def partner(self, vertex):
+            self.query_count += 1
+            self.queried.set()
+            result = Future()
+            result.set_result((self.query_count, (vertex + 1) % 8))
+            return result
+
+        def submit(self, request):
+            from axiom.durable import Outcome
+
+            assert self.queried.wait(5), "partner queries did not overlap updates"
+            return Receipt(Outcome(request.sequence, True, request.sequence + 1))
+
+        def metrics(self):
+            return {"groups": 1, "largest_group": 1}
+
+    service = Service()
+    seconds, report = module.Envelope(None, Audit(8, 8)).update(service)
+
+    assert seconds >= 0
+    assert report["count"] == service.query_count > 0
+    latency = report["latency_ms"]
+    assert latency["minimum"] >= 0
+    assert latency["mean"] >= 0
+    assert latency["maximum"] >= latency["minimum"]
+    assert latency["p50_upper_bound"] is not None
+    assert latency["p95_upper_bound"] is not None
+    assert latency["p99_upper_bound"] is not None
+    assert latency["p999_upper_bound"] is not None
+    assert sum(latency["bucket_counts"]) == report["count"]
+    assert len(latency["bucket_counts"]) == len(latency["buckets_ms_upper_bounds"])
+
+
+@pytest.mark.parametrize("failure", ["update", "query"])
+def test_service_update_qualification_stops_query_worker_after_failure(
+    monkeypatch, failure
+):
+    from concurrent.futures import Future
+
+    workers = []
+    worker_type = module.QueryWorker
+
+    class TrackingWorker(worker_type):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            workers.append(self)
+
+    monkeypatch.setattr(module, "QueryWorker", TrackingWorker)
+
+    class Receipt:
+        def result(self, timeout=None):
+            if failure == "update":
+                raise OSError("durable update failed")
+            from axiom.durable import Outcome
+
+            return Outcome(1, True, 2)
+
+    class Service:
+        def __init__(self):
+            self.queried = threading.Event()
+
+        def partner(self, vertex):
+            self.queried.set()
+            result = Future()
+            if failure == "query":
+                result.set_exception(OSError("partner read failed"))
+            else:
+                result.set_result((0, (vertex + 1) % 8))
+            return result
+
+        def submit(self, request):
+            assert self.queried.wait(5), "partner query did not start"
+            return Receipt()
+
+        def metrics(self):
+            return {"groups": 1, "largest_group": 1}
+
+    with pytest.raises((OSError, RuntimeError)):
+        module.Envelope(None, Audit(8, 2)).update(Service())
+    assert len(workers) == 1
+    assert not workers[0].thread.is_alive()
 
 
 @pytest.mark.parametrize("count", [0, None])
