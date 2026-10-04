@@ -21,26 +21,37 @@ if TYPE_CHECKING:
 class Classes:
     """Retain original class/seed identities with bounded edge-cell undo."""
 
-    def __init__(self, owner: Matcher, capacity: int = 65536) -> None:
-        """Admit plain owned containers and bound retained sets plus undo cells."""
-        if type(capacity) is not int or capacity <= 0:
+    def __init__(self, owner: Matcher, capacity: int | None = None) -> None:
+        """Admit plain roots and size automatic undo to the retained coloring.
+
+        The automatic ceiling is the exact number of original class-membership
+        cells plus their distinct roots, with a 65,536-cell floor. A valid
+        delete can therefore journal any subset of the existing coloring;
+        memory grows only with cells actually removed. Callers may still pass
+        an explicit smaller capacity for bounded tests or constrained owners.
+        """
+        if capacity is not None and (type(capacity) is not int or capacity <= 0):
             raise ValueError("class capacity must be a positive integer")
         if owner.classes is not None:
             raise RuntimeError("class transaction is already active")
         if type(owner.matchings) is not list or type(owner.seed_matching) is not set:
             raise TypeError("classes require a plain list and seed set")
-        if len(owner.matchings) + 1 > capacity:
-            raise MemoryError("class journal capacity exceeded")
         if any(type(value) is not set for value in owner.matchings):
             raise TypeError("color classes require plain sets")
         self.owner = owner
-        self.capacity = capacity
         self.thread = get_ident()
         self.active = True
         self.list = owner.matchings
         self.seed = owner.seed_matching
         self.slots = tuple(self.list)
         self.sets = {id(value): value for value in (*self.slots, self.seed)}
+        minimum = len(self.sets) + sum(map(len, self.sets.values()))
+        self.capacity = max(65536, minimum) if capacity is None else capacity
+        if len(self.sets) > self.capacity:
+            raise MemoryError(
+                "class journal capacity exceeded "
+                f"(roots={len(self.sets)}, entries=0, limit={self.capacity})"
+            )
         self.entries: dict[tuple[int, Edge], bool] = {}
         self.isolate()
         object.__setattr__(owner, "classes", self)
@@ -123,7 +134,11 @@ class Classes:
             key = (address, edge)
             if key not in self.entries:
                 if len(self.sets) + len(self.entries) >= self.capacity:
-                    raise MemoryError("class journal capacity exceeded")
+                    raise MemoryError(
+                        "class journal capacity exceeded "
+                        f"(roots={len(self.sets)}, entries={len(self.entries)}, "
+                        f"limit={self.capacity})"
+                    )
                 self.entries[key] = True
         matching.discard(edge)
 

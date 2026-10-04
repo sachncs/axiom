@@ -38,13 +38,19 @@ SQLite only after all slices pass their invariants. One SQLite transaction
 inserts every operation and updates the control sequence, graph version, and
 hash-chain tail together; only after that commit does the call acknowledge.
 
+The class undo ceiling is sized from the distinct retained class/seed roots and
+their existing membership count. It is finite for a given coloring and large
+enough to journal every original membership a delete could remove; before-images
+are allocated only for memberships actually touched. Other component journals
+retain their independent fixed entry limits.
+
 If an earlier private slice succeeds but a later slice fails before persistence,
 the owner reconstructs its previously committed matcher by replaying the
 database prefix while still holding the lock. It verifies the sequence, hash
 chain, paper transitions, and final matching before accepting more work. A
 failed reconstruction fail-stops the owner. The replay path is also used
-before retrying a journal-capacity failure. A single update that exceeds a
-component's own fixed journal cap still fails atomically; it is never
+before retrying a journal-capacity failure. A single update that exceeds
+another component's fixed journal cap still fails atomically; it is never
 acknowledged as committed. Persistence or post-commit publication uncertainty
 also fails closed; close and recover before retrying the same sequence and
 payload. This avoids retaining a graph-sized snapshot or all per-slice

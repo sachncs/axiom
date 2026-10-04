@@ -114,7 +114,7 @@ def test_class_capacity_rejects_before_mutating_the_next_cell_and_permits_retry(
     matcher.seed_matching = matcher.matchings[0]
     journal = Classes(matcher, 2)
     journal.remove(matcher.seed_matching, (0, 1))
-    with pytest.raises(MemoryError, match="capacity"):
+    with pytest.raises(MemoryError, match=r"roots=1, entries=1, limit=2"):
         journal.remove(matcher.seed_matching, (2, 3))
     assert matcher.seed_matching == {(2, 3)}
     journal.rollback()
@@ -124,6 +124,27 @@ def test_class_capacity_rejects_before_mutating_the_next_cell_and_permits_retry(
     journal.remove(matcher.seed_matching, (2, 3))
     journal.commit()
     assert matcher.seed_matching == set() and matcher.classes is None
+
+
+def test_default_class_journal_scales_to_all_original_coloring_cells():
+    matcher = populated()
+    edges = {(2 * index, 2 * index + 1) for index in range(65_537)}
+    matcher.matchings = [edges]
+    matcher.seed_matching = edges
+
+    journal = Classes(matcher)
+    assert journal.capacity == len(edges) + 1
+    for index in range(65_537):
+        journal.remove(edges, (2 * index, 2 * index + 1))
+
+    assert len(journal.entries) == 65_537
+    assert not edges
+    journal.rollback()
+    assert matcher.matchings == [edges]
+    assert matcher.matchings[0] is edges
+    assert matcher.seed_matching is edges
+    assert edges == {(2 * index, 2 * index + 1) for index in range(65_537)}
+    assert matcher.classes is None
 
 
 def test_class_delete_journals_only_membership_cells_and_rolls_back_exactly():
