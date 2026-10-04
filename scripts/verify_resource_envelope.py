@@ -554,9 +554,14 @@ class Disk(Pressure):
                         "successful checkpoint returned an incomplete matching page"
                     )
                 partner = live_partners[0]
-                if partner < 0 or (
-                    service.partner(0).result(5) != (0, partner)
-                    or service.partner(partner).result(5) != (partner, 0)
+                first_read = service.partner(0).result(5)
+                second_read = (
+                    service.partner(partner).result(5) if partner >= 0 else None
+                )
+                if (
+                    partner < 0
+                    or first_read != (status["version"], partner)
+                    or second_read != (status["version"], 0)
                 ):
                     raise RuntimeError("successful checkpoint corrupted matching reads")
         finally:

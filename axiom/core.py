@@ -409,7 +409,10 @@ class Matcher:
             if vertex not in self.matched_vertices
         }
 
-        for u in sorted(self.system.U):
+        # Integer-set iteration is deterministic for a fixed partition, and
+        # compact Vertices already owns its member array. Avoid a graph-sized
+        # sorted copy while rebuilding these local directed indexes.
+        for u in self.system.U:
             if u in self.matched_vertices:
                 continue
             neighbours = None

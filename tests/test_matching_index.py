@@ -16,6 +16,13 @@ def test_empty_and_zero_vertex_index() -> None:
     assert set(index) == set()
 
 
+def test_empty_storage_does_not_scale_with_vertex_universe() -> None:
+    small = MatchingIndex(8)
+    large = MatchingIndex(1_000_000)
+
+    assert small.memory()["allocated"] == large.memory()["allocated"]
+
+
 def test_add_membership_canonical_iteration_and_duplicate_semantics() -> None:
     index = MatchingIndex(8)
     index.add((5, 1))

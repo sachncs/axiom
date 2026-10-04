@@ -7,6 +7,7 @@ utilities, and stress tests.
 
 from __future__ import annotations
 
+import builtins
 import importlib
 import math
 import random
@@ -779,6 +780,24 @@ class TestMatcher:
         matcher = Matcher(16, mode="multilevel", graph=graph)
 
         assert allocated == [matcher.matched_edges]
+
+    def test_auxiliary_rebuild_does_not_sort_the_full_unsaturated_partition(
+        self, monkeypatch
+    ):
+        matcher = Matcher(64, mode="multilevel")
+        partition = matcher.system.U
+        original = builtins.sorted
+        previous = (matcher.H.copy(), matcher.H_reverse.copy())
+
+        def guarded(values, *args, **kwargs):
+            if values is partition:
+                raise AssertionError("auxiliary rebuild copied the full U partition")
+            return original(values, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "sorted", guarded)
+        matcher._Matcher__rebuild_auxiliary()
+
+        assert (matcher.H, matcher.H_reverse) == previous
 
     def test_matching_state_audit_avoids_duplicate_endpoint_indexes(self) -> None:
         class GuardedSet(set):
