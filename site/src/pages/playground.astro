@@ -9,31 +9,37 @@ from axiom.service import Service
 with TemporaryDirectory() as directory:
     path = Path(directory) / "graph.db"
     with Service(path, n=8) as graph:
-        assert graph.partner(0).result(5) == (1, 1)
-        deleted = graph.submit(Request(1, "delete", 0, 1)).result(5)
-        assert deleted.changed and deleted.version == 2
-        assert graph.partner(0).result(5) == (2, None)
+        initial_version, partner = graph.partner(0).result(5)
+        assert partner is not None
+        initial_edges = {
+            (u, v): graph.has_edge(u, v).result(5)[1]
+            for u in range(8)
+            for v in range(u + 1, 8)
+        }
+        deleted = graph.submit(Request(1, "delete", 0, partner)).result(5)
+        assert deleted.changed and deleted.version == initial_version + 1
+        assert graph.partner(0).result(5)[0] == deleted.version
         assert graph.check().result(5)
-        inserted = graph.submit(Request(2, "insert", 0, 1)).result(5)
-        assert inserted.changed and inserted.version == 3
-        assert graph.partner(0).result(5) == (3, 1)
+        inserted = graph.submit(Request(2, "insert", 0, partner)).result(5)
+        assert inserted.changed and inserted.version == deleted.version + 1
+        expected_partners = [graph.partner(v).result(5) for v in range(8)]
+        assert all(version == inserted.version for version, _ in expected_partners)
         assert graph.check().result(5)
     with Service(path) as recovered:
-        assert recovered.partner(0).result(5) == (3, 1)
-        assert recovered.submit(Request(2, "insert", 0, 1)).result(5) == inserted
+        assert [recovered.partner(v).result(5) for v in range(8)] == expected_partners
+        assert recovered.submit(Request(2, "insert", 0, partner)).result(5) == inserted
         try:
-            recovered.submit(Request(2, "delete", 0, 1)).result(5)
+            recovered.submit(Request(2, "delete", 0, partner)).result(5)
         except ValueError:
             pass  # Same ID with a different payload must reject.
         else:
             raise AssertionError("incompatible retry accepted")
-        assert [recovered.partner(v).result(5) for v in range(8)] == [
-            (3, v ^ 1) for v in range(8)
-        ]
+        assert [recovered.partner(v).result(5) for v in range(8)] == expected_partners
         for u in range(8):
             for v in range(u + 1, 8):
                 assert recovered.has_edge(u, v).result(5) == (
-                    3, v - u in (1, 2, 6, 7)
+                    inserted.version,
+                    initial_edges[(u, v)],
                 )
         assert recovered.check().result(5)`;
 ---
@@ -45,9 +51,9 @@ with TemporaryDirectory() as directory:
   <pre data-verify="python" data-copy={example}><code>{example}</code></pre>
   <h2>What is actually checked?</h2>
   <ol>
-    <li>Delete edge zero-one and wait for durable acknowledgment. Committed version becomes two and vertex zero has no partner.</li>
-    <li>Reinsert the same edge. Version three restores partner one; the matching check passes after each change.</li>
-    <li>Close and reopen the SQLite store. The query recovers version three and partner one. Retrying request two returns the original outcome without another mutation; changing its payload rejects. All eight partners and every possible edge are checked after recovery and rejection.</li>
+    <li>Read vertex zero’s current partner, delete that matched edge, and wait for durable acknowledgment. The version advances once and the matching audit passes.</li>
+    <li>Reinsert the edge. The version advances again; the matching audit passes, without assuming which valid maximal matching is selected.</li>
+    <li>Close and reopen the SQLite store. All eight versioned partner results and every possible edge match the committed pre-close snapshot. Retrying request two returns its original outcome without another mutation; changing its payload rejects.</li>
   </ol>
   <p>SQLite commit precedes successful receipt completion. A receipt timeout does not cancel accepted work. Multi-query snapshots and arbitrary network storage are not implied by this example.</p>
 </DocLayout>
