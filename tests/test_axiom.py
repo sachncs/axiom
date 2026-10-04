@@ -762,7 +762,7 @@ class TestMatcher:
         matcher.matched_vertices = GuardedSet(matcher.matched_vertices)
         matcher.partner_map = GuardedDict(matcher.partner_map)
 
-        assert matcher._Matcher__check_matching_state()
+        assert matcher.audit()
 
     def test_matching_state_audit_rejects_stray_or_inconsistent_indexes(self) -> None:
         matcher = Matcher(8)

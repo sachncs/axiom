@@ -159,14 +159,12 @@ def test_matching_views_transaction_runs_without_deepcopy(mode, monkeypatch):
 def test_incremental_update_uses_touched_neighborhoods_not_full_maximal_scan(
     monkeypatch,
 ):
-    import axiom.core as core
-
     matcher = Matcher(16, graph=Packed(16))
 
     def reject(*args, **kwargs):
         raise AssertionError("incremental update performed a global maximal scan")
 
-    monkeypatch.setattr(core, "is_maximal_matching", reject)
+    monkeypatch.setattr(Matcher, "maximal", reject)
     matcher.insert(0, 1)
     assert matcher.partner(0) == 1
 

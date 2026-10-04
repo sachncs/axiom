@@ -184,6 +184,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Build an all-U paper System by materializing then discarding every U-U matching edge | When `z` exceeds all degrees, construct the exact final empty-M system directly (0129) | Local macOS 1M-vertex / 2M-edge builder peak is 286,670,848 bytes RSS; constrained installed Linux gate is still pending |
 | Replay committed state while retaining the failed uncommitted Matcher graph through traceback frames | Clear caught traceback locals and release the private Matcher before rebuilding the committed prefix; fail-stop if replay cannot be audited (0130) | Basic/Multilevel retry tests prove the prior Matcher is collectible before reconstruction and exact post-replay state; constrained installed retry remains pending |
 | Verify matching state by constructing duplicate endpoint and partner indexes | Check cardinality plus direct endpoint/partner membership (0131) | Guarded collection test proves no duplicate index traversal; hosted 512 MiB replay qualification remains pending |
+| Audit color classes and maximality by rebuilding Python endpoint sets | Reuse matched-vertex index and a compact fixed-width color marker array (0132) | Full guarded Matcher audit and corruption tests pass locally; hosted constrained replay remains pending |
 
 ## What is not being abandoned
 

@@ -34,6 +34,7 @@ Thread-safety:
 from __future__ import annotations
 
 import math
+from array import array
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from threading import get_ident
@@ -49,7 +50,7 @@ from axiom.graph import Adjacency, empty
 from axiom.hierarchies import Hierarchies
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
-from axiom.matching import is_maximal_matching, partners
+from axiom.matching import partners
 from axiom.paper_coloring import Paper
 from axiom.rebuild import Basic, Multilevel
 from axiom.storage import Packed, publish
@@ -1682,10 +1683,20 @@ class Matcher:
         """Return True iff the current matching is maximal in the graph.
 
         Complexity:
-            O(n + m).
+        O(n + m).
         """
         self.ready()
-        return is_maximal_matching(self.graph, self.matched_edges)
+        return self.__maximal_with_indexes()
+
+    def __maximal_with_indexes(self) -> bool:
+        """Check maximality using the already-maintained matched-vertex index."""
+        for vertex in range(self.n):
+            if vertex in self.matched_vertices:
+                continue
+            for neighbor in self.graph.neighbors(vertex):
+                if neighbor not in self.matched_vertices:
+                    return False
+        return True
 
     def audit(self) -> bool:
         """Run a full audit of stable matching and paper-engine state.
@@ -1767,8 +1778,8 @@ class Matcher:
         ):
             return False
 
-        for matching in self.matchings:
-            vertices: set[Vertex] = set()
+        seen = array("I", [0]) * self.n
+        for index, matching in enumerate(self.matchings, 1):
             for edge in matching:
                 if (
                     type(edge) is not tuple
@@ -1777,28 +1788,16 @@ class Matcher:
                     or type(edge[1]) is not int
                     or not 0 <= edge[0] < edge[1] < self.n
                     or not self.graph.has_edge(*edge)
-                    or edge[0] in vertices
-                    or edge[1] in vertices
+                    or seen[edge[0]] == index
+                    or seen[edge[1]] == index
                 ):
                     return False
-                vertices.update(edge)
+                seen[edge[0]] = index
+                seen[edge[1]] = index
 
-        for edge in self.matched_edges:
-            if (
-                type(edge) is not tuple
-                or len(edge) != 2
-                or type(edge[0]) is not int
-                or type(edge[1]) is not int
-                or not 0 <= edge[0] < edge[1] < self.n
-                or not self.graph.has_edge(*edge)
-            ):
-                return False
-        expected_partners = partners(self.matched_edges)
-        return (
-            self.partner_map == expected_partners
-            and self.matched_vertices == set(expected_partners)
-            and is_maximal_matching(self.graph, self.matched_edges)
-        )
+        if not self.__check_matching_state():
+            return False
+        return self.__maximal_with_indexes()
 
     def size(self) -> int:
         """Return the number of edges in the current matching."""
