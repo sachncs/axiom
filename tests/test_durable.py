@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import random
 import sqlite3
 from contextlib import closing, contextmanager
 from pathlib import Path
@@ -559,3 +560,73 @@ def test_graph_and_matching_replay_is_deterministic_across_many_batches(
         assert state(recovered) == expected_state
         assert witness(recovered) == expected_witness
         assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_durable_hot_hub_replay_is_repeatable_across_intermediate_restarts(
+    tmp_path: Path, mode: str
+) -> None:
+    """Certify skewed mutation/recovery prefixes, not only the final replay."""
+    size = 32
+    active: set[tuple[int, int]] = set()
+    stream: list[Request] = []
+    sequence = 0
+    for leaf in range(1, size):
+        sequence += 1
+        active.add((0, leaf))
+        stream.append(Request(sequence, "insert", 0, leaf))
+
+    generator = random.Random(20261004)
+    for step in range(240):
+        if step % 5:
+            edge = (0, generator.randrange(1, size))
+        else:
+            edge = tuple(sorted(generator.sample(range(1, size), 2)))
+        operation = "delete" if edge in active else "insert"
+        if operation == "delete":
+            active.remove(edge)
+        else:
+            active.add(edge)
+        sequence += 1
+        stream.append(Request(sequence, operation, *edge))
+
+    def run(path: Path) -> tuple[tuple, ...]:
+        signatures = []
+        offset = 0
+        while offset < len(stream):
+            with Durable(
+                path,
+                n=size,
+                width=0,
+                mode=mode,
+                max_batch=8,
+            ) as store:
+                for _ in range(4):
+                    if offset >= len(stream):
+                        break
+                    batch = stream[offset : offset + 8]
+                    outcomes = store.apply(batch)
+                    assert all(outcome.changed for outcome in outcomes)
+                    assert store.check()
+                    offset += len(batch)
+
+                checkpoint = (
+                    state(store),
+                    witness(store),
+                    store.history(limit=4096),
+                )
+
+            with Durable(path, mode=mode) as recovered:
+                assert state(recovered) == checkpoint[0]
+                assert witness(recovered) == checkpoint[1]
+                assert recovered.history(limit=4096) == checkpoint[2]
+                assert recovered.check()
+                assert recovered.apply(batch) == outcomes
+                assert state(recovered) == checkpoint[0]
+                assert witness(recovered) == checkpoint[1]
+            signatures.append(checkpoint)
+        return tuple(signatures)
+
+    first = run(tmp_path / f"first-{mode}.db")
+    second = run(tmp_path / f"second-{mode}.db")
+    assert first == second

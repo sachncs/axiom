@@ -78,7 +78,7 @@ service. Power-cut behavior depends on the complete filesystem/device stack and
 has not been hardware-qualified; see [operations](operations.md) for deployment
 gates and recovery practices.
 
-The durable engine replays the bounded operation history on startup. Until
-paper-state snapshots are implemented and qualified, recovery time increases
-with accepted history length. See [durable contracts](durable.md) and [ADR
+The durable engine replays the bounded operation history on startup. No
+paper-state snapshot/decoder or history compaction is implemented, so recovery
+time increases with accepted history length. See [durable contracts](durable.md) and [ADR
 0009](adrs/0009-sqlite-wal-durable-owner.md).
