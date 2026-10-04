@@ -96,7 +96,7 @@ def test_update_trace_and_matching_do_not_depend_on_query_or_batch_schedule(
         clients=2,
         window=8,
         query_window=16,
-        queue_capacity=32,
+        queue_capacity=64,
         mode="multilevel",
     )
     assert first["trace_digest"] == second["trace_digest"]
