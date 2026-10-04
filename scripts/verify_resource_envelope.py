@@ -18,6 +18,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import time
 from abc import ABC, abstractmethod
 from array import array
 from dataclasses import dataclass
@@ -121,6 +122,12 @@ class Audit:
         """Check exact topology, proper/maximal matching and an optional retry."""
         from axiom.durable import MAX_READS, Outcome, Request
 
+        started = time.perf_counter()
+        if self.vertices >= 100000:
+            print(
+                f"resource audit=start sequence={sequence or self.sequence}",
+                flush=True,
+            )
         self.inspect()
         state = owner.status()
         expected_sequence = self.sequence if sequence is None else sequence
@@ -212,6 +219,12 @@ class Audit:
                     raise
             else:
                 raise RuntimeError("conflicting retry payload was accepted")
+        if self.vertices >= 100000:
+            print(
+                f"resource audit=complete sequence={expected_sequence} "
+                f"seconds={time.perf_counter() - started:.3f}",
+                flush=True,
+            )
         return digest.hexdigest()
 
     def operation(self, sequence: int) -> tuple[Literal["insert", "delete"], int, int]:
@@ -425,6 +438,8 @@ class Envelope:
 
         database = self.volume.path / "graph.db"
         backup = self.volume.path / "backup.db"
+        started = time.perf_counter()
+        print("resource phase=service-updates-start", flush=True)
         with Service(
             database,
             n=self.audit.vertices,
@@ -443,6 +458,17 @@ class Envelope:
                         raise RuntimeError(
                             "resource envelope acknowledged a wrong update"
                         )
+                if end % 100000 < 256 or end == self.audit.sequence + 1:
+                    print(
+                        f"resource updates={end - 1} "
+                        f"seconds={time.perf_counter() - started:.3f}",
+                        flush=True,
+                    )
+            print(
+                f"resource phase=service-updates-complete "
+                f"seconds={time.perf_counter() - started:.3f}",
+                flush=True,
+            )
             state = service.status().result(30)
             if (
                 type(state["checkpoint_generation"]) is not int
@@ -450,7 +476,13 @@ class Envelope:
                 or not service.check().result(30)
             ):
                 raise RuntimeError("resource envelope omitted maintenance/audit")
+            print("resource phase=backup-start", flush=True)
             manifest = service.backup(backup).result(30)
+            print(
+                f"resource phase=backup-complete "
+                f"seconds={time.perf_counter() - started:.3f}",
+                flush=True,
+            )
             metrics = service.metrics()
 
         working = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
@@ -459,7 +491,13 @@ class Envelope:
             Memory(self.volume, self.audit, self.mode),
             Disk(self.volume, self.audit, self.mode),
         ):
+            print(f"resource phase={type(pressure).__name__}-start", flush=True)
             results[type(pressure).__name__] = pressure.apply()
+            print(
+                f"resource phase={type(pressure).__name__}-complete "
+                f"seconds={time.perf_counter() - started:.3f}",
+                flush=True,
+            )
         restored = self.volume.path / "restored.db"
         shutil.copyfile(backup, restored)  # The backup master stays immutable.
         with Durable(restored, mode=self.mode, budget=128 << 20) as owner:
