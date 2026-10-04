@@ -482,8 +482,9 @@ class Disk(Pressure):
             if integrity != ("ok",):
                 raise RuntimeError("checkpoint pressure WAL failed SQLite integrity")
             written = self.volume.fill()
+            checkpoint_failed = False
             try:
-                service.checkpoint().result(30)
+                checkpoint = service.checkpoint().result(30)
             except RecoveryError as error:
                 cause = error.__cause__
                 if (
@@ -491,16 +492,42 @@ class Disk(Pressure):
                     or getattr(cause, "sqlite_errorcode", None) != SQLITEFULL
                 ):
                     raise
+                checkpoint_failed = True
+            if checkpoint_failed:
+                if service.metrics()["state"] != "failed":
+                    raise RuntimeError(
+                        "failed checkpoint did not fail-stop the service"
+                    )
+                try:
+                    service.partner(0).result(5)
+                except UnavailableError:
+                    pass
+                else:
+                    raise RuntimeError("failed persistence owner served a query")
             else:
-                raise RuntimeError("full filesystem did not reject checkpoint")
-            if service.metrics()["state"] != "failed":
-                raise RuntimeError("persistence exhaustion did not fail-stop service")
-            try:
-                service.partner(0)
-            except UnavailableError:
-                pass
-            else:
-                raise RuntimeError("failed persistence owner served a query")
+                if (
+                    type(checkpoint) is not dict
+                    or set(checkpoint)
+                    != {"busy", "wal_pages", "checkpointed_pages"}
+                    or any(type(value) is not int for value in checkpoint.values())
+                    or checkpoint["busy"] not in (0, 1)
+                    or checkpoint["wal_pages"] < 0
+                    or checkpoint["checkpointed_pages"] < 0
+                    or checkpoint["checkpointed_pages"] > checkpoint["wal_pages"]
+                ):
+                    raise RuntimeError("full-volume checkpoint result is invalid")
+                if service.metrics()["state"] != "ready":
+                    raise RuntimeError(
+                        "successful checkpoint changed service availability"
+                    )
+                vertex, partner = service.partner(0).result(5)
+                if (
+                    vertex != 0
+                    or partner is None
+                    or not 0 <= partner < checkpoint_audit.vertices
+                    or service.partner(partner).result(5) != (partner, 0)
+                ):
+                    raise RuntimeError("successful checkpoint corrupted matching reads")
         finally:
             self.volume.release()
             service.close(30)
@@ -538,6 +565,13 @@ class Disk(Pressure):
             "digest": update["digest"],
             "checkpoint": {
                 "written": written,
+                "failed": checkpoint_failed,
+                "result": checkpoint if not checkpoint_failed else None,
+                "complete": (
+                    not checkpoint_failed
+                    and checkpoint["busy"] == 0
+                    and checkpoint["checkpointed_pages"] == checkpoint["wal_pages"]
+                ),
                 "digest": checkpoint_digest,
                 "verified": True,
             },
