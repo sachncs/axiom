@@ -147,6 +147,30 @@ def test_default_class_journal_scales_to_all_original_coloring_cells():
     assert matcher.classes is None
 
 
+def test_default_class_journal_admits_more_than_65536_distinct_roots():
+    """Retained root count, not a legacy fixed ceiling, bounds journal setup."""
+    matcher = populated()
+    edge = (0, 1)
+    seed = {edge}
+    roots = [set() for _ in range(65_536)]
+    matcher.matchings = roots
+    matcher.seed_matching = seed
+    original_roots = matcher.matchings
+
+    journal = Classes(matcher)
+    assert len(journal.sets) == 65_537
+    assert journal.capacity >= len(journal.sets)
+
+    journal.remove(seed, edge)
+    assert edge not in seed
+    journal.rollback()
+
+    assert matcher.matchings is original_roots
+    assert matcher.seed_matching is seed
+    assert seed == {edge}
+    assert matcher.classes is None
+
+
 def test_class_delete_journals_only_membership_cells_and_rolls_back_exactly():
     matcher = populated()
     edge = (0, 1)

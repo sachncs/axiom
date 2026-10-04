@@ -1,6 +1,6 @@
 # ADR 0108: Size class undo to retained memberships
 
-- Status: implemented; million-vertex end-to-end regression pending
+- Status: implemented; original million-vertex failure trace not reproduced
 - Date: 2026-10-04
 
 ## Context
@@ -46,6 +46,12 @@ history and SQLite control/operation rows before retrying and reopening. These
 tests verify both capacity retry and cross-chunk rollback; the injected failure
 does not claim that production capacity was exhausted.
 
+A bounded regression also admits 65,537 distinct roots (mostly empty), removes
+a real seed membership, and verifies root identity and exact rollback. This
+covers the large-root admission boundary without constructing a huge matcher.
+The report that prompted this review included no retained database or exception
+details, so the exact failing trace remains unavailable.
+
 A one-million-vertex, average-degree-four FULL-WAL smoke completed in both
 methods with 32 real changes, 16 partner queries, independent graph/matching
 audit and exact replay. Peak RSS was 1.42 GiB Basic and 2.12 GiB Multilevel.
@@ -55,3 +61,12 @@ not throughput or resource-limit qualification. The large membership fixture
 proves the former fixed class threshold is gone, not that every single update
 fits a particular memory budget. Views, Systems, hierarchy, auxiliary and clock
 journals retain their own capacity policies and failure paths.
+
+On 2026-10-04, the checked-in durable harness was additionally run at one
+million vertices / two million edges with seed 599, 128 churn pairs and one
+256-operation group. Both modes passed independent audit, retry verification,
+and exact reopen recovery. One run measured 2,198 updates/s and 1.61 GB peak RSS
+for Basic, and 8,048 updates/s and 2.07 GB peak RSS for Multilevel. A separate
+32-update run also passed in both modes. Neither run reproduced the reported
+class-journal exhaustion; these short runs are smoke evidence, not qualification
+or proof against the unavailable original trace.
