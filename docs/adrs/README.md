@@ -159,6 +159,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Full H-tilde edge-set scan on every ProcUpdate | Sparse source-to-target H-tilde index journaled with the existing reverse index (0104) | Synthetic 100k-edge empty-source cleanup avoids a 4.27 ms global scan; added index memory and end-to-end throughput remain unmeasured |
 | Rescan every coloring assignment and fan for each Extend color group | Temporary assignment-by-color index and exact fan-type index (0105) | Isolated 100k-edge/10-group selection was 2.69× faster with ~852 KB traced index cost; whole Extend/RSS remain unqualified |
 | Validate every accumulated inserted edge before a local hierarchy delta | Explicitly trust only Matcher-journaled E_I sets on the incremental branch; keep full validation for direct/full sync (0106) | No-iteration regression plus local endpoint certificates; end-to-end throughput and full-sync audits remain |
+| Sort and scan all S-hat vertices for each rematching fallback | Select the minimum eligible vertex through the queried vertex's local neighbors (0107) | No-global-scan regression and exact deterministic selection; throughput qualification remains open |
 
 ## What is not being abandoned
 

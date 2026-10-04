@@ -1354,6 +1354,26 @@ class Matcher:
             f"vertex={v}, missing from A/B/U"
         )
 
+    def sathat(self, vertex: Vertex) -> tuple[Vertex | None, int]:
+        """Return the lowest eligible S-hat neighbor and local probe count.
+
+        The old fallback sorted and scanned all unmatched saturated vertices.
+        A graph-neighbor traversal is equivalent because it selects the same
+        lowest-numbered common member, while its work is bounded by the queried
+        vertex's degree and creates no whole-S-hat snapshot.
+        """
+        candidate = None
+        probed = 0
+        for neighbor in self.graph.neighbors(vertex):
+            probed += 1
+            if (
+                neighbor in self.S_hat
+                and neighbor not in self.matched_vertices
+                and (candidate is None or neighbor < candidate)
+            ):
+                candidate = neighbor
+        return candidate, probed
+
     def __rematch_u(self, u: Vertex) -> None:
         if self.system is None:
             raise RuntimeError("U rematching requires an active z-system")
@@ -1367,13 +1387,12 @@ class Matcher:
                 return
 
         scanned = 0
-        for w in sorted(self.S_hat):
-            if w not in self.matched_vertices:
-                if self.graph.has_edge(u, w):
-                    self.add_match(u, w)
-                    self.accountant.record_rematch_u_scan(scanned + 1)
-                    return
-            scanned += 1
+        candidate, probed = self.sathat(u)
+        if candidate is not None:
+            self.add_match(u, candidate)
+            self.accountant.record_rematch_u_scan(scanned + probed)
+            return
+        scanned += probed
 
         # Good vertices must inspect their incident inserted edges directly;
         # only bad vertices receive the bounded incoming-edge index in
@@ -1406,11 +1425,10 @@ class Matcher:
             scanned += 1
         self.accountant.record_rematch_b_scan(scanned)
 
-        for w in sorted(self.S_hat):
-            if w not in self.matched_vertices:
-                if self.graph.has_edge(b, w):
-                    self.add_match(b, w)
-                    return
+        candidate, _ = self.sathat(b)
+        if candidate is not None:
+            self.add_match(b, candidate)
+            return
 
         if b not in self.bad_vertices:
             for left, right in self.__inserted_edges_at(b):
@@ -1518,11 +1536,10 @@ class Matcher:
 
         self.accountant.record_rematch_a_scan(scanned)
 
-        # ProcRematchA scans the maintained S_hat set, not the whole graph.
-        for w in sorted(self.S_hat):
-            if w not in self.matched_vertices and self.graph.has_edge(a, w):
-                self.add_match(a, w)
-                return
+        candidate, _ = self.sathat(a)
+        if candidate is not None:
+            self.add_match(a, candidate)
+            return
 
         if a not in self.bad_vertices:
             for left, right in self.__inserted_edges_at(a):

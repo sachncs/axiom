@@ -1318,6 +1318,25 @@ class TestMatcher:
         with pytest.raises(RuntimeError, match="does not partition"):
             algo._Matcher__rematch_vertex(0)
 
+    def test_s_hat_rematching_uses_sorted_local_neighbor_not_global_scan(self):
+        class GuardedSet(set):
+            def __iter__(self):
+                raise AssertionError("global S-hat scan")
+
+        graph = Adjacency(4)
+        algo = Matcher(4, mode="basic", graph=graph)
+        graph.add_edge(0, 1)
+        graph.add_edge(0, 2)
+        algo.S_hat = GuardedSet({1, 2})
+
+        candidate, probed = algo.sathat(0)
+        assert candidate == 1
+        assert probed == 2
+
+        algo._Matcher__rematch_u(0)
+        assert algo.matching() == {(0, 1)}
+        assert algo.maximal()
+
     def test_bad_vertex_promotion_backfills_existing_inserted_edges(self) -> None:
         algo = Matcher(8, mode="multilevel")
 
