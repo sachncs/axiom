@@ -519,27 +519,40 @@ class Disk(Pressure):
                     raise RuntimeError(
                         "successful checkpoint changed service availability"
                     )
-                version, edges, following = service.page(0, 256).result(5)
                 status = service.status().result(5)
                 live_partners = [-1] * checkpoint_audit.vertices
-                if (
-                    version != status["version"]
-                    or following is not None
-                    or len(edges) != checkpoint_audit.vertices // 2
-                ):
+                page_start = 0
+                matching_count = 0
+                while True:
+                    version, edges, following = service.page(
+                        page_start, 256, status["version"]
+                    ).result(5)
+                    if version != status["version"]:
+                        raise RuntimeError(
+                            "successful checkpoint changed matching-page version"
+                        )
+                    for left, right in edges:
+                        if (
+                            not 0 <= left < right < checkpoint_audit.vertices
+                            or live_partners[left] != -1
+                            or live_partners[right] != -1
+                        ):
+                            raise RuntimeError(
+                                "successful checkpoint returned an invalid matching"
+                            )
+                        live_partners[left], live_partners[right] = right, left
+                        matching_count += 1
+                    if following is None:
+                        break
+                    if type(following) is not int or following <= page_start:
+                        raise RuntimeError(
+                            "successful checkpoint matching cursor did not advance"
+                        )
+                    page_start = following
+                if matching_count != checkpoint_audit.vertices // 2:
                     raise RuntimeError(
                         "successful checkpoint returned an incomplete matching page"
                     )
-                for left, right in edges:
-                    if (
-                        not 0 <= left < right < checkpoint_audit.vertices
-                        or live_partners[left] != -1
-                        or live_partners[right] != -1
-                    ):
-                        raise RuntimeError(
-                            "successful checkpoint returned an invalid matching"
-                        )
-                    live_partners[left], live_partners[right] = right, left
                 partner = live_partners[0]
                 if partner < 0 or (
                     service.partner(0).result(5) != (0, partner)

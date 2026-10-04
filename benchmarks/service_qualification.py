@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 from array import array
+from collections import deque
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Literal
@@ -123,25 +124,13 @@ def matching_digest(
     return hashlib.sha256(memoryview(partners).cast("B")).hexdigest()
 
 
-def ring_edge(left: int, right: int, vertices: int) -> bool:
-    """Return whether a canonical pair belongs to the fixed degree-four ring."""
-    distance = right - left
-    return distance in (1, 2, vertices - 2, vertices - 1)
-
-
 def audit_topology(
     restored: Durable,
     vertices: int,
-    candidates: array[int],
-    pair_of: array[int],
-    states: bytearray,
+    acknowledged: int,
 ) -> int:
-    """Verify every expected edge in bounded reads and rule out unexpected ones."""
-    expected_count = 2 * vertices
-    for index, present in enumerate(states):
-        left, right = candidates[index * 2], candidates[index * 2 + 1]
-        initially_present = ring_edge(min(left, right), max(left, right), vertices)
-        expected_count += int(present) - int(initially_present)
+    """Audit ring plus the possible unmatched insert in an acknowledged prefix."""
+    expected_count = 2 * vertices + acknowledged % 2
     status = restored.status()
     if status["edges"] != expected_count:
         raise RuntimeError(
@@ -153,17 +142,10 @@ def audit_topology(
         for left in range(vertices):
             for offset in (1, 2):
                 right = (left + offset) % vertices
-                edgeleft, edgeright = min(left, right), max(left, right)
-                pair = pair_of[edgeleft]
-                if pair >= 0 and pair_of[edgeright] == pair and not states[pair]:
-                    continue
-                yield edgeleft, edgeright
-        for index, present in enumerate(states):
-            if not present:
-                continue
-            left, right = candidates[index * 2], candidates[index * 2 + 1]
-            if not ring_edge(left, right, vertices):
                 yield min(left, right), max(left, right)
+        if acknowledged % 2:
+            pair = acknowledged // 2
+            yield pair, pair + vertices // 2
 
     chunk: list[tuple[int, int]] = []
     for edge in expected_edges():
@@ -204,6 +186,7 @@ def validate(
     rate: float | None,
     read_rate: float | None,
     seed: int,
+    window: int = 64,
 ) -> None:
     """Reject unsupported workload parameters before creating a database."""
     if mode not in {"basic", "multilevel"}:
@@ -212,6 +195,10 @@ def validate(
         raise ValueError(f"vertices must be an integer in [8, {MAX_VERTICES}]")
     if type(updates) is not int or not 1 <= updates <= MAX_UPDATES:
         raise ValueError(f"updates must be an integer in [1, {MAX_UPDATES}]")
+    if updates > 2 * (vertices // 2):
+        raise ValueError("updates exceed the distinct antipodal-pair workload")
+    if type(window) is not int or not 1 <= window <= 512:
+        raise ValueError("window must be an integer in [1, 512]")
     if rate is not None and (
         type(rate) not in (int, float) or not math.isfinite(rate) or rate <= 0
     ):
@@ -235,6 +222,7 @@ def run(
     rate: float | None,
     read_rate: float | None,
     seed: int,
+    window: int = 64,
 ) -> dict[str, Any]:
     """Run one deterministic trace, count actual outcomes, and verify recovery."""
     validate(
@@ -244,28 +232,24 @@ def run(
         rate=rate,
         read_rate=read_rate,
         seed=seed,
+        window=window,
     )
     if path.exists():
         raise ValueError("benchmark requires a fresh database path")
     overall_start = time.perf_counter()
-    rng = random.Random(seed)
-    candidates = array("I", range(vertices))
-    rng.shuffle(candidates)
-    pair_count = vertices // 2
-    pair_of = array("i", [-1]) * vertices
-    states = bytearray(pair_count)
-    for index in range(pair_count):
-        left, right = candidates[index * 2], candidates[index * 2 + 1]
-        pair_of[left] = pair_of[right] = index
-        states[index] = ring_edge(min(left, right), max(left, right), vertices)
-    acknowledged_latencies = Latency()
+    receipt_latencies = Latency()
     query_latencies = Latency()
     query_failures = 0
     query_stop = threading.Event()
     query_started = threading.Event()
-    query_thread_errors: list[BaseException] = []
     initialization_start = time.perf_counter()
-    service = Service(path, n=vertices, width=2, mode=mode)
+    service = Service(
+        path,
+        n=vertices,
+        width=2,
+        mode=mode,
+        queue_capacity=window + 8,
+    )
     initialization_seconds = time.perf_counter() - initialization_start
     workload_start = time.perf_counter()
     query_rng = random.Random(seed ^ 0xA51)
@@ -285,58 +269,119 @@ def run(
                     query_failures += 1
                     return
                 if read_rate is not None:
-                    next_offer += 1 / read_rate
+                    next_offer = time.perf_counter() + 1 / read_rate
                     query_stop.wait(max(0, next_offer - time.perf_counter()))
-        except BaseException as error:
-            query_thread_errors.append(error)
+        except BaseException:
             query_failures += 1
             query_stop.set()
 
     reader = threading.Thread(target=query_worker, name="paper-service-reader")
     reader.start()
-    query_started.wait(5)
-    acknowledged = failed = rejected = 0
+    if not query_started.wait(5):
+        query_stop.set()
+        reader.join(5)
+        service.close(30)
+        raise TimeoutError("query worker did not start")
+    acknowledged = accepted = failed = rejected = 0
     offered = 0
-    update_rng = random.Random(seed ^ 0xA71)
     next_offer = time.perf_counter()
+    pending: deque[tuple[Any, int, int]] = deque()
+
+    def complete_oldest(timeout: float = 120) -> bool | None:
+        """Resolve oldest receipt, preserving FIFO and receipt-completion latency."""
+        nonlocal acknowledged, failed
+        receipt, sequence, admitted_ns = pending[0]
+        try:
+            outcome = receipt.result(timeout)
+        except TimeoutError:
+            if not receipt.done():
+                if timeout < 120:
+                    return None
+                pending.popleft()
+                failed += 1
+                receipt_latencies.record(time.perf_counter_ns() - admitted_ns)
+                return False
+            pending.popleft()
+            failed += 1
+            timing = getattr(receipt, "timing", lambda: None)()
+            elapsed = (
+                timing.completed_ns - timing.admitted_ns
+                if timing is not None
+                else time.perf_counter_ns() - admitted_ns
+            )
+            receipt_latencies.record(elapsed)
+            return False
+        except BaseException:
+            pending.popleft()
+            failed += 1
+            timing = getattr(receipt, "timing", lambda: None)()
+            elapsed = (
+                timing.completed_ns - timing.admitted_ns
+                if timing is not None
+                else time.perf_counter_ns() - admitted_ns
+            )
+            receipt_latencies.record(elapsed)
+            return False
+        pending.popleft()
+        timing = getattr(receipt, "timing", lambda: None)()
+        elapsed = (
+            timing.completed_ns - timing.admitted_ns
+            if timing is not None
+            else time.perf_counter_ns() - admitted_ns
+        )
+        receipt_latencies.record(elapsed)
+        if outcome.sequence != acknowledged + 1 or sequence != outcome.sequence:
+            failed += 1
+            return False
+        if not outcome.changed:
+            failed += 1
+            return False
+        acknowledged += 1
+        return True
+
     try:
         for sequence in range(1, updates + 1):
             if query_stop.is_set():
                 break
+            blocked = False
+            while len(pending) >= window:
+                if complete_oldest() is not True:
+                    blocked = True
+                    break
+            if failed or blocked:
+                break
             if rate is not None:
                 delay = next_offer - time.perf_counter()
                 if delay > 0:
-                    time.sleep(delay)
-                next_offer += 1 / rate
-            pair_index = update_rng.randrange(pair_count)
-            left, right = candidates[pair_index * 2], candidates[pair_index * 2 + 1]
-            edge = min(left, right), max(left, right)
-            inserting = not states[pair_index]
-            operation: Literal["insert", "delete"] = "insert" if inserting else "delete"
+                    if pending:
+                        complete_oldest(delay)
+                        if failed:
+                            break
+                    remaining = next_offer - time.perf_counter()
+                    if remaining > 0:
+                        time.sleep(remaining)
+            pair_index = (sequence - 1) // 2
+            left, right = pair_index, pair_index + vertices // 2
+            operation: Literal["insert", "delete"] = (
+                "insert" if sequence % 2 else "delete"
+            )
             offered += 1
             offered_ns = time.perf_counter_ns()
             try:
-                receipt = service.submit(Request(sequence, operation, *edge))
+                receipt = service.submit(Request(sequence, operation, left, right))
             except (BusyError, CapacityError):
                 rejected += 1
-                # This sequence was not admitted. Subsequent sequence IDs must
-                # remain contiguous, so stop and audit the acknowledged prefix.
                 break
             except BaseException:
                 failed += 1
                 break
-            try:
-                outcome = receipt.result(120)
-            except BaseException:
-                failed += 1
-                break
-            elapsed = time.perf_counter_ns() - offered_ns
-            if outcome.sequence != sequence or not outcome.changed:
-                failed += 1
-                break
-            acknowledged += 1
-            acknowledged_latencies.record(elapsed)
-            states[pair_index] = int(inserting)
+            accepted += 1
+            pending.append((receipt, sequence, offered_ns))
+            if rate is not None:
+                # Resume pacing from now, preventing catch-up bursts after stalls.
+                next_offer = time.perf_counter() + 1 / rate
+        while pending:
+            complete_oldest()
         resources = resource_snapshot(service) if failed == 0 else None
     finally:
         query_stop.set()
@@ -354,9 +399,7 @@ def run(
             )
         if not restored.check():
             raise RuntimeError("reopened graph/matching exact check failed")
-        expected_edge_count = audit_topology(
-            restored, vertices, candidates, pair_of, states
-        )
+        expected_edge_count = audit_topology(restored, vertices, acknowledged)
         if recovered_status["edges"] != expected_edge_count:
             raise RuntimeError("reopened edge count differs from audited topology")
         recovered_digest = matching_digest(
@@ -369,21 +412,32 @@ def run(
     return {
         "scope": "PER-RUN SMOKE ONLY; not 10k qualification without a sustained, no-loss target run",
         "mode": mode,
-        "load_model": "single-outstanding paced client; not an open-loop saturation test",
+        "load_model": "bounded receipt pipeline; pacing has no catch-up bursts; not open-loop",
         "vertices": vertices,
+        "window": window,
         "service_initialization_seconds": initialization_seconds,
         "seed": seed,
+        "update_pattern": "insert-delete on distinct antipodal pairs",
         "requested_updates": updates,
         "update_rate_offer_per_second": rate if rate is not None else "max",
+        "update_pacing": "unpaced"
+        if rate is None
+        else "rate-capped without catch-up bursts",
         "read_rate_offer_per_second": read_rate if read_rate is not None else "max",
+        "read_pacing": "unpaced"
+        if read_rate is None
+        else "rate-capped without catch-up bursts",
         "offered": offered,
+        "accepted": accepted,
         "acknowledged_durable": acknowledged,
         "failed": failed,
         "rejected": rejected,
+        "offered_updates_per_second": offered / workload_seconds,
+        "accepted_updates_per_second": accepted / workload_seconds,
         "achieved_durable_updates_per_second": acknowledged / workload_seconds,
         "workload_seconds": workload_seconds,
         "end_to_end_seconds": end_to_end_seconds,
-        "update_latency_ns": acknowledged_latencies.summary(),
+        "receipt_latency_ns": receipt_latencies.summary(),
         "query_offers": query_latencies.count + query_failures,
         "query_succeeded": query_latencies.count,
         "query_failed": query_failures,
@@ -410,6 +464,12 @@ def main(arguments: list[str] | None = None) -> int:
         "--read-rate", type=rate_value, required=True, help="queries/s or max"
     )
     parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument(
+        "--window",
+        type=positive_integer,
+        default=64,
+        help="accepted update window (1-512)",
+    )
     options = parser.parse_args(arguments)
     try:
         result = run(
@@ -420,6 +480,7 @@ def main(arguments: list[str] | None = None) -> int:
             rate=options.rate,
             read_rate=options.read_rate,
             seed=options.seed,
+            window=options.window,
         )
     except ValueError as error:
         parser.error(str(error))
@@ -428,6 +489,7 @@ def main(arguments: list[str] | None = None) -> int:
         0
         if result["failed"] == 0
         and result["rejected"] == 0
+        and result["accepted"] == result["requested_updates"]
         and result["acknowledged_durable"] == result["requested_updates"]
         else 1
     )

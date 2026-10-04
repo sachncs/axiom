@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from axiom.durable import BusyError
+from axiom.durable import BusyError, Durable, Request
 from axiom.service import Service
 from benchmarks.service_qualification import (
     Latency,
@@ -30,10 +30,12 @@ def test_small_run_counts_durable_transitions_and_reopens_exact_state(
         seed=599,
     )
     assert result["offered"] == result["acknowledged_durable"] == 24
+    assert result["accepted"] == 24
     assert result["failed"] == result["rejected"] == 0
     assert result["query_succeeded"] > 0
     assert result["query_failed"] == 0
-    assert result["update_latency_ns"]["count"] == 24
+    assert result["receipt_latency_ns"]["count"] == 24
+    assert result["window"] == 64
     assert result["independent_reopen_verified"]
     assert result["scope"].startswith("PER-RUN SMOKE ONLY")
     assert result["service_initialization_seconds"] >= 0
@@ -77,8 +79,11 @@ def test_rate_parser_rejects_nonpositive_or_nonfinite_rates(value: str) -> None:
         {"vertices": True},
         {"updates": 0},
         {"updates": 1_000_001},
+        {"vertices": 9, "updates": 9},
         {"rate": 0},
         {"read_rate": float("inf")},
+        {"window": 0},
+        {"window": 513},
         {"seed": -1},
         {"seed": True},
     ],
@@ -115,7 +120,7 @@ def test_database_must_be_fresh(tmp_path: Path) -> None:
 def test_rejected_update_is_not_counted_as_acknowledged(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def reject(self: Service, request: object) -> None:
+    def reject(self: Service, request: Request) -> None:
         raise BusyError("injected full admission queue")
 
     monkeypatch.setattr(Service, "submit", reject)
@@ -135,6 +140,38 @@ def test_rejected_update_is_not_counted_as_acknowledged(
     assert result["independent_reopen_verified"]
 
 
+def test_rejection_drains_and_recovers_exact_inflight_acknowledged_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    submit = Service.submit
+
+    def reject_fourth(self: Service, request: Request):
+        if request.sequence == 4:
+            raise BusyError("injected rejection with three accepted updates")
+        return submit(self, request)
+
+    monkeypatch.setattr(Service, "submit", reject_fourth)
+    path = tmp_path / "inflight-rejection.db"
+    result = run(
+        path,
+        mode="basic",
+        vertices=32,
+        updates=8,
+        rate=None,
+        read_rate=100,
+        seed=599,
+        window=8,
+    )
+    assert result["offered"] == 4
+    assert result["accepted"] == result["acknowledged_durable"] == 3
+    assert result["rejected"] == 1 and result["failed"] == 0
+    assert result["recovered_status"]["sequence"] == 3
+    assert result["recovered_status"]["edges"] == 65
+    with Durable(path, mode="basic") as restored:
+        assert not restored.has_edge(0, 16)[1]
+        assert restored.has_edge(1, 17)[1]
+
+
 def test_failed_receipt_is_not_counted_as_durable_ack(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -142,7 +179,7 @@ def test_failed_receipt_is_not_counted_as_durable_ack(
         def result(self, timeout: float) -> None:
             raise RuntimeError("injected receipt failure")
 
-    def fail(self: Service, request: object) -> FailedReceipt:
+    def fail(self: Service, request: Request) -> FailedReceipt:
         return FailedReceipt()
 
     monkeypatch.setattr(Service, "submit", fail)
@@ -155,9 +192,9 @@ def test_failed_receipt_is_not_counted_as_durable_ack(
         read_rate=None,
         seed=599,
     )
-    assert result["offered"] == 1
+    assert result["offered"] == result["accepted"] == 5
     assert result["acknowledged_durable"] == 0
-    assert result["failed"] == 1 and result["rejected"] == 0
+    assert result["failed"] == 5 and result["rejected"] == 0
     assert result["recovered_status"]["sequence"] == 0
     assert result["independent_reopen_verified"]
 
@@ -165,7 +202,7 @@ def test_failed_receipt_is_not_counted_as_durable_ack(
 def test_synchronous_service_failure_is_not_misreported_as_rejection(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fail(self: Service, request: object) -> None:
+    def fail(self: Service, request: Request) -> None:
         raise RuntimeError("injected unavailable service")
 
     monkeypatch.setattr(Service, "submit", fail)
