@@ -415,17 +415,39 @@ class System:
             maximality-equality checks deterministic.
         """
         self.lambda_lists = {}
-        for u in self.U:
-            values = sorted(
-                w for w in self.graph.neighbors(u) if w in self.B or w in self.U
-            )
-            if values:
-                self.lambda_lists[u] = self.cache_row(values)
+        if type(self.graph) is Packed:
+            # Packed.neighbors() already yields sorted labels. Build each final
+            # compact row directly: constructing a Python list and then copying
+            # it into an array temporarily doubles cache-row storage during
+            # large recovery/rebuilds under a fixed address-space limit.
+            for u in self.U:
+                compact_values = array("I")
+                for w in self.graph.neighbors(u):
+                    if w in self.B or w in self.U:
+                        compact_values.append(w)
+                if compact_values:
+                    self.lambda_lists[u] = compact_values
+        else:
+            for u in self.U:
+                values = sorted(
+                    w for w in self.graph.neighbors(u) if w in self.B or w in self.U
+                )
+                if values:
+                    self.lambda_lists[u] = values
         self.L_lists = {}
-        for a in self.A:
-            values = sorted(w for w in self.graph.neighbors(a) if w in self.U)
-            if values:
-                self.L_lists[a] = self.cache_row(values)
+        if type(self.graph) is Packed:
+            for a in self.A:
+                compact_values = array("I")
+                for w in self.graph.neighbors(a):
+                    if w in self.U:
+                        compact_values.append(w)
+                if compact_values:
+                    self.L_lists[a] = compact_values
+        else:
+            for a in self.A:
+                values = sorted(w for w in self.graph.neighbors(a) if w in self.U)
+                if values:
+                    self.L_lists[a] = values
 
     def cache_row(self, values: list[Vertex]) -> CacheRow:
         """Choose compact fixed-width rows only for the owned Packed backend."""

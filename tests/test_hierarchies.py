@@ -26,27 +26,30 @@ def populated():
     return Matcher(16, graph=graph, mode="multilevel")
 
 
-def test_initial_multilevel_snapshot_waits_until_recursive_graph_build_finishes(
+def test_initial_multilevel_snapshot_precedes_recursive_index_construction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = Packed(16)
     for vertex in range(16):
         graph.add_edge(vertex, (vertex + 1) % 16)
 
-    state = {"hierarchy_built": False}
+    state = {"hierarchy_built": False, "snapshot_built": False}
     original_build = rebuild_module.build_hierarchy
     original_snapshot = rebuild_module.snapshot
 
     def build(*args, **kwargs):
+        assert state["snapshot_built"]
         result = original_build(*args, **kwargs)
         state["hierarchy_built"] = True
         return result
 
     def snapshot(source):
-        assert state["hierarchy_built"], (
-            "phase-base graph was copied while recursive build temporaries were live"
+        assert not state["hierarchy_built"], (
+            "phase-base graph was copied after graph-sized indexes were built"
         )
-        return original_snapshot(source)
+        result = original_snapshot(source)
+        state["snapshot_built"] = True
+        return result
 
     monkeypatch.setattr(rebuild_module, "build_hierarchy", build)
     monkeypatch.setattr(rebuild_module, "snapshot", snapshot)
