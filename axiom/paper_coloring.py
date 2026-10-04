@@ -3187,21 +3187,22 @@ class Paper:
         for vertex in incident:
             incident[vertex].sort(reverse=True)
 
-        partition: dict[int, int] = {}
-        used: set[int] = set()
+        partition = bytearray(len(originaledges))
+        assigned = 0
+        used = bytearray(len(augmented))
         for component in components:
             root = min(component)
             trailstack: list[tuple[Vertex, int | None]] = [(root, None)]
             circuit: list[int] = []
             while trailstack:
                 vertex, incoming = trailstack[-1]
-                while incident[vertex] and incident[vertex][-1][0] in used:
+                while incident[vertex] and used[incident[vertex][-1][0]]:
                     incident[vertex].pop()
                 if incident[vertex]:
                     edgeid, neighbor = incident[vertex].pop()
-                    if edgeid in used:
+                    if used[edgeid]:
                         continue
-                    used.add(edgeid)
+                    used[edgeid] = 1
                     trailstack.append((neighbor, edgeid))
                 else:
                     trailstack.pop()
@@ -3211,8 +3212,9 @@ class Paper:
                 originalindex = augmented[edgeid][2]
                 if originalindex is not None:
                     partition[originalindex] = position % 2
+                    assigned += 1
 
-        if len(partition) != len(originaledges):
+        if assigned != len(originaledges):
             raise RuntimeError("Euler partition did not assign every graph edge")
         parts = (empty(graph), empty(graph))
         for index, edge in enumerate(originaledges):

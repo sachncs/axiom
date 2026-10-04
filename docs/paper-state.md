@@ -45,6 +45,12 @@ the skip for edges already colored by fan repair.
 See [ADR 0117](adrs/0117-reuse-paper-pending-edges.md); end-to-end allocation
 impact remains unmeasured.
 
+`Paper.partition()` now stores dense Euler edge-ID membership and side
+assignments in byte arrays rather than Python hash containers, while retaining
+the existing deterministic traversal and an explicit completeness count. See
+[ADR 0118](adrs/0118-byte-indexed-paper-partition.md); end-to-end memory impact
+remains unmeasured.
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |

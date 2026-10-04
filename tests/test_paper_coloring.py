@@ -747,6 +747,38 @@ def test_partition_component_discovery_avoids_isolated_vertex_universe(
     assert leftedges | rightedges == set(graph.edges())
 
 
+@pytest.mark.parametrize(
+    "edges",
+    [
+        (),
+        ((0, 1), (1, 2), (2, 0)),
+        ((0, 1), (1, 2), (2, 3), (4, 5)),
+        ((0, 1), (0, 2), (0, 3), (2, 4), (5, 6), (6, 7)),
+    ],
+)
+def test_partition_byte_indexes_preserve_disconnected_and_odd_degree_cases(
+    edges: tuple[tuple[int, int], ...],
+) -> None:
+    graph = Adjacency(9)
+    for edge in edges:
+        graph.add_edge(*edge)
+
+    first = Paper.partition(graph)
+    second = Paper.partition(graph)
+    firstedges = set(first[0].edges()), set(first[1].edges())
+    secondedges = set(second[0].edges()), set(second[1].edges())
+
+    assert firstedges == secondedges
+    assert firstedges[0].isdisjoint(firstedges[1])
+    assert firstedges[0] | firstedges[1] == set(graph.edges())
+    bound = (
+        max((graph.degree(vertex) for vertex in range(graph.n)), default=0) + 2
+    ) // 2
+    for vertex in range(graph.n):
+        assert first[0].degree(vertex) <= bound
+        assert first[1].degree(vertex) <= bound
+
+
 def test_paper_maximum_degree_uses_sparse_endpoints_without_extra_storage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
