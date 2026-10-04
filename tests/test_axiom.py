@@ -1791,6 +1791,26 @@ class TestMatcher:
         with pytest.raises(RuntimeError):
             algo.policy.rebuild(algo)
 
+    def test_partition_compares_coloring_keys_without_copying_matching(self) -> None:
+        """Successful partition checks compare key views directly."""
+
+        class KeyViewOnly(dict):
+            def __iter__(self):
+                raise AssertionError("partition copied complete coloring keys")
+
+        algo = Matcher(4, mode="basic")
+        algo.graph.add_edge(0, 1)
+        algo.graph.add_edge(2, 3)
+        algo.z = 1
+        algo.system = build(algo.graph, algo.z)
+        coloring = KeyViewOnly({edge: 0 for edge in algo.system.M})
+        algo.colorer.color = lambda graph, delta: coloring
+
+        algo.partition()
+
+        assert len(algo.matchings[0]) == 2
+        assert algo.seed_matching == algo.system.M
+
     def test_failed_update_rolls_back_all_mutable_state(self) -> None:
         """A failed repair cannot expose a partially applied update."""
         algo = Matcher(2, mode="basic")

@@ -335,9 +335,10 @@ class Matcher:
 
         coloring = self.colorer.color(sub, self.z)
 
-        if set(coloring) != set(self.system.M):
-            missing = set(self.system.M) - set(coloring)
-            extra = set(coloring) - set(self.system.M)
+        coloring_edges = coloring.keys()
+        if coloring_edges != self.system.M:
+            missing = self.system.M - coloring_edges
+            extra = coloring_edges - self.system.M
             raise RuntimeError(
                 "edge colorer returned an incomplete coloring: "
                 f"missing={sorted(missing)}, extra={sorted(extra)}"

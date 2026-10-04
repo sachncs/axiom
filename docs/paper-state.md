@@ -32,6 +32,12 @@ instead of copying all keys. Full coloring/certification scans remain by design;
 large-graph allocation effects are not yet measured. See [ADR
 0115](adrs/0115-defer-paper-color-edge-snapshot.md).
 
+`Matcher.partition()` now compares the returned coloring key view with the
+system matching directly; missing/extra edge sets are materialized only for an
+invalid result. The coloring, output classes, and independent range/properness
+checks remain. See [ADR 0116](adrs/0116-compare-partition-color-keys-by-view.md);
+full rebuild allocation measurement remains open.
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |
