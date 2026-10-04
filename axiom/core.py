@@ -64,6 +64,7 @@ from axiom.types import (
     Vertex,
     canonical,
 )
+from axiom.vertices import Vertices
 from axiom.views import Views
 
 
@@ -181,7 +182,7 @@ class Matcher:
             else Vizing()
         )
         self.matched_edges: Matching = set()
-        self.matched_vertices: set[Vertex] = set()
+        self.matched_vertices = Vertices(n)
         self.partner_map: dict[Vertex, Vertex] = {}
         self.views: Views | None = None
         self.classes: Classes | None = None
@@ -573,7 +574,10 @@ class Matcher:
         """Validate the matching, vertex cache, and partner map together."""
         edge_count = len(self.matched_edges)
         if (
-            len(self.matched_vertices) != 2 * edge_count
+            not isinstance(self.matched_vertices, (set, Vertices))
+            or isinstance(self.matched_vertices, Vertices)
+            and not self.matched_vertices.check()
+            or len(self.matched_vertices) != 2 * edge_count
             or len(self.partner_map) != 2 * edge_count
         ):
             return False
@@ -698,7 +702,7 @@ class Matcher:
             )
 
         matching: Matching = set()
-        matched: set[Vertex] = set()
+        matched = Vertices(self.n)
         # The seed is supplied by the edge-colouring phase and must already
         # be a matching.  Silently dropping conflicting edges would change
         # the algorithm and hide a broken colouring invariant.

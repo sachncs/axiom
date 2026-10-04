@@ -217,7 +217,9 @@ class Witness:
         elif kind is Vertices:
             if not value.check():
                 raise ValueError("invalid compact vertex partition")
-            content = self.encode({"n": value.n, "members": list(value)}, depth + 1)
+            content = self.encode(
+                {"n": value.n, "members": sorted(value)}, depth + 1
+            )
         else:
             attributes = vars(value)
             if attributes.keys() != self.schema[kind]:

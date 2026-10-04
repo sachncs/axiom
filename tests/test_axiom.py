@@ -775,7 +775,7 @@ class TestMatcher:
         )
         matcher.matched_vertices.add(unmatched)
         assert not matcher._Matcher__check_matching_state()
-        matcher.matched_vertices.remove(unmatched)
+        matcher.matched_vertices.discard(unmatched)
 
         matcher.partner_map[unmatched] = 0
         assert not matcher._Matcher__check_matching_state()

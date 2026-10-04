@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from axiom.capacity import JournalCapacityError
 from axiom.matching import is_maximal_matching
+from axiom.vertices import Vertices
 
 if TYPE_CHECKING:
     from axiom.core import Matcher
@@ -37,10 +38,13 @@ class Views:
         self.crossings = owner.i3_crossings
         if (
             type(self.edges) is not set
-            or type(self.vertices) is not set
+            or type(self.vertices) not in (set, Vertices)
             or type(self.partners) is not dict
         ):
-            raise TypeError("matching views require plain sets and dictionary")
+            raise TypeError(
+                "matching views require plain sets for edges, a plain dictionary, "
+                "and a plain set or compact vertex set"
+            )
         if id(self.edges) == id(self.vertices):
             raise ValueError("matching views cannot share a container")
         self.edge: dict[tuple[int, int], bool] = {}
@@ -199,13 +203,12 @@ class Views:
                 )
             ):
                 raise RuntimeError("candidate matching value types are invalid")
-            vertices: set[int] = set()
             for left, right in self.owner.matched_edges:
                 self.pair(left, right)
-                vertices.update((left, right))
+            edge_count = len(self.owner.matched_edges)
             if (
-                self.owner.matched_vertices != vertices
-                or set(self.owner.partner_map) != vertices
+                len(self.owner.matched_vertices) != 2 * edge_count
+                or len(self.owner.partner_map) != 2 * edge_count
             ):
                 raise RuntimeError("candidate matching views are inconsistent")
             return

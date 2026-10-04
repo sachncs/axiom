@@ -146,8 +146,11 @@ class Vertices:
         self.validate(value)
         if value in self:
             return
-        self.positions[value] = len(self.members)
+        position = len(self.members)
+        # Append first: array growth can fail, and membership must remain
+        # unchanged if allocation fails under a hard memory limit.
         self.members.append(value)
+        self.positions[value] = position
         self.size += 1
 
     def discard(self, value: Vertex) -> None:
