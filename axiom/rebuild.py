@@ -296,6 +296,7 @@ class Multilevel:
         previous_level_zs = (
             [level.z for level in previous.levels] if previous is not None else []
         )
+        initial_rebuild = previous is None and matcher.phase_base_graph is None
         phase_base_graph: Graph
         phase_base_system: System
         child_rebuild = False
@@ -370,12 +371,13 @@ class Multilevel:
                 # the next recursive level, not a second insertion set.
                 inserted = set()
         else:
-            # Preserve the exact level-1 input before recursive refinement
-            # rebinds retained levels to each narrower working graph.  This
-            # is the inherited h-level system required by Theorem 4.4 for
-            # the next recursive rebuild; rebuilding it would discard the
-            # prior partition and matching state.
-            phase_base_graph = snapshot(matcher.graph)
+            # Build against the live topology while it is already stable under
+            # the Matcher owner. Retain the immutable phase-base graph only
+            # after hierarchy synchronization; snapshotting here keeps an
+            # unnecessary full graph alive beside recursive build temporaries.
+            phase_base_graph = (
+                matcher.graph if initial_rebuild else snapshot(matcher.graph)
+            )
             phase_base_system = build(phase_base_graph, matcher.level_zs[0])
             # A recursive level immediately rebuilds these caches on its
             # projected graph. Preserve eager indexing only when the
@@ -472,10 +474,18 @@ class Multilevel:
             next_base_graph = matcher.multi.graph
             next_base_system = build(next_base_graph, matcher.level_zs[0])
         else:
-            # A full rebuild already captured this exact live topology before
-            # building the hierarchy. Reuse that immutable root/System instead
-            # of taking an identical parent-boundary snapshot a second time.
-            next_base_graph = phase_base_graph
+            if initial_rebuild:
+                # Keep a separate immutable root for future child rebuilds,
+                # but allocate it after recursive construction has ended.
+                # The level-one partition and matching depend on topology
+                # only, so rebind its graph view without rebuilding indexes.
+                next_base_graph = snapshot(matcher.graph)
+                phase_base_system.graph = next_base_graph
+            else:
+                # During later full rebuilds, an older hierarchy may alias a
+                # graph touched by boundary cleanup. Retain the pre-build
+                # snapshot rather than changing that established ownership.
+                next_base_graph = phase_base_graph
             next_base_system = phase_base_system
         matcher.phase_base_graph = next_base_graph
         matcher.phase_base_system = next_base_system
