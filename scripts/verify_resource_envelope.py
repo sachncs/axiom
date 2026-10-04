@@ -745,12 +745,12 @@ class Disk(Pressure):
                     raise
                 if service.metrics()["state"] != "failed":
                     raise RuntimeError("full update commit did not fail-stop service")
-                for read in (
-                    lambda: service.partner(0),
-                    lambda: service.has_edge(0, 1),
+                for read, arguments in (
+                    (service.partner, (0,)),
+                    (service.has_edge, (0, 1)),
                 ):
                     try:
-                        read().result(5)
+                        read(*arguments).result(5)
                     except UnavailableError:
                         continue
                     raise RuntimeError("uncertain failed commit served a read")
@@ -760,6 +760,11 @@ class Disk(Pressure):
         finally:
             self.volume.release()
             service.close(30)
+        # Close releases the SQLite owner but Service retains its Matcher.
+        # Replaying the database under the same address-space cap must not
+        # overlap that closed million-vertex graph and paper state.
+        del service
+        gc.collect()
 
         with Durable(database, mode=self.mode, budget=128 << 20) as owner:
             state = owner.status()

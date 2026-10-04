@@ -2002,6 +2002,22 @@ class TestMatcher:
         assert len(algo.matchings[0]) == 2
         assert algo.seed_matching == algo.system.M
 
+    def test_multilevel_startup_skips_empty_graph_allocation(self, monkeypatch):
+        """An empty initial M must not allocate another graph-sized graph."""
+        graph = Packed(64)
+        graph.ring(2)
+
+        def reject_empty_graph(_graph):
+            raise AssertionError("empty system matching allocated a graph")
+
+        monkeypatch.setattr(core_module, "empty", reject_empty_graph)
+        algo = Matcher(64, graph=graph, mode="multilevel")
+
+        assert algo.system is not None
+        assert not algo.system.M
+        assert algo.maximal()
+        assert len(algo.matching()) == 32
+
     def test_failed_update_rolls_back_all_mutable_state(self) -> None:
         """A failed repair cannot expose a partially applied update."""
         algo = Matcher(2, mode="basic")

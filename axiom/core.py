@@ -346,11 +346,21 @@ class Matcher:
             self.activecolors = set()
             return
 
-        sub = empty(self.graph)
-        for e in self.system.M:
-            sub.add_edge(e[0], e[1])
-
-        coloring = self.colorer.color(sub, self.z)
+        if self.system.M or type(self.colorer) not in (Vizing, Paper):
+            sub = empty(self.graph)
+            for e in self.system.M:
+                sub.add_edge(e[0], e[1])
+            coloring = self.colorer.color(sub, self.z)
+        elif "color" in vars(self.colorer):
+            # Preserve instance-level instrumentation/overrides even for a
+            # built-in colorer while keeping its ordinary empty case sparse.
+            sub = empty(self.graph)
+            coloring = self.colorer.color(sub, self.z)
+        else:
+            # The empty edge set has exactly one complete proper coloring: the
+            # empty map. Avoid an O(n) native graph allocation for this common
+            # sparse-system case, especially during million-vertex startup.
+            coloring = {}
 
         coloring_edges = coloring.keys()
         if coloring_edges != self.system.M:
