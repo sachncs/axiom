@@ -570,20 +570,26 @@ class Matcher:
 
     def __check_matching_state(self) -> bool:
         """Validate the matching, vertex cache, and partner map together."""
-        expected_vertices: set[Vertex] = set()
-        expected_partners: dict[Vertex, Vertex] = {}
+        edge_count = len(self.matched_edges)
+        if (
+            len(self.matched_vertices) != 2 * edge_count
+            or len(self.partner_map) != 2 * edge_count
+        ):
+            return False
         for left, right in self.matched_edges:
-            if left >= right or not self.graph.has_edge(left, right):
+            if (
+                left >= right
+                or not self.graph.has_edge(left, right)
+                or left not in self.matched_vertices
+                or right not in self.matched_vertices
+                or self.partner_map.get(left) != right
+                or self.partner_map.get(right) != left
+            ):
                 return False
-            if left in expected_vertices or right in expected_vertices:
-                return False
-            expected_vertices.update((left, right))
-            expected_partners[left] = right
-            expected_partners[right] = left
-        return (
-            self.matched_vertices == expected_vertices
-            and self.partner_map == expected_partners
-        )
+        # Exact cardinalities plus both endpoint checks prove there are no
+        # stray cache entries and no shared matching vertices. Avoid building
+        # a second vertex set and partner dictionary proportional to |M|.
+        return True
 
     def add_match(self, u: Vertex, v: Vertex) -> None:
         """Add edge ``(u, v)`` to the maintained matching.

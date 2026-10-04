@@ -746,6 +746,42 @@ class TestBuild:
 class TestMatcher:
     """End-to-end tests for :class:`axiom.core.Matcher`."""
 
+    def test_matching_state_audit_avoids_duplicate_endpoint_indexes(self) -> None:
+        class GuardedSet(set):
+            def __iter__(self):
+                raise AssertionError("matching audit copied matched vertices")
+
+        class GuardedDict(dict):
+            def __iter__(self):
+                raise AssertionError("matching audit copied partner entries")
+
+            def items(self):
+                raise AssertionError("matching audit copied partner entries")
+
+        matcher = Matcher(32)
+        matcher.matched_vertices = GuardedSet(matcher.matched_vertices)
+        matcher.partner_map = GuardedDict(matcher.partner_map)
+
+        assert matcher._Matcher__check_matching_state()
+
+    def test_matching_state_audit_rejects_stray_or_inconsistent_indexes(self) -> None:
+        matcher = Matcher(8)
+        assert matcher._Matcher__check_matching_state()
+
+        unmatched = next(
+            vertex
+            for vertex in range(matcher.n)
+            if vertex not in matcher.matched_vertices
+        )
+        matcher.matched_vertices.add(unmatched)
+        assert not matcher._Matcher__check_matching_state()
+        matcher.matched_vertices.remove(unmatched)
+
+        matcher.partner_map[unmatched] = 0
+        assert not matcher._Matcher__check_matching_state()
+        del matcher.partner_map[unmatched]
+        assert matcher._Matcher__check_matching_state()
+
     def test_default_graph_uses_bounded_packed_storage(self) -> None:
         algo = Matcher(12, mode="basic", budget=1 << 20)
         assert isinstance(algo.graph, Packed)

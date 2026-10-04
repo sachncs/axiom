@@ -183,6 +183,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Retain Python object-heavy paper Lambda/L rows for Packed graphs | Store fixed-width mutable rows and journal their deltas without row copies (0128) | Local macOS 1M-vertex builder `ru_maxrss` fell from 572,801,024 to 466,501,632 bytes; installed 512 MiB address-space qualification is still pending |
 | Build an all-U paper System by materializing then discarding every U-U matching edge | When `z` exceeds all degrees, construct the exact final empty-M system directly (0129) | Local macOS 1M-vertex / 2M-edge builder peak is 286,670,848 bytes RSS; constrained installed Linux gate is still pending |
 | Replay committed state while retaining the failed uncommitted Matcher graph through traceback frames | Clear caught traceback locals and release the private Matcher before rebuilding the committed prefix; fail-stop if replay cannot be audited (0130) | Basic/Multilevel retry tests prove the prior Matcher is collectible before reconstruction and exact post-replay state; constrained installed retry remains pending |
+| Verify matching state by constructing duplicate endpoint and partner indexes | Check cardinality plus direct endpoint/partner membership (0131) | Guarded collection test proves no duplicate index traversal; hosted 512 MiB replay qualification remains pending |
 
 ## What is not being abandoned
 

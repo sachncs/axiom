@@ -392,7 +392,7 @@ class Durable:
                     expected_tail,
                 )
             except JournalCapacityError as capacity_error:
-                traceback.clear_frames(capacity_error.__traceback__)
+                self._clear_error_frames(capacity_error)
                 if chunk_size == 1:
                     object.__setattr__(self, "_matcher", None)
                     del matcher
@@ -892,6 +892,23 @@ class Durable:
         self._matcher.delete(left, right)
         return left != right and existed
 
+    @staticmethod
+    def _clear_error_frames(error: BaseException) -> None:
+        """Release locals across a chained failure before memory-bound replay."""
+        pending = [error]
+        seen: set[int] = set()
+        while pending:
+            current = pending.pop()
+            address = id(current)
+            if address in seen:
+                continue
+            seen.add(address)
+            traceback.clear_frames(current.__traceback__)
+            if current.__cause__ is not None:
+                pending.append(current.__cause__)
+            if current.__context__ is not None:
+                pending.append(current.__context__)
+
     def _restore_committed_matcher(self) -> None:
         """Rebuild the private matcher after a multi-journal group aborts.
 
@@ -1055,7 +1072,7 @@ class Durable:
                                     )
                         break
                     except JournalCapacityError as capacity_error:
-                        traceback.clear_frames(capacity_error.__traceback__)
+                        self._clear_error_frames(capacity_error)
                         if chunk_size == 1:
                             raise
                         self._restore_committed_matcher()
@@ -1073,7 +1090,7 @@ class Durable:
                 self._failed = persistence_started
                 if not persistence_started:
                     try:
-                        traceback.clear_frames(group_error.__traceback__)
+                        self._clear_error_frames(group_error)
                         self._restore_committed_matcher()
                     except BaseException as recovery_error:
                         self._failed = True
