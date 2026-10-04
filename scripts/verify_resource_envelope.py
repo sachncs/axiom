@@ -507,8 +507,7 @@ class Disk(Pressure):
             else:
                 if (
                     type(checkpoint) is not dict
-                    or set(checkpoint)
-                    != {"busy", "wal_pages", "checkpointed_pages"}
+                    or set(checkpoint) != {"busy", "wal_pages", "checkpointed_pages"}
                     or any(type(value) is not int for value in checkpoint.values())
                     or checkpoint["busy"] not in (0, 1)
                     or checkpoint["wal_pages"] < 0
