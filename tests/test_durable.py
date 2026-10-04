@@ -502,6 +502,99 @@ def test_single_update_journal_exhaustion_is_atomic_and_retryable(
 
 
 @pytest.mark.parametrize("mode", MODES)
+def test_terminal_class_capacity_failure_during_delete_leaks_no_batch_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """A delete failing in each shrinking slice leaves the durable group untouched."""
+    path = tmp_path / f"terminal-class-capacity-{mode}.db"
+    store = Durable(path, n=16, width=0, mode=mode, max_batch=128)
+    setup = [
+        Request(sequence, "insert", left, right)
+        for sequence, (left, right) in enumerate(
+            ((left, right) for left in range(16) for right in range(left + 1, 16)),
+            1,
+        )
+    ]
+    store.apply(setup)
+    target = next(
+        edge
+        for color in store._matcher.activecolors
+        for edge in store._matcher.matchings[color]
+    )
+    request = Request(len(setup) + 1, "delete", *target)
+    before_state = state(store)
+    before_witness = witness(store)
+    before_history = store.history()
+    before_status = store.status()
+    with closing(sqlite3.connect(path)) as database:
+        before_operations = database.execute(
+            "SELECT sequence,adding,u,v,changed,version,digest "
+            "FROM operations ORDER BY sequence"
+        ).fetchall()
+        before_control = database.execute(
+            "SELECT sequence,version,digest FROM control WHERE id=1"
+        ).fetchone()
+
+    original = Classes.remove
+    attempts = 0
+
+    def exhaust_matching(
+        journal: Classes,
+        matching: Matching,
+        edge: Edge,
+        color: int | None = None,
+    ) -> None:
+        nonlocal attempts
+        if edge == target and edge in matching:
+            attempts += 1
+            capacity = journal.capacity
+            journal.capacity = len(journal.sets) + len(journal.entries)
+            try:
+                original(journal, matching, edge, color)
+            finally:
+                journal.capacity = capacity
+            return
+        original(journal, matching, edge, color)
+
+    monkeypatch.setattr(Classes, "remove", exhaust_matching)
+    with pytest.raises(MemoryError, match="class journal capacity exceeded"):
+        store.apply([request])
+
+    assert attempts >= 4  # 8, 4, 2, and 1-operation slices all fail.
+    assert state(store) == before_state
+    assert witness(store) == before_witness
+    assert store.history() == before_history
+    assert store.status() == before_status
+    assert store.check()
+    with closing(sqlite3.connect(path)) as database:
+        assert (
+            database.execute(
+                "SELECT sequence,adding,u,v,changed,version,digest "
+                "FROM operations ORDER BY sequence"
+            ).fetchall()
+            == before_operations
+        )
+        assert (
+            database.execute(
+                "SELECT sequence,version,digest FROM control WHERE id=1"
+            ).fetchone()
+            == before_control
+        )
+
+    monkeypatch.setattr(Classes, "remove", original)
+    assert store.apply([request]) == (
+        Outcome(request.sequence, True, request.sequence),
+    )
+    committed_state = state(store)
+    committed_witness = witness(store)
+    store.close()
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == committed_state
+        assert witness(recovered) == committed_witness
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
 @pytest.mark.parametrize("failure", ["before_commit", "after_commit", "after_publish"])
 def test_sqlite_commit_and_graph_publication_fail_stop_then_reopen(
     tmp_path: Path,

@@ -46,6 +46,14 @@ history and SQLite control/operation rows before retrying and reopening. These
 tests verify both capacity retry and cross-chunk rollback; the injected failure
 does not claim that production capacity was exhausted.
 
+A terminal-failure regression repeatedly exhausts the real class journal during
+a matched-edge delete in each paper mode. It forces retries down through the
+one-update slice, then verifies exact graph/matching/Witness, status, history,
+operation rows, and control-row preservation before an identical retry commits
+and reopens successfully. This demonstrates failure atomicity when smaller
+slicing cannot resolve the capacity condition; it does not recreate the
+unavailable million-vertex failure trace.
+
 A bounded regression also admits 65,537 distinct roots (mostly empty), removes
 a real seed membership, and verifies root identity and exact rollback. This
 covers the large-root admission boundary without constructing a huge matcher.
