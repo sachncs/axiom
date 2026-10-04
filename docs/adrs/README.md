@@ -191,6 +191,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Open and validate a Matcher journal every eight updates inside each durable caller group | Align the default private paper slice with the bounded 256-operation Durable/Service group; retain capacity-triggered whole-group replay with halved slices (0136) | 10k-vertex degree-four Durable microbenchmark improved 46% Basic / 27% Multilevel at chunk 256 with no retries; million-vertex hosted qualification pending |
 | Rebuild H by sorting all of U and rescan maximality at every subphase even when M1 is unchanged | Skip subphase synchronization only when no seed edge was deleted and no augmenting path changed the seed (0137) | Regression forces the boundary and rejects global rebuild/maximality calls; hosted million-vertex effect is pending |
 | Run a million-vertex growth/drain cycle plus 40,000 updates against a one-million-operation durable history limit | Cap the optional resource-test tail at the configured history limit and permit the exact full cycle (0138) | Regression covers the exact million-update cycle; hosted constrained rerun is pending |
+| Require a nonexistent `checkpoint_generation` in Service status after resource updates | Check committed history, actual PASSIVE WAL checkpoint statistics, and full graph audit independently (0139) | Service contract is covered locally; hosted resource rerun is pending |
 
 ## What is not being abandoned
 

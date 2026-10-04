@@ -15,6 +15,7 @@ from scripts.verify_resource_envelope import (
     Audit,
     Cycle,
     Disk,
+    Maintenance,
     Memory,
     Pressure,
     Volume,
@@ -349,6 +350,82 @@ def test_cycle_verification_retries_the_final_committed_request(tmp_path):
 
         assert len(digest) == 64
         assert owner.status()["sequence"] == reference.sequence
+
+
+@pytest.mark.parametrize("pages", [(0, 0), (5, 5)])
+def test_maintenance_checks_service_status_checkpoint_and_paper_audit(pages):
+    reference = Audit(8, 2)
+    state = {
+        "sequence": 2,
+        "history_operations": 2,
+        "version": 3,
+        "vertices": 8,
+        "edges": 16,
+        "matching": 4,
+        "max_operations": module.RESOURCE_HISTORY_LIMIT,
+    }
+    checkpoint = {
+        "busy": 0,
+        "wal_pages": pages[0],
+        "checkpointed_pages": pages[1],
+    }
+
+    def resolved(value):
+        return SimpleNamespace(result=lambda timeout: value)
+
+    service = SimpleNamespace(
+        status=lambda: resolved(state),
+        checkpoint=lambda: resolved(checkpoint),
+        check=lambda: resolved(True),
+    )
+    assert Maintenance(reference).verify(service) == state
+
+
+@pytest.mark.parametrize(
+    "field,value,message",
+    [
+        ("history_operations", 1, "status differs"),
+        ("busy", 1, "checkpoint is incomplete"),
+        ("checkpointed_pages", 4, "checkpoint is incomplete"),
+        ("wal_pages", "bad", "checkpoint is incomplete"),
+        ("missing_wal", None, "checkpoint is incomplete"),
+        ("wal_pages", -1, "checkpoint is incomplete"),
+        ("audit", False, "graph audit failed"),
+    ],
+)
+def test_maintenance_rejects_unverified_history_or_wal(field, value, message):
+    reference = Audit(8, 2)
+    state = {
+        "sequence": 2,
+        "history_operations": 2,
+        "version": 3,
+        "vertices": 8,
+        "edges": 16,
+        "matching": 4,
+        "max_operations": module.RESOURCE_HISTORY_LIMIT,
+    }
+    checkpoint = {"busy": 0, "wal_pages": 5, "checkpointed_pages": 5}
+
+    def resolved(result):
+        return SimpleNamespace(result=lambda timeout: result)
+
+    check = True
+    if field == "audit":
+        check = value
+    elif field == "missing_wal":
+        del checkpoint["wal_pages"]
+    elif field in checkpoint:
+        checkpoint[field] = value
+    else:
+        state[field] = value
+    service = SimpleNamespace(
+        status=lambda: resolved(state),
+        checkpoint=lambda: resolved(checkpoint),
+        check=lambda: resolved(check),
+    )
+
+    with pytest.raises(RuntimeError, match=message):
+        Maintenance(reference).verify(service)
 
 
 @pytest.mark.parametrize(

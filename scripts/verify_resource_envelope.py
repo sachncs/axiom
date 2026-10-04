@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 from array import array
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 SQLITEFULL = 13
 RESOURCE_HISTORY_LIMIT = 1_000_000
@@ -283,6 +283,49 @@ class Pressure(ABC):
         raise NotImplementedError
 
 
+@dataclass
+class Maintenance:
+    """Certify committed history, SQLite checkpoint state and paper invariants."""
+
+    audit: Audit
+
+    def verify(self, service: Any) -> dict[str, int | str]:
+        """Require the exact acknowledged prefix and a completed WAL checkpoint."""
+        state = cast(dict[str, int | str], service.status().result(30))
+        checkpoint = cast(dict[str, int], service.checkpoint().result(30))
+        expected = {
+            "sequence": self.audit.sequence,
+            "history_operations": self.audit.sequence,
+            "version": self.audit.sequence + 1,
+            "vertices": self.audit.vertices,
+            "edges": 2 * self.audit.vertices,
+            "matching": self.audit.vertices // 2,
+            "max_operations": RESOURCE_HISTORY_LIMIT,
+        }
+        if any(
+            type(state.get(key)) is not int or state[key] != value
+            for key, value in expected.items()
+        ):
+            raise RuntimeError(
+                "resource maintenance status differs from acknowledged graph"
+            )
+        busy = checkpoint.get("busy")
+        wal_pages = checkpoint.get("wal_pages")
+        checkpointed_pages = checkpoint.get("checkpointed_pages")
+        if (
+            type(busy) is not int
+            or type(wal_pages) is not int
+            or type(checkpointed_pages) is not int
+            or busy != 0
+            or wal_pages < 0
+            or checkpointed_pages != wal_pages
+        ):
+            raise RuntimeError("resource maintenance WAL checkpoint is incomplete")
+        if not service.check().result(30):
+            raise RuntimeError("resource maintenance graph audit failed")
+        return state
+
+
 class Memory(Pressure):
     """Exercise allocation failure before persistence, without restarting."""
 
@@ -504,13 +547,7 @@ class Envelope:
                 f"seconds={time.perf_counter() - updates_started:.3f}",
                 flush=True,
             )
-            state = service.status().result(30)
-            if (
-                type(state["checkpoint_generation"]) is not int
-                or state["checkpoint_generation"] < 1
-                or not service.check().result(30)
-            ):
-                raise RuntimeError("resource envelope omitted maintenance/audit")
+            state = Maintenance(self.audit).verify(service)
             print("resource phase=backup-start", flush=True)
             manifest = service.backup(backup).result(30)
             print(
