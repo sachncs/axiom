@@ -1,10 +1,11 @@
 """Ensure durable rate labels count only real acknowledged changes."""
 
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
-from benchmarks.durable import measure
+from benchmarks.durable import measure, powerlawhotpool
 
 
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])
@@ -62,6 +63,41 @@ def test_hub_churn_profile_preloads_skew_and_recovers_exactly(
     assert result["real_acknowledged_updates"] == 64
     assert result["operation_history_entries"] == 80
     assert result["independent_audit_passed"] and result["exact_recovery_passed"]
+
+
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_powerlaw_burst_trace_reports_schedule_and_recovers_exactly(
+    tmp_path: Path, mode: str
+) -> None:
+    result = measure(
+        tmp_path / f"powerlaw-burst-{mode}.db",
+        128,
+        32,
+        8,
+        599,
+        mode=mode,
+        workload="power-law-burst-churn",
+    )
+
+    metadata = result["workload_metadata"]
+    assert result["workload"] == "power-law-burst-churn"
+    assert metadata["endpoint_distribution"] == "truncated-pareto-integer-rank"
+    assert metadata["burst_period_pairs"] == 16
+    assert metadata["burst_hot_pairs_per_period"] == 12
+    assert metadata["burst_hot_pool_pairs"] >= 1
+    assert result["real_acknowledged_updates"] == 64
+    assert result["independent_audit_passed"] and result["exact_recovery_passed"]
+
+
+def test_powerlaw_hot_pool_selects_top_incidence_cells_with_stable_ties() -> None:
+    originals = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)] * 20
+    extras = [(10, 11), (12, 13), (14, 15), (16, 17), (18, 19)] * 20
+    counts = Counter({0: 10, 1: 10, 2: 2})
+
+    selected = powerlawhotpool(originals, extras, counts)
+
+    assert len(selected) == 1
+    assert selected == [0]
 
 
 @pytest.mark.parametrize(

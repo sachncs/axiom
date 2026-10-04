@@ -49,7 +49,13 @@ class Repeatability:
             or not modes
             or any(mode not in ("basic", "multilevel") for mode in modes)
             or len(set(modes)) != len(modes)
-            or workload not in ("uniform", "hub-churn", "power-law-churn")
+            or workload
+            not in (
+                "uniform",
+                "hub-churn",
+                "power-law-churn",
+                "power-law-burst-churn",
+            )
             or type(hub_degree) is not int
             or (workload != "hub-churn" and hub_degree != 0)
             or (
@@ -167,7 +173,17 @@ class Repeatability:
             or value["workload"] != self.workload
             or type(value["workload_metadata"]) is not dict
             or (
-                self.workload == "power-law-churn"
+                self.workload == "power-law-burst-churn"
+                and (
+                    value["workload_metadata"].get("burst_period_pairs") != 16
+                    or value["workload_metadata"].get("burst_hot_pairs_per_period")
+                    != 12
+                    or type(value["workload_metadata"].get("burst_hot_pool_pairs"))
+                    is not int
+                )
+            )
+            or (
+                self.workload in ("power-law-churn", "power-law-burst-churn")
                 and (
                     value["workload_metadata"].get("endpoint_distribution")
                     != "truncated-pareto-integer-rank"
@@ -334,7 +350,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--workload",
-        choices=("uniform", "hub-churn", "power-law-churn"),
+        choices=("uniform", "hub-churn", "power-law-churn", "power-law-burst-churn"),
         default="uniform",
     )
     parser.add_argument("--hub-degree", type=int)

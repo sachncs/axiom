@@ -79,6 +79,28 @@ def powerlawedges(
     return edges
 
 
+def powerlawhotpool(
+    originals: list[tuple[int, int]],
+    extras: list[tuple[int, int]],
+    endpointcounts: Counter[int],
+) -> list[int]:
+    """Rank churn cells by endpoint incidence and return the hottest one percent."""
+    width = len(originals)
+    count = max(1, width // 100)
+    ranked = sorted(
+        range(width),
+        key=lambda cell: (
+            -sum(
+                endpointcounts[vertex]
+                for edge in (originals[cell], extras[cell])
+                for vertex in edge
+            ),
+            cell,
+        ),
+    )
+    return ranked[:count]
+
+
 def canonical(u: int, v: int) -> tuple[int, int]:
     """Return one canonical undirected edge."""
     return min(u, v), max(u, v)
@@ -178,8 +200,14 @@ def measure(
         raise ValueError(
             f"require n>=8, 1<=pairs<={limit} and an even batch in [2,4096]"
         )
-    if workload not in ("uniform", "hub-churn", "power-law-churn"):
-        raise ValueError("workload must be 'uniform', 'hub-churn' or 'power-law-churn'")
+    powerlawworkload = workload in ("power-law-churn", "power-law-burst-churn")
+    if workload not in (
+        "uniform",
+        "hub-churn",
+        "power-law-churn",
+        "power-law-burst-churn",
+    ):
+        raise ValueError("unsupported durable benchmark workload")
     if type(hub_degree) is not int or hub_degree < 0:
         raise ValueError("hub_degree must be a nonnegative integer")
     if workload != "hub-churn" and hub_degree:
@@ -201,7 +229,7 @@ def measure(
     else:
         hubedges = []
         hotextras = []
-    if workload == "power-law-churn":
+    if powerlawworkload:
         # Each cell has one preloaded and one initially absent skewed edge.
         width = min(width, max(1, vertices * (vertices - 5) // 4))
         poweredges = powerlawedges(rng, vertices, width * 2, 2)
@@ -212,6 +240,11 @@ def measure(
         top_share = (
             sum(endpointcounts[vertex] for vertex in range(top_count)) / endpointtotal
         )
+        burstpool = (
+            powerlawhotpool(originals, powerextras, endpointcounts)
+            if workload == "power-law-burst-churn"
+            else []
+        )
     else:
         originals = [
             canonical(u, (u + 1) % vertices) for u in rng.sample(range(vertices), width)
@@ -219,12 +252,13 @@ def measure(
         powerextras = []
         endpointcounts = Counter()
         top_share = 0.0
+        burstpool = []
     extras: list[tuple[int, int]] = []
     unique: set[tuple[int, int]] = set()
     if workload == "hub-churn":
         extras = hotextras
         unique.update(extras)
-    elif workload == "power-law-churn":
+    elif powerlawworkload:
         extras = powerextras
         unique.update(extras)
     else:
@@ -246,7 +280,7 @@ def measure(
     setup_seconds = 0.0
     setup_count = 0
     try:
-        preloadedges = hubedges + (originals if workload == "power-law-churn" else [])
+        preloadedges = hubedges + (originals if powerlawworkload else [])
         if preloadedges:
             tick = time.perf_counter()
             for offset in range(0, len(preloadedges), batch):
@@ -284,7 +318,13 @@ def measure(
             requests, admitted = [], []
             current_pairs = min(batch // 2, pairs - completed)
             for index in range(current_pairs):
-                cell = rng.randrange(width)
+                pairindex = completed + index
+                if workload == "power-law-burst-churn" and pairindex % 16 < 12:
+                    # Three quarters of each fixed window hammer high-incidence
+                    # cells; the remainder broaden to the full pool.
+                    cell = burstpool[rng.randrange(len(burstpool))]
+                else:
+                    cell = rng.randrange(width)
                 old, new = (
                     (extras[cell], originals[cell])
                     if toggled[cell]
@@ -340,11 +380,11 @@ def measure(
             raise RuntimeError("durable status returned a noninteger edge count")
         removed = (
             {originals[i] for i in range(width) if toggled[i]}
-            if workload != "power-law-churn"
+            if not powerlawworkload
             else set()
         )
         extra = set(hubedges)
-        if workload == "power-law-churn":
+        if powerlawworkload:
             extra.update(originals[i] for i in range(width) if not toggled[i])
         extra.update(extras[i] for i in range(width) if toggled[i])
         tick = time.perf_counter()
@@ -400,21 +440,26 @@ def measure(
         "workload": workload,
         "workload_metadata": {
             "endpoint_distribution": "truncated-pareto-integer-rank"
-            if workload == "power-law-churn"
+            if powerlawworkload
             else "uniform"
             if workload == "uniform"
             else "fixed-hub",
-            "powerlaw_exponent": powerlawexponent
-            if workload == "power-law-churn"
-            else None,
+            "powerlaw_exponent": powerlawexponent if powerlawworkload else None,
             "powerlaw_rank_mapping": "rank-1-is-hottest-vertex"
-            if workload == "power-law-churn"
+            if powerlawworkload
             else None,
             "powerlaw_top_decile_endpoint_share": round(top_share, 6)
-            if workload == "power-law-churn"
+            if powerlawworkload
             else None,
             "powerlaw_hottest_endpoint_incidence": max(endpointcounts.values())
             if endpointcounts
+            else None,
+            "burst_period_pairs": 16 if workload == "power-law-burst-churn" else None,
+            "burst_hot_pairs_per_period": 12
+            if workload == "power-law-burst-churn"
+            else None,
+            "burst_hot_pool_pairs": len(burstpool)
+            if workload == "power-law-burst-churn"
             else None,
         },
         "hub_vertex": 0 if workload == "hub-churn" else None,
@@ -467,7 +512,7 @@ def main() -> None:
     parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
     parser.add_argument(
         "--workload",
-        choices=("uniform", "hub-churn", "power-law-churn"),
+        choices=("uniform", "hub-churn", "power-law-churn", "power-law-burst-churn"),
         default="uniform",
     )
     parser.add_argument("--hub-degree", type=int, default=0)

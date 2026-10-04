@@ -74,3 +74,20 @@ small-update-count stress diagnostics, not a broad power-law graph suite,
 10k/s qualification, or deployment qualification. The retained summary and all
 eight sample JSON files are in
 [`million-powerlaw-599-601`](../../benchmarks/results/repeatability/million-powerlaw-599-601/summary.json).
+
+## Deterministic hotspot-burst extension
+
+The durable workload matrix now includes `power-law-burst-churn`. It preserves
+the seeded Pareto-ranked edge pool and exact recovery checks, while selecting
+from the one-percent churn-cell pool with the highest combined endpoint
+incidence for 12 of every 16 edge-toggle pairs; ties are resolved by cell index.
+The remaining four pairs sample the full pool. This creates repeatable temporal
+concentration and repeated toggling of the same small set of high-incidence
+edges. The trace records the schedule and pool size in workload metadata, so
+repeated runs verify both workload identity and state digests.
+
+Small fresh-process tests exercise this schedule in both paper modes and verify
+the independent graph/maximality certificate and exact recovery. This adds
+adversarial schedule coverage, not queue-overload, sustained duration, large-
+scale performance, or deployment qualification. Those require separately
+bounded offered-load and long-duration experiments.

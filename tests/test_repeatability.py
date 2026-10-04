@@ -49,7 +49,7 @@ def test_powerlaw_churn_repeats_have_identical_fresh_process_digests(
         batch=8,
         seeds=[599, 600],
         repeats=2,
-        modes=["basic"],
+        modes=["basic", "multilevel"],
         workload="power-law-churn",
         hub_degree=0,
     )
@@ -61,6 +61,28 @@ def test_powerlaw_churn_repeats_have_identical_fresh_process_digests(
     assert metadata["powerlaw_top_decile_endpoint_share"] > 0.5
     assert result["modes"]["basic"]["same_seed_digests_verified"]["599"]
     assert result["modes"]["basic"]["same_seed_digests_verified"]["600"]
+
+
+def test_powerlaw_burst_repeats_have_identical_fresh_process_digests(
+    tmp_path: Path,
+) -> None:
+    plan = Repeatability(
+        tmp_path / "powerlaw-burst",
+        vertices=128,
+        pairs=32,
+        batch=8,
+        seeds=[599],
+        repeats=2,
+        modes=["basic", "multilevel"],
+        workload="power-law-burst-churn",
+        hub_degree=0,
+    )
+    result = plan.run()
+    metadata = result["workload_metadata_by_seed"]["599"]
+    for mode in ("basic", "multilevel"):
+        assert result["modes"][mode]["same_seed_digests_verified"]["599"]
+    assert metadata["burst_period_pairs"] == 16
+    assert metadata["burst_hot_pairs_per_period"] == 12
 
 
 @pytest.mark.parametrize(
