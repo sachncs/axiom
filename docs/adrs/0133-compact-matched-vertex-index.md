@@ -47,5 +47,10 @@ unchanged rather than containing a position for a missing member.
 
 The full local suite passes (1,272 passed, 1 optional performance-report test
 skipped because `matplotlib` is unavailable). Ruff and mypy pass for the
-changed implementation modules. The hosted 512 MiB resource job is the next
-qualification gate.
+changed implementation modules. The latest hosted job passed wheel
+installation and progressed beyond the prior insertion allocation failure,
+but its million-vertex Basic growth/drain worker exceeded the existing
+300-second internal deadline and produced no resource report. This is not a
+qualification pass. Runtime cause and the Multilevel constrained run remain
+open; the worker deadline is not being widened without a separately justified
+resource budget.
