@@ -66,6 +66,14 @@ projection and probes only that selected subset for missing topology. Full
 parent-boundary graph snapshots remain. See [ADR
 0120](adrs/0120-project-missing-child-deletions.md).
 
+Paper fan construction now carries the one-time coloring admission across its
+alpha groups. Between full construction boundaries, pruning and reduction
+certify only the fan rows at vertices touched by their local coloring journal;
+unadmitted direct calls retain full fan validation. The two-alpha regression
+creates a fan and bounds full fan audits to the initial/final boundaries. This
+removes repeated global checks, not other graph-sized fan/pruning work or the
+independent final checks. See [ADRs 0124–0125](adrs/README.md).
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |

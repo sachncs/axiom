@@ -1767,10 +1767,14 @@ class Pruning:
         """Run pruning atomically, including the caller-owned fan collection."""
         colorjournal = ColorJournal(coloring, journal)
         admitted = colorjournal.admitted
+        fanadmitted = admitted
         createdfans: list[Fan] = []
         try:
             if not admitted:
                 coloring.validate()
+            if not fanadmitted:
+                fans.validate()
+                fans.compatible(coloring)
             if not uedges:
                 return ()
             alpha = uedges[0].alpha
@@ -1880,8 +1884,15 @@ class Pruning:
             )
             if admitted:
                 coloring.certify(colorjournal.before)
-            fans.validate()
-            fans.compatible(coloring)
+            if fanadmitted:
+                changedvertices = {
+                    vertex for edge in colorjournal.before for vertex in edge
+                }
+                fans.certify(changedvertices)
+                fans.compatible(coloring, changedvertices)
+            else:
+                fans.validate()
+                fans.compatible(coloring)
             return tuple(refreshed)
         except Exception:
             colorjournal.rollback()
@@ -1910,10 +1921,12 @@ class Pruning:
         """
         colorjournal = ColorJournal(coloring, journal)
         admitted = colorjournal.admitted
+        fanadmitted = admitted
         if not admitted:
             coloring.validate()
-        fans.validate()
-        fans.compatible(coloring)
+        if not fanadmitted:
+            fans.validate()
+            fans.compatible(coloring)
         extended = 0
         active = cls.renew(coloring, uedges)
         while active:
@@ -1995,8 +2008,15 @@ class Pruning:
             coloring.certify(colorjournal.before)
         else:
             coloring.validate()
-        fans.validate()
-        fans.compatible(coloring)
+        if fanadmitted:
+            changedvertices = {
+                vertex for edge in colorjournal.before for vertex in edge
+            }
+            fans.certify(changedvertices)
+            fans.compatible(coloring, changedvertices)
+        else:
+            fans.validate()
+            fans.compatible(coloring)
         return extended
 
     @classmethod
@@ -2019,9 +2039,11 @@ class Pruning:
             return Fans()
         colorjournal = ColorJournal(coloring, journal)
         colorjournal.admit()
+        result = Fans()
         try:
             seeded = cls.seed(coloring, uncolorededges)
-            result = Fans()
+            result.validate()
+            result.compatible(coloring)
             bycolor: dict[Color, list[Spoke]] = {}
             for item in seeded:
                 bycolor.setdefault(item.alpha, []).append(item)
@@ -2046,7 +2068,10 @@ class Pruning:
             return result
         except Exception:
             colorjournal.rollback()
+            result.clear()
             coloring.validate()
+            result.validate()
+            result.compatible(coloring)
             raise
         finally:
             # Admission is valid only inside this construction transaction.

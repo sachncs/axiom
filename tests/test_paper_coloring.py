@@ -85,6 +85,14 @@ class Cases:
             coloring.assign(edge, color)
         return coloring, {(0, 1), (4, 5)}
 
+    @staticmethod
+    def multialphafans() -> tuple[Partial, set[tuple[int, int]]]:
+        """Build two collision gadgets whose primed edges use distinct colors."""
+        coloring, pending = Cases.collisions(2)
+        coloring.unassign((8, 12))
+        coloring.assign((8, 12), 0)
+        return coloring, pending
+
 
 @pytest.mark.parametrize("count", [2, 3, 8])
 def test_routing_prunes_multiple_groups_and_performs_chain_flips(count: int) -> None:
@@ -127,11 +135,17 @@ def test_routing_prunes_multiple_groups_and_performs_chain_flips(count: int) -> 
 def test_construct_uses_one_admission_and_one_final_full_coloring_audit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    coloring, pending = Cases.multialpha()
+    coloring, pending = Cases.multialphafans()
     assert len({item.alpha for item in Pruning.seed(coloring, pending)}) == 2
     originalvalidate = Partial.validate
     originalcertify = Partial.certify
+    originalfanvalidate = Fans.validate
+    originalcompatible = Fans.compatible
     audits = 0
+    fanaudits = 0
+    compatibilityaudits = 0
+    localcertificates = 0
+    localcompatibility = 0
     certificates = []
 
     def count_audit(candidate: Partial) -> None:
@@ -143,18 +157,48 @@ def test_construct_uses_one_admission_and_one_final_full_coloring_audit(
         certificates.append(tuple(sorted(edges)))
         originalcertify(candidate, certificates[-1])
 
+    def count_fan_audit(candidate: Fans) -> None:
+        nonlocal fanaudits
+        fanaudits += 1
+        originalfanvalidate(candidate)
+
+    def count_compatibility(candidate: Fans, partial: Partial, vertices=None) -> None:
+        nonlocal compatibilityaudits, localcompatibility
+        if vertices is None:
+            compatibilityaudits += 1
+        else:
+            localcompatibility += 1
+        originalcompatible(candidate, partial, vertices)
+
+    originalfancertify = Fans.certify
+
+    def count_fan_certificate(candidate: Fans, vertices) -> None:
+        nonlocal localcertificates
+        localcertificates += 1
+        originalfancertify(candidate, vertices)
+
     monkeypatch.setattr(Partial, "validate", count_audit)
     monkeypatch.setattr(Partial, "certify", count_certificate)
-    fans = Pruning.construct(coloring, pending)
+    monkeypatch.setattr(Fans, "validate", count_fan_audit)
+    monkeypatch.setattr(Fans, "compatible", count_compatibility)
+    monkeypatch.setattr(Fans, "certify", count_fan_certificate)
+    parentjournal = ColorJournal(coloring)
+    fans = Pruning.construct(coloring, pending, journal=parentjournal)
 
     assert audits == 2
+    assert fanaudits == 2
+    assert compatibilityaudits == 2
+    assert localcertificates > 0
+    assert localcompatibility > 0
+    assert not parentjournal.admitted
     assert certificates
     assert pending <= set(coloring.assignments) | fans.spokes
     originalvalidate(coloring)
     fans.validate()
     fans.compatible(coloring)
+    assert len(fans) == 1
 
-    repeated, repeatedpending = Cases.multialpha()
+    repeated, repeatedpending = Cases.multialphafans()
     repeatedfans = Pruning.construct(repeated, repeatedpending)
     assert dict(coloring.items()) == dict(repeated.items())
     assert tuple(fans) == tuple(repeatedfans)
@@ -180,6 +224,43 @@ def test_unadmitted_reduction_keeps_both_full_coloring_audits(
     assert audits == 2
     assert pending <= set(coloring.assignments)
     originalvalidate(coloring)
+
+
+def test_final_fan_audit_failure_restores_coloring_and_discards_partial_fans(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    coloring, pending = Cases.multialphafans()
+    before = Witness().capture(coloring)
+    collections = []
+    originaladd = Fans.add
+    originalvalidate = Fans.validate
+    audits = 0
+
+    def capture_collection(candidate: Fans, fan: Fan) -> None:
+        collections.append(candidate)
+        originaladd(candidate, fan)
+
+    def corrupt_at_final_boundary(candidate: Fans) -> None:
+        nonlocal audits
+        audits += 1
+        if audits == 2 and candidate.members:
+            vertex = next(iter(candidate.assigned))
+            candidate.assigned[vertex].pop()
+        originalvalidate(candidate)
+
+    monkeypatch.setattr(Fans, "add", capture_collection)
+    monkeypatch.setattr(Fans, "validate", corrupt_at_final_boundary)
+    with pytest.raises(AssertionError, match="assigned-color index is stale"):
+        Pruning.construct(coloring, pending)
+
+    assert audits == 3
+    assert collections
+    assert all(not candidate.members for candidate in collections)
+    for candidate in collections:
+        originalvalidate(candidate)
+        candidate.compatible(coloring)
+    assert Witness().capture(coloring) == before
+    coloring.validate()
 
 
 def test_construct_does_not_leak_admission_to_caller_journal() -> None:
