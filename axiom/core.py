@@ -761,6 +761,15 @@ class Matcher:
         # M_1 is maintained across subphases, so remove adversarially deleted
         # edges before searching for augmenting paths.  The seed must remain a
         # matching contained in the live graph.
+        stale_seed = any(
+            not self.graph.has_edge(edge[0], edge[1]) for edge in self.seed_matching
+        )
+        if not stale_seed and not self.system.A and not self.system.B:
+            # No stale seed edge remains and the augmentation search domain
+            # A union B is empty. Its class, auxiliary indexes, and maximal
+            # reported matching remain valid; avoid sorting all of U to rebuild
+            # H and auditing all of V at this empty boundary.
+            return
         self.seed_matching = {
             edge for edge in self.seed_matching if self.graph.has_edge(edge[0], edge[1])
         }

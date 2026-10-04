@@ -447,6 +447,12 @@ class Envelope:
             budget=128 << 20,
             queue_capacity=4096,
         ) as service:
+            updates_started = time.perf_counter()
+            print(
+                f"resource phase=service-ready "
+                f"initialization_seconds={updates_started - started:.3f}",
+                flush=True,
+            )
             for first in range(1, self.audit.sequence + 1, 256):
                 end = min(first + 256, self.audit.sequence + 1)
                 receipts = [
@@ -459,14 +465,18 @@ class Envelope:
                             "resource envelope acknowledged a wrong update"
                         )
                 if end % 100000 < 256 or end == self.audit.sequence + 1:
+                    metrics = service.metrics()
                     print(
                         f"resource updates={end - 1} "
-                        f"seconds={time.perf_counter() - started:.3f}",
+                        f"update_seconds={time.perf_counter() - updates_started:.3f} "
+                        f"total_seconds={time.perf_counter() - started:.3f} "
+                        f"groups={metrics['groups']} "
+                        f"largest_group={metrics['largest_group']}",
                         flush=True,
                     )
             print(
                 f"resource phase=service-updates-complete "
-                f"seconds={time.perf_counter() - started:.3f}",
+                f"seconds={time.perf_counter() - updates_started:.3f}",
                 flush=True,
             )
             state = service.status().result(30)

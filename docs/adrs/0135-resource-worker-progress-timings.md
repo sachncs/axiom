@@ -27,10 +27,19 @@ small unit-test output quiet.
   rate envelope without needing an eventual JSON result.
 - The markers do not affect acknowledged state, update order, snapshots, or the
   qualification deadline.
-- The next hosted run still must finish within the existing limits; telemetry
-  alone is not a resource or performance pass.
+- The first telemetry-enabled hosted run on `1890c72` reported 100,096 updates
+  at 126.274 seconds and 200,192 at 240.985 seconds, then hit the 300-second
+  deadline while still processing Service updates. The timer began before
+  Service construction, so those rates include initialization; the worker did
+  not reach audit, backup, or pressure recovery. This is a measured update-path
+  failure against 10k/s, not a resource or performance pass. The next run
+  separates initialization from updates and records actual Service group count
+  and largest group at each progress marker, distinguishing per-request commit
+  overhead from matcher-transaction overhead.
 
 ## Verification
 
-The focused resource-envelope tests, Ruff, and mypy pass locally. The next
-hosted run must report its final progress marker or complete the qualification.
+The focused resource-envelope tests, Ruff, and mypy pass locally. The telemetry
+proved that verifier batching in ADR 0134 was not on this run's critical path;
+the next step is to quantify Service aggregation and Durable/Matcher transaction
+overhead without changing the qualified deadline.

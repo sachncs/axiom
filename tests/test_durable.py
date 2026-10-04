@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from axiom import core
+from axiom import durable as durable_module
 from axiom.capacity import JournalCapacityError
 from axiom.classes import Classes
 from axiom.core import Matcher
@@ -209,6 +210,7 @@ def test_backup_refuses_corrupt_mode_specific_paper_state(
 def test_recovery_batches_history_and_restarts_after_journal_capacity_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
+    monkeypatch.setattr(durable_module, "PAPER_CHUNK", 8)
     path = tmp_path / f"batched-replay-{mode}.db"
     with Durable(path, n=64, width=0, mode=mode, max_batch=32) as store:
         batch = [
@@ -321,7 +323,13 @@ def test_failure_after_paper_chunk_boundary_restores_and_retries_exactly(
 ) -> None:
     """A later paper chunk failure restores the last durable matcher state."""
     path = tmp_path / f"chunk-boundary-{mode}.db"
-    store = Durable(path, n=64, width=0, mode=mode, max_batch=24)
+    store = Durable(
+        path,
+        n=4 * (PAPER_CHUNK + 2),
+        width=0,
+        mode=mode,
+        max_batch=PAPER_CHUNK + 2,
+    )
     seed = [
         Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
         for sequence in range(1, 5)
@@ -408,6 +416,8 @@ def test_failure_in_later_private_slice_restores_committed_matcher_exactly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     path = tmp_path / f"sliced-{mode}.db"
+    monkeypatch.setattr(durable_module, "PAPER_CHUNK", 8)
+    chunk = 8
     store = Durable(path, n=32, width=0, mode=mode, max_batch=24)
     before_status = store.status()
     before_history = store.history()
@@ -418,7 +428,7 @@ def test_failure_in_later_private_slice_restores_committed_matcher_exactly(
     def fail_after_first_private_slice(matcher: Matcher, left: int, right: int) -> None:
         nonlocal attempts
         attempts += 1
-        if attempts == 10:
+        if attempts == chunk + 2:
             raise RuntimeError("injected later-slice failure")
         original(matcher, left, right)
 
@@ -470,7 +480,13 @@ def test_large_durable_group_releases_paper_journal_after_each_update(
 ) -> None:
     """A large durable group must not accumulate bounded paper undo cells."""
     path = tmp_path / f"journal-window-{mode}.db"
-    store = Durable(path, n=64, width=0, mode=mode, max_batch=32)
+    store = Durable(
+        path,
+        n=4 * (PAPER_CHUNK + 2),
+        width=0,
+        mode=mode,
+        max_batch=2 * PAPER_CHUNK + 2,
+    )
     original = Matcher.batch
     journals = []
 
@@ -487,7 +503,7 @@ def test_large_durable_group_releases_paper_journal_after_each_update(
     monkeypatch.setattr(Matcher, "batch", observe_batch)
     batch = [
         Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
-        for sequence in range(1, 25)
+        for sequence in range(1, 2 * PAPER_CHUNK + 3)
     ]
     outcomes = store.apply(batch)
 
@@ -505,7 +521,13 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     path = tmp_path / f"journal-capacity-{mode}.db"
-    store = Durable(path, n=64, width=0, mode=mode, max_batch=32)
+    store = Durable(
+        path,
+        n=4 * (PAPER_CHUNK + 2),
+        width=0,
+        mode=mode,
+        max_batch=2 * PAPER_CHUNK + 2,
+    )
     original = Matcher.batch
     attempted = []
     large_chunks = 0
@@ -538,14 +560,14 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
     monkeypatch.setattr(store, "_new_matcher", verify_old_matcher_released)
     batch = [
         Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
-        for sequence in range(1, 25)
+        for sequence in range(1, 2 * PAPER_CHUNK + 3)
     ]
     outcomes = store.apply(batch)
 
     assert attempted[:3] == [PAPER_CHUNK, PAPER_CHUNK, PAPER_CHUNK // 2]
     assert released_before_replay and all(released_before_replay)
     assert outcomes == tuple(
-        Outcome(sequence, True, sequence) for sequence in range(1, 25)
+        Outcome(sequence, True, sequence) for sequence in range(1, 2 * PAPER_CHUNK + 3)
     )
     assert store.status()["sequence"] == len(batch)
     assert store.check()
@@ -599,6 +621,7 @@ def test_real_class_admission_failure_retries_durable_group_atomically(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     """A component journal failure must retry via private smaller chunks."""
+    monkeypatch.setattr(durable_module, "PAPER_CHUNK", 8)
     path = tmp_path / f"real-class-capacity-{mode}.db"
     store = Durable(path, n=32, width=0, mode=mode, max_batch=136)
     setup = [

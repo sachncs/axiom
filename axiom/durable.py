@@ -143,7 +143,7 @@ MAX_BATCH = 4096
 # Start with moderate journal reuse, then split further only when a paper
 # component reports that its bounded undo journal is full. The Durable lock
 # and one SQLite transaction preserve caller-group atomicity across retries.
-PAPER_CHUNK = 8
+PAPER_CHUNK = 256
 _FORMAT = "axiom-paper-sqlite-replay-v2"
 _LEGACY_FORMAT = "axiom-paper-sqlite-replay-v1"
 _IDENTIFIER_FORMAT = "typed-external-id-v1"

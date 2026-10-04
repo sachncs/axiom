@@ -1552,6 +1552,31 @@ class TestMatcher:
         assert algo.matchings[0] == algo.seed_matching
         assert algo.maximal()
 
+    def test_empty_seed_subphase_skips_global_rebuild_and_maximality_scan(
+        self, monkeypatch
+    ) -> None:
+        algo = Matcher(128, mode="basic")
+        algo.update_count = algo.subphase_length - 1
+        rebuilds = Matcher._Matcher__rebuild_auxiliary
+        maximal = Matcher.maximal
+
+        def reject_rebuild(owner):
+            raise AssertionError("unchanged empty seed rebuilt global auxiliary state")
+
+        def reject_maximal(owner):
+            raise AssertionError("unchanged empty seed scanned graph maximality")
+
+        monkeypatch.setattr(Matcher, "_Matcher__rebuild_auxiliary", reject_rebuild)
+        monkeypatch.setattr(Matcher, "maximal", reject_maximal)
+        algo.insert(0, 1)
+
+        assert algo.update_count == algo.subphase_length
+        assert algo.subphase_count == 1
+        assert not algo.seed_matching
+        monkeypatch.setattr(Matcher, "_Matcher__rebuild_auxiliary", rebuilds)
+        monkeypatch.setattr(Matcher, "maximal", maximal)
+        assert algo.audit()
+
     def test_deleted_seed_edge_is_removed_immediately(self) -> None:
         graph = Adjacency(8)
         for left in range(8):
