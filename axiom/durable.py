@@ -26,6 +26,7 @@ from typing import Literal
 from uuid import UUID
 
 from axiom.backup import copy as copy_backup
+from axiom.capacity import JournalCapacityError
 from axiom.core import Matcher
 from axiom.identifier import Identifier
 from axiom.storage import Packed
@@ -379,8 +380,8 @@ class Durable:
                     expected_version,
                     expected_tail,
                 )
-            except MemoryError as error:
-                if chunk_size == 1 or "journal capacity exceeded" not in str(error):
+            except JournalCapacityError:
+                if chunk_size == 1:
                     raise
                 chunk_size = max(1, chunk_size // 2)
 
@@ -1035,10 +1036,8 @@ class Durable:
                                         request.sequence, changed, version
                                     )
                         break
-                    except MemoryError as error:
-                        if chunk_size == 1 or "journal capacity exceeded" not in str(
-                            error
-                        ):
+                    except JournalCapacityError:
+                        if chunk_size == 1:
                             raise
                         self._restore_committed_matcher()
                         chunk_size = max(1, chunk_size // 2)

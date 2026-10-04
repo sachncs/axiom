@@ -11,6 +11,7 @@ import sysconfig
 from threading import get_ident
 from typing import TYPE_CHECKING
 
+from axiom.capacity import JournalCapacityError
 from axiom.matching import is_maximal_matching
 
 if TYPE_CHECKING:
@@ -184,7 +185,7 @@ class Views:
             len(self.edge) + len(self.vertex) + len(self.crossing_cells)
             >= self.capacity
         ):
-            raise MemoryError("matching journal capacity exceeded")
+            raise JournalCapacityError("matching journal capacity exceeded")
 
     def validate(self) -> None:
         """Check changed dependencies or the complete rebuilt candidate."""

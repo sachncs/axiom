@@ -10,6 +10,8 @@ from __future__ import annotations
 from inspect import getattr_static
 from threading import get_ident
 
+from axiom.capacity import JournalCapacityError
+
 
 class Journal:
     """First-write scalar undo with a fixed distinct-field admission bound."""
@@ -47,7 +49,7 @@ class Journal:
             raise TypeError("journal cannot protect descriptor-backed fields")
         if name not in self.entries:
             if len(self.entries) >= self.capacity:
-                raise MemoryError("journal entry capacity exceeded")
+                raise JournalCapacityError("journal entry capacity exceeded")
             # Allocation failure here occurs before the owner is mutated.
             self.entries[name] = original
         object.__setattr__(self.owner, name, value)

@@ -12,6 +12,7 @@ from bisect import bisect_left
 from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
+from axiom.capacity import JournalCapacityError
 from axiom.types import Edge, Graph, Vertex
 from axiom.vertices import Vertices
 
@@ -134,7 +135,7 @@ class Systems:
         if self.bound:
             self.check()
         if count > self.capacity - self.size:
-            raise MemoryError("system journal capacity exceeded")
+            raise JournalCapacityError("system journal capacity exceeded")
         self.size += count
 
     def edit(

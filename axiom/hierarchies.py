@@ -5,6 +5,7 @@ from __future__ import annotations
 from threading import get_ident
 from typing import TYPE_CHECKING
 
+from axiom.capacity import JournalCapacityError
 from axiom.types import Edge
 from axiom.vertices import Vertices
 
@@ -125,7 +126,7 @@ class Hierarchies:
             raise TypeError("deferred edge must be a pair of integer vertices")
         if edge not in self.edges:
             if len(self.edges) >= self.capacity:
-                raise MemoryError("hierarchy journal capacity exceeded")
+                raise JournalCapacityError("hierarchy journal capacity exceeded")
             self.edges[edge] = edge in self.root.deferred_deletions
         if present:
             self.root.deferred_deletions.add(edge)
@@ -140,7 +141,7 @@ class Hierarchies:
         for edge in self.root.deferred_deletions:
             if edge not in self.edges:
                 if len(self.edges) >= self.capacity:
-                    raise MemoryError("hierarchy journal capacity exceeded")
+                    raise JournalCapacityError("hierarchy journal capacity exceeded")
                 self.edges[edge] = True
         self.root.deferred_deletions.clear()
 

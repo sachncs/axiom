@@ -5,6 +5,8 @@ from __future__ import annotations
 from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
+from axiom.capacity import JournalCapacityError
+
 if TYPE_CHECKING:
     from axiom.core import Matcher
 
@@ -50,7 +52,7 @@ class Auxiliary:
         self.system = owner.system
         self.size = len(self.roots)
         if self.size > capacity:
-            raise MemoryError("auxiliary journal capacity exceeded")
+            raise JournalCapacityError("auxiliary journal capacity exceeded")
         object.__setattr__(owner, "auxiliary", self)
 
     def check(self) -> None:
@@ -64,7 +66,7 @@ class Auxiliary:
         """Reserve one new key or membership undo cell before mutation."""
         self.check()
         if self.size >= self.capacity:
-            raise MemoryError("auxiliary journal capacity exceeded")
+            raise JournalCapacityError("auxiliary journal capacity exceeded")
         self.size += 1
 
     def member(self, values: set[Any], item: Any, present: bool) -> None:

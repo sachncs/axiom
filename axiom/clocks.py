@@ -5,6 +5,8 @@ from __future__ import annotations
 from threading import get_ident
 from typing import TYPE_CHECKING
 
+from axiom.capacity import JournalCapacityError
+
 if TYPE_CHECKING:
     from axiom.core import Matcher
 
@@ -53,7 +55,7 @@ class Clocks:
             cell = id(values), index
             if cell not in self.cells:
                 if len(self.cells) >= self.capacity:
-                    raise MemoryError("clock journal capacity exceeded")
+                    raise JournalCapacityError("clock journal capacity exceeded")
                 self.cells[cell] = values[index]
         values[index] = value
 

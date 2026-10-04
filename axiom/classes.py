@@ -12,6 +12,7 @@ import sysconfig
 from threading import get_ident
 from typing import TYPE_CHECKING
 
+from axiom.capacity import JournalCapacityError
 from axiom.types import Edge, Matching
 
 if TYPE_CHECKING:
@@ -60,7 +61,7 @@ class Classes:
         minimum = len(self.sets) + retained
         self.capacity = max(65536, minimum) if capacity is None else capacity
         if len(self.sets) > self.capacity:
-            raise MemoryError(
+            raise JournalCapacityError(
                 "class journal capacity exceeded "
                 f"(roots={len(self.sets)}, entries=0, limit={self.capacity})"
             )
@@ -146,7 +147,7 @@ class Classes:
             key = (address, edge)
             if key not in self.entries:
                 if len(self.sets) + len(self.entries) >= self.capacity:
-                    raise MemoryError(
+                    raise JournalCapacityError(
                         "class journal capacity exceeded "
                         f"(roots={len(self.sets)}, entries={len(self.entries)}, "
                         f"limit={self.capacity})"

@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from axiom import core
+from axiom.capacity import JournalCapacityError
 from axiom.classes import Classes
 from axiom.core import Matcher
 from axiom.durable import (
@@ -130,7 +131,7 @@ def test_recovery_batches_history_and_restarts_after_journal_capacity_failure(
         original_insert(matcher, left, right)
         if batch_number == 2 and not injected:
             injected = True
-            raise MemoryError("system journal capacity exceeded")
+            raise JournalCapacityError("system journal capacity exceeded")
 
     monkeypatch.setattr(Matcher, "batch", exhaust_second_wide_slice)
     monkeypatch.setattr(Matcher, "insert", mutate_then_exhaust)
@@ -409,7 +410,7 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
         if max_operations > 2:
             large_chunks += 1
             if large_chunks == 2:
-                raise MemoryError("class journal capacity exceeded")
+                raise JournalCapacityError("class journal capacity exceeded")
         with original(matcher, max_operations, before_publish):
             yield matcher
 
@@ -430,6 +431,46 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
     monkeypatch.undo()
     with Durable(path, mode=mode) as recovered:
         assert recovered.status()["sequence"] == len(batch)
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_untyped_memory_error_is_not_misclassified_as_journal_pressure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    path = tmp_path / f"untyped-memory-error-{mode}.db"
+    store = Durable(path, n=16, width=0, mode=mode)
+    before = witness(store)
+    original = Matcher.batch
+    attempts = 0
+
+    @contextmanager
+    def fail_with_unrelated_memory_error(
+        matcher: Matcher,
+        max_operations: int = 256,
+        before_publish=None,
+    ):
+        nonlocal attempts
+        attempts += 1
+        raise MemoryError("unrelated failure mentions journal capacity exceeded")
+        yield matcher
+
+    monkeypatch.setattr(Matcher, "batch", fail_with_unrelated_memory_error)
+    with pytest.raises(MemoryError, match="unrelated failure"):
+        store.apply([Request(1, "insert", 0, 1)])
+
+    assert attempts == 1
+    assert witness(store) == before
+    assert store.status()["sequence"] == 0
+    assert store.check()
+
+    monkeypatch.setattr(Matcher, "batch", original)
+    assert store.apply([Request(1, "insert", 0, 1)]) == (
+        Outcome(1, True, 1),
+    )
+    store.close()
+    with Durable(path, mode=mode) as recovered:
+        assert recovered.status()["sequence"] == 1
         assert recovered.check()
 
 
@@ -533,7 +574,7 @@ def test_single_update_journal_exhaustion_is_atomic_and_retryable(
         max_operations: int = 256,
         before_publish=None,
     ):
-        raise MemoryError("class journal capacity exceeded")
+        raise JournalCapacityError("class journal capacity exceeded")
         yield matcher
 
     monkeypatch.setattr(Matcher, "batch", exhausted_batch)
