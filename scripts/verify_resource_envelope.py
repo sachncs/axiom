@@ -334,13 +334,13 @@ class Memory(Pressure):
 
     @staticmethod
     def requests(request: Any, vertices: int) -> tuple[Any, ...]:
-        """Create a bounded deterministic group of distinct edge insertions."""
+        """Create a bounded deterministic group of absent out-of-ring edges."""
         count = 4096
-        if type(vertices) is not int or vertices < 2 * (count + 1):
-            raise ValueError("memory workload requires at least 8,194 vertices")
+        if type(vertices) is not int or vertices < 4 * count + 2:
+            raise ValueError("memory workload requires at least 16,386 vertices")
         return tuple(
-            request(sequence, "insert", 2 * (sequence - 3) + 2, 2 * (sequence - 3) + 3)
-            for sequence in range(3, count + 3)
+            request(sequence + 3, "insert", 4 * sequence + 2, 4 * sequence + 5)
+            for sequence in range(count)
         )
 
     def apply(self) -> dict[str, object]:

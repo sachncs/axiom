@@ -16,7 +16,8 @@ also compared a nonexistent checkpoint-generation status field.
 The main source graph is certified by the Service audit before backup and by
 exact backup restoration after pressure phases. In a separate fresh Durable
 store, establish a verified two-operation graph state and prepare a bounded
-4,096-operation group of distinct edge insertions. Allocate memory in 64 KiB
+4,096-operation group of distinct edge insertions absent from the audited ring.
+Allocate memory in 64 KiB
 chunks until the enforced process limit rejects another allocation, retain
 only one 64 KiB chunk of headroom, and submit the whole group. Require an actual
 allocator `MemoryError` (or fail-stop when committed-state reconstruction
@@ -35,7 +36,8 @@ the persisted two-operation prefix.
   its Paper Matcher journal rollback, and unchanged durable operation history.
 - The initial one-MiB-headroom probe was too weak: repeated toggles of one edge
   succeeded under pressure. A hosted run exposed that gap; the probe now uses
-  distinct edges and only 64 KiB headroom.
+  out-of-ring edges and only 64 KiB headroom. A review caught and corrected an
+  intermediate candidate whose distinct edges were already ring members.
 - It avoids replaying the million-operation source history a second time solely
   to seed the isolated memory probe; source integrity is still checked by the
   Service audit and final exact backup restoration.

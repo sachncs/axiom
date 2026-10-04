@@ -637,15 +637,19 @@ def test_memory_refuses_unbounded_execution_and_pressure_is_polymorphic(
 
 
 def test_memory_workload_allocates_distinct_edges_across_a_real_group():
-    requests = Memory.requests(Request, 8194)
+    requests = Memory.requests(Request, 16386)
 
     assert len(requests) == 4096
-    assert requests[0] == Request(3, "insert", 2, 3)
-    assert requests[-1] == Request(4098, "insert", 8192, 8193)
+    assert requests[0] == Request(3, "insert", 2, 5)
+    assert requests[-1] == Request(4098, "insert", 16382, 16385)
     assert len({(request.u, request.v) for request in requests}) == len(requests)
     assert all(request.operation == "insert" for request in requests)
-    with pytest.raises(ValueError, match="8,194"):
-        Memory.requests(Request, 8192)
+    assert all(
+        (request.v - request.u) % 16386 not in (1, 2, 16384, 16385)
+        for request in requests
+    )
+    with pytest.raises(ValueError, match="16,386"):
+        Memory.requests(Request, 16384)
 
 
 @pytest.mark.parametrize("count", [0, None])
