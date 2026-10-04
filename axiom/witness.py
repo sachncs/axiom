@@ -47,6 +47,7 @@ class Witness:
                 "H_tilde_reverse",
                 "S_hat",
                 "accountant",
+                "activecolors",
                 "auxiliary",
                 "bad_vertices",
                 "colorer",

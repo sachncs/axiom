@@ -43,6 +43,11 @@ class Classes:
         self.active = True
         self.list = owner.matchings
         self.seed = owner.seed_matching
+        if type(owner.activecolors) is not set:
+            raise TypeError("active color index requires a plain set")
+        self.colors = owner.activecolors
+        self.colorentries: dict[int, bool] = {}
+        self.rootchanged = False
         self.slots = tuple(self.list)
         self.sets = {id(value): value for value in (*self.slots, self.seed)}
         minimum = len(self.sets) + sum(map(len, self.sets.values()))
@@ -121,7 +126,7 @@ class Classes:
         if not self.active or self.owner.classes is not self:
             raise RuntimeError("class journal is not active here")
 
-    def remove(self, matching: Matching, edge: Edge) -> None:
+    def remove(self, matching: Matching, edge: Edge, color: int | None = None) -> None:
         """Retain an original membership before removal; candidates are private."""
         self.check()
         address = id(matching)
@@ -141,6 +146,26 @@ class Classes:
                     )
                 self.entries[key] = True
         matching.discard(edge)
+        if color is not None and not matching:
+            self.color(color, False)
+
+    def color(self, index: int, present: bool) -> None:
+        """Journal active-color membership before changing the sparse index."""
+        self.check()
+        if type(index) is not int or index < 0 or type(present) is not bool:
+            raise TypeError("color index edits require a nonnegative index and bool")
+        current = self.owner.activecolors
+        if current is self.colors and index not in self.colorentries:
+            self.colorentries[index] = index in current
+        if present:
+            current.add(index)
+        else:
+            current.discard(index)
+
+    def rootchange(self) -> None:
+        """Mark a class-list or seed-root replacement for boundary auditing."""
+        self.check()
+        self.rootchanged = True
 
     def validate(self) -> None:
         """Require supported roots before existing matching/phase certificates."""
@@ -148,14 +173,28 @@ class Classes:
         if (
             type(self.owner.matchings) is not list
             or type(self.owner.seed_matching) is not set
+            or type(self.owner.activecolors) is not set
             or any(type(value) is not set for value in self.owner.matchings)
         ):
             raise TypeError("color class candidate requires plain containers")
+        if self.rootchanged:
+            expected = {
+                index for index, matching in enumerate(self.owner.matchings) if matching
+            }
+            if expected != self.owner.activecolors:
+                raise RuntimeError("active color index disagrees with class roots")
+        else:
+            for index in self.colorentries:
+                if index >= len(self.owner.matchings) or bool(
+                    self.owner.matchings[index]
+                ) != (index in self.owner.activecolors):
+                    raise RuntimeError("active color index disagrees with class edit")
 
     def commit(self) -> None:
         """Release old cells only after graph publication succeeds."""
         self.check()
         self.entries.clear()
+        self.colorentries.clear()
         self.active = False
         object.__setattr__(self.owner, "classes", None)
 
@@ -168,9 +207,16 @@ class Classes:
                 matching.add(edge)
             else:
                 matching.discard(edge)
+        object.__setattr__(self.owner, "activecolors", self.colors)
+        for color, present in self.colorentries.items():
+            if present:
+                self.colors.add(color)
+            else:
+                self.colors.discard(color)
         self.list[:] = self.slots
         self.owner.matchings = self.list
         self.owner.seed_matching = self.seed
         self.entries.clear()
+        self.colorentries.clear()
         self.active = False
         object.__setattr__(self.owner, "classes", None)

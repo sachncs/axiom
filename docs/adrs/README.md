@@ -161,6 +161,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Validate every accumulated inserted edge before a local hierarchy delta | Explicitly trust only Matcher-journaled E_I sets on the incremental branch; keep full validation for direct/full sync (0106) | No-iteration regression plus local endpoint certificates; end-to-end throughput and full-sync audits remain |
 | Sort and scan all S-hat vertices for each rematching fallback | Select the minimum eligible vertex through the queried vertex's local neighbors (0107) | No-global-scan regression and exact deterministic selection; throughput qualification remains open |
 | Combine retained class roots and undo cells under one fixed 65,536-cell ceiling | Bound class undo by the exact retained membership universe, with a 65,536 floor (0108) | Regression rolls back 65,537 touched class cells exactly; million-vertex end-to-end replay remains to be exercised |
+| Broadcast every deletion to all configured color classes, including empty ones | Maintain a rollback-aware sparse set of nonempty classes and visit only those (0109) | Empty-class call-count regression and exact index rollback pass; class-root admission and dense-class workloads remain unqualified |
 
 ## What is not being abandoned
 

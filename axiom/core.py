@@ -197,6 +197,7 @@ class Matcher:
         self.system: System | None = None
         self.matchings: list[Matching] = []
         self.seed_matching: Matching = set()
+        self.activecolors: set[int] = set()
 
         self.multi: Hierarchy | None = None
         # Active A1-to-R1 matching edges are indexed as matching edits occur;
@@ -321,8 +322,11 @@ class Matcher:
         """Color the active system matching and select its first color class."""
         self.ready()
         if self.system is None:
+            if self.classes is not None:
+                self.classes.rootchange()
             self.seed_matching = set()
             self.matchings = []
+            self.activecolors = set()
             return
 
         sub = empty(self.graph)
@@ -339,7 +343,10 @@ class Matcher:
                 f"missing={sorted(missing)}, extra={sorted(extra)}"
             )
 
+        if self.classes is not None:
+            self.classes.rootchange()
         self.matchings = [set() for _ in range(self.z + 1)]
+        activecolors: set[int] = set()
         incident_colors: dict[Vertex, set[int]] = {}
         dropped = 0
         for e, c in coloring.items():
@@ -355,6 +362,7 @@ class Matcher:
                 left_colors.add(c)
                 right_colors.add(c)
                 self.matchings[c].add(e)
+                activecolors.add(c)
             else:
                 dropped += 1
         if dropped:
@@ -364,6 +372,7 @@ class Matcher:
             )
 
         self.seed_matching = self.matchings[0] if self.matchings else set()
+        self.activecolors = activecolors
 
     def __rebuild_auxiliary(self) -> None:
         """Rebuild the directed H and H-tilde indexes from live state."""
@@ -642,13 +651,23 @@ class Matcher:
         if edge in self.seed_matching:
             if self.classes is None:
                 self.seed_matching.discard(edge)
+                if self.matchings and self.seed_matching is self.matchings[0]:
+                    if not self.matchings[0]:
+                        self.activecolors.discard(0)
             else:
-                self.classes.remove(self.seed_matching, edge)
+                color = (
+                    0
+                    if self.matchings and self.seed_matching is self.matchings[0]
+                    else None
+                )
+                self.classes.remove(self.seed_matching, edge, color)
         if self.matchings and edge in self.matchings[0]:
             if self.classes is None:
                 self.matchings[0].discard(edge)
+                if not self.matchings[0]:
+                    self.activecolors.discard(0)
             else:
-                self.classes.remove(self.matchings[0], edge)
+                self.classes.remove(self.matchings[0], edge, 0)
 
     def refresh(self) -> None:
         """Extend the seed to a maximal matching and rebuild its partner indexes."""
@@ -723,7 +742,16 @@ class Matcher:
             edge for edge in self.seed_matching if self.graph.has_edge(edge[0], edge[1])
         }
         self.__augment_seed()
+        if self.classes is not None:
+            self.classes.rootchange()
         self.matchings[0] = set(self.seed_matching)
+        if self.classes is None:
+            if self.seed_matching:
+                self.activecolors.add(0)
+            else:
+                self.activecolors.discard(0)
+        else:
+            self.classes.color(0, bool(self.seed_matching))
 
         # Keep the paper's M_1 subset M* invariant explicit.  A newly added
         # seed edge may displace an older M* edge at either endpoint; those
@@ -960,9 +988,14 @@ class Matcher:
             edge = canonical(u, v)
             if self.classes is None:
                 raise RuntimeError("deletion requires class undo")
-            self.classes.remove(self.seed_matching, edge)
-            for matching in self.matchings:
-                self.classes.remove(matching, edge)
+            seed_color = (
+                0
+                if self.matchings and self.seed_matching is self.matchings[0]
+                else None
+            )
+            self.classes.remove(self.seed_matching, edge, seed_color)
+            for color in sorted(self.activecolors):
+                self.classes.remove(self.matchings[color], edge, color)
             self.__edit(u, v, added=False)
             if self.multi is not None:
                 self.multi.sync_graph(

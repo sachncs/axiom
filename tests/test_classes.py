@@ -173,6 +173,83 @@ def test_class_delete_journals_only_membership_cells_and_rolls_back_exactly():
     assert Witness().capture(matcher) == before
 
 
+def test_class_color_index_rolls_back_exact_membership():
+    matcher = populated()
+    original = matcher.activecolors
+    color = min(original)
+    journal = Classes(matcher)
+
+    journal.color(color, False)
+    journal.color(color, True)
+    journal.color(color, False)
+    assert color not in matcher.activecolors
+
+    journal.rollback()
+    assert matcher.activecolors is original
+    assert color in matcher.activecolors
+
+
+def test_unjournaled_seed_removal_updates_last_color_index():
+    matcher = populated()
+    edge = (0, 1)
+    matching = {edge}
+    matcher.matchings = [matching]
+    matcher.seed_matching = matching
+    matcher.activecolors = {0}
+
+    matcher.remove_seed_edge(edge)
+
+    assert matching == set()
+    assert matcher.activecolors == set()
+
+
+def test_last_class_membership_deactivates_color_and_rolls_back_exactly():
+    matcher = populated()
+    edge = (0, 1)
+    matching = {edge}
+    matcher.matchings = [matching]
+    matcher.seed_matching = matching
+    matcher.activecolors = {0}
+
+    journal = Classes(matcher, capacity=2)
+    journal.remove(matching, edge, 0)
+    assert matcher.activecolors == set()
+    journal.rollback()
+    assert matcher.activecolors == {0}
+    assert matcher.matchings[0] is matching and matching == {edge}
+
+    journal = Classes(matcher, capacity=2)
+    journal.remove(matching, edge, 0)
+    journal.commit()
+    assert matcher.activecolors == set()
+    assert matching == set()
+
+
+def test_delete_skips_empty_color_classes(monkeypatch):
+    graph = Adjacency(64)
+    for vertex in range(64):
+        graph.add_edge(vertex, (vertex + 1) % 64)
+        graph.add_edge(vertex, (vertex + 2) % 64)
+    matcher = Matcher(64, graph=graph)
+    assert matcher.activecolors == set()
+    assert matcher.matchings and all(not matching for matching in matcher.matchings)
+
+    calls = 0
+    remove = Classes.remove
+
+    def observe(journal, matching, edge, color=None):
+        nonlocal calls
+        calls += 1
+        remove(journal, matching, edge, color)
+
+    monkeypatch.setattr(Classes, "remove", observe)
+    matcher.delete(0, 1)
+
+    assert calls == 1
+    assert matcher.activecolors == set()
+    assert matcher.maximal()
+
+
 @pytest.mark.parametrize("location", ["system", "matching", "nested", "list"])
 def test_owned_alias_precondition_rejects_before_graph_or_accounting_edit(location):
     matcher = populated()
@@ -318,9 +395,9 @@ def test_admission_and_snapshot_failures_restore_full_state_then_retry(
     remove = Classes.remove
     edge = min(matcher.seed_matching)
 
-    def bounded(journal, matching, edge):
+    def bounded(journal, matching, edge, color=None):
         journal.capacity = len(journal.sets)
-        remove(journal, matching, edge)
+        remove(journal, matching, edge, color)
 
     def reject(*args):
         raise MemoryError("journal admission failed")

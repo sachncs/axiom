@@ -70,6 +70,15 @@ complete paper Witness, verified history, maximality, and same-batch idempotent
 retry against an independent run. This is correctness/recovery evidence at a
 small deterministic scale, not skewed million-vertex performance qualification.
 
+Deletion now visits only currently nonempty color classes instead of probing
+every configured color slot. The sparse index is included in Witness state,
+updated at partition/subphase boundaries, journaled on last-member removal, and
+audited at root replacement; direct seed removal also maintains it. The
+structural regression proves empty slots are skipped and rollback restores the
+index. Dense active-color counts and remaining O(number-of-class-roots) journal
+admission are not yet qualified. See
+[ADR 0109](adrs/0109-index-nonempty-color-classes.md).
+
 ## Historical evidence from the removed native matcher
 
 The following rates and resource drills were recorded against the former native
@@ -242,7 +251,7 @@ refinement matching degrees avoid allocating n zero counters while preserving
 the packed dense branch ([ADR 0096](adrs/0096-sparse-refinement-degrees.md));
 refinement cycle detection uses a strict U-decrease guard instead of copying
 U/A/M per pass ([ADR 0097](adrs/0097-monotone-refinement-progress.md)).
-Full-suite verification currently passes 1,118 tests and one optional plotting
+Full-suite verification currently passes 1,122 tests and one optional plotting
 test is skipped because matplotlib is unavailable. The
 component measurements are recorded in [ADRs 0066–0071](adrs/README.md); they
 do not qualify durable paper modes or complete rebuild RSS.
@@ -283,6 +292,6 @@ hardware power-loss proof, arbitrary graph partitioning or billion-scale support
 Use [service](service.md), [durability](durable.md), [storage](storage.md),
 [operations](operations.md), [engineering](engineering.md) and [ADRs](adrs/README.md)
 for the retained contracts and migration rationale. Current local validation is
-1,118 passing tests and one optional plotting skip; mypy and Ruff pass. CI and
+1,122 passing tests and one optional plotting skip; mypy and Ruff pass. CI and
 benchmark results must be attributed to their exact revision, not assumed to
 qualify every subsequent change.

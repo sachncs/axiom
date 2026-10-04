@@ -427,8 +427,11 @@ class Multilevel:
             matcher.partition()
         else:
             matcher.system = None
+            if matcher.classes is not None:
+                matcher.classes.rootchange()
             matcher.seed_matching = set()
             matcher.matchings = []
+            matcher.activecolors = set()
 
         matcher.refresh()
         if not matcher.multi.check():
