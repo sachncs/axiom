@@ -236,6 +236,9 @@ Degree-64 throughput measured 6,640/s and fails the target for that denser envel
   qualification independently for both modes at the million-vertex target.
 - Finish installed-artifact and service/deployment qualification, including
   enforced process/filesystem resource ceilings and full overload behavior.
+- SQLite `SQLITE_FULL` update-commit fail-stop/reopen behavior is now regression-
+  tested for both paper modes; real mounted-filesystem pressure still exercises
+  checkpoint failure only, currently in the Basic CI run.
 - Remove stale references from remaining historical/product documentation and
   keep every claimed result tied to the implementation and exact test run.
 

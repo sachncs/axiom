@@ -42,7 +42,12 @@ fresh path. Do not delete the source or master to conceal insufficient headroom.
 | Deadline | Receipt waits and bounded backup-copy checks | Supervisor outage handling; timeout does not cancel a mutation or interrupt native/filesystem work |
 
 The 512 MiB RLIMIT_AS and 192 MiB ext4 image in CI prove an isolated exhaustion
-stage. They do not install deployment memory/page-cache quotas or guarantee every
+stage for the selected paper mode (Basic by default; the worker accepts an
+explicit `--mode basic|multilevel`). The installed disk drill currently forces
+checkpoint failure on a genuinely full filesystem. Update-commit `SQLITE_FULL`
+failure is covered by mode-parameterized service fault-injection tests, not by
+that physical ENOSPC stage; keep these evidence types distinct. The envelope
+does not install deployment memory/page-cache quotas or guarantee every
 allocation can recover under a kernel OOM kill. A supervisor must treat abrupt
 owner death as a recovery event, not fabricate success for pending requests.
 Choose aggregate limits from measured constructor, active-update, maintenance,

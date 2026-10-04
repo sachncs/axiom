@@ -88,6 +88,7 @@ class Audit:
 
     vertices: int
     sequence: int = 40000
+    partner_reference: tuple[int, ...] | None = None
 
     def inspect(self) -> None:
         """Reject an invalid reference before it can drive mutation or verification."""
@@ -100,9 +101,18 @@ class Audit:
             or self.sequence % 2
         ):
             raise ValueError("require bounded even vertices and balanced even churn")
+        if self.partner_reference is not None and (
+            type(self.partner_reference) is not tuple
+            or len(self.partner_reference) != self.vertices
+            or any(
+                type(partner) is not int or not 0 <= partner < self.vertices
+                for partner in self.partner_reference
+            )
+        ):
+            raise ValueError("partner reference must cover the vertex universe")
 
     def verify(self, owner) -> str:
-        """Check every expected edge/partner, version, retry and native certificate."""
+        """Check exact topology, proper/maximal matching, version and retry."""
         from axiom.durable import Outcome, Request
 
         self.inspect()
@@ -116,19 +126,53 @@ class Audit:
         ):
             raise RuntimeError("resource recovery control/certificate disagrees")
         digest = hashlib.sha256()
+        partners = []
         for vertex in range(self.vertices):
-            if owner.partner(vertex) != (self.sequence + 1, vertex ^ 1):
+            version, partner = owner.partner(vertex)
+            if version != self.sequence + 1:
+                raise RuntimeError("resource recovery partner version differs")
+            partners.append(partner)
+        matched = 0
+        for vertex, partner in enumerate(partners):
+            if (
+                self.partner_reference is not None
+                and partner != self.partner_reference[vertex]
+            ):
                 raise RuntimeError("resource recovery exact matching differs")
+            if partner is not None:
+                if (
+                    partner == vertex
+                    or not 0 <= partner < self.vertices
+                    or partners[partner] != vertex
+                    or not owner.has_edge(vertex, partner)[1]
+                ):
+                    raise RuntimeError("resource recovery matching is not proper")
+                matched += vertex < partner
+            digest.update(
+                (partner if partner is not None else 0xFFFFFFFF).to_bytes(4, "little")
+            )
+        if matched != self.vertices // 2:
+            raise RuntimeError("resource recovery perfect matching differs")
+        for vertex in range(self.vertices):
             for offset in (1, 2):
                 if owner.has_edge(vertex, (vertex + offset) % self.vertices) != (
                     self.sequence + 1,
                     True,
                 ):
                     raise RuntimeError("resource recovery ring topology differs")
-            digest.update((vertex ^ 1).to_bytes(4, "little"))
+                neighbor = (vertex + offset) % self.vertices
+                if partners[vertex] is None and partners[neighbor] is None:
+                    raise RuntimeError("resource recovery matching is not maximal")
         request = Request(self.sequence, "insert", 0, 1)
         if owner.apply([request]) != (Outcome(self.sequence, True, self.sequence + 1),):
             raise RuntimeError("resource recovery original retry differs")
+        try:
+            owner.apply([Request(self.sequence, "delete", 0, 1)])
+        except ValueError as error:
+            if "retry payload differs" not in str(error):
+                raise
+        else:
+            raise RuntimeError("conflicting retry payload was accepted")
         return digest.hexdigest()
 
     def operation(self, sequence: int) -> tuple[str, int, int]:
@@ -170,6 +214,7 @@ class Pressure(ABC):
 
     volume: Volume
     audit: Audit
+    mode: str = "basic"
 
     @abstractmethod
     def apply(self) -> dict:
@@ -189,7 +234,9 @@ class Memory(Pressure):
             raise ValueError("memory pressure requires the enforced 512 MiB envelope")
         from axiom.durable import Durable
 
-        with Durable(self.volume.path / "graph.db", budget=128 << 20) as owner:
+        with Durable(
+            self.volume.path / "graph.db", mode=self.mode, budget=128 << 20
+        ) as owner:
             expected = self.audit.verify(owner)
             generation = owner.status()["checkpoint_generation"]
             chunks = []
@@ -229,7 +276,9 @@ class Disk(Pressure):
         from axiom.service import Service
 
         database = self.volume.path / "graph.db"
-        service = Service(database, budget=128 << 20, queue_capacity=4096)
+        service = Service(
+            database, mode=self.mode, budget=128 << 20, queue_capacity=4096
+        )
         try:
             written = self.volume.fill()
             try:
@@ -250,7 +299,7 @@ class Disk(Pressure):
         finally:
             self.volume.release()
             service.close(30)
-        with Durable(database, budget=128 << 20) as owner:
+        with Durable(database, mode=self.mode, budget=128 << 20) as owner:
             digest = self.audit.verify(owner)
         return {"written": written, "digest": digest, "verified": True}
 
@@ -261,11 +310,14 @@ class Envelope:
 
     volume: Volume
     audit: Audit
+    mode: str = "basic"
 
     def run(self) -> dict:
         """Enforce worker limits before loading the engine and creating graph state."""
         capacity = self.volume.inspect()
         self.audit.inspect()
+        if self.mode not in ("basic", "multilevel"):
+            raise ValueError("mode must be 'basic' or 'multilevel'")
         limit = 512 << 20
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
         from axiom.durable import Durable, Outcome, Request
@@ -274,7 +326,11 @@ class Envelope:
         database = self.volume.path / "graph.db"
         backup = self.volume.path / "backup.db"
         with Service(
-            database, n=self.audit.vertices, budget=128 << 20, queue_capacity=4096
+            database,
+            n=self.audit.vertices,
+            mode=self.mode,
+            budget=128 << 20,
+            queue_capacity=4096,
         ) as service:
             for first in range(1, self.audit.sequence + 1, 256):
                 end = min(first + 256, self.audit.sequence + 1)
@@ -296,13 +352,13 @@ class Envelope:
         working = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
         results = {}
         for pressure in (
-            Memory(self.volume, self.audit),
-            Disk(self.volume, self.audit),
+            Memory(self.volume, self.audit, self.mode),
+            Disk(self.volume, self.audit, self.mode),
         ):
             results[type(pressure).__name__] = pressure.apply()
         restored = self.volume.path / "restored.db"
         shutil.copyfile(backup, restored)  # The backup master stays immutable.
-        with Durable(restored, budget=128 << 20) as owner:
+        with Durable(restored, mode=self.mode, budget=128 << 20) as owner:
             digest = self.audit.verify(owner)
         if any(result["digest"] != digest for result in results.values()):
             raise RuntimeError("pressure/source/backup data-flow digests differ")
@@ -311,6 +367,7 @@ class Envelope:
             "python": platform.python_version(),
             "platform": platform.platform(),
             "vertices": self.audit.vertices,
+            "paper_mode": self.mode,
             "sequence": self.audit.sequence,
             "cycle": self.audit.vertices if isinstance(self.audit, Cycle) else 0,
             "limits": {
@@ -331,6 +388,8 @@ class Envelope:
         """Isolate irreversible address-space limits from the caller, with a deadline."""
         self.volume.inspect()
         self.audit.inspect()
+        if self.mode not in ("basic", "multilevel"):
+            raise ValueError("mode must be 'basic' or 'multilevel'")
         command = [
             sys.executable,
             "-I",
@@ -339,6 +398,8 @@ class Envelope:
             str(self.volume.path),
             "--vertices",
             str(self.audit.vertices),
+            "--mode",
+            self.mode,
             "--worker",
         ]
         if isinstance(self.audit, Cycle):
@@ -359,6 +420,7 @@ class Envelope:
             "--growth", action="store_true", help="include a full growth/drain cycle"
         )
         parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+        parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
         args = parser.parse_args()
         if args.vertices not in (256000, 1000000):
             parser.error("supported pressure stages are 256000 and 1000000 vertices")
@@ -367,7 +429,7 @@ class Envelope:
             if args.growth
             else Audit(args.vertices)
         )
-        envelope = cls(Volume(args.directory), audit)
+        envelope = cls(Volume(args.directory), audit, args.mode)
         if args.worker:
             print(json.dumps(envelope.run(), indent=2))
         else:

@@ -1,7 +1,6 @@
 """Component failures, exact data-flow references and safe destructive boundaries."""
 
 import errno
-import hashlib
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -132,9 +131,12 @@ def test_invalid_reference_rejects_before_accessing_owner(vertices, sequence):
         Audit(vertices, sequence).verify(None)
 
 
-def test_reference_verifies_real_updates_exact_topology_partners_and_retry(tmp_path):
-    path = tmp_path / "graph.db"
-    with Durable(path, n=8) as owner:
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_reference_verifies_real_updates_exact_topology_partners_and_retry(
+    tmp_path, mode
+):
+    path = tmp_path / f"graph-{mode}.db"
+    with Durable(path, n=8, mode=mode) as owner:
         owner.apply(
             [
                 Request(seq, "delete" if seq % 2 else "insert", 0, 1)
@@ -142,32 +144,9 @@ def test_reference_verifies_real_updates_exact_topology_partners_and_retry(tmp_p
             ]
         )
         assert owner.check()
-        partners = [owner.partner(vertex)[1] for vertex in range(8)]
-        assert all(
-            partner is None or (partner != vertex and partners[partner] == vertex)
-            for vertex, partner in enumerate(partners)
-        )
-        assert all(
-            partners[u] is not None or partners[v] is not None
-            for u in range(8)
-            for v in range(u + 1, 8)
-            if owner.has_edge(u, v)[1]
-        )
-        digest = hashlib.sha256(
-            b"".join(
-                (partner if partner is not None else 0xFFFFFFFF).to_bytes(4, "little")
-                for partner in partners
-            )
-        ).hexdigest()
-    with Durable(path) as recovered:
-        partners = [recovered.partner(vertex)[1] for vertex in range(8)]
-        restored_digest = hashlib.sha256(
-            b"".join(
-                (partner if partner is not None else 0xFFFFFFFF).to_bytes(4, "little")
-                for partner in partners
-            )
-        ).hexdigest()
-        assert restored_digest == digest
+        digest = Audit(8, 4).verify(owner)
+    with Durable(path, mode=mode) as recovered:
+        assert Audit(8, 4).verify(recovered) == digest
         assert recovered.check()
 
 
@@ -198,6 +177,33 @@ def test_cycle_launcher_validates_reference_before_starting_pressure_worker(
     with pytest.raises(ValueError, match="cycle"):
         module.Envelope(Volume(tmp_path), Cycle(8, 8)).launch()
     assert not list(tmp_path.iterdir())
+
+
+def test_envelope_launcher_forwards_the_selected_paper_mode(tmp_path, monkeypatch):
+    monkeypatch.setattr(Volume, "inspect", lambda volume: 192 << 20)
+    launched = []
+    monkeypatch.setattr(
+        module.subprocess, "run", lambda command, **options: launched.append(command)
+    )
+
+    module.Envelope(Volume(tmp_path), Audit(8, 4), "multilevel").launch()
+
+    assert len(launched) == 1
+    assert launched[0][launched[0].index("--mode") + 1] == "multilevel"
+
+
+def test_envelope_rejects_an_unsupported_mode_before_worker_launch(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(Volume, "inspect", lambda volume: 192 << 20)
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **options: pytest.fail("invalid mode launched a worker"),
+    )
+
+    with pytest.raises(ValueError, match="mode must"):
+        module.Envelope(Volume(tmp_path), Audit(8, 4), "native").launch()
 
 
 @pytest.mark.parametrize("backend", ["owner", "service"])
@@ -313,7 +319,7 @@ def test_reference_rejects_different_proper_perfect_matching(tmp_path):
         assert owner.status()["edges"] == 16 and owner.status()["matching"] == 4
         assert owner.check()
         with pytest.raises(RuntimeError, match="matching"):
-            Audit(8, 4).verify(owner)
+            Audit(8, 4, tuple(vertex ^ 1 for vertex in range(8))).verify(owner)
 
 
 def test_memory_refuses_unbounded_execution_and_pressure_is_polymorphic(

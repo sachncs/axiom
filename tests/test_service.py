@@ -1,6 +1,7 @@
 """Bounded threaded admission, group durability, coherent reads and shutdown."""
 
 import random
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -603,6 +604,58 @@ def test_uncertain_update_fails_all_waiters_and_recovers_only_committed_prefix(
             assert recovered.apply(edits(1, 4)) == tuple(
                 Outcome(seq, True, seq) for seq in range(1, 5)
             )
+
+
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_sqlite_full_update_commit_fails_closed_and_recovers_exact_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    path = tmp_path / f"sqlite-full-{mode}.db"
+    first = Request(1, "insert", 0, 1)
+    second = Request(2, "delete", 0, 1)
+    with create(path, mode=mode) as initialized:
+        assert initialized.submit(first).result(5) == Outcome(1, True, 1)
+
+    service = create(path, mode=mode, batch_wait_ms=0)
+
+    def reject_commit(rows: list) -> None:
+        database = service._owner._db()
+        database.execute("BEGIN IMMEDIATE")
+        database.execute("INSERT INTO operations VALUES(?, ?, ?, ?, ?, ?, ?)", rows[0])
+        error = sqlite3.OperationalError("database or disk is full")
+        error.sqlite_errorcode = sqlite3.SQLITE_FULL
+        raise error
+
+    monkeypatch.setattr(service._owner, "_persist", reject_commit)
+    receipt = service.submit(second)
+    with pytest.raises(sqlite3.OperationalError) as failure:
+        receipt.result(5)
+    assert failure.value.sqlite_errorcode == sqlite3.SQLITE_FULL
+    assert service.metrics()["state"] == "failed"
+    with pytest.raises(UnavailableError):
+        service.partner(0)
+    with pytest.raises(UnavailableError):
+        service.has_edge(0, 1)
+    service.close(5)
+
+    with Durable(path, mode=mode) as recovered:
+        assert recovered.status()["mode"] == mode
+        assert recovered.status()["sequence"] == 1
+        assert recovered.check()
+        assert recovered.apply([first]) == (Outcome(1, True, 1),)
+        assert recovered.apply([second]) == (Outcome(2, True, 2),)
+
+    with Durable(path, mode=mode) as reopened:
+        assert reopened.status()["sequence"] == 2
+        assert reopened.partner(0) == (2, None)
+        assert reopened.check()
+        assert reopened.apply([second]) == (Outcome(2, True, 2),)
+
+    from axiom.durable import RecoveryError
+
+    incompatible = "multilevel" if mode == "basic" else "basic"
+    with pytest.raises(RecoveryError, match="mode"):
+        Durable(path, mode=incompatible)
 
 
 def test_explicit_batch_is_one_isolated_durable_commit_and_exact_retry(
