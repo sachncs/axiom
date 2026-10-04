@@ -296,11 +296,15 @@ class Hierarchy:
             or not 0 <= left < right < self.graph.n
         ):
             return "invalid edge endpoints"
+        endpoints = (
+            (left, sorted(self.graph.neighbors(left))),
+            (right, sorted(self.graph.neighbors(right))),
+        )
+        edge = canonical(left, right)
         for index, level in enumerate(self.levels):
             if level.graph is not self.graph:
                 return f"level {index} graph reference differs"
-            for vertex in (left, right):
-                neighbors = sorted(self.graph.neighbors(vertex))
+            for vertex, neighbors in endpoints:
                 if vertex in level.U:
                     lambda_row = [
                         neighbor
@@ -328,9 +332,7 @@ class Hierarchy:
                         return f"level {index} L row differs at {vertex}"
                     if not l_row and l_value is not None:
                         return f"level {index} has empty L row at {vertex}"
-                if canonical(left, right) in level.M and not self.graph.has_edge(
-                    left, right
-                ):
+                if edge in level.M and not self.graph.has_edge(left, right):
                     return f"level {index} matching contains absent edge"
                 if vertex in self.A_levels[index]:
                     region_row = [

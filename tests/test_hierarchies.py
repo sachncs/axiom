@@ -1,6 +1,7 @@
 """Identity-preserving transaction tests for recursive hierarchy roots."""
 
 import random
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -305,6 +306,32 @@ def test_endpoint_certificate_detects_corrupt_system_cache():
     left, right = sorted((vertex, (vertex + 1) % matcher.n))
 
     assert not root.certify(left, right)
+
+
+def test_endpoint_certificate_reads_each_high_degree_row_once_across_levels():
+    class CountedAdjacency(Adjacency):
+        def __init__(self, n: int) -> None:
+            super().__init__(n)
+            self.reads: dict[int, int] = {}
+
+        def neighbors(self, vertex: int) -> Iterator[int]:
+            self.reads[vertex] = self.reads.get(vertex, 0) + 1
+            return super().neighbors(vertex)
+
+    graph = CountedAdjacency(64)
+    for vertex in range(1, graph.n):
+        graph.add_edge(0, vertex)
+    hierarchy = build_hierarchy(graph, [32, 16, 8])
+
+    # Refinement normally compacts projections into Packed. Rebind the
+    # equivalent adjacency graph to expose neighbor-row traversal counts.
+    hierarchy.graph = graph
+    for level in hierarchy.levels:
+        level.graph = graph
+    graph.reads.clear()
+
+    assert hierarchy.diagnose(0, 1) is None
+    assert graph.reads == {0: 1, 1: 1}
 
 
 def test_endpoint_certificate_failure_rolls_back_exact_matcher_state(monkeypatch):
