@@ -921,22 +921,28 @@ def test_mode_identity_is_persisted_and_mismatch_is_rejected(
 
 
 @pytest.mark.parametrize("mode", MODES)
-def test_recovery_rejects_sqlite_triggers_that_can_mutate_durable_history(
-    tmp_path: Path, mode: str
+@pytest.mark.parametrize(
+    "schema_sql",
+    (
+        "CREATE TRIGGER inject_unjournaled_operation "
+        "AFTER INSERT ON operations BEGIN "
+        "INSERT INTO operations VALUES(999, 1, 0, 1, 1, 1, X'00'); END",
+        "CREATE VIEW operation_copy AS SELECT * FROM operations",
+        "CREATE INDEX external_operation_index ON operations(version)",
+    ),
+)
+def test_recovery_rejects_unrecognized_sqlite_schema_objects(
+    tmp_path: Path, mode: str, schema_sql: str
 ) -> None:
-    path = tmp_path / f"triggered-{mode}.db"
+    path = tmp_path / f"schema-object-{mode}.db"
     with Durable(path, n=12, width=0, mode=mode):
         pass
 
-    # Triggers are outside Axiom's schema and can make an acknowledgment
-    # unrecoverable by inserting operations not reflected in the control row.
+    # External triggers, views, and indexes are outside Axiom's persisted
+    # format. In particular, a trigger could inject operations that were never
+    # part of an acknowledged transaction.
     with closing(sqlite3.connect(path)) as database:
-        database.execute(
-            "CREATE TRIGGER inject_unjournaled_operation "
-            "AFTER INSERT ON operations BEGIN "
-            "INSERT INTO operations VALUES(999, 1, 0, 1, 1, 1, X'00'); "
-            "END"
-        )
+        database.execute(schema_sql)
 
     with pytest.raises(RecoveryError, match="unsupported database schema objects"):
         Durable(path, mode=mode)
