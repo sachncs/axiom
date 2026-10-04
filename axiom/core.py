@@ -634,6 +634,7 @@ class Matcher:
 
     def update_i3_index(self, edge: tuple[int, int], added: bool) -> None:
         """Keep the active hierarchy's A1/R1 matching-edge index current."""
+        edge = canonical(*edge)
         hierarchy = self.multi
         included = added and hierarchy is not None and hierarchy.has_i3_crossing(edge)
         present = edge in self.i3_crossings
