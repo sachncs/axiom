@@ -95,6 +95,116 @@ def test_exact_witness_replay_after_restart_for_each_paper_mode(
 
 
 @pytest.mark.parametrize("mode", MODES)
+def test_full_paper_audit_accepts_updates_and_exact_recovery(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"audited-updates-{mode}.db"
+    batch = (
+        Request(1, "insert", 0, 1),
+        Request(2, "insert", 1, 2),
+        Request(3, "insert", 3, 4),
+        Request(4, "delete", 0, 1),
+        Request(5, "insert", 0, 2),
+        Request(6, "delete", 3, 4),
+    )
+    with Durable(path, n=32, width=0, mode=mode) as store:
+        for request in batch:
+            store.apply([request])
+            assert store.check()
+        expected = state(store)
+        expected_witness = witness(store)
+
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == expected
+        assert witness(recovered) == expected_witness
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_mode_aware_audit_rejects_auxiliary_corruption_and_fail_stops(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"auxiliary-corruption-{mode}.db"
+    with Durable(path, n=32, width=0, mode=mode) as store:
+        store.apply(
+            [
+                Request(1, "insert", 0, 1),
+                Request(2, "insert", 1, 2),
+            ]
+        )
+        matcher = store._matcher
+        assert store._audit()
+
+        # Damage only algorithm-owned state. The graph and reported matching
+        # remain untouched and still form a valid maximal matching.
+        if mode == "basic":
+            assert matcher.system is not None
+            vertex = next(iter(matcher.system.U))
+            matcher.system.A.add(vertex)
+        else:
+            assert matcher.multi is not None
+            matcher.multi.k += 1
+
+        assert matcher.maximal()
+        assert not store.check()
+        with pytest.raises(UnavailableError, match="closed or failed"):
+            store.status()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_full_audit_rejects_auxiliary_index_corruption(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"auxiliary-index-corruption-{mode}.db"
+    with Durable(path, n=32, width=0, mode=mode) as store:
+        store.apply(
+            [
+                Request(1, "insert", 0, 1),
+                Request(2, "insert", 1, 2),
+            ]
+        )
+        matcher = store._matcher
+        assert store._audit()
+
+        # Break one auxiliary index without touching graph or matching state.
+        if mode == "basic":
+            assert matcher.H_reverse
+            target = next(iter(matcher.H_reverse))
+            matcher.H_reverse[target].clear()
+        else:
+            assert matcher.inserted_incident_edges
+            vertex = next(iter(matcher.inserted_incident_edges))
+            matcher.inserted_incident_edges[vertex].clear()
+
+        assert matcher.maximal()
+        assert not store.check()
+        with pytest.raises(UnavailableError, match="closed or failed"):
+            store.status()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_backup_refuses_corrupt_mode_specific_paper_state(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"corrupt-backup-source-{mode}.db"
+    target = tmp_path / f"corrupt-backup-target-{mode}.db"
+    with Durable(path, n=32, width=0, mode=mode) as store:
+        store.apply([Request(1, "insert", 0, 1)])
+        if mode == "basic":
+            assert store._matcher.system is not None
+            store._matcher.system.U.clear()
+        else:
+            assert store._matcher.multi is not None
+            store._matcher.multi.k += 1
+
+        with pytest.raises(UnavailableError, match="audit failed before backup"):
+            store.backup(target)
+        assert not target.exists()
+        with pytest.raises(UnavailableError, match="closed or failed"):
+            store.status()
+
+
+@pytest.mark.parametrize("mode", MODES)
 def test_recovery_batches_history_and_restarts_after_journal_capacity_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
@@ -465,9 +575,7 @@ def test_untyped_memory_error_is_not_misclassified_as_journal_pressure(
     assert store.check()
 
     monkeypatch.setattr(Matcher, "batch", original)
-    assert store.apply([Request(1, "insert", 0, 1)]) == (
-        Outcome(1, True, 1),
-    )
+    assert store.apply([Request(1, "insert", 0, 1)]) == (Outcome(1, True, 1),)
     store.close()
     with Durable(path, mode=mode) as recovered:
         assert recovered.status()["sequence"] == 1

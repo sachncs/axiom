@@ -1671,6 +1671,119 @@ class Matcher:
         self.ready()
         return is_maximal_matching(self.graph, self.matched_edges)
 
+    def audit(self) -> bool:
+        """Run a full audit of stable matching and paper-engine state.
+
+        This is an explicit, state-sized diagnostic suitable for durable
+        recovery, backup, and operator checks; it is not part of the update
+        hot path. Color classes and the seed are retained phase structures,
+        so this validates their live-edge/matching/index properties without
+        requiring them to partition the current graph. In Basic mode the
+        System's A/B/U partition and live Lambda/L caches are maintained
+        between rebuilds, but its M edge set and degree/P1/P2 certificates
+        are phase-owned: deleted phase edges and changing matching degrees
+        make those stronger checks invalid until rebuild. Multilevel's
+        Hierarchy.check() is specifically defined for its live, deferred-edge
+        representation and validates the currently applicable hierarchy
+        invariants. Finally, the full auxiliary certificate reconstructs the
+        inserted-edge, H, reverse-H, H-tilde, and S-hat indexes. Vizing fans
+        are operation-local colorer state, not retained Matcher roots; their
+        compatibility is checked by the coloring operations that create/use
+        them rather than by this stable-state audit.
+
+        Returns:
+            ``True`` iff the retained matching, coloring classes, and
+            mode-specific phase state are internally consistent.
+        """
+        self.ready()
+        if self.mode == "basic":
+            if not isinstance(self.policy, Basic) or self.multi is not None:
+                return False
+            if self.system is None or self.system.graph is not self.graph:
+                return False
+            if not (
+                self.system.check_partition()
+                and self.system.check_lambda()
+                and self.system.check_L()
+            ):
+                return False
+        elif self.mode == "multilevel":
+            if not isinstance(self.policy, Multilevel) or self.multi is None:
+                return False
+            hierarchy = self.multi
+            if (
+                hierarchy.graph is not self.phase_graph
+                or self.system
+                is not (hierarchy.levels[-1] if hierarchy.levels else None)
+                or not hierarchy.check()
+                or not hierarchy.check_i3(self.matched_edges, self.phase_length, self.z)
+            ):
+                return False
+            expected_edges = (
+                self.graph.num_edges()
+                - len(self.inserted_edges)
+                + len(hierarchy.deferred_deletions)
+            )
+            if expected_edges < 0 or hierarchy.graph.num_edges() != expected_edges:
+                return False
+        else:
+            return False
+
+        if not self.__check_auxiliary_indexes():
+            return False
+
+        if (
+            type(self.matchings) is not list
+            or type(self.seed_matching) is not set
+            or type(self.activecolors) is not set
+            or any(type(matching) is not set for matching in self.matchings)
+        ):
+            return False
+        expected_colors = {
+            color for color, matching in enumerate(self.matchings) if matching
+        }
+        if self.activecolors != expected_colors:
+            return False
+        expected_seed = self.matchings[0] if self.matchings else set()
+        if (
+            self.seed_matching != expected_seed
+            or not self.seed_matching <= self.matched_edges
+        ):
+            return False
+
+        for matching in self.matchings:
+            vertices: set[Vertex] = set()
+            for edge in matching:
+                if (
+                    type(edge) is not tuple
+                    or len(edge) != 2
+                    or type(edge[0]) is not int
+                    or type(edge[1]) is not int
+                    or not 0 <= edge[0] < edge[1] < self.n
+                    or not self.graph.has_edge(*edge)
+                    or edge[0] in vertices
+                    or edge[1] in vertices
+                ):
+                    return False
+                vertices.update(edge)
+
+        for edge in self.matched_edges:
+            if (
+                type(edge) is not tuple
+                or len(edge) != 2
+                or type(edge[0]) is not int
+                or type(edge[1]) is not int
+                or not 0 <= edge[0] < edge[1] < self.n
+                or not self.graph.has_edge(*edge)
+            ):
+                return False
+        expected_partners = partners(self.matched_edges)
+        return (
+            self.partner_map == expected_partners
+            and self.matched_vertices == set(expected_partners)
+            and is_maximal_matching(self.graph, self.matched_edges)
+        )
+
     def size(self) -> int:
         """Return the number of edges in the current matching."""
         self.ready()

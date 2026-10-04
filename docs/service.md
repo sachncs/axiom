@@ -83,7 +83,8 @@ pending update.
 
 `checkpoint()` advances SQLite WAL maintenance only; it does not serialize or
 compact paper algorithm state. `history()` exports bounded pages from the
-append-only hash chain. `check()` runs a complete graph/matching audit, and
+append-only hash chain. `check()` runs a complete graph, matching, auxiliary
+index, and selected paper-mode structure audit, and
 `backup()` publishes a bounded owner-consistent database image without
 overwriting an existing target. Automatic WAL and manual maintenance consume
 the same serialized owner; expensive explicit audits/backups also obey

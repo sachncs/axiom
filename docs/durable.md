@@ -94,6 +94,15 @@ limit of the current durable paper path; bounded atomic batches do not solve
 that separate issue. Recovery audits the result and refuses service if stored
 history, checksums, versions, or paper transitions disagree.
 
+The explicit `check()` audit also validates retained Matcher state for the
+selected paper mode: Basic's live partition/cache invariants and Multilevel's
+hierarchy/I3 structure, plus matching/color-class and auxiliary-index
+consistency. It is state-sized diagnostic work used during recovery,
+pre-backup validation, or an explicit operator check, not on every update.
+Operation-local Vizing fans and partial colorings are not retained Matcher
+roots; their construction and rollback certificates run at algorithm mutation
+boundaries.
+
 This design provides a single-host durable owner, not replication, network
 transport, or hardware-independent power-loss guarantees. FULL synchronization
 requests the strongest SQLite/filesystem contract available on the host; actual

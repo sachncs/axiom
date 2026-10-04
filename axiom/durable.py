@@ -1352,19 +1352,7 @@ class Durable:
         graph_check = getattr(graph, "check", None)
         if callable(graph_check) and not graph_check():
             return False
-        partners = self._matcher.partner_map
-        for left, right in self._matcher.matched_edges:
-            if (
-                left == right
-                or partners.get(left) != right
-                or partners.get(right) != left
-                or not self._matcher.graph.has_edge(left, right)
-            ):
-                return False
-        return (
-            len(partners) == 2 * len(self._matcher.matched_edges)
-            and self._matcher.maximal()
-        )
+        return self._matcher.audit()
 
     def _release(self) -> None:
         self._closed = True
