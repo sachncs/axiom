@@ -68,5 +68,10 @@ Do not run performance qualification alongside local tests/builds. Actual Linux
 resource recovery needs the dedicated disposable filesystem used in CI; it is
 not safe to emulate by filling the developer's working filesystem.
 
-Passing CI is evidence for its exact source/artifacts, not a benchmark, physical
-power-loss proof, completed paper migration or blanket production qualification.
+The constrained Linux resource job runs independently for Basic and Multilevel,
+including memory pressure, a full-volume SQLite checkpoint failure, fail-stop,
+exact history recovery, update-commit exhaustion/retry, backup restoration and
+matching audit under the configured process/filesystem limits. Its report is
+per-mode evidence for that exact workload; it is not broad skew, sustained 10k/s,
+physical power-loss proof, completed paper migration or blanket production
+qualification.
