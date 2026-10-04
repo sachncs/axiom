@@ -162,6 +162,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Sort and scan all S-hat vertices for each rematching fallback | Select the minimum eligible vertex through the queried vertex's local neighbors (0107) | No-global-scan regression and exact deterministic selection; throughput qualification remains open |
 | Combine retained class roots and undo cells under one fixed 65,536-cell ceiling | Bound class undo by the exact retained membership universe, with a 65,536 floor (0108) | Regression rolls back 65,537 touched class cells exactly; million-vertex end-to-end replay remains to be exercised |
 | Broadcast every deletion to all configured color classes, including empty ones | Maintain a rollback-aware sparse set of nonempty classes and visit only those (0109) | Empty-class call-count regression and exact index rollback pass; class-root admission and dense-class workloads remain unqualified |
+| Build the unique class-root registry, then make a second root-size pass | Build the registry and exact capacity bound in one pass (0110) | Existing alias/capacity/rollback tests pass; performance impact and production qualification remain pending |
 
 ## What is not being abandoned
 

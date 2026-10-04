@@ -49,8 +49,15 @@ class Classes:
         self.colorentries: dict[int, bool] = {}
         self.rootchanged = False
         self.slots = tuple(self.list)
-        self.sets = {id(value): value for value in (*self.slots, self.seed)}
-        minimum = len(self.sets) + sum(map(len, self.sets.values()))
+        self.sets: dict[int, Matching] = {}
+        retained = 0
+        for matching in (*self.slots, self.seed):
+            address = id(matching)
+            if address not in self.sets:
+                self.sets[address] = matching
+                retained += len(matching)
+        del matching
+        minimum = len(self.sets) + retained
         self.capacity = max(65536, minimum) if capacity is None else capacity
         if len(self.sets) > self.capacity:
             raise MemoryError(
