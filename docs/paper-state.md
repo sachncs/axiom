@@ -51,6 +51,13 @@ the existing deterministic traversal and an explicit completeness count. See
 [ADR 0118](adrs/0118-byte-indexed-paper-partition.md); end-to-end memory impact
 remains unmeasured.
 
+`Systems` now journals each actual sorted Lambda/L row edit as an inverse delta
+instead of copying the entire row into the fixed-capacity transaction journal.
+Rollback reverses those deltas and retains the original row identity. This
+removes row-degree-proportional undo memory, not the O(degree) Python-list shift
+time. A one-million-vertex hub diagnostic exposed the former cap and must be
+rerun after this fix. See [ADR 0119](adrs/0119-delta-journal-system-rows.md).
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |

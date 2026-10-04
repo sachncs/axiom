@@ -469,7 +469,7 @@ class System:
                             self.lambda_lists.pop(source, None)
                 else:
                     self.journal.edit(self.lambda_lists, source, target, added)
-                    if not added and not self.lambda_lists[source]:
+                    if not added and not self.lambda_lists.get(source):
                         self.journal.forget(self.lambda_lists, source)
             if source in self.A and target in self.U:
                 if self.journal is None:
@@ -483,7 +483,7 @@ class System:
                             self.L_lists.pop(source, None)
                 else:
                     self.journal.edit(self.L_lists, source, target, added)
-                    if not added and not self.L_lists[source]:
+                    if not added and not self.L_lists.get(source):
                         self.journal.forget(self.L_lists, source)
 
     def restrict(self, allowed: set[Edge] | Graph) -> None:

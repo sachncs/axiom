@@ -114,6 +114,8 @@ def measure(
     seed: int,
     *,
     mode: str = "basic",
+    workload: str = "uniform",
+    hub_degree: int = 0,
 ) -> dict:
     """Churn a stable edge pool, acknowledge every real edit, and verify recovery."""
     limit = 32768
@@ -121,20 +123,43 @@ def measure(
         raise ValueError(
             f"require n>=8, 1<=pairs<={limit} and an even batch in [2,4096]"
         )
+    if workload not in ("uniform", "hub-churn"):
+        raise ValueError("workload must be 'uniform' or 'hub-churn'")
+    if type(hub_degree) is not int or hub_degree < 0:
+        raise ValueError("hub_degree must be a nonnegative integer")
+    if workload == "uniform" and hub_degree:
+        raise ValueError("hub_degree is only valid for hub-churn")
+    if workload == "hub-churn" and hub_degree < 1:
+        raise ValueError("hub-churn requires at least one preloaded hub edge")
     if path.exists():
         raise ValueError("benchmark requires a fresh database path")
     rng = random.Random(seed)
     width = min(vertices, 8192)
+    if workload == "hub-churn":
+        width = min(width, vertices - 5 - hub_degree)
+        if width < 1:
+            raise ValueError("hub_degree leaves no distinct non-ring churn spokes")
+        hubedges = [(0, vertex) for vertex in range(3, hub_degree + 3)]
+        hotextras = [
+            (0, vertex) for vertex in range(hub_degree + 3, hub_degree + width + 3)
+        ]
+    else:
+        hubedges = []
+        hotextras = []
     originals = [
         canonical(u, (u + 1) % vertices) for u in rng.sample(range(vertices), width)
     ]
     extras: list[tuple[int, int]] = []
     unique: set[tuple[int, int]] = set()
-    while len(extras) < width:
-        u, v = sorted(rng.sample(range(vertices), 2))
-        if 2 < v - u < vertices - 2 and (u, v) not in unique:
-            unique.add((u, v))
-            extras.append((u, v))
+    if workload == "hub-churn":
+        extras = hotextras
+        unique.update(extras)
+    else:
+        while len(extras) < width:
+            u, v = sorted(rng.sample(range(vertices), 2))
+            if 2 < v - u < vertices - 2 and (u, v) not in unique:
+                unique.add((u, v))
+                extras.append((u, v))
     toggled = [False] * width
     digest = hashlib.sha256()
     latencies: list[int] = []
@@ -143,10 +168,39 @@ def measure(
     sampled_disk_peak = 0
     retry_checks = 0
     tick = time.perf_counter()
-    store = Durable(path, n=vertices, mode=mode, max_batch=batch)
+    store = Durable(path, n=vertices, mode=mode, max_batch=batch, width=2)
     construction = time.perf_counter() - tick
-    initial = store.status()
+    setup_seconds = 0.0
+    setup_count = 0
     try:
+        if hubedges:
+            tick = time.perf_counter()
+            for offset in range(0, len(hubedges), batch):
+                group = hubedges[offset : offset + batch]
+                requests = [
+                    Request(
+                        setup_count + index + 1,
+                        "insert",
+                        left,
+                        right,
+                    )
+                    for index, (left, right) in enumerate(group)
+                ]
+                outcomes = store.apply(requests)
+                if any(
+                    not outcome.changed
+                    or outcome.sequence != setup_count + index + 1
+                    or outcome.version != setup_count + index + 2
+                    for index, outcome in enumerate(outcomes)
+                ):
+                    raise RuntimeError("hub preload acknowledgment is invalid")
+                for request in requests:
+                    digest.update(
+                        f"{request.sequence}:insert:{request.u}:{request.v};".encode()
+                    )
+                setup_count += len(group)
+            setup_seconds = time.perf_counter() - tick
+        initial = store.status()
         started = time.perf_counter()
         completed = 0
         while completed < pairs:
@@ -162,7 +216,7 @@ def measure(
                 for offset, (operation, (u, v)) in enumerate(
                     (("delete", old), ("insert", new))
                 ):
-                    sequence = 2 * (completed + index) + offset + 1
+                    sequence = setup_count + 2 * (completed + index) + offset + 1
                     requests.append(Request(sequence, operation, u, v))
                     admitted.append(time.perf_counter_ns())
                     digest.update(f"{sequence}:{operation}:{u}:{v};".encode())
@@ -204,7 +258,8 @@ def measure(
         elapsed = time.perf_counter() - started
         final = store.status()
         removed = {originals[i] for i in range(width) if toggled[i]}
-        extra = {extras[i] for i in range(width) if toggled[i]}
+        extra = set(hubedges)
+        extra.update(extras[i] for i in range(width) if toggled[i])
         tick = time.perf_counter()
         matching_digest = certificate(store, extra, removed, vertices)
         audit = time.perf_counter() - tick
@@ -215,8 +270,8 @@ def measure(
         recovery = time.perf_counter() - tick
         tick = time.perf_counter()
         if (
-            recovered.status()["sequence"] != 2 * pairs
-            or recovered.status()["version"] != 2 * pairs + 1
+            recovered.status()["sequence"] != setup_count + 2 * pairs
+            or recovered.status()["version"] != setup_count + 2 * pairs + 1
         ):
             raise RuntimeError(
                 "recovery sequence/version disagrees with acknowledgments"
@@ -243,8 +298,15 @@ def measure(
         "sqlite": final["sqlite"],
         "paper_mode": mode,
         "vertices": vertices,
-        "edges": 2 * vertices,
-        "average_degree": 4,
+        "base_edges": 2 * vertices,
+        "edges": initial["edges"],
+        "final_edges": final["edges"],
+        "average_degree": 2 * initial["edges"] / vertices,
+        "workload": workload,
+        "hub_vertex": 0 if workload == "hub-churn" else None,
+        "preloaded_hub_degree": hub_degree,
+        "churn_hub_pool_size": width if workload == "hub-churn" else 0,
+        "initial_hub_degree": 4 + hub_degree if workload == "hub-churn" else None,
         "churn_pool_pairs": width,
         "seed": seed,
         "pairs": pairs,
@@ -254,6 +316,8 @@ def measure(
         "retry_recovery_passed": True,
         "synchronous": "FULL",
         "fullfsync": True,
+        "preload_updates": setup_count,
+        "preload_seconds": setup_seconds,
         "real_acknowledged_updates": 2 * pairs,
         "partner_queries": pairs,
         "retry_outcomes_verified": retry_checks,
@@ -286,6 +350,10 @@ def main() -> None:
     parser.add_argument("--batch", type=int, default=256)
     parser.add_argument("--seed", type=int, default=599)
     parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
+    parser.add_argument(
+        "--workload", choices=("uniform", "hub-churn"), default="uniform"
+    )
+    parser.add_argument("--hub-degree", type=int, default=0)
     args = parser.parse_args()
     print(
         json.dumps(
@@ -296,6 +364,8 @@ def main() -> None:
                 args.batch,
                 args.seed,
                 mode=args.mode,
+                workload=args.workload,
+                hub_degree=args.hub_degree,
             ),
             indent=2,
         )

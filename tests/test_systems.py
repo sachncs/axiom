@@ -111,7 +111,7 @@ def test_shared_rows_have_one_first_write_record_and_restore_all_external_aliase
     alias = {0: values}
     journal.edit(alias, 0, 5, True)
     journal.edit(original, 0, 4, False)
-    assert len(journal.rows) == 1 and values == [1, 5, 15]
+    assert len(journal.changes) == 3 and values == [1, 5, 15]
     system.index()
     assert system.lambda_lists is not original
     journal.rollback()
@@ -236,6 +236,23 @@ def test_row_capacity_rejects_before_edit_and_restores_graph_on_retry():
     assert Witness().capture(matcher) == before
 
 
+def test_missing_cache_row_capacity_failure_has_no_pre_rollback_mutation():
+    matcher = populated()
+    container = matcher.system.lambda_lists
+    source = 7
+    container.pop(source)
+    assert source not in container
+    journal = Systems(matcher)
+    journal.capacity = journal.size + 1
+
+    with pytest.raises(MemoryError, match="capacity"):
+        journal.edit(container, source, 1, True)
+
+    assert source not in container
+    journal.rollback()
+    assert source not in container
+
+
 def test_skewed_cache_row_capacity_failure_restores_aliases_and_allows_retry():
     matcher = Matcher(40)
     system = matcher.system
@@ -249,8 +266,8 @@ def test_skewed_cache_row_capacity_failure_restores_aliases_and_allows_retry():
     target = original_row[0]
 
     constrained = Systems(matcher)
-    # Isolate a deterministic row-budget failure after map-key admission.
-    constrained.capacity = constrained.size + 4
+    # The map-key before-image fits, but the edit delta does not.
+    constrained.capacity = constrained.size + 1
     with pytest.raises(MemoryError, match="capacity"):
         constrained.edit(container, 0, target, False)
 
@@ -271,6 +288,27 @@ def test_skewed_cache_row_capacity_failure_restores_aliases_and_allows_retry():
     assert container[0] is row is alias
     assert tuple(row) == original_row
     assert Witness().capture(matcher) == before
+
+
+def test_large_system_cache_row_uses_constant_bounded_undo_and_preserves_identity():
+    matcher = Matcher(70_000)
+    system = matcher.system
+    container = system.lambda_lists
+    row = list(range(1, 65_537))
+    original = tuple(row)
+    container[0] = row
+
+    journal = Systems(matcher)
+    initial_size = journal.size
+    journal.edit(container, 0, 32_768, False)
+
+    assert container[0] is row
+    assert len(row) == len(original) - 1
+    assert journal.size - initial_size == 2
+    journal.rollback()
+
+    assert container[0] is row
+    assert tuple(row) == original
 
 
 def test_partial_matching_cut_capacity_failure_restores_each_removed_edge():

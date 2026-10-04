@@ -1,7 +1,9 @@
 # 0028: Journal System roots, cached rows and matching cuts
 
-Date: 2026-10-03. Status: admitted System undo implemented; Hierarchy-owned
-containers, auxiliary state and durable paper integration remain active.
+Date: 2026-10-03. Status: implemented; cache-row before-images were replaced
+with inverse edit deltas by [ADR 0119](0119-delta-journal-system-rows.md).
+Hierarchy-owned containers, auxiliary state and durable paper integration
+remain active.
 
 ## State and mutation inventory
 
@@ -13,15 +15,15 @@ row lists with the first System. Refinement replaces System roots, edits retaine
 M sets and rebuilds indexes. Incremental cache updates mutate rows, potentially
 through a second hierarchy alias.
 
-`Systems` admits the distinct pre-update System objects, retains their shallow
-root dictionaries and registers their maps/rows. `retain(memo)` marks the System
-objects, root sets/maps and current rows as unchanged references for the remaining
-snapshot. It does not copy row contents. A single first-write row record is keyed
-by list identity across all map aliases. Original map keys remember prior key
-presence and values before `setdefault`; private replacement maps are candidates
-and are restored by restoring System roots. Failed `index()` replacements cannot
-orphan original rows. Original set M removals are logged once across all admitted
-Systems before changing them. Repeated cuts preserve the pre-update membership.
+`Systems` admits the distinct pre-update System objects and retains their shallow
+root dictionaries. `retain(memo)` marks those System objects, root sets/maps,
+and current rows as unchanged references for the remaining snapshot. Original
+map keys remember prior key presence and values before edits; private replacement
+maps are candidates and are restored by restoring System roots. Failed `index()`
+replacements cannot orphan original rows. Cache edits are recorded as per-change
+inverses rather than row-sized before-images; see ADR 0119. Original set M
+removals are logged once across all admitted Systems before changing them.
+Repeated cuts preserve the pre-update membership.
 
 Basic and multilevel `System.update` route eligible endpoint edits through this
 owner journal. Incremental Hierarchy `L_levels` edits pass through it too, so an
@@ -33,9 +35,9 @@ rollback.
 ## Bounds and rollback
 
 The default capacity is 65,536 logical control cells: each System root field,
-each new map-key record, each changed row plus its copied integer entries, and
-each distinct matching edge removal. This bounds journal records and row snapshots,
-not overall process memory. Admission enumerates the original Systems and cache
+each changed map-key record, each actual cache-row edit delta, and each distinct
+matching edge removal. Row degree no longer affects undo admission. This bounds
+journal records, not overall process memory. Admission enumerates the original Systems and cache
 rows to register shared references; that temporary/bookkeeping work scales with
 the retained state. Remaining Matcher and Hierarchy snapshots, graph snapshots,
 candidate construction and global certificates also remain outside this quota.
@@ -43,9 +45,10 @@ candidate construction and global certificates also remain outside this quota.
 Matching cuts stream the original set to discover removed edges. They log each
 edge before changing the set, then remove by iterating the bounded undo entries;
 they do not allocate a second full matching-sized difference set. Capacity
-failure during discovery occurs before any matching removal. Rollback restores
-rows, original map-key presence, set memberships and all original System roots
-in place, then the existing snapshot restores other Matcher/Hierarchy fields.
+failure during discovery occurs before any matching removal. Rollback reverses
+cache-row deltas, restores original map-key presence, set memberships and all
+original System roots in place, then the existing snapshot restores other
+Matcher/Hierarchy fields.
 Packed graph journals roll back topology/version separately, before System roots.
 Python undo may allocate and fail; uncertain rollback or post-publication cleanup
 fail-stops the Matcher and rejects future queries and updates.

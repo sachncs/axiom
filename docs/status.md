@@ -64,6 +64,15 @@ paper component journals keep independent limits, so durable batch splitting
 continues to address cumulative pressure there. See
 [ADR 0108](adrs/0108-size-class-undo-to-retained-memberships.md).
 
+The one-million-vertex Basic hub-churn diagnostic exposed a separate fixed
+System-journal limit: a 65,280-entry sorted cache row could not be snapshotted
+within 65,536 journal cells. `Systems` now journals individual sorted-row
+edits and reverses them on rollback, retaining the aliased list identity
+without a row-sized copy. This fixes the admission failure mechanism; the first
+diagnostic was interrupted during committed-prefix recovery, so the same
+million-vertex skew profile must be rerun before claiming the fix qualified.
+See [ADR 0119](adrs/0119-delta-journal-system-rows.md).
+
 Durable hot-hub churn now has repeatable intermediate-restart coverage in both
 paper modes: every bounded prefix checks full graph/matching answers, the
 complete paper Witness, verified history, maximality, and same-batch idempotent

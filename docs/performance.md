@@ -129,3 +129,27 @@ frequency are not controlled. These results do not establish asymptotic bounds.
 
 For separate function profiling and a prioritized optimization plan that
 preserves rollback guarantees, see the [engineering assessment](engineering.md).
+
+## Durable hot-hub profile
+
+`benchmarks/durable.py` also supports a deterministic `hub-churn` profile for
+the paper-backed Durable path. It preloads spokes from vertex zero in bounded
+durable groups, then churns a disjoint spoke pool at that same vertex while
+retaining FULL-WAL commits, partner reads, independent final topology/maximality
+checks, idempotent retry, and exact reopen verification. Preload time and count
+are reported separately from measured churn. Use a fresh database for every
+run, and repeat the same seed to compare trace/state digests and variance.
+
+```sh
+uv run python benchmarks/durable.py \
+  --database /private/tmp/axiom-basic-hub-599.db \
+  --vertices 1000000 --pairs 20000 --batch 256 --seed 599 \
+  --mode basic --workload hub-churn --hub-degree 65536
+```
+
+Repeat with another fresh path for `--mode multilevel`, and with seeds 599, 600,
+and 601 for repeatability. This profile isolates sustained hot-hub churn over a
+preloaded hub; it does not exercise burst admission, concurrent network load,
+hard quotas, or long-duration deployment behavior. Treat it as workload
+qualification evidence only after publishing all raw runs and independently
+reviewing throughput, tail latency, memory, SQLite growth, and recovery.

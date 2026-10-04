@@ -171,6 +171,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Copy both the coloring keys and system matching for successful partition validation | Compare the mapping key view directly and allocate diagnostics only on mismatch (0116) | Key-view-only mapping and invalid-color regressions pass; rebuild allocation impact remains unmeasured |
 | Rebuild the complete uncolored-edge difference after fan construction | Reuse the initial set for fan construction, then scan the original edge universe into the ordered pending list (0117) | Difference-count and completion tests pass; large-graph allocation impact remains unmeasured |
 | Track dense Euler-edge IDs in hash tables during Paper partition | Use byte arrays plus an explicit assigned-edge count (0118) | Empty, disconnected, odd-degree, determinism, coverage, and degree-bound tests pass; large-graph allocation impact remains unmeasured |
+| Copy an entire sorted System cache row into the transaction journal | Retain row identity and journal one inverse per actual row edit (0119) | 65,536-entry row rollback and alias/failure tests pass; million-vertex hub run exposed the cap and must be rerun after the fix |
 
 ## What is not being abandoned
 

@@ -1,12 +1,14 @@
 """Owner-bound undo for admitted paper Systems, cached rows and matching cuts.
 
-Root references are retained, not recursively copied. Row aliases share one
-first-write record across all admitted Systems and hierarchy cache edits. Other
-Matcher state is protected by its owner-specific journals and shallow root record.
+Root references are retained, not recursively copied. Sorted cache-row edits
+are retained as bounded inverse deltas, including when rows are aliased across
+admitted Systems. Other Matcher state is protected by its owner-specific
+journals and shallow root record.
 """
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
@@ -19,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class Systems:
-    """Retain System roots and bound touched row/key/edge undo storage."""
+    """Retain System roots and journal touched cache edits by inverse delta."""
 
     def __init__(
         self, owner: Matcher, capacity: int = 65536, audit: bool = True
@@ -50,7 +52,7 @@ class Systems:
         self.bound = False
         self.roots: dict[int, tuple[System, dict[str, Any]]] = {}
         self.maps: dict[int, dict[Vertex, list[Vertex]]] = {}
-        self.rows: dict[int, tuple[list[Vertex], tuple[Vertex, ...]]] = {}
+        self.changes: list[tuple[list[Vertex], Vertex, bool]] = []
         self.keys: dict[tuple[int, Vertex], tuple[bool, Any]] = {}
         self.edges: dict[tuple[int, Edge], set[Edge]] = {}
         self.size = 0
@@ -142,7 +144,7 @@ class Systems:
         target: Vertex,
         added: bool,
     ) -> None:
-        """Retain a map cell and aliased row before the shared list primitive."""
+        """Retain map roots and a constant-size inverse before each row edit."""
         from axiom.system import System
 
         self.check()
@@ -152,11 +154,20 @@ class Systems:
             self.reserve(1)
             self.keys[key] = source in container, container.get(source)
         values = container.get(source)
-        if values is not None and id(values) not in self.rows:
-            self.reserve(1 + len(values))
-            self.rows[id(values)] = values, tuple(values)
         if values is None:
+            if not added:
+                return
+            if address not in self.maps:
+                raise RuntimeError("new cache rows require an admitted System map")
             values = []
+        position = bisect_left(values, target)
+        present = position < len(values) and values[position] == target
+        if added != present:
+            # One inverse operation restores this edit; copying the whole row
+            # makes a single hub update exceed the fixed journal budget.
+            self.reserve(1)
+            self.changes.append((values, target, added))
+        if source not in container:
             container[source] = values
         System.change(values, target, added)
 
@@ -309,7 +320,7 @@ class Systems:
         self.check()
         for entry in self.roots.values():
             object.__setattr__(entry[0], "journal", None)
-        self.rows.clear()
+        self.changes.clear()
         self.keys.clear()
         self.edges.clear()
         self.maps.clear()
@@ -318,10 +329,12 @@ class Systems:
         object.__setattr__(self.owner, "systems", None)
 
     def rollback(self) -> None:
-        """Restore rows, map keys, matching cells and original System roots."""
+        """Reverse row deltas, then restore map keys, matching and System roots."""
         self.check()
-        for values, original in self.rows.values():
-            values[:] = original
+        from axiom.system import System
+
+        for values, target, added in reversed(self.changes):
+            System.change(values, target, not added)
         for (address, source), (present, original) in self.keys.items():
             container = self.maps[address]
             if present:
@@ -334,7 +347,7 @@ class Systems:
             for name in vars(system).keys() - attributes.keys():
                 del vars(system)[name]
             vars(system).update(attributes)
-        self.rows.clear()
+        self.changes.clear()
         self.keys.clear()
         self.edges.clear()
         self.maps.clear()
