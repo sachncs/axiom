@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 SQLITEFULL = 13
+RESOURCE_HISTORY_LIMIT = 1_000_000
 
 
 @dataclass
@@ -207,13 +208,18 @@ class Audit:
                     if partners[vertex] < 0 and partners[neighbor] < 0:
                         raise RuntimeError("resource recovery matching is not maximal")
         if retry:
-            request = Request(self.sequence, "insert", 0, 1)
-            if owner.apply([request]) != (
-                Outcome(self.sequence, True, self.sequence + 1),
-            ):
+            operation, left, right = self.operation(self.sequence)
+            request = Request(self.sequence, operation, left, right)
+            expected = (Outcome(self.sequence, True, self.sequence + 1),)
+            if owner.apply([request]) != expected:
                 raise RuntimeError("resource recovery original retry differs")
+            conflicting_operation: Literal["insert", "delete"] = (
+                "delete" if operation == "insert" else "insert"
+            )
             try:
-                owner.apply([Request(self.sequence, "delete", 0, 1)])
+                owner.apply(
+                    [Request(self.sequence, conflicting_operation, left, right)]
+                )
             except ValueError as error:
                 if "retry payload differs" not in str(error):
                     raise
@@ -238,16 +244,19 @@ class Cycle(Audit):
     """Grow/drain every antipodal chord, then run the balanced pressure prefix."""
 
     def inspect(self) -> None:
-        """Require one complete even cycle plus bounded, balanced tail updates."""
+        """Require a complete even cycle and an optional bounded balanced tail."""
         if (
             type(self.vertices) is not int
             or not 8 <= self.vertices <= 1000000
             or self.vertices % 2
             or type(self.sequence) is not int
-            or not 2 <= self.sequence - self.vertices <= 40000
+            or not 0 <= self.sequence - self.vertices <= 40000
+            or (self.sequence != self.vertices and self.sequence - self.vertices < 2)
             or self.sequence % 2
         ):
-            raise ValueError("require a complete growth/drain cycle and balanced tail")
+            raise ValueError(
+                "require a complete growth/drain cycle and optional balanced tail"
+            )
 
     def operation(self, sequence: int) -> tuple[Literal["insert", "delete"], int, int]:
         """Every admitted chord edit changes density; tail retries retain identity."""
@@ -324,7 +333,7 @@ class Disk(Pressure):
     def apply(self) -> dict[str, object]:
         """Qualify physical-full checkpoint and update commits independently."""
         self.volume.inspect(False)
-        from axiom.durable import Durable, UnavailableError
+        from axiom.durable import Durable, Request, UnavailableError
         from axiom.service import Service
 
         database = self.volume.path / "graph.db"
@@ -354,15 +363,31 @@ class Disk(Pressure):
         with Durable(database, mode=self.mode, budget=128 << 20) as owner:
             digest = self.audit.verify(owner)
 
-        result = self.update(database, digest)
-        return {"written": written, **result}
+        update_audit = Audit(self.audit.vertices, 2)
+        update_database = self.volume.path / "disk-update.db"
+        with Durable(
+            update_database, n=self.audit.vertices, mode=self.mode, budget=128 << 20
+        ) as owner:
+            owner.apply(
+                [
+                    Request(1, "delete", 0, 1),
+                    Request(2, "insert", 0, 1),
+                ]
+            )
+            update_digest = update_audit.verify(owner)
 
-    def update(self, database: Path, digest: str) -> dict[str, object]:
+        update = self.update(update_database, update_digest, update_audit)
+        return {"written": written, "digest": digest, "update": update}
+
+    def update(
+        self, database: Path, digest: str, audit: Audit | None = None
+    ) -> dict[str, object]:
         """Retry and certify one full-volume durable no-op across reopen."""
         from axiom.durable import Durable, Outcome, Request, UnavailableError
         from axiom.service import Service
 
-        request = Request(self.audit.sequence + 1, "insert", 0, 1)
+        reference = self.audit if audit is None else audit
+        request = Request(reference.sequence + 1, "insert", 0, 1)
         service = Service(
             database, mode=self.mode, budget=128 << 20, queue_capacity=4096
         )
@@ -385,7 +410,7 @@ class Disk(Pressure):
                         continue
                     raise RuntimeError("uncertain failed commit served a read")
             else:
-                if result != Outcome(request.sequence, False, self.audit.sequence + 1):
+                if result != Outcome(request.sequence, False, reference.sequence + 1):
                     raise RuntimeError("full-volume update acknowledgment differs")
         finally:
             self.volume.release()
@@ -393,18 +418,18 @@ class Disk(Pressure):
 
         with Durable(database, mode=self.mode, budget=128 << 20) as owner:
             state = owner.status()
-            if state["sequence"] not in (self.audit.sequence, request.sequence):
+            if state["sequence"] not in (reference.sequence, request.sequence):
                 raise RuntimeError("full-volume update recovered an unknown prefix")
             outcome = owner.apply([request])
-            expected = Outcome(request.sequence, False, self.audit.sequence + 1)
+            expected = Outcome(request.sequence, False, reference.sequence + 1)
             if outcome != (expected,):
                 raise RuntimeError("full-volume original update retry differs")
-            recovered = self.audit.verify(owner, sequence=request.sequence, retry=False)
+            recovered = reference.verify(owner, sequence=request.sequence, retry=False)
             if recovered != digest:
                 raise RuntimeError("full-volume update changed exact matching")
         with Durable(database, mode=self.mode, budget=128 << 20) as owner:
             if (
-                self.audit.verify(owner, sequence=request.sequence, retry=False)
+                reference.verify(owner, sequence=request.sequence, retry=False)
                 != digest
             ):
                 raise RuntimeError("full-volume retry prefix changed after reopen")
@@ -577,7 +602,10 @@ class Envelope:
         if args.vertices not in (256000, 1000000):
             parser.error("supported pressure stages are 256000 and 1000000 vertices")
         audit = (
-            Cycle(args.vertices, args.vertices + 40000)
+            Cycle(
+                args.vertices,
+                min(args.vertices + 40000, RESOURCE_HISTORY_LIMIT),
+            )
             if args.growth
             else Audit(args.vertices)
         )

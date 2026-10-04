@@ -294,7 +294,7 @@ def test_probe_verification_rejects_ambiguous_or_conflicting_sequences(tmp_path)
 
 
 @pytest.mark.parametrize(
-    "vertices,sequence", [(True, 12), (9, 13), (8, 8), (8, 11), (8, True), (8, 40010)]
+    "vertices,sequence", [(True, 12), (9, 13), (8, 9), (8, 11), (8, True), (8, 40010)]
 )
 def test_cycle_invalid_reference_rejects_before_accessing_owner(vertices, sequence):
     with pytest.raises(ValueError, match="cycle"):
@@ -318,8 +318,69 @@ def test_cycle_launcher_validates_reference_before_starting_pressure_worker(
         lambda *args, **kwargs: pytest.fail("invalid worker launched"),
     )
     with pytest.raises(ValueError, match="cycle"):
-        module.Envelope(Volume(tmp_path), Cycle(8, 8)).launch()
+        module.Envelope(Volume(tmp_path), Cycle(8, 9)).launch()
     assert not list(tmp_path.iterdir())
+
+
+def test_million_vertex_cycle_fits_the_durable_history_limit():
+    from axiom.durable import MAX_OPERATIONS
+
+    assert module.RESOURCE_HISTORY_LIMIT == MAX_OPERATIONS
+    reference = Cycle(1_000_000, 1_000_000)
+    reference.inspect()
+
+    assert reference.operation(1) == ("insert", 0, 500_000)
+    assert reference.operation(500_000) == ("insert", 499_999, 999_999)
+    assert reference.operation(500_001) == ("delete", 0, 500_000)
+    assert reference.operation(1_000_000) == ("delete", 499_999, 999_999)
+
+
+def test_cycle_verification_retries_the_final_committed_request(tmp_path):
+    reference = Cycle(8, 8)
+    with Durable(tmp_path / "cycle-retry.db", n=8, max_operations=16) as owner:
+        owner.apply(
+            [
+                Request(sequence, *reference.operation(sequence))
+                for sequence in range(1, reference.sequence + 1)
+            ]
+        )
+
+        digest = reference.verify(owner)
+
+        assert len(digest) == 64
+        assert owner.status()["sequence"] == reference.sequence
+
+
+@pytest.mark.parametrize(
+    "vertices,expected", [(256_000, 296_000), (1_000_000, 1_000_000)]
+)
+def test_growth_cli_caps_tail_at_durable_history_limit(
+    vertices, expected, monkeypatch, tmp_path
+):
+    observed = []
+
+    class CapturedCycle:
+        def __init__(self, size, sequence):
+            observed.extend((size, sequence))
+
+    monkeypatch.setattr(
+        module.sys,
+        "argv",
+        [
+            "resource",
+            "--directory",
+            str(tmp_path),
+            "--vertices",
+            str(vertices),
+            "--growth",
+        ],
+    )
+    monkeypatch.setattr(module, "Cycle", CapturedCycle)
+    monkeypatch.setattr(module.Envelope, "launch", lambda envelope: None)
+
+    module.Envelope.cli()
+
+    assert observed == [vertices, expected]
 
 
 def test_envelope_launcher_forwards_the_selected_paper_mode(tmp_path, monkeypatch):
