@@ -26,6 +26,7 @@ from axiom.durable import (
     HistoryPage,
     Outcome,
     ReadSnapshot,
+    RecoveryError,
     Request,
     UnavailableError,
 )
@@ -829,6 +830,9 @@ class Service:
                                 self._owner
                             )
                         except UnavailableError:
+                            raise
+                        except RecoveryError:
+                            # Persistence/recovery failures are never safe to reuse.
                             raise
                         except (
                             KeyError,

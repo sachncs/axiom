@@ -714,6 +714,75 @@ def test_checkpoint_pressure_setup_retains_committed_wal_pages(tmp_path, mode):
         )
 
 
+@pytest.mark.parametrize("mode", ["basic", "multilevel"])
+def test_checkpoint_disk_full_fail_stops_and_recovers_exact_history(
+    tmp_path, monkeypatch, mode
+):
+    from axiom.durable import Durable, RecoveryError, UnavailableError
+    from axiom.service import Service
+
+    database = tmp_path / "checkpoint-failure.db"
+    vertices = 8
+    requests = (
+        Request(1, "delete", 0, 1),
+        Request(2, "insert", 0, 1),
+    )
+    with Durable(database, n=vertices, mode=mode) as owner:
+        outcomes = owner.apply(requests)
+        before_status = owner.status()
+        before_partners = tuple(owner.partner(vertex) for vertex in range(vertices))
+
+    original_db = Durable._db
+
+    class FailingCheckpoint:
+        def __init__(self, database):
+            self.database = database
+
+        def execute(self, statement, *parameters):
+            if statement == "PRAGMA wal_checkpoint(PASSIVE)":
+                error = sqlite3.OperationalError("database or disk is full")
+                error.sqlite_errorcode = SQLITEFULL
+                raise error
+            return self.database.execute(statement, *parameters)
+
+        def __getattr__(self, name):
+            return getattr(self.database, name)
+
+    monkeypatch.setattr(
+        Durable,
+        "_db",
+        lambda owner: FailingCheckpoint(original_db(owner)),
+    )
+    service = Service(database, n=vertices, mode=mode)
+    try:
+        with pytest.raises(RecoveryError) as failure:
+            service.checkpoint().result(10)
+        assert isinstance(failure.value.__cause__, sqlite3.Error)
+        assert failure.value.__cause__.sqlite_errorcode == SQLITEFULL
+        assert service.metrics()["state"] == "failed"
+        with pytest.raises(UnavailableError):
+            service.partner(0).result(10)
+    finally:
+        service.close(10)
+
+    with Durable(database, mode=mode) as recovered:
+        assert recovered.status() == before_status
+        assert tuple(recovered.partner(vertex) for vertex in range(vertices)) == (
+            before_partners
+        )
+        assert recovered.check()
+        history = recovered.history(1, 2)
+        assert history.latest_sequence == before_status["sequence"]
+        assert not history.has_more
+        assert tuple(
+            (record.sequence, record.operation, record.u, record.v, record.changed)
+            for record in history.records
+        ) == tuple(
+            (outcome.sequence, request.operation, request.u, request.v, outcome.changed)
+            for request, outcome in zip(requests, outcomes, strict=True)
+        )
+
+
 @pytest.mark.parametrize("count", [0, None])
 def test_volume_rejects_stalled_writes_and_releases_only_owned_file(
     tmp_path, monkeypatch, count
