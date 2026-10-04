@@ -156,4 +156,7 @@ reviewing throughput, tail latency, memory, SQLite growth, and recovery.
 The current one-run-per-mode records are in the
 [durable diagnostics](../benchmarks/results/durable/README.md). Both runs
 recovered exactly after the former journal boundary, but neither approaches
-10k updates/s and Multilevel recovery took nearly 16 minutes.
+10k updates/s. Bounded-slice operation-log replay later reduced recovery on the
+same retained databases from 280 s to 47.6 s for Basic and from 951 s to 152.8 s
+for Multilevel. These are single reopen timings, not repeatability evidence;
+both recovery times remain substantial.

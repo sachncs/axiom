@@ -94,6 +94,55 @@ def test_exact_witness_replay_after_restart_for_each_paper_mode(
 
 
 @pytest.mark.parametrize("mode", MODES)
+def test_recovery_batches_history_and_restarts_after_journal_capacity_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    path = tmp_path / f"batched-replay-{mode}.db"
+    with Durable(path, n=64, width=0, mode=mode, max_batch=32) as store:
+        batch = [
+            Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
+            for sequence in range(1, 25)
+        ]
+        store.apply(batch)
+        expected_state = state(store)
+        expected_witness = witness(store)
+
+    original = Matcher.batch
+    original_insert = Matcher.insert
+    sizes = []
+    batch_number = 0
+    injected = False
+
+    @contextmanager
+    def exhaust_second_wide_slice(
+        matcher: Matcher,
+        max_operations: int = 256,
+        before_publish=None,
+    ):
+        nonlocal batch_number
+        batch_number += 1
+        sizes.append(max_operations)
+        with original(matcher, max_operations, before_publish):
+            yield matcher
+
+    def mutate_then_exhaust(matcher: Matcher, left: int, right: int) -> None:
+        nonlocal injected
+        original_insert(matcher, left, right)
+        if batch_number == 2 and not injected:
+            injected = True
+            raise MemoryError("system journal capacity exceeded")
+
+    monkeypatch.setattr(Matcher, "batch", exhaust_second_wide_slice)
+    monkeypatch.setattr(Matcher, "insert", mutate_then_exhaust)
+    with Durable(path, mode=mode) as recovered:
+        assert injected
+        assert sizes == [8, 8, 4, 4, 4, 4, 4, 4]
+        assert state(recovered) == expected_state
+        assert witness(recovered) == expected_witness
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
 def test_history_pages_include_nonzero_genesis_graph_version(
     tmp_path: Path, mode: str
 ) -> None:

@@ -20,6 +20,7 @@ import warnings
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from itertools import islice
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
@@ -299,6 +300,90 @@ class Durable:
             graph.ring(width)
         return Matcher(n, mode=self._mode, graph=graph)
 
+    def _replay_operations(
+        self, n: int, width: int, metadata: str
+    ) -> tuple[Matcher, int, int, int, bytes]:
+        """Reconstruct one exact operation prefix in bounded atomic slices."""
+        chunk_size = PAPER_CHUNK
+        while True:
+            matcher = self._new_matcher(n, width)
+            if not isinstance(matcher.graph, Packed):
+                raise RecoveryError("paper replay requires packed graph storage")
+            self._matcher = matcher
+            base_version = matcher.graph.version
+            expected_version = base_version
+            expected_sequence = 0
+            expected_tail = hashlib.sha256(metadata.encode()).digest()
+            rows = self._db().execute(
+                "SELECT sequence,adding,u,v,changed,version,digest "
+                "FROM operations ORDER BY sequence"
+            )
+            try:
+                while group := tuple(islice(rows, chunk_size)):
+                    with matcher.batch(max_operations=len(group)):
+                        for row in group:
+                            (
+                                seq,
+                                adding,
+                                left,
+                                right,
+                                changed,
+                                current,
+                                record_digest,
+                            ) = row
+                            try:
+                                _integer(
+                                    seq,
+                                    expected_sequence + 1,
+                                    expected_sequence + 1,
+                                    "sequence",
+                                )
+                                _integer(adding, 0, 1, "operation")
+                                _integer(left, 0, n - 1, "left vertex")
+                                _integer(right, left, n - 1, "right vertex")
+                                _integer(changed, 0, 1, "changed")
+                                _integer(current, 0, _MAX, "version")
+                                if current != expected_version + changed:
+                                    raise ValueError("version progression disagrees")
+                                expected = _digest(
+                                    expected_tail,
+                                    seq,
+                                    adding,
+                                    left,
+                                    right,
+                                    bool(changed),
+                                    current,
+                                )
+                                if record_digest != expected:
+                                    raise ValueError("operation checksum disagrees")
+                                actual = self._transition(bool(adding), left, right)
+                                if actual != bool(changed):
+                                    raise ValueError(
+                                        "paper replay disagrees with committed outcome"
+                                    )
+                            except (
+                                TypeError,
+                                ValueError,
+                                RuntimeError,
+                                struct.error,
+                            ) as error:
+                                raise RecoveryError(
+                                    "invalid committed paper operation history"
+                                ) from error
+                            expected_sequence, expected_version = seq, current
+                            expected_tail = expected
+                return (
+                    matcher,
+                    base_version,
+                    expected_sequence,
+                    expected_version,
+                    expected_tail,
+                )
+            except MemoryError as error:
+                if chunk_size == 1 or "journal capacity exceeded" not in str(error):
+                    raise
+                chunk_size = max(1, chunk_size // 2)
+
     def _recover(self, requested: int | None, width: int | None) -> None:
         database = self._db()
         tables = database.execute(
@@ -443,42 +528,13 @@ class Durable:
         self._max_operations = saved_limit
         self._n, self._width = n, saved_width
         self._metadata = metadata
-        self._matcher = self._new_matcher(n, saved_width)
-        assert isinstance(self._matcher.graph, Packed)
-        self._version = self._matcher.graph.version
-        self._base_version = self._version
-        expected_tail = hashlib.sha256(metadata.encode()).digest()
-        expected_version = self._version
-        expected_sequence = 0
-        rows = database.execute(
-            "SELECT sequence,adding,u,v,changed,version,digest "
-            "FROM operations ORDER BY sequence"
-        )
-        for row in rows:
-            seq, adding, left, right, changed, current, record_digest = row
-            try:
-                _integer(seq, expected_sequence + 1, expected_sequence + 1, "sequence")
-                _integer(adding, 0, 1, "operation")
-                _integer(left, 0, n - 1, "left vertex")
-                _integer(right, left, n - 1, "right vertex")
-                _integer(changed, 0, 1, "changed")
-                _integer(current, 0, _MAX, "version")
-                if current != expected_version + changed:
-                    raise ValueError("version progression disagrees")
-                expected = _digest(
-                    expected_tail, seq, adding, left, right, bool(changed), current
-                )
-                if record_digest != expected:
-                    raise ValueError("operation checksum disagrees")
-                actual = self._transition(bool(adding), left, right)
-                if actual != bool(changed):
-                    raise ValueError("paper replay disagrees with committed outcome")
-            except (TypeError, ValueError, RuntimeError, struct.error) as error:
-                raise RecoveryError(
-                    "invalid committed paper operation history"
-                ) from error
-            expected_sequence, expected_version = seq, current
-            expected_tail = expected
+        (
+            self._matcher,
+            self._base_version,
+            expected_sequence,
+            expected_version,
+            expected_tail,
+        ) = self._replay_operations(n, saved_width, metadata)
 
         if (
             expected_sequence != sequence
@@ -828,42 +884,14 @@ class Durable:
         sub-batch undo journal until the outer SQLite transaction completes.
         """
         previous = self._matcher
-        candidate = self._new_matcher(self._n, self._width)
-        assert isinstance(candidate.graph, Packed)
-        self._matcher = candidate
-        expected_version = candidate.graph.version
-        expected_sequence = 0
-        expected_tail = hashlib.sha256(self._metadata.encode()).digest()
         try:
-            rows = self._db().execute(
-                "SELECT sequence,adding,u,v,changed,version,digest "
-                "FROM operations ORDER BY sequence"
-            )
-            for row in rows:
-                sequence, adding, left, right, changed, version, digest = row
-                if (
-                    sequence != expected_sequence + 1
-                    or adding not in (0, 1)
-                    or changed not in (0, 1)
-                    or version != expected_version + changed
-                    or digest
-                    != _digest(
-                        expected_tail,
-                        sequence,
-                        adding,
-                        left,
-                        right,
-                        bool(changed),
-                        version,
-                    )
-                    or self._transition(bool(adding), left, right) != bool(changed)
-                ):
-                    raise RecoveryError("committed history failed rollback replay")
-                expected_sequence, expected_version, expected_tail = (
-                    sequence,
-                    version,
-                    digest,
-                )
+            (
+                candidate,
+                base_version,
+                expected_sequence,
+                expected_version,
+                expected_tail,
+            ) = self._replay_operations(self._n, self._width, self._metadata)
             control = (
                 self._db()
                 .execute("SELECT sequence,version,digest FROM control WHERE id=1")
@@ -873,6 +901,7 @@ class Durable:
                 control != (expected_sequence, expected_version, expected_tail)
                 or expected_sequence != self._count
                 or expected_version != self._version
+                or base_version != self._base_version
                 or expected_tail != self._tail
                 or not self._audit()
             ):

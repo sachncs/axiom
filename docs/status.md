@@ -17,7 +17,9 @@ recovery replays the persisted operation stream through its recorded paper mode;
 it does not restore or reinterpret the removed native matcher format. C++ is
 limited to compact graph storage, while SQLite is the durable operation authority.
 One-million-vertex Basic smoke qualification currently passes exact recovery,
-but measured only about 506 real updates/s and about 1.54 GB process peak RSS.
+but a degree-four-ring workload measured about 506 real updates/s and about
+1.54 GB process peak RSS. This differs from the separate high-degree hub-churn
+workload below and should not be read as a contradictory run.
 That short run does not approach the 10k/s target or establish efficient
 million-vertex memory use. A targeted Multilevel change replaced full
 matching/seed scans on every update with a rollback-aware I3 crossing index.
@@ -70,9 +72,12 @@ within 65,536 journal cells. `Systems` now journals individual sorted-row
 edits and reverses them on rollback, retaining the aliased list identity
 without a row-sized copy. Post-fix million-vertex runs in both modes crossed the
 old limit and recovered exactly, confirming the capacity fix. They are not
-qualification: Basic delivered 1,470 updates/s with 280 s replay; Multilevel
-delivered 215/s with 951 s replay and 1.96 GB peak RSS. Repeatability, compute
-cost and recovery time remain major open gates. See [ADR
+qualification: Basic delivered 1,470 updates/s with 280 s initial replay;
+Multilevel delivered 215/s with 951 s initial replay and 1.96 GB peak RSS.
+Bounded-slice operation-log replay reduced recovery on those same retained
+65,792-row databases to 47.6 s Basic and 152.8 s Multilevel in single follow-up
+runs. Replay remains slow, and throughput still misses 10k/s by a wide margin.
+Repeatability, compute cost and recovery time remain major open gates. See [ADR
 0119](adrs/0119-delta-journal-system-rows.md) and the
 [raw hub results](../benchmarks/results/durable/README.md).
 

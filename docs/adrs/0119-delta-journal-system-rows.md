@@ -46,3 +46,11 @@ measured 215 updates/s and 951 s recovery with 1.96 GB peak RSS. These single
 runs confirm the capacity fix but are negative performance evidence, not
 repeatability or deployment qualification. Raw records are in
 [`benchmarks/results/durable`](../../benchmarks/results/durable/README.md).
+
+Follow-up recovery work batches operation-log replay into bounded atomic
+Matcher slices and restarts from the beginning with smaller slices when a
+paper journal reaches its capacity. Reopening the same retained 65,792-row
+databases took 47.6 s for Basic and 152.8 s for Multilevel, versus the original
+280 s and 951 s. These are sequential single-run comparisons on the same
+workstation and database state, not throughput re-runs or qualification; replay
+is still too slow for an acceptable million-vertex recovery objective.
