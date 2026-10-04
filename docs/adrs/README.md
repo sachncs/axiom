@@ -195,6 +195,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Reopen/replay the million-operation database for memory pressure while retaining the just-closed Service's Matcher | Release and collect the Service owner before pressure replay (0140) | Retained-owner cause was confirmed by the hosted traceback; constrained memory/recovery rerun is pending |
 | Run the constrained million-update Service trace in groups of 256 while sustained acknowledgments remain below 10k/s | Test and reject resource-only 512-request groups; restore 256 after lower measured throughput (0141) | 512 group: 4,455/s; prior 256 group: 7,115/s; target remains unmet |
 | Test Matcher `MemoryError` behavior under the process limit | Exercise a bounded 4,096-distinct, out-of-ring-edge Durable group under real allocation pressure and prove exact rollback (0142) | Hosted memory stage passed: `MemoryError`, owner release/collection, exact status and matching/topology recovery; disk checkpoint gate remains pending |
+| Store matched edges in a second vertex-indexed `Packed` graph | Use a sparse set of packed integer edge keys with no O(n) index metadata (0143) | 500k-edge local index accounting: 32,777,428 bytes; prior `Packed` index hit `MemoryError` in hosted Multilevel startup. HEAD `e4824c9`: Basic update-only stage ~8.9k/s and passed backup/memory pressure but failed recovery under disk pressure; Multilevel still hit the initial phase-base graph snapshot under 512 MiB. Full and mixed-query qualification remains pending |
 
 ## What is not being abandoned
 
