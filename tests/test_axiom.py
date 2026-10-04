@@ -1153,8 +1153,7 @@ class TestMatcher:
         assert len(snapshotcalls) == 1
         assert len(copycalls) == 1
         assert copycalls[0][0] is algo.phase_base_system
-        assert copycalls[0][1] is algo.graph
-        assert copycalls[0][1] is not algo.phase_base_graph
+        assert copycalls[0][1] is algo.phase_base_graph
         assert copycalls[0][2] is False
         assert snapshotcalls[0][0] is algo.graph
         assert algo.phase_base_graph is snapshotcalls[0][1]

@@ -56,6 +56,9 @@ def test_initial_multilevel_snapshot_precedes_recursive_index_construction(
     matcher = Matcher(16, graph=graph, mode="multilevel")
 
     assert matcher.phase_base_graph is not matcher.graph
+    assert matcher.multi is not None
+    assert matcher.phase_graph is matcher.multi.graph
+    assert matcher.phase_graph is not matcher.graph
     assert matcher.phase_base_system.graph is matcher.phase_base_graph
     assert tuple(matcher.phase_base_graph.edges()) == tuple(matcher.graph.edges())
     matcher.insert(0, 8)

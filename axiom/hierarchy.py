@@ -340,7 +340,7 @@ class Hierarchy:
                         for neighbor in neighbors
                         if neighbor in self.R_levels[index]
                     ]
-                    if self.L_levels[index].get(vertex, []) != region_row:
+                    if list(self.L_levels[index].get(vertex, [])) != region_row:
                         return f"level {index} region row differs at {vertex}"
         return None
 

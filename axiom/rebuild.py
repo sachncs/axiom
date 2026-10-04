@@ -371,33 +371,34 @@ class Multilevel:
                 # the next recursive level, not a second insertion set.
                 inserted = set()
         else:
-            # Allocate the one required immutable phase-base root before
-            # constructing graph-sized systems and hierarchy indexes. Taking
-            # this snapshot at the end of the rebuild needlessly overlaps its
-            # storage growth with every retained index. The working hierarchy
-            # remains rooted in the live graph; the base System is rebound to
-            # the detached snapshot after construction because both graphs
-            # have identical topology here.
+            # Allocate every detached graph root required by initial state
+            # before constructing graph-sized systems and hierarchy indexes.
+            # The live graph, mutable phase graph, and immutable phase-base
+            # graph have distinct ownership: E_I updates change the live graph
+            # but remain excluded from the hierarchy, while child refinement
+            # reads the unchanged phase base.
             phase_base_graph = snapshot(matcher.graph)
-            phase_base_system = build(matcher.graph, matcher.level_zs[0])
+            initial_phase_graph = snapshot(matcher.graph) if initial_rebuild else None
+            phase_base_system = build(phase_base_graph, matcher.level_zs[0])
+            working_graph = (
+                initial_phase_graph
+                if initial_phase_graph is not None
+                else phase_base_graph
+            )
             # A recursive level immediately rebuilds these caches on its
             # projected graph. Preserve eager indexing only when the
             # hierarchy has no refinement step.
             working_system = copy(
                 phase_base_system,
-                matcher.graph,
-                indexed=len(matcher.level_zs) == 1,
+                working_graph,
+                indexed=initial_rebuild or len(matcher.level_zs) == 1,
             )
             matcher.multi = build_hierarchy(
-                matcher.graph,
+                working_graph,
                 matcher.level_zs,
                 colorer=recursive_colorer,
                 first=working_system,
             )
-            # The retained base partition and matching are topology-only
-            # after construction; attach their graph view to the immutable
-            # root while keeping the mutable hierarchy on the live root.
-            phase_base_system.graph = phase_base_graph
         # Recursive refinement constructs the finest system on a selected
         # working subgraph.  The dynamic update pipeline owns a phase graph
         # consisting of live edges minus cumulative E_I, plus deferred E_D'.
@@ -424,7 +425,7 @@ class Multilevel:
                     matcher.bad_vertices,
                 ):
                     matcher.auxiliary.clear(values)
-        else:
+        elif not initial_rebuild:
             # A child phase rebuild keeps the inherited parent snapshot and
             # cumulative update sets.  Insertions remain outside the phase
             # graph until the parent boundary, exactly as E_I requires.
