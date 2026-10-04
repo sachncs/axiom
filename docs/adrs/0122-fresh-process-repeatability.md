@@ -49,3 +49,28 @@ hub measured 2,152/s Basic and 3,327/s Multilevel; exact digests/recovery again
 passed. Both are one-seed, one-batch diagnostics, not qualification. See the
 [uniform result](../../benchmarks/results/repeatability/million-uniform-599.json)
 and [skew result](../../benchmarks/results/repeatability/million-hub4096-599.json).
+
+## Power-law endpoint stress
+
+The durable trace runner now also supports `power-law-churn`: it creates a
+bounded pool of unique non-ring chords from independent integer ranks sampled
+from a fixed, truncated Pareto tail (exponent 2.5), preloads half, and alternates
+deletions/insertions by seeded pool index. Every run reports the exponent,
+rank convention, hottest-vertex incidence and top-decile endpoint share; the
+existing independent topology/maximality checks, durable retry, reopen replay,
+matching digest, and fresh-process same-seed digest comparison still apply.
+
+A one-million-vertex, two-million-edge run used 128 churn pairs, batch limit
+256, seeds 599/601, two fresh-process repeats per seed and mode (eight samples).
+All eight independent audits, durable retry checks, exact reopen recoveries and
+same-seed trace/matching digest comparisons passed. Endpoint incidence was
+extremely concentrated: the hottest vertex received 15,870–15,871 of 32,768
+generated endpoint incidences and the top decile received all incidences. Median
+throughput was 2,145/s Basic (2,101–2,174/s) and 2,209/s Multilevel
+(2,116–2,219/s). Median acknowledgment p99 was 117.5 ms Basic and 113.9 ms
+Multilevel; median recovery was 17.0 s and 24.9 s, respectively. Median process
+peak RSS was 1.55 GB Basic and 2.39 GB Multilevel. These are single-host,
+small-update-count stress diagnostics, not a broad power-law graph suite,
+10k/s qualification, or deployment qualification. The retained summary and all
+eight sample JSON files are in
+[`million-powerlaw-599-601`](../../benchmarks/results/repeatability/million-powerlaw-599-601/summary.json).

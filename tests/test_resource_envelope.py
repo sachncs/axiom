@@ -2,6 +2,7 @@
 
 import errno
 import os
+import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -148,6 +149,77 @@ def test_reference_verifies_real_updates_exact_topology_partners_and_retry(
     with Durable(path, mode=mode) as recovered:
         assert Audit(8, 4).verify(recovered) == digest
         assert recovered.check()
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_full_volume_update_retries_same_id_from_either_commit_prefix(
+    tmp_path, monkeypatch, committed
+):
+    from axiom.durable import Outcome, UnavailableError
+    from axiom.service import Service
+
+    path = tmp_path / "update-full.db"
+    reference = Audit(8, 4)
+    with Durable(path, n=8) as owner:
+        owner.apply(
+            [
+                Request(sequence, "delete" if sequence % 2 else "insert", 0, 1)
+                for sequence in range(1, 5)
+            ]
+        )
+        digest = reference.verify(owner)
+
+    volume = Volume(tmp_path)
+    monkeypatch.setattr(Volume, "inspect", lambda self, fresh=True: 192 << 20)
+    monkeypatch.setattr(Volume, "fill", lambda self: 4096)
+    original_submit = Service.submit
+
+    class FailedReceipt:
+        def result(self, timeout=None):
+            error = sqlite3.OperationalError("database or disk is full")
+            error.sqlite_errorcode = sqlite3.SQLITE_FULL
+            raise error
+
+    def submit(service, request):
+        if committed:
+            assert original_submit(service, request).result(5) == Outcome(5, False, 5)
+        return FailedReceipt()
+
+    def unavailable(*args, **kwargs):
+        raise UnavailableError("injected uncertain commit")
+
+    monkeypatch.setattr(Service, "submit", submit)
+    monkeypatch.setattr(Service, "metrics", lambda self: {"state": "failed"})
+    monkeypatch.setattr(Service, "partner", unavailable)
+    monkeypatch.setattr(Service, "has_edge", unavailable)
+
+    result = module.Disk(volume, reference).update(path, digest)
+
+    assert result["update_sequence"] == 5
+    assert result["update_written"] == 4096
+    assert result["digest"] == digest
+    assert result["verified"]
+    with Durable(path) as recovered:
+        assert recovered.status()["sequence"] == 5
+        assert recovered.status()["version"] == 5
+        assert recovered.apply([Request(5, "insert", 0, 1)]) == (Outcome(5, False, 5),)
+        assert reference.verify(recovered, sequence=5, retry=False) == digest
+
+
+def test_probe_verification_rejects_ambiguous_or_conflicting_sequences(tmp_path):
+    path = tmp_path / "probe-sequence.db"
+    reference = Audit(8, 4)
+    with Durable(path, n=8) as owner:
+        owner.apply(
+            [
+                Request(sequence, "delete" if sequence % 2 else "insert", 0, 1)
+                for sequence in range(1, 5)
+            ]
+        )
+        with pytest.raises(ValueError, match="outside one probe"):
+            reference.verify(owner, sequence=6, retry=False)
+        with pytest.raises(ValueError, match="baseline request"):
+            reference.verify(owner, sequence=5)
 
 
 @pytest.mark.parametrize(

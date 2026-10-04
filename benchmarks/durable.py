@@ -16,6 +16,7 @@ import resource
 import sys
 import time
 from array import array
+from collections import Counter
 from collections.abc import Iterable, Sized
 from pathlib import Path
 from typing import Any, Literal
@@ -23,6 +24,59 @@ from typing import Any, Literal
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from axiom.durable import Durable, Request
+
+powerlawexponent = 2.5
+
+
+def powerlawrank(rng: random.Random, vertices: int) -> int:
+    """Sample an integer rank from a truncated Pareto tail (fixed alpha=2.5).
+
+    Inverse-CDF sampling uses U**(-1/(alpha-1)); rank 1 is the hottest
+    vertex. Flooring produces integer ranks without a dependency or a
+    graph-sized weight table. This is a deterministic skew workload, not a
+    claim that it reproduces every empirical power-law graph.
+    """
+    draw = max(1.0 - rng.random(), 1.0 / (vertices * vertices))
+    return min(vertices, max(1, int(draw ** (-1.0 / (powerlawexponent - 1)))))
+
+
+def powerlawedges(
+    rng: random.Random, vertices: int, count: int, width: int
+) -> list[tuple[int, int]]:
+    """Build unique deterministic skewed chords suitable for the churn trace.
+
+    Rejection sampling is capped to avoid duplicate-heavy unbounded startup;
+    a deterministic rank-ordered fill completes any remaining edge pool.
+    """
+    edges: list[tuple[int, int]] = []
+    known: set[tuple[int, int]] = set()
+    attempts = 0
+    while len(edges) < count and attempts < count * 8:
+        attempts += 1
+        left = powerlawrank(rng, vertices) - 1
+        right = powerlawrank(rng, vertices) - 1
+        if left == right:
+            continue
+        edge = canonical(left, right)
+        distance = edge[1] - edge[0]
+        if min(distance, vertices - distance) <= width or edge in known:
+            continue
+        known.add(edge)
+        edges.append(edge)
+    if len(edges) < count:
+        for left in range(vertices):
+            for right in range(left + 1, vertices):
+                distance = right - left
+                edge = (left, right)
+                if min(distance, vertices - distance) <= width or edge in known:
+                    continue
+                known.add(edge)
+                edges.append(edge)
+                if len(edges) == count:
+                    return edges
+    if len(edges) != count:
+        raise ValueError("power-law edge pool exceeds available non-ring chords")
+    return edges
 
 
 def canonical(u: int, v: int) -> tuple[int, int]:
@@ -124,11 +178,11 @@ def measure(
         raise ValueError(
             f"require n>=8, 1<=pairs<={limit} and an even batch in [2,4096]"
         )
-    if workload not in ("uniform", "hub-churn"):
-        raise ValueError("workload must be 'uniform' or 'hub-churn'")
+    if workload not in ("uniform", "hub-churn", "power-law-churn"):
+        raise ValueError("workload must be 'uniform', 'hub-churn' or 'power-law-churn'")
     if type(hub_degree) is not int or hub_degree < 0:
         raise ValueError("hub_degree must be a nonnegative integer")
-    if workload == "uniform" and hub_degree:
+    if workload != "hub-churn" and hub_degree:
         raise ValueError("hub_degree is only valid for hub-churn")
     if workload == "hub-churn" and hub_degree < 1:
         raise ValueError("hub-churn requires at least one preloaded hub edge")
@@ -147,13 +201,31 @@ def measure(
     else:
         hubedges = []
         hotextras = []
-    originals = [
-        canonical(u, (u + 1) % vertices) for u in rng.sample(range(vertices), width)
-    ]
+    if workload == "power-law-churn":
+        # Each cell has one preloaded and one initially absent skewed edge.
+        width = min(width, max(1, vertices * (vertices - 5) // 4))
+        poweredges = powerlawedges(rng, vertices, width * 2, 2)
+        originals, powerextras = poweredges[:width], poweredges[width:]
+        endpointcounts = Counter(vertex for edge in poweredges for vertex in edge)
+        endpointtotal = 2 * len(poweredges)
+        top_count = max(1, (vertices + 9) // 10)
+        top_share = (
+            sum(endpointcounts[vertex] for vertex in range(top_count)) / endpointtotal
+        )
+    else:
+        originals = [
+            canonical(u, (u + 1) % vertices) for u in rng.sample(range(vertices), width)
+        ]
+        powerextras = []
+        endpointcounts = Counter()
+        top_share = 0.0
     extras: list[tuple[int, int]] = []
     unique: set[tuple[int, int]] = set()
     if workload == "hub-churn":
         extras = hotextras
+        unique.update(extras)
+    elif workload == "power-law-churn":
+        extras = powerextras
         unique.update(extras)
     else:
         while len(extras) < width:
@@ -174,10 +246,11 @@ def measure(
     setup_seconds = 0.0
     setup_count = 0
     try:
-        if hubedges:
+        preloadedges = hubedges + (originals if workload == "power-law-churn" else [])
+        if preloadedges:
             tick = time.perf_counter()
-            for offset in range(0, len(hubedges), batch):
-                group = hubedges[offset : offset + batch]
+            for offset in range(0, len(preloadedges), batch):
+                group = preloadedges[offset : offset + batch]
                 requests = [
                     Request(
                         setup_count + index + 1,
@@ -265,8 +338,14 @@ def measure(
         final_edges = final["edges"]
         if type(final_edges) is not int:
             raise RuntimeError("durable status returned a noninteger edge count")
-        removed = {originals[i] for i in range(width) if toggled[i]}
+        removed = (
+            {originals[i] for i in range(width) if toggled[i]}
+            if workload != "power-law-churn"
+            else set()
+        )
         extra = set(hubedges)
+        if workload == "power-law-churn":
+            extra.update(originals[i] for i in range(width) if not toggled[i])
         extra.update(extras[i] for i in range(width) if toggled[i])
         tick = time.perf_counter()
         matching_digest = certificate(store, extra, removed, vertices)
@@ -319,10 +398,30 @@ def measure(
         "final_edges": final_edges,
         "average_degree": 2 * initial_edges / vertices,
         "workload": workload,
+        "workload_metadata": {
+            "endpoint_distribution": "truncated-pareto-integer-rank"
+            if workload == "power-law-churn"
+            else "uniform"
+            if workload == "uniform"
+            else "fixed-hub",
+            "powerlaw_exponent": powerlawexponent
+            if workload == "power-law-churn"
+            else None,
+            "powerlaw_rank_mapping": "rank-1-is-hottest-vertex"
+            if workload == "power-law-churn"
+            else None,
+            "powerlaw_top_decile_endpoint_share": round(top_share, 6)
+            if workload == "power-law-churn"
+            else None,
+            "powerlaw_hottest_endpoint_incidence": max(endpointcounts.values())
+            if endpointcounts
+            else None,
+        },
         "hub_vertex": 0 if workload == "hub-churn" else None,
         "preloaded_hub_degree": hub_degree,
         "churn_hub_pool_size": width if workload == "hub-churn" else 0,
         "initial_hub_degree": 4 + hub_degree if workload == "hub-churn" else None,
+        "preloaded_churn_edges": len(preloadedges),
         "churn_pool_pairs": width,
         "seed": seed,
         "pairs": pairs,
@@ -367,7 +466,9 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=599)
     parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
     parser.add_argument(
-        "--workload", choices=("uniform", "hub-churn"), default="uniform"
+        "--workload",
+        choices=("uniform", "hub-churn", "power-law-churn"),
+        default="uniform",
     )
     parser.add_argument("--hub-degree", type=int, default=0)
     args = parser.parse_args()

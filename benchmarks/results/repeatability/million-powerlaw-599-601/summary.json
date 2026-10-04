@@ -1,0 +1,231 @@
+{
+  "scope": "fresh-process durable repeatability diagnostics; not a qualification threshold",
+  "vertices": 1000000,
+  "pairs": 128,
+  "batch": 256,
+  "workload": "power-law-churn",
+  "workload_metadata_by_seed": {
+    "599": {
+      "endpoint_distribution": "truncated-pareto-integer-rank",
+      "powerlaw_exponent": 2.5,
+      "powerlaw_hottest_endpoint_incidence": 15871,
+      "powerlaw_rank_mapping": "rank-1-is-hottest-vertex",
+      "powerlaw_top_decile_endpoint_share": 1.0
+    },
+    "601": {
+      "endpoint_distribution": "truncated-pareto-integer-rank",
+      "powerlaw_exponent": 2.5,
+      "powerlaw_hottest_endpoint_incidence": 15870,
+      "powerlaw_rank_mapping": "rank-1-is-hottest-vertex",
+      "powerlaw_top_decile_endpoint_share": 1.0
+    }
+  },
+  "hub_degree": 0,
+  "seeds": [
+    599,
+    601
+  ],
+  "repeats_per_seed": 2,
+  "modes": {
+    "basic": {
+      "sample_count": 4,
+      "workload_metadata_by_seed": {
+        "599": {
+          "endpoint_distribution": "truncated-pareto-integer-rank",
+          "powerlaw_exponent": 2.5,
+          "powerlaw_hottest_endpoint_incidence": 15871,
+          "powerlaw_rank_mapping": "rank-1-is-hottest-vertex",
+          "powerlaw_top_decile_endpoint_share": 1.0
+        },
+        "601": {
+          "endpoint_distribution": "truncated-pareto-integer-rank",
+          "powerlaw_exponent": 2.5,
+          "powerlaw_hottest_endpoint_incidence": 15870,
+          "powerlaw_rank_mapping": "rank-1-is-hottest-vertex",
+          "powerlaw_top_decile_endpoint_share": 1.0
+        }
+      },
+      "environment": {
+        "python": "3.11.16",
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "sqlite": "3.53.1"
+      },
+      "throughput_updates_per_second": {
+        "median": 2145.1562317699295,
+        "minimum": 2101.4848919103747,
+        "maximum": 2174.3092418863316
+      },
+      "acknowledgment_latency": {
+        "p50_ns": {
+          "median": 117400167.0,
+          "minimum": 115708750,
+          "maximum": 119979209
+        },
+        "p95_ns": {
+          "median": 117511312.5,
+          "minimum": 115809750,
+          "maximum": 120075750
+        },
+        "p99_ns": {
+          "median": 117533479.0,
+          "minimum": 115825084,
+          "maximum": 120084542
+        }
+      },
+      "batch_commit_latency": {
+        "p50_ns": {
+          "median": 117302021.0,
+          "minimum": 115613375,
+          "maximum": 119881459
+        },
+        "p95_ns": {
+          "median": 117302021.0,
+          "minimum": 115613375,
+          "maximum": 119881459
+        },
+        "p99_ns": {
+          "median": 117302021.0,
+          "minimum": 115613375,
+          "maximum": 119881459
+        }
+      },
+      "partner_query_latency": {
+        "p50_ns": {
+          "median": 1749.5,
+          "minimum": 1292,
+          "maximum": 2459
+        },
+        "p95_ns": {
+          "median": 2875.0,
+          "minimum": 1625,
+          "maximum": 3708
+        },
+        "p99_ns": {
+          "median": 6771.0,
+          "minimum": 2583,
+          "maximum": 13042
+        }
+      },
+      "process_peak_rss_bytes": {
+        "median": 1549344768.0,
+        "minimum": 1532510208,
+        "maximum": 1614397440
+      },
+      "recovery_seconds": {
+        "median": 16.962733687505533,
+        "minimum": 16.82559191698965,
+        "maximum": 17.128019499999937
+      },
+      "same_seed_digests_verified": {
+        "599": [
+          "136f2ecf4ad3850f82c8773ac5027dca3e7adcdfa33340bb9e9c9c4984adaf30",
+          "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a"
+        ],
+        "601": [
+          "caa4cc64a0a26fe9d981958257c11bfbe77634967355d43f43a37b38b0fdfc5d",
+          "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a"
+        ]
+      }
+    },
+    "multilevel": {
+      "sample_count": 4,
+      "workload_metadata_by_seed": {
+        "599": {
+          "endpoint_distribution": "truncated-pareto-integer-rank",
+          "powerlaw_exponent": 2.5,
+          "powerlaw_hottest_endpoint_incidence": 15871,
+          "powerlaw_rank_mapping": "rank-1-is-hottest-vertex",
+          "powerlaw_top_decile_endpoint_share": 1.0
+        },
+        "601": {
+          "endpoint_distribution": "truncated-pareto-integer-rank",
+          "powerlaw_exponent": 2.5,
+          "powerlaw_hottest_endpoint_incidence": 15870,
+          "powerlaw_rank_mapping": "rank-1-is-hottest-vertex",
+          "powerlaw_top_decile_endpoint_share": 1.0
+        }
+      },
+      "environment": {
+        "python": "3.11.16",
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "sqlite": "3.53.1"
+      },
+      "throughput_updates_per_second": {
+        "median": 2209.314991924562,
+        "minimum": 2115.5320131590584,
+        "maximum": 2218.7610322519085
+      },
+      "acknowledgment_latency": {
+        "p50_ns": {
+          "median": 113846791.5,
+          "minimum": 113315084,
+          "maximum": 118850542
+        },
+        "p95_ns": {
+          "median": 113940146.0,
+          "minimum": 113409334,
+          "maximum": 118983917
+        },
+        "p99_ns": {
+          "median": 113949604.0,
+          "minimum": 113418625,
+          "maximum": 119010583
+        }
+      },
+      "batch_commit_latency": {
+        "p50_ns": {
+          "median": 113756583.5,
+          "minimum": 113212625,
+          "maximum": 118724542
+        },
+        "p95_ns": {
+          "median": 113756583.5,
+          "minimum": 113212625,
+          "maximum": 118724542
+        },
+        "p99_ns": {
+          "median": 113756583.5,
+          "minimum": 113212625,
+          "maximum": 118724542
+        }
+      },
+      "partner_query_latency": {
+        "p50_ns": {
+          "median": 2020.5,
+          "minimum": 1375,
+          "maximum": 2292
+        },
+        "p95_ns": {
+          "median": 3541.5,
+          "minimum": 1667,
+          "maximum": 4542
+        },
+        "p99_ns": {
+          "median": 4666.5,
+          "minimum": 2708,
+          "maximum": 5833
+        }
+      },
+      "process_peak_rss_bytes": {
+        "median": 2385248256.0,
+        "minimum": 1942192128,
+        "maximum": 2398896128
+      },
+      "recovery_seconds": {
+        "median": 24.940268583501165,
+        "minimum": 24.618501125005423,
+        "maximum": 28.186192459004815
+      },
+      "same_seed_digests_verified": {
+        "599": [
+          "136f2ecf4ad3850f82c8773ac5027dca3e7adcdfa33340bb9e9c9c4984adaf30",
+          "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a"
+        ],
+        "601": [
+          "caa4cc64a0a26fe9d981958257c11bfbe77634967355d43f43a37b38b0fdfc5d",
+          "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a"
+        ]
+      }
+    }
+  }
+}

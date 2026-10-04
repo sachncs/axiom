@@ -43,11 +43,20 @@ fresh path. Do not delete the source or master to conceal insufficient headroom.
 
 The 512 MiB RLIMIT_AS and 192 MiB ext4 image in CI prove an isolated exhaustion
 stage for the selected paper mode (Basic by default; the worker accepts an
-explicit `--mode basic|multilevel`). The installed disk drill currently forces
-checkpoint failure on a genuinely full filesystem. Update-commit `SQLITE_FULL`
-failure is covered by mode-parameterized service fault-injection tests, not by
-that physical ENOSPC stage; keep these evidence types distinct. The envelope
-does not install deployment memory/page-cache quotas or guarantee every
+explicit `--mode basic|multilevel`). The revised disk drill separately fills
+the dedicated filesystem during checkpoint maintenance and during a uniquely
+sequenced durable update; this additional physical update stage is not yet
+qualified by an installed Linux job. The update inserts an already-present ring
+edge and must be recorded as an idempotent no-op without changing the reference
+graph. On `SQLITE_FULL`, the Service must fail-stop and reject reads until
+reopen. The harness removes only its owned ballast, reopens, accepts either the
+old prefix or the update already committed before an uncertain error, retries
+the original request ID and payload, and verifies the exact graph, matching,
+sequence and version after another reopen. A successful acknowledgment is also
+verified by this same recovery and retry path. Unit/fault-injection results do
+not count as physical qualification; claim the update-commit ENOSPC gate only
+after the installed Linux disk job completes and archives its report. The
+envelope does not install deployment memory/page-cache quotas or guarantee every
 allocation can recover under a kernel OOM kill. A supervisor must treat abrupt
 owner death as a recovery event, not fabricate success for pending requests.
 Choose aggregate limits from measured constructor, active-update, maintenance,

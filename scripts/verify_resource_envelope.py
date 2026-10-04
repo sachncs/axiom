@@ -21,6 +21,9 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Literal
+
+SQLITEFULL = 13
 
 
 @dataclass
@@ -111,14 +114,24 @@ class Audit:
         ):
             raise ValueError("partner reference must cover the vertex universe")
 
-    def verify(self, owner) -> str:
-        """Check exact topology, proper/maximal matching, version and retry."""
+    def verify(
+        self, owner: Any, sequence: int | None = None, retry: bool = True
+    ) -> str:
+        """Check exact topology, proper/maximal matching and an optional retry."""
         from axiom.durable import Outcome, Request
 
         self.inspect()
         state = owner.status()
+        expected_sequence = self.sequence if sequence is None else sequence
+        if type(expected_sequence) is not int or expected_sequence not in (
+            self.sequence,
+            self.sequence + 1,
+        ):
+            raise ValueError("resource verification sequence is outside one probe")
+        if retry and expected_sequence != self.sequence:
+            raise ValueError("probe verification cannot replay the baseline request")
         if (
-            state["sequence"] != self.sequence
+            state["sequence"] != expected_sequence
             or state["version"] != self.sequence + 1
             or state["edges"] != 2 * self.vertices
             or state["matching"] != self.vertices // 2
@@ -163,19 +176,22 @@ class Audit:
                 neighbor = (vertex + offset) % self.vertices
                 if partners[vertex] is None and partners[neighbor] is None:
                     raise RuntimeError("resource recovery matching is not maximal")
-        request = Request(self.sequence, "insert", 0, 1)
-        if owner.apply([request]) != (Outcome(self.sequence, True, self.sequence + 1),):
-            raise RuntimeError("resource recovery original retry differs")
-        try:
-            owner.apply([Request(self.sequence, "delete", 0, 1)])
-        except ValueError as error:
-            if "retry payload differs" not in str(error):
-                raise
-        else:
-            raise RuntimeError("conflicting retry payload was accepted")
+        if retry:
+            request = Request(self.sequence, "insert", 0, 1)
+            if owner.apply([request]) != (
+                Outcome(self.sequence, True, self.sequence + 1),
+            ):
+                raise RuntimeError("resource recovery original retry differs")
+            try:
+                owner.apply([Request(self.sequence, "delete", 0, 1)])
+            except ValueError as error:
+                if "retry payload differs" not in str(error):
+                    raise
+            else:
+                raise RuntimeError("conflicting retry payload was accepted")
         return digest.hexdigest()
 
-    def operation(self, sequence: int) -> tuple[str, int, int]:
+    def operation(self, sequence: int) -> tuple[Literal["insert", "delete"], int, int]:
         """Describe a real balanced edit after reference validation."""
         if type(sequence) is not int or not 1 <= sequence <= self.sequence:
             raise ValueError("operation sequence outside resource reference")
@@ -197,7 +213,7 @@ class Cycle(Audit):
         ):
             raise ValueError("require a complete growth/drain cycle and balanced tail")
 
-    def operation(self, sequence: int) -> tuple[str, int, int]:
+    def operation(self, sequence: int) -> tuple[Literal["insert", "delete"], int, int]:
         """Every admitted chord edit changes density; tail retries retain identity."""
         if type(sequence) is not int or not 1 <= sequence <= self.sequence:
             raise ValueError("operation sequence outside resource reference")
@@ -217,7 +233,7 @@ class Pressure(ABC):
     mode: str = "basic"
 
     @abstractmethod
-    def apply(self) -> dict:
+    def apply(self) -> dict[str, object]:
         """Exhaust a resource and certify resulting owner/recovery behavior."""
         raise NotImplementedError
 
@@ -225,7 +241,7 @@ class Pressure(ABC):
 class Memory(Pressure):
     """Exercise allocation failure before persistence, without restarting."""
 
-    def apply(self) -> dict:
+    def apply(self) -> dict[str, object]:
         """Consume owner-thread malloc arenas; reject image allocation atomically."""
         if sys.platform != "linux" or resource.getrlimit(resource.RLIMIT_AS) != (
             512 << 20,
@@ -269,8 +285,8 @@ class Memory(Pressure):
 class Disk(Pressure):
     """Require fail-stop at the SQLite barrier and exact recovery after ENOSPC."""
 
-    def apply(self) -> dict:
-        """Keep disk full through failed maintenance and availability checks."""
+    def apply(self) -> dict[str, object]:
+        """Qualify physical-full checkpoint and update commits independently."""
         self.volume.inspect(False)
         from axiom.durable import Durable, UnavailableError
         from axiom.service import Service
@@ -284,7 +300,7 @@ class Disk(Pressure):
             try:
                 service.checkpoint().result(30)
             except sqlite3.DatabaseError as error:
-                if getattr(error, "sqlite_errorcode", None) != sqlite3.SQLITE_FULL:
+                if getattr(error, "sqlite_errorcode", None) != SQLITEFULL:
                     raise
             else:
                 raise RuntimeError("full filesystem did not reject checkpoint")
@@ -301,7 +317,68 @@ class Disk(Pressure):
             service.close(30)
         with Durable(database, mode=self.mode, budget=128 << 20) as owner:
             digest = self.audit.verify(owner)
-        return {"written": written, "digest": digest, "verified": True}
+
+        result = self.update(database, digest)
+        return {"written": written, **result}
+
+    def update(self, database: Path, digest: str) -> dict[str, object]:
+        """Retry and certify one full-volume durable no-op across reopen."""
+        from axiom.durable import Durable, Outcome, Request, UnavailableError
+        from axiom.service import Service
+
+        request = Request(self.audit.sequence + 1, "insert", 0, 1)
+        service = Service(
+            database, mode=self.mode, budget=128 << 20, queue_capacity=4096
+        )
+        try:
+            update_written = self.volume.fill()
+            try:
+                result = service.submit(request).result(30)
+            except sqlite3.DatabaseError as error:
+                if getattr(error, "sqlite_errorcode", None) != SQLITEFULL:
+                    raise
+                if service.metrics()["state"] != "failed":
+                    raise RuntimeError("full update commit did not fail-stop service")
+                for read in (
+                    lambda: service.partner(0),
+                    lambda: service.has_edge(0, 1),
+                ):
+                    try:
+                        read().result(5)
+                    except UnavailableError:
+                        continue
+                    raise RuntimeError("uncertain failed commit served a read")
+            else:
+                if result != Outcome(request.sequence, False, self.audit.sequence + 1):
+                    raise RuntimeError("full-volume update acknowledgment differs")
+        finally:
+            self.volume.release()
+            service.close(30)
+
+        with Durable(database, mode=self.mode, budget=128 << 20) as owner:
+            state = owner.status()
+            if state["sequence"] not in (self.audit.sequence, request.sequence):
+                raise RuntimeError("full-volume update recovered an unknown prefix")
+            outcome = owner.apply([request])
+            expected = Outcome(request.sequence, False, self.audit.sequence + 1)
+            if outcome != (expected,):
+                raise RuntimeError("full-volume original update retry differs")
+            recovered = self.audit.verify(owner, sequence=request.sequence, retry=False)
+            if recovered != digest:
+                raise RuntimeError("full-volume update changed exact matching")
+        with Durable(database, mode=self.mode, budget=128 << 20) as owner:
+            if (
+                self.audit.verify(owner, sequence=request.sequence, retry=False)
+                != digest
+            ):
+                raise RuntimeError("full-volume retry prefix changed after reopen")
+        return {
+            "update_written": update_written,
+            "update_sequence": request.sequence,
+            "update_outcome": "acknowledged-or-retried-exactly",
+            "digest": digest,
+            "verified": True,
+        }
 
 
 @dataclass
@@ -312,7 +389,7 @@ class Envelope:
     audit: Audit
     mode: str = "basic"
 
-    def run(self) -> dict:
+    def run(self) -> dict[str, object]:
         """Enforce worker limits before loading the engine and creating graph state."""
         capacity = self.volume.inspect()
         self.audit.inspect()
@@ -344,7 +421,11 @@ class Envelope:
                             "resource envelope acknowledged a wrong update"
                         )
             state = service.status().result(30)
-            if state["checkpoint_generation"] < 1 or not service.check().result(30):
+            if (
+                type(state["checkpoint_generation"]) is not int
+                or state["checkpoint_generation"] < 1
+                or not service.check().result(30)
+            ):
                 raise RuntimeError("resource envelope omitted maintenance/audit")
             manifest = service.backup(backup).result(30)
             metrics = service.metrics()

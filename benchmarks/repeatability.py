@@ -49,9 +49,9 @@ class Repeatability:
             or not modes
             or any(mode not in ("basic", "multilevel") for mode in modes)
             or len(set(modes)) != len(modes)
-            or workload not in ("uniform", "hub-churn")
+            or workload not in ("uniform", "hub-churn", "power-law-churn")
             or type(hub_degree) is not int
-            or (workload == "uniform" and hub_degree != 0)
+            or (workload != "hub-churn" and hub_degree != 0)
             or (
                 workload == "hub-churn"
                 and not 1 <= hub_degree <= min(vertices - 6, 262144)
@@ -148,6 +148,7 @@ class Repeatability:
             "paper_mode",
             "seed",
             "workload",
+            "workload_metadata",
             "trace_digest",
             "matching_digest",
             "real_acknowledged_updates_per_second",
@@ -164,6 +165,24 @@ class Repeatability:
             or value["paper_mode"] != mode
             or value["seed"] != seed
             or value["workload"] != self.workload
+            or type(value["workload_metadata"]) is not dict
+            or (
+                self.workload == "power-law-churn"
+                and (
+                    value["workload_metadata"].get("endpoint_distribution")
+                    != "truncated-pareto-integer-rank"
+                    or value["workload_metadata"].get("powerlaw_exponent") != 2.5
+                    or type(
+                        value["workload_metadata"].get(
+                            "powerlaw_top_decile_endpoint_share"
+                        )
+                    )
+                    not in (int, float)
+                    or not 0
+                    <= value["workload_metadata"]["powerlaw_top_decile_endpoint_share"]
+                    <= 1
+                )
+            )
             or value["independent_audit_passed"] is not True
             or value["exact_recovery_passed"] is not True
         ):
@@ -193,6 +212,15 @@ class Repeatability:
                     f"benchmark environment changed during {mode} repeats"
                 )
             environment = next(iter(environments))
+            workloadmetadata: dict[int, set[str]] = {}
+            for sample in selected:
+                workloadmetadata.setdefault(sample["seed"], set()).add(
+                    json.dumps(sample["workload_metadata"], sort_keys=True)
+                )
+            if any(len(values) != 1 for values in workloadmetadata.values()):
+                raise RuntimeError(
+                    f"workload metadata changed during {mode} same-seed repeats"
+                )
 
             def spread(values: list[float]) -> dict[str, float]:
                 return {
@@ -230,6 +258,10 @@ class Repeatability:
                     queries[field] = spread(observed)
             modes[mode] = {
                 "sample_count": len(selected),
+                "workload_metadata_by_seed": {
+                    str(seed): json.loads(next(iter(values)))
+                    for seed, values in sorted(workloadmetadata.items())
+                },
                 "environment": {
                     "python": environment[0],
                     "platform": environment[1],
@@ -261,6 +293,11 @@ class Repeatability:
             "pairs": self.pairs,
             "batch": self.batch,
             "workload": self.workload,
+            "workload_metadata_by_seed": next(iter(modes.values()))[
+                "workload_metadata_by_seed"
+            ]
+            if modes
+            else {},
             "hub_degree": self.hub_degree,
             "seeds": self.seeds,
             "repeats_per_seed": self.repeats,
@@ -296,7 +333,9 @@ def main() -> None:
         "--mode", choices=("basic", "multilevel", "both"), default="both"
     )
     parser.add_argument(
-        "--workload", choices=("uniform", "hub-churn"), default="uniform"
+        "--workload",
+        choices=("uniform", "hub-churn", "power-law-churn"),
+        default="uniform",
     )
     parser.add_argument("--hub-degree", type=int)
     args = parser.parse_args()

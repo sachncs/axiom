@@ -1,7 +1,8 @@
 # 0020: Isolated resource exhaustion and exact recovery
 
-Date: 2026-10-02. Status: million-vertex Linux exhaustion/recovery stage passed;
-production deployment quotas pending; hardware power-loss deferred by user.
+Date: 2026-10-02. Status: prior million-vertex Linux exhaustion/recovery stages
+passed; revised physical update-commit ENOSPC gate pending; production deployment
+quotas pending; hardware power-loss deferred by user.
 
 ## Decision
 
@@ -16,14 +17,29 @@ The million-vertex degree-four ring receives 40,000 real balanced updates,
 crosses automatic maintenance and produces an immutable self-contained backup.
 Actual allocation exhaustion must reject checkpoint creation before persistence,
 leave its generation and acknowledged state unchanged, and permit a subsequent
-checkpoint after pressure is released. Actual filesystem exhaustion must produce
-SQLite FULL, fail-stop the service and reject queries until reopening.
+checkpoint after pressure is released. Actual filesystem exhaustion must be
+exercised independently at both the checkpoint barrier and durable update
+commit. Update `SQLITE_FULL` must fail-stop the service and reject queries until
+reopening.
 
 After each pressure stage and backup restore, independently check every expected
 edge and exact partner, counts, committed version, native certificate and the
 original retry outcome. Compare partner digests across the entire data flow;
 a different valid matching is not an exact recovery. Restore a copy, never mutate
 the backup master. Remove only the exclusively created, owned ballast file.
+
+The disk drill has two separately opened full-volume phases. The first preserves
+the checkpoint failure/recovery test. The second submits a unique request ID for
+an insert of an already-present ring edge. This intentionally exercises the
+SQLite operation/history commit while leaving graph topology and matching
+unchanged. If the call acknowledges success, recovery must retain that outcome.
+If SQLite reports `SQLITE_FULL`, the Service must enter fail-stop and reject
+reads while commit outcome is uncertain. Once only the harness-owned ballast is
+removed, recovery may expose either the old prefix or the request already
+committed before the error. In both cases, retry the same request ID and payload,
+require the original no-op outcome, and reopen once more to verify the exact
+prefix, version, topology and partner digest. The extra sequence row does not
+advance graph version because it does not change an edge.
 
 ## Structure and conventions
 
@@ -43,7 +59,10 @@ state and lifecycle; polymorphism is used where behavior actually varies.
 
 Local component coverage exercises unsafe mounts, file ownership, partial/stalled
 writes, flush errors, invalid references, changed topology, changed exact matching
-and retry data flow. It does not simulate evidence of real Linux exhaustion.
+and retry data flow. Unit/fault-injection coverage of the update branch is not
+evidence of real update-commit ENOSPC. Do not claim that qualification until the
+installed Linux disk job runs the revised worker successfully and archives the
+resulting report. The prior archived reports predate this update-commit stage.
 
 [CI job 110611262441](https://github.com/sachncs/axiom/actions/runs/36934396108/job/110611262441)
 passed on source `3a4eee38b4ca64c3855e8174a09b10580be87b20`, Ubuntu 24.04,

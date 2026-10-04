@@ -1,12 +1,15 @@
 """Fresh-process paper-mode repeatability runner tests."""
 
 import json
+import random
 import subprocess
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from benchmarks.durable import powerlawedges
 from benchmarks.repeatability import Repeatability
 
 
@@ -22,6 +25,65 @@ def runner(output: Path) -> Repeatability:
         workload="uniform",
         hub_degree=0,
     )
+
+
+def test_powerlaw_edge_sampler_is_seed_deterministic_and_skewed() -> None:
+    first = powerlawedges(random.Random(599), 128, 256, 2)
+    second = powerlawedges(random.Random(599), 128, 256, 2)
+    assert first == second
+    assert len(set(first)) == len(first)
+    counts = Counter(vertex for edge in first for vertex in edge)
+    incidences = sum(counts.values())
+    hotshare = sum(counts[vertex] for vertex in range(13)) / incidences
+    assert hotshare > 0.5
+    assert max(counts.values()) > incidences / 128
+
+
+def test_powerlaw_churn_repeats_have_identical_fresh_process_digests(
+    tmp_path: Path,
+) -> None:
+    plan = Repeatability(
+        tmp_path / "powerlaw",
+        vertices=128,
+        pairs=8,
+        batch=8,
+        seeds=[599, 600],
+        repeats=2,
+        modes=["basic"],
+        workload="power-law-churn",
+        hub_degree=0,
+    )
+    result = plan.run()
+    metadata = result["workload_metadata_by_seed"]["599"]
+    assert result["workload"] == "power-law-churn"
+    assert metadata["endpoint_distribution"] == "truncated-pareto-integer-rank"
+    assert metadata["powerlaw_exponent"] == 2.5
+    assert metadata["powerlaw_top_decile_endpoint_share"] > 0.5
+    assert result["modes"]["basic"]["same_seed_digests_verified"]["599"]
+    assert result["modes"]["basic"]["same_seed_digests_verified"]["600"]
+
+
+@pytest.mark.parametrize(
+    "workload,hub_degree",
+    [("power-law-churn", 1), ("power-law-churn", -1), ("unknown", 0)],
+)
+def test_invalid_powerlaw_envelope_is_rejected_before_output(
+    tmp_path: Path, workload: str, hub_degree: int
+) -> None:
+    output = tmp_path / "invalid-powerlaw"
+    with pytest.raises(ValueError, match="repeatability workload envelope"):
+        Repeatability(
+            output,
+            vertices=64,
+            pairs=4,
+            batch=8,
+            seeds=[599],
+            repeats=2,
+            modes=["basic"],
+            workload=workload,
+            hub_degree=hub_degree,
+        )
+    assert not output.exists()
 
 
 def test_fresh_process_repeats_verify_digests_and_write_spread(
