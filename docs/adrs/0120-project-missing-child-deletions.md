@@ -17,8 +17,10 @@ This added O(V + E) copy work and memory before the already-required projection.
 Child rebuilds pass the immutable inherited graph directly to refinement. The
 explicit `restore=True` path accepts missing deletion-history edges as metadata;
 it inserts only missing edges that are also selected into the deferred-deletion
-set while streaming the detached output graph. Direct refinement keeps strict
-validation by default. The inherited parent graph is never mutated.
+set while streaming the detached output graph. It probes only this selected
+subset for missing topology instead of allocating and sorting every missing
+deletion. Direct refinement keeps strict validation by default. The inherited
+parent graph is never mutated.
 
 ## Consequences
 
@@ -36,4 +38,6 @@ reference run that materializes/restores the old graph first. It verifies the
 source graph remains unchanged and strict mode continues rejecting missing
 edges. Matcher child-rebuild tests for both backends confirm the graph snapshot
 helper is not called and inherited roots remain intact. These deterministic
-correctness checks do not quantify end-to-end runtime or allocation savings.
+correctness checks do not quantify end-to-end runtime or allocation savings. A
+probe-count test verifies that the restore path checks only the edges selected
+for deferred retention.

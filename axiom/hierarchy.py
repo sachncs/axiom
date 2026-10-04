@@ -793,9 +793,12 @@ def refine_hierarchy(
                 raise ValueError(
                     f"{label} edges must be canonical endpoints in [0, n): {edge}"
                 )
-    missing = sorted(edge for edge in deleted if not hierarchy.graph.has_edge(*edge))
-    if missing and not restore:
-        raise ValueError(f"deleted edges must belong to the phase graph: {missing}")
+    if not restore:
+        missing = sorted(
+            edge for edge in deleted if not hierarchy.graph.has_edge(*edge)
+        )
+        if missing:
+            raise ValueError(f"deleted edges must belong to the phase graph: {missing}")
     present = sorted(edge for edge in inserted if hierarchy.graph.has_edge(*edge))
     if present:
         raise ValueError(
@@ -846,7 +849,9 @@ def refine_hierarchy(
     deferred_deleted = {
         edge for edge in retained_deleted if coloring[edge] in selected_colors
     }
-    missing_deferred = tuple(edge for edge in missing if edge in deferred_deleted)
+    missing_deferred = tuple(
+        sorted(edge for edge in deferred_deleted if not hierarchy.graph.has_edge(*edge))
+    )
     if len(deferred_deleted) > deletion_budget:
         raise RuntimeError(
             "recursive refinement selected too many deleted matching edges: "

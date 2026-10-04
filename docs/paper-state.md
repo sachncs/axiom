@@ -62,7 +62,8 @@ Multilevel child rebuilds no longer clone an entire inherited graph just to
 reinsert missing deletion-history edges before refinement. Strict standalone
 refinement validation remains the default; the child path reintroduces only
 missing edges selected for deferred retention while constructing its detached
-projection. Full parent-boundary graph snapshots remain. See [ADR
+projection and probes only that selected subset for missing topology. Full
+parent-boundary graph snapshots remain. See [ADR
 0120](adrs/0120-project-missing-child-deletions.md).
 
 ## Coupled state inventory

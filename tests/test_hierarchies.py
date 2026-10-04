@@ -205,6 +205,30 @@ def test_refinement_restores_only_missing_deletions_selected_for_deferral(backen
     assert refined.check()
 
 
+def test_child_restore_probes_only_missing_edges_that_are_deferred():
+    graph = Adjacency(16)
+    for left in range(16):
+        for right in range(left + 1, 16):
+            graph.add_edge(left, right)
+    hierarchy = build_hierarchy(graph, [8])
+    deleted = set(hierarchy.levels[-1].M)
+    for edge in deleted:
+        graph.remove_edge(*edge)
+    original = graph.has_edge
+    probes = 0
+
+    def counted(left, right):
+        nonlocal probes
+        probes += 1
+        return original(left, right)
+
+    graph.has_edge = counted
+    refined = refine_hierarchy(hierarchy, 4, deleted=deleted, restore=True)
+
+    assert probes == len(refined.deferred_deletions)
+    assert refined.check()
+
+
 @pytest.mark.parametrize("restore", [0, 1, None, "yes"])
 def test_refinement_requires_boolean_restore_policy(restore):
     graph = Adjacency(8)
