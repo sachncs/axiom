@@ -571,6 +571,51 @@ def test_paper_certificate_compares_key_view_without_copying_coloring_keys() -> 
     Paper.certify(graph, 1, {(0, 1)}, coloring)
 
 
+def test_paper_complete_computes_initial_uncolored_edge_set_once() -> None:
+    class DifferenceCount(set):
+        def __init__(self, values=()):
+            super().__init__(values)
+            self.differences = 0
+
+        def __sub__(self, other):
+            self.differences += 1
+            return super().__sub__(other)
+
+    graph = Adjacency(6)
+    edges = [(vertex, vertex + 1) for vertex in range(5)]
+    for edge in edges:
+        graph.add_edge(*edge)
+    all_edges = DifferenceCount(edges)
+
+    result = Paper.complete(Partial(graph, 3), all_edges, 2)
+
+    assert result.keys() == all_edges
+    assert all_edges.differences == 1
+
+
+def test_paper_complete_recolors_edges_uncolored_by_fan_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = Adjacency(2)
+    graph.add_edge(0, 1)
+    coloring = Partial(graph, 2)
+    coloring.assign((0, 1), 0)
+
+    class ReopeningConstruction:
+        @classmethod
+        def collect(cls, start, pending):
+            assert not pending
+            start.unassign((0, 1))
+            return Fans()
+
+    monkeypatch.setattr(Paper, "construction", ReopeningConstruction)
+
+    result = Paper.complete(coloring, {(0, 1)}, 1)
+
+    assert result.keys() == {(0, 1)}
+    coloring.validate()
+
+
 @pytest.mark.parametrize("delta", [-1, True, 2.5, "3"])
 def test_paper_rejects_invalid_degree_bounds(delta: object) -> None:
     with pytest.raises(ValueError, match="delta"):

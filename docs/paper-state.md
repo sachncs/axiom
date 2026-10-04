@@ -38,6 +38,13 @@ invalid result. The coloring, output classes, and independent range/properness
 checks remain. See [ADR 0116](adrs/0116-compare-partition-color-keys-by-view.md);
 full rebuild allocation measurement remains open.
 
+`Paper.complete()` now scans the original edge universe after fan construction
+instead of rebuilding `alledges - start.edges()` as a second difference set.
+This preserves edges newly uncolored by chain flips, deterministic sorting, and
+the skip for edges already colored by fan repair.
+See [ADR 0117](adrs/0117-reuse-paper-pending-edges.md); end-to-end allocation
+impact remains unmeasured.
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |

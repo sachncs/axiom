@@ -169,6 +169,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Copy the complete edge coloring into one set per color during hierarchy refinement | Rank color buckets with O(z) counts and scan the existing coloring for selected edges (0114) | Five reference-selection cases plus hierarchy suite pass; allocation/time and end-to-end qualification remain open |
 | Keep the caller's complete edge set alive throughout recursive Paper seeding and copy coloring keys during certification | Defer the edge snapshot until recursive seeding returns and compare mapping keys by view (0115) | Snapshot-order and key-view regressions pass; large-graph allocation impact remains unmeasured |
 | Copy both the coloring keys and system matching for successful partition validation | Compare the mapping key view directly and allocate diagnostics only on mismatch (0116) | Key-view-only mapping and invalid-color regressions pass; rebuild allocation impact remains unmeasured |
+| Rebuild the complete uncolored-edge difference after fan construction | Reuse the original pending set and filter it for edges still uncolored (0117) | Difference-count and completion tests pass; large-graph allocation impact remains unmeasured |
 
 ## What is not being abandoned
 

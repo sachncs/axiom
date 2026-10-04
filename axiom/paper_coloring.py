@@ -3094,7 +3094,8 @@ class Paper:
         cls, start: Partial, alledges: set[Edge], delta: int
     ) -> dict[Edge, Color]:
         """Complete a partial coloring through Extend and deterministic fan chains."""
-        separablefans = cls.construction.collect(start, alledges - start.edges())
+        pendingedges = alledges - start.edges()
+        separablefans = cls.construction.collect(start, pendingedges)
         if separablefans:
             eta = cls.regime(delta, start.palette)
             if eta is None:
@@ -3102,7 +3103,10 @@ class Paper:
             else:
                 cls.extension.extend(start, separablefans, eta)
             start.validate()
-        pending = sorted(alledges - start.edges())
+        # Fan-chain repair may uncolor an edge that was assigned before this
+        # completion pass. Scan the original edge universe so those newly
+        # pending edges are not omitted, without materializing another set.
+        pending = sorted(edge for edge in alledges if edge not in start)
         for edge in pending:
             if edge not in start:
                 cls.vizing.color(start, edge, batch=True)
