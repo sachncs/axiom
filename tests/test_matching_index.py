@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from axiom.capacity import JournalCapacityError
 from axiom.matching_index import MatchingIndex
 
 
@@ -26,7 +27,7 @@ def test_add_membership_canonical_iteration_and_duplicate_semantics() -> None:
     assert index
     assert (1, 5) in index and (5, 1) in index
     assert set(index) == {(0, 7), (1, 5), (2, 3)}
-    assert list(index) == [(0, 7), (1, 5), (2, 3)]
+    assert sorted(index) == [(0, 7), (1, 5), (2, 3)]
 
 
 def test_overlapping_edges_are_stored_without_matching_constraints() -> None:
@@ -78,6 +79,34 @@ def test_equality_and_subset_superset_are_orientation_independent() -> None:
     assert not (index >= {(1, 3)})
 
 
+def test_set_operators_return_ordinary_sets_in_both_operand_orders() -> None:
+    index = MatchingIndex(8)
+    index.add((0, 1))
+    index.add((2, 3))
+    other = {(2, 3), (4, 5)}
+
+    assert type(index | other) is set
+    assert index | other == {(0, 1), (2, 3), (4, 5)}
+    assert other | index == {(0, 1), (2, 3), (4, 5)}
+    assert index & other == {(2, 3)}
+    assert other & index == {(2, 3)}
+    assert index - other == {(0, 1)}
+    assert other - index == {(4, 5)}
+    assert index ^ other == {(0, 1), (4, 5)}
+    assert other ^ index == {(0, 1), (4, 5)}
+
+
+def test_copy_returns_detached_ordinary_set() -> None:
+    index = MatchingIndex(6)
+    index.add((0, 1))
+
+    duplicate = index.copy()
+    assert type(duplicate) is set
+    assert duplicate == {(0, 1)}
+    duplicate.add((2, 3))
+    assert set(index) == {(0, 1)}
+
+
 @pytest.mark.parametrize("edge", [(), (0,), (0, 1, 2), "01", None])
 def test_rejects_malformed_edges(edge: Any) -> None:
     index = MatchingIndex(4)
@@ -107,20 +136,29 @@ def test_rejects_self_loops_for_mutation_and_membership() -> None:
         _ = (2, 2) in index
 
 
-def test_native_storage_obeys_optional_budget() -> None:
+def test_sparse_storage_reports_budget_and_live_edges() -> None:
     index = MatchingIndex(12, budget=2_000_000)
-    assert index.graph.memory()["budget"] == 2_000_000
+    index.add((2, 10))
+    assert index.memory()["budget"] == 2_000_000
+    assert index.memory()["edges"] == 1
+    assert index.memory()["allocated"] < 2_000_000
 
 
-def test_clear_does_not_replace_graph_during_native_transaction() -> None:
+def test_clear_is_rejected_during_matching_journal() -> None:
     index = MatchingIndex(8)
     index.add((0, 1))
-    graph = index.graph
-    token = graph.begin()
-    with pytest.raises(RuntimeError, match="during a native journal"):
+    index.begin()
+    with pytest.raises(RuntimeError, match="during a matching journal"):
         index.clear()
-    assert index.graph is graph and (0, 1) in index
-    graph.rollback(token)
+    assert (0, 1) in index
+    index.rollback()
+
+
+def test_budget_rejects_new_edge_before_mutation() -> None:
+    index = MatchingIndex(8, budget=0)
+    with pytest.raises(JournalCapacityError, match="edge-index budget"):
+        index.add((0, 1))
+    assert len(index) == 0
 
 
 @pytest.mark.parametrize(

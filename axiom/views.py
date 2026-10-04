@@ -57,12 +57,8 @@ class Views:
         self.affected: set[int] = set()
         self.crossing_cells: dict[tuple[int, int], bool] = {}
         self.isolate()
-        self.edge_graph = (
-            self.edges.graph if type(self.edges) is MatchingIndex else None
-        )
-        self.edge_token = (
-            self.edge_graph.begin() if self.edge_graph is not None else None
-        )
+        if type(self.edges) is MatchingIndex:
+            self.edges.begin()
         object.__setattr__(owner, "views", self)
 
     def isolate(self) -> None:
@@ -260,9 +256,8 @@ class Views:
     def commit(self) -> None:
         """Release retained cells after publication."""
         self.check()
-        if self.edge_graph is not None and self.edge_token is not None:
-            self.edge_graph.commit(self.edge_token)
-            self.edge_token = None
+        if type(self.edges) is MatchingIndex:
+            self.edges.commit()
         self.edge.clear()
         self.vertex.clear()
         self.affected.clear()
@@ -280,12 +275,11 @@ class Views:
             or self.owner.views is not self
         ):
             raise RuntimeError("matching journal cannot roll back here")
-        if self.edge_graph is None:
-            for edge, present in self.edge.items():
-                if present:
-                    self.edges.add(edge)
-                else:
-                    self.edges.discard(edge)
+        for edge, present in self.edge.items():
+            if present:
+                self.edges.add(edge)
+            else:
+                self.edges.discard(edge)
         for vertex, (present, paired, partner) in self.vertex.items():
             if present:
                 self.vertices.add(vertex)
@@ -295,9 +289,6 @@ class Views:
                 self.partners[vertex] = partner  # type: ignore[assignment]
             else:
                 self.partners.pop(vertex, None)
-        if self.edge_graph is not None and self.edge_token is not None:
-            self.edge_graph.rollback(self.edge_token)
-            self.edge_token = None
         self.owner.matched_edges = self.edges
         self.owner.matched_vertices = self.vertices
         self.owner.partner_map = self.partners
@@ -306,6 +297,8 @@ class Views:
                 self.crossings.add(edge)
             else:
                 self.crossings.discard(edge)
+        if type(self.edges) is MatchingIndex:
+            self.edges.rollback()
         self.owner.i3_crossings = self.crossings
         self.edge.clear()
         self.vertex.clear()

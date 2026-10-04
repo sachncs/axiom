@@ -227,7 +227,7 @@ class Witness:
                 {"n": value.n, "entries": list(value.items())}, depth + 1
             )
         elif kind is MatchingIndex:
-            content = self.encode({"n": value.n, "graph": value.graph}, depth + 1)
+            content = self.encode({"n": value.n, "values": value.values}, depth + 1)
         else:
             attributes = vars(value)
             if attributes.keys() != self.schema[kind]:
