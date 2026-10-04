@@ -519,11 +519,30 @@ class Disk(Pressure):
                     raise RuntimeError(
                         "successful checkpoint changed service availability"
                     )
-                vertex, partner = service.partner(0).result(5)
+                version, edges, following = service.page(0, 256).result(5)
+                status = service.status().result(5)
+                live_partners = [-1] * checkpoint_audit.vertices
                 if (
-                    vertex != 0
-                    or partner is None
-                    or not 0 <= partner < checkpoint_audit.vertices
+                    version != status["version"]
+                    or following is not None
+                    or len(edges) != checkpoint_audit.vertices // 2
+                ):
+                    raise RuntimeError(
+                        "successful checkpoint returned an incomplete matching page"
+                    )
+                for left, right in edges:
+                    if (
+                        not 0 <= left < right < checkpoint_audit.vertices
+                        or live_partners[left] != -1
+                        or live_partners[right] != -1
+                    ):
+                        raise RuntimeError(
+                            "successful checkpoint returned an invalid matching"
+                        )
+                    live_partners[left], live_partners[right] = right, left
+                partner = live_partners[0]
+                if partner < 0 or (
+                    service.partner(0).result(5) != (0, partner)
                     or service.partner(partner).result(5) != (partner, 0)
                 ):
                     raise RuntimeError("successful checkpoint corrupted matching reads")
