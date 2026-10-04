@@ -328,7 +328,14 @@ class Multilevel:
                     "phase snapshot cannot inherit the previous level-1 system: "
                     "its partition or matching is no longer valid"
                 )
-            deleted = matcher.deleted_edges | previous.deferred_deletions
+            if not previous.deferred_deletions.issubset(matcher.deleted_edges):
+                raise RuntimeError(
+                    "deferred child deletions escaped the cumulative deletion set"
+                )
+            # Deferred deletions are already members of E_D until the parent
+            # boundary. Reuse that owner root instead of allocating a graph-
+            # sized union for every child refinement.
+            deleted = matcher.deleted_edges
             phase_base_graph = old_graph
             phase_base_system = base_system
             # Refinement streams the immutable parent root into a detached

@@ -175,6 +175,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Clone a complete inherited graph and sort all missing child-phase deletions before refinement | Pass the immutable parent graph, probe only deferred edges, and reintroduce missing selected edges in the detached projection (0120) | Exact reference hierarchy, source immutability, strict validation, deferred-only probe count, and no-snapshot child tests pass; end-to-end allocation savings are not measured |
 | Identify Durable journal retryability by matching `MemoryError` text | Raise and catch a typed `JournalCapacityError` from bounded paper journals (0121) | Both paper modes retain atomic smaller-slice retry; unrelated `MemoryError` no longer triggers retries; million-vertex 4,096-update smoke is diagnostic, not qualification |
 | Coordinate Durable seed/mode repeats manually or in one process | Use sequential fresh-process/fresh-database repeats, digest checks, and median/range summaries (0122) | Both modes and repeat determinism are tested; two-run million-vertex traces are recorded, but the broad repeatability/skew matrix remains open |
+| Union cumulative and deferred deletion sets at every Multilevel child rebuild | Validate deferred-set inclusion and pass the cumulative deletion root directly (0123) | Root-identity test proves no union copy; invalid subset rollback preserves the full Witness; allocation savings not separately benchmarked |
 
 ## What is not being abandoned
 

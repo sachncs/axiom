@@ -31,6 +31,7 @@ from axiom.system import System, build
 from axiom.types import canonical
 from axiom.vertices import Vertices
 from axiom.visualize import visualize_adjacency, visualize_matching, visualize_system
+from axiom.witness import Witness
 
 
 @pytest.mark.parametrize("pairs", [16, 128, 512])
@@ -958,6 +959,62 @@ class TestMatcher:
         )
         assert snapshotcalls == []
         assert copycalls == [(base_system, base_graph, False)]
+
+    def test_child_refinement_reuses_cumulative_deleted_edges(self, monkeypatch):
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        assert algo.multi is not None
+        assert algo.phase_base_system is not None
+        edge = next(
+            edge for edge in algo.graph.edges() if edge not in algo.phase_base_system.M
+        )
+        algo.phase_length = 10_000
+        algo.delete(*edge)
+        assert algo.multi is not None
+        assert algo.multi.deferred_deletions
+        assert algo.multi.deferred_deletions <= algo.deleted_edges
+        deleted_root = algo.deleted_edges
+        observed = []
+        original_refine = rebuild_module.refine_hierarchy
+
+        def record_deletions(hierarchy, z, **options):
+            observed.append(options["deleted"])
+            return original_refine(hierarchy, z, **options)
+
+        monkeypatch.setattr(rebuild_module, "refine_hierarchy", record_deletions)
+        algo.policy.rebuild(algo)
+
+        assert observed
+        assert observed[0] is deleted_root
+        assert algo.deleted_edges is deleted_root
+        assert algo.multi is not None and algo.multi.check()
+
+    def test_invalid_deferred_deletion_membership_aborts_child_rebuild_exactly(self):
+        dense = Adjacency(16)
+        for left in range(16):
+            for right in range(left + 1, 16):
+                dense.add_edge(left, right)
+        algo = Matcher(16, mode="multilevel", graph=dense)
+        assert algo.multi is not None
+        assert (0, 15) not in algo.deleted_edges
+        algo.phase_length = 10_000
+        witness = Witness()
+        before = witness.capture(algo)
+
+        with (
+            pytest.raises(RuntimeError, match="deferred child deletions escaped"),
+            algo.batch(),
+        ):
+            algo.delete(1, 14)
+            assert algo.multi is not None
+            algo.multi.defer((0, 15))
+            algo.policy.rebuild(algo)
+
+        assert witness.capture(algo) == before
+        assert algo.multi is not None and algo.multi.check()
 
     def test_full_rebuild_reuses_its_phase_base_snapshot(self, monkeypatch):
         dense = Adjacency(16)
