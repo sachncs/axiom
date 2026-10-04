@@ -155,6 +155,94 @@ def test_later_matcher_failure_rolls_back_whole_durable_batch_exactly(
 
 
 @pytest.mark.parametrize("mode", MODES)
+def test_failure_after_paper_chunk_boundary_restores_and_retries_exactly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """A later paper chunk failure restores the last durable matcher state."""
+    path = tmp_path / f"chunk-boundary-{mode}.db"
+    store = Durable(path, n=64, width=0, mode=mode, max_batch=24)
+    seed = [
+        Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
+        for sequence in range(1, 5)
+    ]
+    assert store.apply(seed) == tuple(
+        Outcome(sequence, True, sequence) for sequence in range(1, 5)
+    )
+
+    before_status = store.status()
+    before_state = state(store)
+    before_witness = witness(store)
+    before_history = store.history()
+    with closing(sqlite3.connect(path)) as database:
+        before_operations = database.execute(
+            "SELECT sequence,adding,u,v,changed,version,digest "
+            "FROM operations ORDER BY sequence"
+        ).fetchall()
+        before_control = database.execute(
+            "SELECT sequence,version,digest FROM control WHERE id=1"
+        ).fetchone()
+
+    batch = [
+        Request(sequence, "insert", 2 * (sequence + 10), 2 * (sequence + 10) + 1)
+        for sequence in range(5, 5 + PAPER_CHUNK + 2)
+    ]
+    original = Matcher.insert
+    attempts = 0
+    failure_attempt = 0
+
+    def fail_first_update_in_second_chunk(
+        matcher: Matcher, left: int, right: int
+    ) -> None:
+        nonlocal attempts, failure_attempt
+        attempts += 1
+        if attempts == PAPER_CHUNK + 1:
+            failure_attempt = attempts
+            raise RuntimeError("injected second paper chunk failure")
+        original(matcher, left, right)
+
+    monkeypatch.setattr(Matcher, "insert", fail_first_update_in_second_chunk)
+    with pytest.raises(RuntimeError, match="second paper chunk"):
+        store.apply(batch)
+
+    assert failure_attempt == PAPER_CHUNK + 1
+    assert state(store) == before_state
+    assert store.status() == before_status
+    assert witness(store) == before_witness
+    assert store.history() == before_history
+    assert store.check()
+    with closing(sqlite3.connect(path)) as database:
+        assert (
+            database.execute(
+                "SELECT sequence,adding,u,v,changed,version,digest "
+                "FROM operations ORDER BY sequence"
+            ).fetchall()
+            == before_operations
+        )
+        assert (
+            database.execute(
+                "SELECT sequence,version,digest FROM control WHERE id=1"
+            ).fetchone()
+            == before_control
+        )
+
+    monkeypatch.setattr(Matcher, "insert", original)
+    outcomes = store.apply(batch)
+    assert outcomes == tuple(
+        Outcome(sequence, True, sequence) for sequence in range(5, 5 + PAPER_CHUNK + 2)
+    )
+    assert store.check()
+    assert store.status()["sequence"] == 4 + len(batch)
+    committed_state = state(store)
+    committed_witness = witness(store)
+    store.close()
+
+    with Durable(path, mode=mode) as recovered:
+        assert state(recovered) == committed_state
+        assert witness(recovered) == committed_witness
+        assert recovered.check()
+
+
+@pytest.mark.parametrize("mode", MODES)
 def test_failure_in_later_private_slice_restores_committed_matcher_exactly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:

@@ -38,16 +38,20 @@ capacity/admission tests.
 
 The regression removes 65,537 original class memberships and verifies exact
 in-place rollback, including set/list roots and seed sharing. The broader
-Durable suite now also drives a real `Classes.remove` admission failure after a
-paper phase boundary in both Basic and Multilevel. Durable retries the 8-request
-group as 4-request private chunks, then commits one contiguous history and
-reopens to the same public state and Witness. This verifies the component-to-
-Durable recovery seam; it deliberately constrains the journal in the test and
+Durable suite drives a real `Classes.remove` admission failure in both Basic and
+Multilevel, retries it with smaller private chunks, and verifies one contiguous
+history after reopen. A separate regression fails the second chunk after the
+first chunk has completed, then checks exact in-memory Witness, public state,
+history and SQLite control/operation rows before retrying and reopening. These
+tests verify both capacity retry and cross-chunk rollback; the injected failure
 does not claim that production capacity was exhausted.
 
-An actual million-vertex smoke with the originally reported delete trace remains
-a required scale regression. The large membership unit fixture proves the
-former fixed class threshold is gone, not that the full process fits a
-particular memory budget. Views, Systems, hierarchy, auxiliary and clock
-journals still have their own fixed ceilings, so the original failure cannot be
-attributed to the class journal without its exception text and stack trace.
+A one-million-vertex, average-degree-four FULL-WAL smoke completed in both
+methods with 32 real changes, 16 partner queries, independent graph/matching
+audit and exact replay. Peak RSS was 1.42 GiB Basic and 2.12 GiB Multilevel.
+This short smoke exercises deletes on the production-sized coloring, but is not
+the original reported trace, does not induce class-journal exhaustion, and is
+not throughput or resource-limit qualification. The large membership fixture
+proves the former fixed class threshold is gone, not that every single update
+fits a particular memory budget. Views, Systems, hierarchy, auxiliary and clock
+journals retain their own capacity policies and failure paths.
