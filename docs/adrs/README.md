@@ -193,7 +193,8 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Run a million-vertex growth/drain cycle plus 40,000 updates against a one-million-operation durable history limit | Cap the optional resource-test tail at the configured history limit and permit the exact full cycle (0138) | Regression covers the exact million-update cycle; hosted constrained rerun is pending |
 | Require a nonexistent `checkpoint_generation` in Service status after resource updates | Check committed history, actual PASSIVE WAL checkpoint statistics, and full graph audit independently (0139) | Service contract is covered locally; hosted resource rerun is pending |
 | Reopen/replay the million-operation database for memory pressure while retaining the just-closed Service's Matcher | Release and collect the Service owner before pressure replay (0140) | Retained-owner cause was confirmed by the hosted traceback; constrained memory/recovery rerun is pending |
-| Run the constrained million-update Service trace in groups of 256 while sustained acknowledgments remain below 10k/s | Test 512-request resource-only atomic groups; retain 256-operation paper journal slices and production defaults (0141) | Rate/latency and recovery qualification pending; no benefit claimed from the sub-1% local receipt bookkeeping sample |
+| Run the constrained million-update Service trace in groups of 256 while sustained acknowledgments remain below 10k/s | Test and reject resource-only 512-request groups; restore 256 after lower measured throughput (0141) | 512 group: 4,455/s; prior 256 group: 7,115/s; target remains unmet |
+| Test SQLite WAL checkpoint for Matcher `MemoryError` behavior under the process limit | Exercise a bounded 4,096-operation Durable group under real allocation pressure and prove exact rollback (0142) | Probe now distinguishes allocator OOM from typed paper-journal capacity; hosted 512 MiB run pending |
 
 ## What is not being abandoned
 

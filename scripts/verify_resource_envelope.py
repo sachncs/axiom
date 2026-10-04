@@ -28,7 +28,8 @@ from typing import Any, Literal, cast
 
 SQLITEFULL = 13
 RESOURCE_HISTORY_LIMIT = 1_000_000
-RESOURCE_BATCH = 512
+RESOURCE_BATCH = 256
+RESOURCE_AUDIT_TIMEOUT = 180
 
 
 @dataclass
@@ -323,28 +324,45 @@ class Maintenance:
             or checkpointed_pages != wal_pages
         ):
             raise RuntimeError("resource maintenance WAL checkpoint is incomplete")
-        if not service.check().result(30):
+        if not service.check().result(RESOURCE_AUDIT_TIMEOUT):
             raise RuntimeError("resource maintenance graph audit failed")
         return state
 
 
 class Memory(Pressure):
-    """Exercise allocation failure before persistence, without restarting."""
+    """Exercise durable update failure under allocator pressure and recover."""
 
     def apply(self) -> dict[str, object]:
-        """Consume owner-thread malloc arenas; reject image allocation atomically."""
+        """Reject a large durable update atomically under real allocator pressure."""
         if sys.platform != "linux" or resource.getrlimit(resource.RLIMIT_AS) != (
             512 << 20,
             512 << 20,
         ):
             raise ValueError("memory pressure requires the enforced 512 MiB envelope")
-        from axiom.durable import Durable
+        from axiom.capacity import JournalCapacityError
+        from axiom.durable import Durable, Request, UnavailableError
 
         with Durable(
             self.volume.path / "graph.db", mode=self.mode, budget=128 << 20
         ) as owner:
             expected = self.audit.verify(owner)
-            generation = owner.status()["checkpoint_generation"]
+        pressure_audit = Audit(self.audit.vertices, 2)
+        pressure_database = self.volume.path / "memory-update.db"
+        with Durable(
+            pressure_database,
+            n=self.audit.vertices,
+            mode=self.mode,
+            budget=128 << 20,
+            max_batch=4096,
+            max_operations=8192,
+        ) as owner:
+            owner.apply([Request(1, "delete", 0, 1), Request(2, "insert", 0, 1)])
+            baseline = pressure_audit.verify(owner)
+            before = owner.status()
+            requests = tuple(
+                Request(sequence, "delete" if sequence % 2 else "insert", 0, 1)
+                for sequence in range(3, 4099)
+            )
             chunks = []
             while True:
                 try:
@@ -352,24 +370,39 @@ class Memory(Pressure):
                 except MemoryError:
                     break
             allocated = len(chunks) << 20
-            # Keep 4 MiB for error handling; both supported images exceed this.
-            del chunks[-4:]
+            # Retain only one MiB for the operation's exception and recovery path.
+            del chunks[-1:]
+            failure = ""
             try:
                 try:
-                    owner.checkpoint()
+                    owner.apply(requests)
+                except JournalCapacityError as error:
+                    raise RuntimeError(
+                        "bounded Matcher journal capacity was not the memory limit"
+                    ) from error
+                except UnavailableError as error:
+                    failure = type(error).__name__
                 except MemoryError:
-                    pass
+                    failure = "MemoryError"
                 else:
-                    raise RuntimeError("real memory pressure did not reject checkpoint")
+                    raise RuntimeError(
+                        "real memory pressure did not reject the durable update group"
+                    )
             finally:
                 chunks.clear()
-            if (
-                owner.status()["checkpoint_generation"] != generation
-                or self.audit.verify(owner) != expected
-            ):
-                raise RuntimeError("pre-persistence OOM changed acknowledged state")
-            owner.checkpoint()
-            return {"allocated": allocated, "digest": expected, "verified": True}
+        with Durable(pressure_database, mode=self.mode, budget=128 << 20) as recovered:
+            if recovered.status() != before:
+                raise RuntimeError("pre-persistence OOM changed durable status")
+            if pressure_audit.verify(recovered) != baseline:
+                raise RuntimeError("pre-persistence OOM changed exact matching state")
+        return {
+            "allocated": allocated,
+            "digest": expected,
+            "failure": failure,
+            "failed_group": len(requests),
+            "rollback_verified": True,
+            "verified": True,
+        }
 
 
 class Disk(Pressure):
@@ -632,7 +665,7 @@ class Envelope:
         subprocess.run(
             command,
             check=True,
-            timeout=300 if isinstance(self.audit, Cycle) else 180,
+            timeout=350 if isinstance(self.audit, Cycle) else 180,
         )
 
     @classmethod

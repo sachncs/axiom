@@ -370,9 +370,10 @@ def test_maintenance_checks_service_status_checkpoint_and_paper_audit(pages):
         "wal_pages": pages[0],
         "checkpointed_pages": pages[1],
     }
+    timeouts = []
 
     def resolved(value):
-        return SimpleNamespace(result=lambda timeout: value)
+        return SimpleNamespace(result=lambda timeout: timeouts.append(timeout) or value)
 
     service = SimpleNamespace(
         status=lambda: resolved(state),
@@ -380,6 +381,7 @@ def test_maintenance_checks_service_status_checkpoint_and_paper_audit(pages):
         check=lambda: resolved(True),
     )
     assert Maintenance(reference).verify(service) == state
+    assert timeouts == [30, 30, module.RESOURCE_AUDIT_TIMEOUT]
 
 
 @pytest.mark.parametrize(
@@ -472,6 +474,24 @@ def test_envelope_launcher_forwards_the_selected_paper_mode(tmp_path, monkeypatc
 
     assert len(launched) == 1
     assert launched[0][launched[0].index("--mode") + 1] == "multilevel"
+
+
+@pytest.mark.parametrize("growth,timeout", [(False, 180), (True, 350)])
+def test_launcher_preserves_deadline_headroom_for_resource_stages(
+    tmp_path, monkeypatch, growth, timeout
+):
+    monkeypatch.setattr(Volume, "inspect", lambda volume: 192 << 20)
+    launched = []
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda command, **options: launched.append((command, options)),
+    )
+    audit = Cycle(8, 8) if growth else Audit(8, 4)
+
+    module.Envelope(Volume(tmp_path), audit).launch()
+
+    assert launched[0][1]["timeout"] == timeout
 
 
 def test_envelope_rejects_an_unsupported_mode_before_worker_launch(

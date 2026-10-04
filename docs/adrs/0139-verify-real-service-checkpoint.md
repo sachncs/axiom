@@ -27,6 +27,8 @@ Service graph audit before backup and pressure tests.
   checkpoint-generation field.
 - Status, explicit WAL maintenance, and the independent graph audit are each
   checked at the actual resource-test phase boundary.
+- The million-vertex asynchronous Service audit has a 180-second bounded wait;
+  the earlier 30-second receipt timeout expired before that audit completed.
 - The million-update run has reached 6,093 updates/s on the hosted constrained
   runner, below the 10k/s goal. This fix validates maintenance only; it does
   not claim the target rate or complete the resource qualification.

@@ -1,6 +1,6 @@
 # ADR 0141: Qualify larger atomic groups in the constrained resource trace
 
-- Status: experiment queued; hosted rate and latency pending
+- Status: rejected; reverted to 256
 - Date: 2026-10-04
 
 ## Context
@@ -16,25 +16,26 @@ small and noisy to claim as an improvement.
 
 ## Decision
 
-Keep production defaults unchanged. For the isolated resource qualification
-only, submit 512 requests per group and configure `max_batch=512`. Durable's
-existing typed journal-capacity retry must continue to split paper work into
-smaller atomic slices and persist the accepted outer group once. Verify every
-receipt before the next group, and report the observed largest group.
+Keep both production and resource qualification groups at 256. The 512-request
+resource-only experiment completed one million updates in 224.454 seconds
+(about 4,455/s), compared with the prior 256-request sample at 140.538 seconds
+(about 7,115/s). The runs are not a controlled same-runner A/B, but the larger
+group was materially slower and therefore rejected. Durable's production
+defaults remain unchanged.
 
 ## Consequences
 
-- This tests whether reducing full SQLite commit count improves the constrained
-  workload without changing the default production batch policy.
-- A larger group can increase per-update acknowledgment latency and memory; the
-  resource run must retain latency, resource-limit, rollback, and exact-recovery
-  checks before the result can qualify.
-- This experiment does not claim the 10k/s target. If rate does not materially
-  improve without unacceptable latency, revert the resource-only setting and
-  profile the paper update path further.
+- On this workload, groups of 512 did not reduce end-to-end update cost; Service
+  reported 3,252 groups and a largest group of 512.
+- The larger batch also did not complete memory/recovery qualification, so it
+  cannot be treated as a reliability or latency improvement.
+- The 10k/s target remains unmet. Profile the paper update path rather than
+  continuing to enlarge caller groups without causal evidence.
 
 ## Verification
 
-The Service 256→512 measurement is pending in the next hosted constrained run.
-Local full suite: 1,289 passed, one optional matplotlib report skipped. Ruff
-and mypy pass. The one-sample receipt-bookkeeping A/B is diagnostic only.
+The hosted 512-group run reported 4,455/s and was reverted. The prior 256-group
+run reported 7,115/s. Both failed later in different memory-pressure code; the
+new atomic OOM rollback probe still requires hosted qualification. Local full
+suite before the latest resource-only pressure changes: 1,289 passed, one
+optional matplotlib report skipped. Ruff and mypy passed.
