@@ -108,7 +108,7 @@ def test_corrupt_identifier_mapping_fails_closed_on_reopen(tmp_path: Path) -> No
         Durable(path, mode="basic")
 
 
-def test_v1_operation_history_migrates_atomically_to_identifier_schema(
+def test_v1_operation_history_rejects_trigger_then_migrates_to_identifier_schema(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "upgrade-v1.db"
@@ -154,7 +154,9 @@ def test_v1_operation_history_migrates_atomically_to_identifier_schema(
             "BEGIN SELECT RAISE(ABORT, 'injected migration failure'); END"
         )
 
-    with pytest.raises(sqlite3.IntegrityError, match="migration failure"):
+    # Recovery rejects externally added schema behavior before running the
+    # migration. The legacy tables, metadata and digest chain remain untouched.
+    with pytest.raises(RecoveryError, match="unsupported database schema objects"):
         Durable(path, mode="multilevel")
     with sqlite3.connect(path) as database:
         assert (

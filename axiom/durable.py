@@ -406,6 +406,17 @@ class Durable:
         tables = database.execute(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         ).fetchall()
+        unexpected = database.execute(
+            "SELECT type,name FROM sqlite_master "
+            "WHERE type IN ('trigger','view') "
+            "OR (type='index' AND sql IS NOT NULL) "
+            "ORDER BY type,name"
+        ).fetchall()
+        if unexpected:
+            raise RecoveryError(
+                "unsupported database schema objects: "
+                + ", ".join(f"{kind} {name}" for kind, name in unexpected)
+            )
         if not tables:
             if requested is None:
                 raise ValueError("n is required to initialize an empty database")

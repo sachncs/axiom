@@ -920,6 +920,31 @@ def test_mode_identity_is_persisted_and_mismatch_is_rejected(
         assert recovered.check()
 
 
+@pytest.mark.parametrize("mode", MODES)
+def test_recovery_rejects_sqlite_triggers_that_can_mutate_durable_history(
+    tmp_path: Path, mode: str
+) -> None:
+    path = tmp_path / f"triggered-{mode}.db"
+    with Durable(path, n=12, width=0, mode=mode):
+        pass
+
+    # Triggers are outside Axiom's schema and can make an acknowledgment
+    # unrecoverable by inserting operations not reflected in the control row.
+    with closing(sqlite3.connect(path)) as database:
+        database.execute(
+            "CREATE TRIGGER inject_unjournaled_operation "
+            "AFTER INSERT ON operations BEGIN "
+            "INSERT INTO operations VALUES(999, 1, 0, 1, 1, 1, X'00'); "
+            "END"
+        )
+
+    with pytest.raises(RecoveryError, match="unsupported database schema objects"):
+        Durable(path, mode=mode)
+
+    with closing(sqlite3.connect(path)) as database:
+        assert database.execute("SELECT count(*) FROM operations").fetchone() == (0,)
+
+
 def test_old_native_format_is_rejected_without_compatibility_reader(
     tmp_path: Path,
 ) -> None:
