@@ -342,10 +342,6 @@ class Memory(Pressure):
         from axiom.capacity import JournalCapacityError
         from axiom.durable import Durable, Request, UnavailableError
 
-        with Durable(
-            self.volume.path / "graph.db", mode=self.mode, budget=128 << 20
-        ) as owner:
-            expected = self.audit.verify(owner)
         pressure_audit = Audit(self.audit.vertices, 2)
         pressure_database = self.volume.path / "memory-update.db"
         with Durable(
@@ -397,9 +393,9 @@ class Memory(Pressure):
                 raise RuntimeError("pre-persistence OOM changed exact matching state")
         return {
             "allocated": allocated,
-            "digest": expected,
             "failure": failure,
             "failed_group": len(requests),
+            "pressure_digest": baseline,
             "rollback_verified": True,
             "verified": True,
         }
@@ -586,7 +582,7 @@ class Envelope:
             )
             state = Maintenance(self.audit).verify(service)
             print("resource phase=backup-start", flush=True)
-            manifest = service.backup(backup).result(30)
+            manifest = service.backup(backup, timeout=180).result(190)
             print(
                 f"resource phase=backup-complete "
                 f"seconds={time.perf_counter() - started:.3f}",
@@ -618,7 +614,10 @@ class Envelope:
         shutil.copyfile(backup, restored)  # The backup master stays immutable.
         with Durable(restored, mode=self.mode, budget=128 << 20) as owner:
             digest = self.audit.verify(owner)
-        if any(result["digest"] != digest for result in results.values()):
+        if any(
+            "digest" in result and result["digest"] != digest
+            for result in results.values()
+        ):
             raise RuntimeError("pressure/source/backup data-flow digests differ")
         return {
             "scope": "installed Linux resource exhaustion and exact recovery; NOT performance/power-loss qualification",
@@ -665,7 +664,7 @@ class Envelope:
         subprocess.run(
             command,
             check=True,
-            timeout=350 if isinstance(self.audit, Cycle) else 180,
+            timeout=450 if isinstance(self.audit, Cycle) else 180,
         )
 
     @classmethod

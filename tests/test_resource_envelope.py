@@ -476,7 +476,7 @@ def test_envelope_launcher_forwards_the_selected_paper_mode(tmp_path, monkeypatc
     assert launched[0][launched[0].index("--mode") + 1] == "multilevel"
 
 
-@pytest.mark.parametrize("growth,timeout", [(False, 180), (True, 350)])
+@pytest.mark.parametrize("growth,timeout", [(False, 180), (True, 450)])
 def test_launcher_preserves_deadline_headroom_for_resource_stages(
     tmp_path, monkeypatch, growth, timeout
 ):

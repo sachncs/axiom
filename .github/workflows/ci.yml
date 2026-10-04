@@ -320,7 +320,7 @@ jobs:
           sudo mount -o loop,nosuid,nodev "$image" "$mount"
           trap 'sudo umount "$mount"' EXIT
           sudo chown "$(id -u):$(id -g)" "$mount"
-          timeout --signal=TERM 360s \
+          timeout --signal=TERM 520s \
             "$RUNNER_TEMP/axiom-envelope-env/bin/python" -I \
             scripts/verify_resource_envelope.py --directory "$mount" --growth \
             | tee "$RUNNER_TEMP/resource-envelope.json"

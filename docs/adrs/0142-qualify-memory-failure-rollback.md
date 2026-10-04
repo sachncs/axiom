@@ -13,9 +13,10 @@ also compared a nonexistent checkpoint-generation status field.
 
 ## Decision
 
-First independently verify the million-update source digest. In a separate
-fresh Durable store, establish a verified two-operation graph state and prepare
-a bounded 4,096-operation alternating edge group. Allocate memory until the
+The main source graph is certified by the Service audit before backup and by
+exact backup restoration after pressure phases. In a separate fresh Durable
+store, establish a verified two-operation graph state and prepare a bounded
+4,096-operation alternating edge group. Allocate memory until the
 enforced process limit rejects another allocation, retain only one MiB of
 headroom, and submit the whole group. Require an actual allocator `MemoryError`
 and reject typed paper-journal-capacity exhaustion as a different condition.
@@ -29,6 +30,9 @@ the persisted two-operation prefix.
 
 - The memory qualification now exercises a real multi-update graph transaction,
   its Paper Matcher journal rollback, and unchanged durable operation history.
+- It avoids replaying the million-operation source history a second time solely
+  to seed the isolated memory probe; source integrity is still checked by the
+  Service audit and final exact backup restoration.
 - It distinguishes actual allocator failure from the repository's typed
   retryable Matcher journal bound.
 - A failure at the SQLite persistence boundary is treated as uncertain durable

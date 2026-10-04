@@ -29,6 +29,8 @@ Service graph audit before backup and pressure tests.
   checked at the actual resource-test phase boundary.
 - The million-vertex asynchronous Service audit has a 180-second bounded wait;
   the earlier 30-second receipt timeout expired before that audit completed.
+- The resource backup has a separate 180-second bound; its previous 30-second
+  receipt timeout expired after the 256-group run's full graph audit passed.
 - The million-update run has reached 6,093 updates/s on the hosted constrained
   runner, below the 10k/s goal. This fix validates maintenance only; it does
   not claim the target rate or complete the resource qualification.
