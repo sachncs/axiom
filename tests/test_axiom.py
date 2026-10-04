@@ -14,6 +14,7 @@ import tracemalloc
 
 import pytest
 
+import axiom.core as core_module
 import axiom.rebuild as rebuild_module
 from axiom.augment import augment
 from axiom.color import Greedy, Vizing
@@ -745,6 +746,23 @@ class TestBuild:
 
 class TestMatcher:
     """End-to-end tests for :class:`axiom.core.Matcher`."""
+
+    def test_initial_refresh_reuses_empty_matched_vertex_index(self, monkeypatch):
+        original = core_module.Vertices
+        allocated = []
+
+        class TrackedVertices(original):
+            def __init__(self, n, values=(), *, ordered=True):
+                super().__init__(n, values, ordered=ordered)
+                if n == 16:
+                    allocated.append(self)
+
+        monkeypatch.setattr(core_module, "Vertices", TrackedVertices)
+        graph = Packed(16)
+        graph.ring(2)
+        matcher = Matcher(16, mode="multilevel", graph=graph)
+
+        assert allocated == [matcher.matched_vertices]
 
     def test_matching_state_audit_avoids_duplicate_endpoint_indexes(self) -> None:
         class GuardedSet(set):

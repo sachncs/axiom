@@ -702,7 +702,9 @@ class Matcher:
             )
 
         matching: Matching = set()
-        matched = Vertices(self.n)
+        matched = self.matched_vertices
+        if not isinstance(matched, Vertices) or len(matched) or self.views is not None:
+            matched = Vertices(self.n)
         # The seed is supplied by the edge-colouring phase and must already
         # be a matching.  Silently dropping conflicting edges would change
         # the algorithm and hide a broken colouring invariant.
