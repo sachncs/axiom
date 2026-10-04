@@ -38,6 +38,9 @@ jobs:
           esac
           test "$project_version" = "$tag_version"
 
+      - name: Enforce Basic and Multilevel qualification gates
+        run: python scripts/verify_qualification.py --manifest qualification.json --release
+
       - name: Refuse a major release with documented implementation gaps
         run: |
           project_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"

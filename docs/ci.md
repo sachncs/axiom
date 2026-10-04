@@ -12,7 +12,7 @@ historical changelog entries retain their original context.
 | --- | --- | --- |
 | `ci.yml` | Lint/types, normal and optimized Python 3.10–3.13, Packed-storage sanitizers, clean wheel/sdist installs, Linux/macOS/Windows storage-wheel matrix, reproducibility/dependency checks, stress and actual Linux resource recovery | None |
 | `pages.yml` | Astro type/build/link checks and real installed Python documentation examples, on PR and master | Deploy only master push/manual runs; PR builds have read-only permissions |
-| `release.yml` | Tag/version and research-gap gates, quality checks, native release-wheel matrix, completeness validation, source reproducibility, attestations/signatures | Explicit version tags only; no publication from ordinary CI |
+| `release.yml` | Tag/version and research-gap gates, strict per-mode qualification manifest, quality checks, native release-wheel matrix, completeness validation, source reproducibility, attestations/signatures | Explicit version tags only; publication is blocked until all four gates pass for Basic and Multilevel |
 
 All workflows retain pinned action revisions, disabled checkout credentials,
 explicit least-privilege permissions and bounded job timeouts. Shell steps use

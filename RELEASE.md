@@ -43,6 +43,9 @@ pass required to establish the next level's bounds.
 
 ## Release gates
 
+- `qualification.json` passes `scripts/verify_qualification.py --release`: all
+  Research, Durability, Performance, and Deployment gates must be independently
+  evidenced for both Basic and Multilevel. Open gates block tag publication.
 - `pytest` passes, including recursive hierarchy and small-graph termination
   tests.
 - Ruff linting and formatting pass.

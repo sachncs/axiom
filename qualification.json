@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "modes": {
+    "basic": {
+      "research": {"status": "open", "evidence": []},
+      "durability": {"status": "open", "evidence": []},
+      "performance": {"status": "open", "evidence": []},
+      "deployment": {"status": "open", "evidence": []}
+    },
+    "multilevel": {
+      "research": {"status": "open", "evidence": []},
+      "durability": {"status": "open", "evidence": []},
+      "performance": {"status": "open", "evidence": []},
+      "deployment": {"status": "open", "evidence": []}
+    }
+  }
+}
