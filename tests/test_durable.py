@@ -508,6 +508,12 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
     original = Matcher.batch
     attempted = []
     large_chunks = 0
+    released_before_replay = []
+    new_matcher = store._new_matcher
+
+    def verify_old_matcher_released(n: int, width: int) -> Matcher:
+        released_before_replay.append(store._matcher is None)
+        return new_matcher(n, width)
 
     @contextmanager
     def constrain_batch(
@@ -525,6 +531,7 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
             yield matcher
 
     monkeypatch.setattr(Matcher, "batch", constrain_batch)
+    monkeypatch.setattr(store, "_new_matcher", verify_old_matcher_released)
     batch = [
         Request(sequence, "insert", 2 * sequence, 2 * sequence + 1)
         for sequence in range(1, 25)
@@ -532,6 +539,7 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
     outcomes = store.apply(batch)
 
     assert attempted[:3] == [PAPER_CHUNK, PAPER_CHUNK, PAPER_CHUNK // 2]
+    assert released_before_replay and all(released_before_replay)
     assert outcomes == tuple(
         Outcome(sequence, True, sequence) for sequence in range(1, 25)
     )

@@ -311,6 +311,12 @@ class Durable:
         """Reconstruct one exact operation prefix in bounded atomic slices."""
         chunk_size = PAPER_CHUNK
         while True:
+            # A prior bounded replay may have crossed several successful
+            # slices before its next slice exceeded journal capacity. Discard
+            # that incomplete private matcher before allocating a fresh graph;
+            # retaining both million-vertex graphs can itself exhaust the
+            # worker limit and prevent deterministic recovery.
+            object.__setattr__(self, "_matcher", None)
             matcher = self._new_matcher(n, width)
             if not isinstance(matcher.graph, Packed):
                 raise RecoveryError("paper replay requires packed graph storage")
@@ -387,6 +393,8 @@ class Durable:
             except JournalCapacityError:
                 if chunk_size == 1:
                     raise
+                object.__setattr__(self, "_matcher", None)
+                del matcher
                 chunk_size = max(1, chunk_size // 2)
 
     def _recover(self, requested: int | None, width: int | None) -> None:
@@ -888,32 +896,34 @@ class Durable:
         prefix is therefore a safe failure-path alternative to retaining every
         sub-batch undo journal until the outer SQLite transaction completes.
         """
-        previous = self._matcher
-        try:
-            (
-                candidate,
-                base_version,
-                expected_sequence,
-                expected_version,
-                expected_tail,
-            ) = self._replay_operations(self._n, self._width, self._metadata)
-            control = (
-                self._db()
-                .execute("SELECT sequence,version,digest FROM control WHERE id=1")
-                .fetchone()
-            )
-            if (
-                control != (expected_sequence, expected_version, expected_tail)
-                or expected_sequence != self._count
-                or expected_version != self._version
-                or base_version != self._base_version
-                or expected_tail != self._tail
-                or not self._audit()
-            ):
-                raise RecoveryError("committed state failed rollback audit")
-        except BaseException:
-            self._matcher = previous
-            raise
+        # There is no published reader of this owner while its lock is held.
+        # The active matcher may contain successful in-memory sub-slices from
+        # an uncommitted outer group, so replay is the source of truth. Release
+        # it before allocating the replacement to keep recovery within the
+        # same memory envelope as steady-state construction. If replay fails,
+        # the caller marks this owner failed and requires a fresh open.
+        object.__setattr__(self, "_matcher", None)
+        (
+            candidate,
+            base_version,
+            expected_sequence,
+            expected_version,
+            expected_tail,
+        ) = self._replay_operations(self._n, self._width, self._metadata)
+        control = (
+            self._db()
+            .execute("SELECT sequence,version,digest FROM control WHERE id=1")
+            .fetchone()
+        )
+        if (
+            control != (expected_sequence, expected_version, expected_tail)
+            or expected_sequence != self._count
+            or expected_version != self._version
+            or base_version != self._base_version
+            or expected_tail != self._tail
+            or not self._audit()
+        ):
+            raise RecoveryError("committed state failed rollback audit")
 
     @contextmanager
     def _exclusive(self) -> Iterator[None]:
