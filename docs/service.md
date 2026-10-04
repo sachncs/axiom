@@ -90,8 +90,39 @@ overwriting an existing target. Automatic WAL and manual maintenance consume
 the same serialized owner; expensive explicit audits/backups also obey
 `maintenance_capacity`.
 
-`metrics()` reports bounded admission counters and worker state; it is not a
-graph snapshot. Queue limits bound admitted work, not total process RSS, SQLite
+`metrics()` is a thread-safe, in-process diagnostics interface. Existing state,
+capacity, outstanding, accepted/completed, grouping, and sequence keys are
+unchanged. It also reports `failed_work` and fixed-size cumulative latency
+histograms for `update`, `read`, and `maintenance` work. Each class has
+`<class>_latency_le_<bound>_ns` buckets at 100,000; 500,000; 1,000,000;
+5,000,000; 10,000,000; 50,000,000; 100,000,000; 500,000,000;
+1,000,000,000; 5,000,000,000; and 30,000,000,000 ns, plus
+`<class>_latency_le_infinity_ns` and `<class>_latency_sum_ns`. Buckets are
+cumulative (`le` means duration less than or equal to the bound); infinity is
+the total observation count. Durations and sums use monotonic nanoseconds and
+cover receipt admission through receipt completion, including time waiting in
+the service queues. They are cumulative for this Service object's lifetime and
+are not reset on reads.
+
+An update is newly admitted mutation work, including external-ID registration
+and fresh batches. A historical retry that is checked against durable history
+is classified as read work. Reads that run maintenance (checkpoint, full audit,
+or backup) are classified as maintenance rather than read. `accepted` and
+`completed` count admitted receipts, including identical retries that share a
+pending work item. `failed_work` counts internal work items resolved with an
+exception, including accepted queued work failed during fail-stop; it is not a
+failed-receipt count (a shared retry can add receipts without adding a work
+item). Synchronous validation, capacity, overload, and closed-service
+rejections are deliberately not counted: they were never admitted, and
+instrumenting every rejection is not part of this interface. Consequently
+these counters do not expose a rejection rate or derive an updates/sec or query
+rate. Histogram cardinality and storage are constant per Service regardless of
+operation lifetime; no per-operation samples or graph snapshot are retained.
+
+Metrics are snapshots of service counters, not graph state, and provide no
+exporter, OpenTelemetry/Prometheus integration, process-memory measurement,
+matching/edge/vertex counts, database/WAL size, recovery duration, or rollback
+telemetry. Queue limits bound admitted work, not total process RSS, SQLite
 WAL/SHM, or filesystem/device caches. Enforce deployment memory/disk limits at
 the process and volume layers as well as through the database page cap.
 

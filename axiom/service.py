@@ -34,6 +34,20 @@ from axiom.identifier import Identifier
 
 _T = TypeVar("_T")
 _MAX = (1 << 63) - 1
+_LATENCY_BOUNDS_NS = (
+    100_000,
+    500_000,
+    1_000_000,
+    5_000_000,
+    10_000_000,
+    50_000_000,
+    100_000_000,
+    500_000_000,
+    1_000_000_000,
+    5_000_000_000,
+    30_000_000_000,
+)
+_WORK_KINDS = ("update", "read", "maintenance")
 
 
 def _integer(value: int, low: int, high: int, name: str) -> None:
@@ -126,6 +140,7 @@ class _Work:
     finished: bool = False
     maintenance: bool = False
     explicit: bool = False
+    kind: str = "read"
 
 
 class Service:
@@ -178,6 +193,11 @@ class Service:
         self._maintenance = 0
         self._wait_ns = int(batch_wait_ms * 1_000_000)
         self._outstanding = self._accepted = self._completed = 0
+        self._failed_work = 0
+        self._latencies = {
+            kind: [0] * (len(_LATENCY_BOUNDS_NS) + 1) for kind in _WORK_KINDS
+        }
+        self._latency_sums = {kind: 0 for kind in _WORK_KINDS}
         self._peak_outstanding = self._groups = self._largest_group = 0
         self._prefer_reads = False
         self._closing = self._closed = False
@@ -239,6 +259,7 @@ class Service:
                     [cast(Receipt[object], receipt)],
                     action=action,
                     maintenance=maintenance,
+                    kind="maintenance" if maintenance else "read",
                 )
             )
             self._maintenance += maintenance
@@ -280,7 +301,9 @@ class Service:
             if pending is not None:
                 pending.receipts.append(cast(Receipt[object], receipt))
             elif request.sequence == self._next_sequence:
-                work = _Work([cast(Receipt[object], receipt)], request=request)
+                work = _Work(
+                    [cast(Receipt[object], receipt)], request=request, kind="update"
+                )
                 self._pending[request.sequence] = work
                 try:
                     self._updates.append(work)
@@ -293,6 +316,7 @@ class Service:
                     _Work(
                         [cast(Receipt[object], receipt)],
                         action=lambda owner: owner.apply([request])[0],
+                        kind="read",
                     )
                 )
             self._accepted_one()
@@ -368,6 +392,7 @@ class Service:
                         action=lambda owner: owner.apply(batch),
                         requests=batch,
                         explicit=True,
+                        kind="read",
                     )
                 )
             elif first == self._next_sequence:
@@ -378,6 +403,7 @@ class Service:
                     [cast(Receipt[object], receipt)],
                     requests=batch,
                     explicit=True,
+                    kind="update",
                 )
                 try:
                     for request in batch:
@@ -403,6 +429,7 @@ class Service:
                 [cast(Receipt[object], receipt)],
                 action=lambda owner: owner.register_identifier(value),
                 explicit=True,
+                kind="update",
             )
             self._updates.append(work)
             self._accepted_one()
@@ -438,6 +465,7 @@ class Service:
                     external=request,
                     action=lambda owner: owner.apply_external([request])[0],
                     explicit=True,
+                    kind="update",
                 )
                 self._pending[request.sequence] = work
                 try:
@@ -452,6 +480,7 @@ class Service:
                         [cast(Receipt[object], receipt)],
                         external=request,
                         action=lambda owner: owner.apply_external([request])[0],
+                        kind="read",
                     )
                 )
             self._accepted_one()
@@ -505,6 +534,7 @@ class Service:
                         externals=batch,
                         action=lambda owner: owner.apply_external(batch),
                         explicit=True,
+                        kind="read",
                     )
                 )
             elif first == self._next_sequence:
@@ -516,6 +546,7 @@ class Service:
                     externals=batch,
                     action=lambda owner: owner.apply_external(batch),
                     explicit=True,
+                    kind="update",
                 )
                 try:
                     for request in batch:
@@ -694,11 +725,25 @@ class Service:
                 "peak_outstanding": self._peak_outstanding,
                 "accepted": self._accepted,
                 "completed": self._completed,
+                "failed_work": self._failed_work,
                 "groups": self._groups,
                 "largest_group": self._largest_group,
                 "batch_limit": self._batch,
                 "batch_wait_ns": self._wait_ns,
                 "next_admission_sequence": self._next_sequence,
+                **{
+                    f"{kind}_latency_le_{bound}_ns": self._latencies[kind][index]
+                    for kind in _WORK_KINDS
+                    for index, bound in enumerate(_LATENCY_BOUNDS_NS)
+                },
+                **{
+                    f"{kind}_latency_le_infinity_ns": self._latencies[kind][-1]
+                    for kind in _WORK_KINDS
+                },
+                **{
+                    f"{kind}_latency_sum_ns": self._latency_sums[kind]
+                    for kind in _WORK_KINDS
+                },
             }
 
     def _take_slice(self, queue: deque[_Work]) -> deque[_Work]:
@@ -763,6 +808,16 @@ class Service:
                     receipt._finish(
                         value, error, work.started_ns or time.perf_counter_ns()
                     )
+                for receipt in work.receipts:
+                    timing = receipt.timing()
+                    if timing is not None:
+                        duration = timing.completed_ns - timing.admitted_ns
+                        self._latency_sums[work.kind] += duration
+                        for index, bound in enumerate(_LATENCY_BOUNDS_NS):
+                            if duration <= bound:
+                                self._latencies[work.kind][index] += 1
+                        self._latencies[work.kind][-1] += 1
+                self._failed_work += error is not None
                 self._outstanding, self._completed = outstanding, completed
                 self._maintenance -= work.maintenance
                 work.finished = True

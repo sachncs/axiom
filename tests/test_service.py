@@ -1010,6 +1010,83 @@ def test_maintenance_class_counts_queued_jobs_and_releases_all_slots_on_fail_sto
     assert service.metrics()["outstanding"] == 0
 
 
+def test_metrics_record_successful_update_read_and_maintenance_latency(
+    tmp_path: Path,
+) -> None:
+    with create(tmp_path / "latency.db", batch_wait_ms=0) as service:
+        assert service.submit(Request(1, "insert", 0, 1)).result(5).changed
+        assert service.partner(0).result(5) == (1, 1)
+        service.checkpoint().result(5)
+
+        metrics = service.metrics()
+        assert metrics["accepted"] == metrics["completed"] == 3
+        assert metrics["failed_work"] == 0
+        for kind, expected in (("update", 1), ("read", 1), ("maintenance", 1)):
+            assert metrics[f"{kind}_latency_le_infinity_ns"] == expected
+            assert metrics[f"{kind}_latency_sum_ns"] > 0
+            buckets = [
+                metrics[f"{kind}_latency_le_{bound}_ns"]
+                for bound in service_module._LATENCY_BOUNDS_NS
+            ]
+            assert buckets == sorted(buckets)
+            assert all(count in (0, expected) for count in buckets)
+
+
+def test_metrics_count_failed_work_but_not_rejected_overload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = create(
+        tmp_path / "metric-failure.db",
+        queue_capacity=1,
+        query_reserve=0,
+        batch_wait_ms=0,
+    )
+    entered, release = threading.Event(), threading.Event()
+    original = service._owner._persist
+
+    def paused(rows: list) -> None:
+        entered.set()
+        if not release.wait(5):
+            raise RuntimeError("test persistence release timed out")
+        original(rows)
+
+    monkeypatch.setattr(service._owner, "_persist", paused)
+    receipt = service.submit(Request(1, "insert", 0, 1))
+    try:
+        assert entered.wait(5)
+        with pytest.raises(BusyError, match="nothing was admitted"):
+            service.submit(Request(2, "delete", 0, 1))
+        during = service.metrics()
+        assert during["accepted"] == 1 and during["completed"] == 0
+        assert during["failed_work"] == 0
+    finally:
+        release.set()
+    assert receipt.result(5) == Outcome(1, True, 1)
+    with pytest.raises(RuntimeError, match="stale"):
+        service.page(version=0).result(5)
+    metrics = service.metrics()
+    assert metrics["accepted"] == metrics["completed"] == 2
+    assert metrics["failed_work"] == 1
+    assert metrics["update_latency_le_infinity_ns"] == 1
+    assert metrics["read_latency_le_infinity_ns"] == 1
+    assert service.close(5) is None
+
+
+def test_latency_metric_shape_and_storage_stay_fixed_over_lifetime(
+    tmp_path: Path,
+) -> None:
+    with create(tmp_path / "bounded-metrics.db", max_operations=64) as service:
+        initial = service.metrics()
+        metric_keys = set(initial)
+        for _ in range(400):
+            assert service.partner(0).result(5)[0] == 0
+        after = service.metrics()
+        assert set(after) == metric_keys
+        assert len(after) == len(initial)
+        assert after["read_latency_le_infinity_ns"] == 400
+        assert after["accepted"] == after["completed"] == 400
+
+
 @pytest.mark.parametrize("stage", ["before_commit", "after_commit", "after_publish"])
 def test_process_death_with_queued_clients_recovers_only_durable_prefix(
     tmp_path: Path, stage: str
