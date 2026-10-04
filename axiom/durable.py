@@ -15,6 +15,7 @@ import sqlite3
 import struct
 import threading
 import time
+import traceback
 import warnings
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -390,8 +391,11 @@ class Durable:
                     expected_version,
                     expected_tail,
                 )
-            except JournalCapacityError:
+            except JournalCapacityError as capacity_error:
+                traceback.clear_frames(capacity_error.__traceback__)
                 if chunk_size == 1:
+                    object.__setattr__(self, "_matcher", None)
+                    del matcher
                     raise
                 object.__setattr__(self, "_matcher", None)
                 del matcher
@@ -1050,7 +1054,8 @@ class Durable:
                                         request.sequence, changed, version
                                     )
                         break
-                    except JournalCapacityError:
+                    except JournalCapacityError as capacity_error:
+                        traceback.clear_frames(capacity_error.__traceback__)
                         if chunk_size == 1:
                             raise
                         self._restore_committed_matcher()
@@ -1059,7 +1064,7 @@ class Durable:
                 self._version = version
                 self._tail = tail
                 return tuple(outcomes[request.sequence] for request in requests)
-            except BaseException:
+            except BaseException as group_error:
                 try:
                     if self._db().in_transaction:
                         self._db().execute("ROLLBACK")
@@ -1068,6 +1073,7 @@ class Durable:
                 self._failed = persistence_started
                 if not persistence_started:
                     try:
+                        traceback.clear_frames(group_error.__traceback__)
                         self._restore_committed_matcher()
                     except BaseException as recovery_error:
                         self._failed = True

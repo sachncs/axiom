@@ -4,6 +4,7 @@ import hashlib
 import json
 import random
 import sqlite3
+import weakref
 from collections.abc import Callable, Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
@@ -509,10 +510,13 @@ def test_journal_capacity_automatically_replays_with_smaller_private_chunks(
     attempted = []
     large_chunks = 0
     released_before_replay = []
+    previous_matcher = weakref.ref(store._matcher)
     new_matcher = store._new_matcher
 
     def verify_old_matcher_released(n: int, width: int) -> Matcher:
-        released_before_replay.append(store._matcher is None)
+        released_before_replay.append(
+            store._matcher is None and previous_matcher() is None
+        )
         return new_matcher(n, width)
 
     @contextmanager
