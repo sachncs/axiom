@@ -158,6 +158,11 @@ recorded in the [repeatability result](../benchmarks/results/repeatability/milli
 digests and exact recovery agree, but Basic measured about 2.27k updates/s and
 Multilevel about 7.51k/s. It uses one seed and one 256-update batch per run, so
 it is not broad or sustained qualification.
+The same two-repeat matrix at a 4,096-degree hot hub measured about 2.15k/s
+Basic and 3.33k/s Multilevel, with matching digests and exact recovery. That
+moderate-skew trace is short and one-seed; it does not qualify the more extreme
+65,536-degree hub or a production workload mix. See the
+[hub repeatability result](../benchmarks/results/repeatability/million-hub4096-599.json).
 
 For controlled fresh-process repeats, use `benchmarks/repeatability.py`. It runs
 samples sequentially, gives every sample a separate database and interpreter,

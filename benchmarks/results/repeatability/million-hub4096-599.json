@@ -1,0 +1,87 @@
+{
+  "classification": "single-seed, two fresh-process repeats per mode; diagnostic only",
+  "engine_commit": "b86f758",
+  "benchmark_commit": "c519f35",
+  "command": ".venv/bin/python benchmarks/repeatability.py --output /tmp/axiom-repeat-million-hub4k --vertices 1000000 --pairs 128 --batch 256 --seeds 599 --repeats 2 --mode both --workload hub-churn --hub-degree 4096",
+  "environment": {
+    "python": "3.11.16",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "sqlite": "3.53.1"
+  },
+  "graph": {
+    "vertices": 1000000,
+    "initial_edges": 2004096,
+    "initial_average_degree": 4.008192,
+    "preloaded_hub_degree": 4096,
+    "updates_per_repeat": 256,
+    "batch_size": 256
+  },
+  "determinism": {
+    "trace_digest": "eebea760a618a33096d317a29b4ed4ff2dedf1902d849fad5f0738c6adfb96ee",
+    "matching_digest": "74e5423edb0f32149a9205c0fbd12dc40525b325952d42cc9a51d839c7250ba3",
+    "same_across_repeats": true,
+    "same_across_modes": true,
+    "independent_audit_and_exact_recovery": "passed for all four runs"
+  },
+  "basic": {
+    "updates_per_second": {
+      "median": 2152.4342523123414,
+      "minimum": 2147.767368016879,
+      "maximum": 2157.1011366078037
+    },
+    "ack_p99_ns": {
+      "median": 117167104,
+      "minimum": 116865375,
+      "maximum": 117468833
+    },
+    "partner_query_p99_ns": {
+      "median": 5270.5,
+      "minimum": 4333,
+      "maximum": 6208
+    },
+    "peak_rss_bytes": {
+      "median": 1510522880,
+      "minimum": 1488257024,
+      "maximum": 1532788736
+    },
+    "recovery_seconds": {
+      "median": 14.41535199998907,
+      "minimum": 14.362061957988772,
+      "maximum": 14.46864204198937
+    }
+  },
+  "multilevel": {
+    "updates_per_second": {
+      "median": 3326.733066046875,
+      "minimum": 3224.9463305946138,
+      "maximum": 3428.519801499136
+    },
+    "ack_p99_ns": {
+      "median": 75104062.5,
+      "minimum": 72813375,
+      "maximum": 77394750
+    },
+    "partner_query_p99_ns": {
+      "median": 11187.5,
+      "minimum": 10583,
+      "maximum": 11792
+    },
+    "peak_rss_bytes": {
+      "median": 1814781952,
+      "minimum": 1767948288,
+      "maximum": 1861615616
+    },
+    "recovery_seconds": {
+      "median": 20.393297583505046,
+      "minimum": 20.166400125002838,
+      "maximum": 20.620195042007254
+    }
+  },
+  "limitations": [
+    "Only two repeats of one seed; not a repeatability qualification matrix.",
+    "p999 is omitted because each run contains only 256 update samples.",
+    "A degree-4096 hub is moderate skew, not the 65,536-degree extreme profile.",
+    "One batch and a short trace do not establish sustained throughput or tail behavior.",
+    "Does not cover queue overload, hard resource limits, power loss, or deployment."
+  ]
+}

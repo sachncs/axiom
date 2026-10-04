@@ -44,5 +44,8 @@ checks p50/p95/p99/p999 ordering. An initial one-million-vertex average-degree-
 four run repeated seed 599 twice per mode; all four independent audits/recovery
 checks passed and both modes reproduced exact digests. Rates were 2,270/s Basic
 and 7,507/s Multilevel; per-mode throughput spread was about 0.4% and 2.8%,
-respectively. This is a narrow one-batch smoke, not qualification. See the
-[raw summary](../../benchmarks/results/repeatability/million-uniform-599.json).
+respectively. A second two-repeat million-vertex run with a degree-4,096 hot
+hub measured 2,152/s Basic and 3,327/s Multilevel; exact digests/recovery again
+passed. Both are one-seed, one-batch diagnostics, not qualification. See the
+[uniform result](../../benchmarks/results/repeatability/million-uniform-599.json)
+and [skew result](../../benchmarks/results/repeatability/million-hub4096-599.json).
