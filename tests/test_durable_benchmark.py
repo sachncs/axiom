@@ -99,6 +99,16 @@ def test_benchmark_accepts_the_production_batch_limit(
     assert result["exact_recovery_passed"]
 
 
+def test_benchmark_reports_tail_latency_quantiles_when_sample_count_supports_them(
+    tmp_path: Path,
+) -> None:
+    result = measure(tmp_path / "quantiles.db", 64, 512, 256, 599, mode="basic")
+    latency = result["acknowledged_latency"]
+    assert latency["count"] == 1024
+    assert latency["p50_ns"] <= latency["p95_ns"] <= latency["p99_ns"]
+    assert latency["p99_ns"] <= latency["p999_ns"] <= latency["max_ns"]
+
+
 @pytest.mark.parametrize(
     "n,pairs,batch",
     [(7, 8, 16), (64, 0, 16), (64, 8, 17), (64, 8, 4098)],

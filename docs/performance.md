@@ -153,6 +153,34 @@ preloaded hub; it does not exercise burst admission, concurrent network load,
 hard quotas, or long-duration deployment behavior. Treat it as workload
 qualification evidence only after publishing all raw runs and independently
 reviewing throughput, tail latency, memory, SQLite growth, and recovery.
+An initial two-repeat, one-million-vertex average-degree-four diagnostic is
+recorded in the [repeatability result](../benchmarks/results/repeatability/million-uniform-599.json):
+digests and exact recovery agree, but Basic measured about 2.27k updates/s and
+Multilevel about 7.51k/s. It uses one seed and one 256-update batch per run, so
+it is not broad or sustained qualification.
+
+For controlled fresh-process repeats, use `benchmarks/repeatability.py`. It runs
+samples sequentially, gives every sample a separate database and interpreter,
+stores each raw benchmark result, verifies exact trace/matching digests across
+repeats of the same seed, and reports median/minimum/maximum throughput,
+acknowledgment and commit quantiles, partner-query quantiles, peak RSS, and
+recovery time. It refuses to overwrite existing result or database paths. Choose
+an output directory with sufficient space: database images are retained for
+inspection, and a million-vertex/high-skew matrix can take a long time.
+
+```sh
+uv run python benchmarks/repeatability.py \
+  --output /private/tmp/axiom-repeats \
+  --vertices 1000000 --pairs 128 --batch 256 \
+  --seeds 599 600 --repeats 2 --mode both \
+  --workload hub-churn --hub-degree 65536
+```
+
+Every child result independently audits topology, matching maximality, retries,
+and exact recovery. The aggregate is descriptive—not a confidence interval, a
+release threshold, or evidence for overload, power-loss, or deployment
+qualification. The same-seed digest check detects nondeterminism; it does not
+imply that different seeds must select different maximal matchings.
 The current one-run-per-mode records are in the
 [durable diagnostics](../benchmarks/results/durable/README.md). Both runs
 recovered exactly after the former journal boundary, but neither approaches

@@ -18,6 +18,7 @@ import time
 from array import array
 from collections.abc import Iterable, Sized
 from pathlib import Path
+from typing import Any, Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -32,7 +33,7 @@ def canonical(u: int, v: int) -> tuple[int, int]:
 def certificate(
     store: Durable,
     extra: Iterable[tuple[int, int]],
-    removed: set,
+    removed: set[tuple[int, int]],
     vertices: int,
     width: int = 2,
     *,
@@ -116,7 +117,7 @@ def measure(
     mode: str = "basic",
     workload: str = "uniform",
     hub_degree: int = 0,
-) -> dict:
+) -> dict[str, Any]:
     """Churn a stable edge pool, acknowledge every real edit, and verify recovery."""
     limit = 32768
     if vertices < 8 or not 1 <= pairs <= limit or not 2 <= batch <= 4096 or batch % 2:
@@ -201,6 +202,9 @@ def measure(
                 setup_count += len(group)
             setup_seconds = time.perf_counter() - tick
         initial = store.status()
+        initial_edges = initial["edges"]
+        if type(initial_edges) is not int:
+            raise RuntimeError("durable status returned a noninteger edge count")
         started = time.perf_counter()
         completed = 0
         while completed < pairs:
@@ -213,9 +217,10 @@ def measure(
                     if toggled[cell]
                     else (originals[cell], extras[cell])
                 )
-                for offset, (operation, (u, v)) in enumerate(
-                    (("delete", old), ("insert", new))
-                ):
+                operations: tuple[
+                    tuple[Literal["delete", "insert"], tuple[int, int]], ...
+                ] = (("delete", old), ("insert", new))
+                for offset, (operation, (u, v)) in enumerate(operations):
                     sequence = setup_count + 2 * (completed + index) + offset + 1
                     requests.append(Request(sequence, operation, u, v))
                     admitted.append(time.perf_counter_ns())
@@ -257,6 +262,9 @@ def measure(
             )
         elapsed = time.perf_counter() - started
         final = store.status()
+        final_edges = final["edges"]
+        if type(final_edges) is not int:
+            raise RuntimeError("durable status returned a noninteger edge count")
         removed = {originals[i] for i in range(width) if toggled[i]}
         extra = set(hubedges)
         extra.update(extras[i] for i in range(width) if toggled[i])
@@ -283,11 +291,19 @@ def measure(
         recovery_audit = time.perf_counter() - tick
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
-    def summary(values: list[int]) -> dict[str, int]:
+    def summary(values: list[int]) -> dict[str, int | None]:
         ordered = sorted(values)
+
+        def percentile(percent: int, denominator: int) -> int:
+            rank = (percent * len(ordered) + denominator - 1) // denominator
+            return ordered[max(0, rank - 1)]
+
         return {
             "count": len(values),
-            "p99_ns": ordered[(99 * len(values) + 99) // 100 - 1],
+            "p50_ns": percentile(50, 100),
+            "p95_ns": percentile(95, 100),
+            "p99_ns": percentile(99, 100),
+            "p999_ns": percentile(999, 1000) if len(ordered) >= 1000 else None,
             "max_ns": ordered[-1],
         }
 
@@ -299,9 +315,9 @@ def measure(
         "paper_mode": mode,
         "vertices": vertices,
         "base_edges": 2 * vertices,
-        "edges": initial["edges"],
-        "final_edges": final["edges"],
-        "average_degree": 2 * initial["edges"] / vertices,
+        "edges": initial_edges,
+        "final_edges": final_edges,
+        "average_degree": 2 * initial_edges / vertices,
         "workload": workload,
         "hub_vertex": 0 if workload == "hub-churn" else None,
         "preloaded_hub_degree": hub_degree,

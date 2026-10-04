@@ -1,0 +1,106 @@
+{
+  "classification": "single-seed, two fresh-process repeats per mode; diagnostic only",
+  "engine_commit": "5d9e062",
+  "benchmark_source": "working tree at engine commit 5d9e062",
+  "command": ".venv/bin/python benchmarks/repeatability.py --output /tmp/axiom-repeat-million-uniform --vertices 1000000 --pairs 128 --batch 256 --seeds 599 --repeats 2 --mode both --workload uniform",
+  "environment": {
+    "python": "3.11.16",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "sqlite": "3.53.1"
+  },
+  "graph": {
+    "vertices": 1000000,
+    "initial_edges": 2000000,
+    "average_degree": 4,
+    "updates_per_repeat": 256,
+    "batch_size": 256
+  },
+  "determinism": {
+    "trace_digest": "ea946088f5d1cb12ff63f65831e6158f3104d48069df88d59258b91a3cc56cce",
+    "matching_digest": "e1041ee59e906707e2ed6f70c01432b84d83daf4340ecd1e3314ec9a49c1109f",
+    "same_across_repeats": true,
+    "same_across_modes": true,
+    "independent_audit_and_exact_recovery": "passed for all four runs"
+  },
+  "basic": {
+    "updates_per_second": {
+      "median": 2269.874800000206,
+      "minimum": 2265.668841375115,
+      "maximum": 2274.0807586252977
+    },
+    "ack_p50_ns": {
+      "median": 110779396,
+      "minimum": 110427708,
+      "maximum": 111131084
+    },
+    "ack_p95_ns": {
+      "median": 110958458.5,
+      "minimum": 110676458,
+      "maximum": 111240459
+    },
+    "ack_p99_ns": {
+      "median": 111010542,
+      "minimum": 110754042,
+      "maximum": 111267042
+    },
+    "partner_query_p99_ns": {
+      "median": 3729,
+      "minimum": 2958,
+      "maximum": 4500
+    },
+    "peak_rss_bytes": {
+      "median": 1574625280,
+      "minimum": 1556004864,
+      "maximum": 1593245696
+    },
+    "recovery_seconds": {
+      "median": 12.47198708349606,
+      "minimum": 12.427970249991631,
+      "maximum": 12.51600391700049
+    }
+  },
+  "multilevel": {
+    "updates_per_second": {
+      "median": 7507.265606205348,
+      "minimum": 7402.855593326678,
+      "maximum": 7611.675619084019
+    },
+    "ack_p50_ns": {
+      "median": 32081833,
+      "minimum": 31580750,
+      "maximum": 32582916
+    },
+    "ack_p95_ns": {
+      "median": 32217708,
+      "minimum": 31750000,
+      "maximum": 32685416
+    },
+    "ack_p99_ns": {
+      "median": 32251020.5,
+      "minimum": 31790333,
+      "maximum": 32711708
+    },
+    "partner_query_p99_ns": {
+      "median": 7312.5,
+      "minimum": 5875,
+      "maximum": 8750
+    },
+    "peak_rss_bytes": {
+      "median": 2082496512,
+      "minimum": 2057338880,
+      "maximum": 2107654144
+    },
+    "recovery_seconds": {
+      "median": 18.029759354503767,
+      "minimum": 17.968825750009273,
+      "maximum": 18.09069295899826
+    }
+  },
+  "limitations": [
+    "Only two repeats of one seed; not a repeatability qualification matrix.",
+    "p999 is omitted because each run contains only 256 update samples.",
+    "One batch and one modest churn pool do not establish sustained throughput or tail behavior.",
+    "Does not cover skew, queue overload, hard resource limits, power loss, or service deployment."
+  ],
+  "raw_process_json": "/tmp/axiom-repeat-million-uniform"
+}
