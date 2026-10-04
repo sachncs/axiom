@@ -54,3 +54,4 @@ databases took 47.6 s for Basic and 152.8 s for Multilevel, versus the original
 280 s and 951 s. These are sequential single-run comparisons on the same
 workstation and database state, not throughput re-runs or qualification; replay
 is still too slow for an acceptable million-vertex recovery objective.
+The replay implementation is commit `d476669`.

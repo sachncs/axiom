@@ -25,15 +25,16 @@ were measured on the same workstation and persisted history; run-to-run
 variance is unknown, and Multilevel recovery remains long. The operation log
 is replayed in atomic slices of up to eight operations, halving the slice and
 restarting reconstruction if a paper journal reports capacity exhaustion.
+The implementation is commit `d476669` (`Batch durable operation replay`).
 
 The benchmark excludes the 65,536 preload operations from measured churn
 throughput and reports preload time separately. The benchmark process peak RSS
 includes setup, churn, audits and recovery; it is not steady-state graph-only
 memory. WAL/SHM size is sampled during churn. Both results are macOS ARM64
 source-checkout runs using CPython 3.11.16 and SQLite 3.53.1, with working-tree
-changes committed unchanged as `bd71bac`. The follow-up timings were collected
-against the replay batching implementation before its source commit; the final
-source revision is recorded in the version history.
+changes committed unchanged as `bd71bac`. Follow-up reopen timings are
+diagnostic measurements of commit `d476669`; they do not include fresh churn
+measurement.
 
 Reproduce either profile with a fresh database path:
 
