@@ -8,6 +8,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from axiom.capacity import JournalCapacityError
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.paper_coloring import Paper
@@ -219,12 +220,57 @@ def test_journal_budget_failure_leaves_original_edge_and_can_rollback() -> None:
     graph = Packed(4, budget=metadata + 48)
     graph.add_edge(0, 1)
     token = graph.begin()
-    with pytest.raises(MemoryError, match="journal"):
+    with pytest.raises(JournalCapacityError, match="journal") as failure:
         graph.remove_edge(0, 1)
+    assert type(failure.value) is JournalCapacityError
     assert graph.has_edge(0, 1)
-    graph.rollback(token)
+    assert graph.num_edges() == 1
     assert graph.version == 1
     assert graph.check()
+    graph.rollback(token)
+    assert graph.version == 1
+    assert graph.num_edges() == 1
+    assert graph.has_edge(0, 1)
+    assert graph.check()
+
+
+def test_journal_capacity_failure_rolls_back_prior_edits_exactly() -> None:
+    metadata = Packed(4).memory()["metadata"]
+    for extra in range(48, 513, 8):
+        graph = Packed(4, budget=metadata + extra)
+        try:
+            graph.add_edge(0, 1)
+        except MemoryError:
+            continue
+        before = list(graph.edges()), graph.num_edges(), graph.version
+        token = graph.begin()
+        try:
+            graph.remove_edge(0, 1)
+            graph.add_edge(2, 3)
+        except JournalCapacityError:
+            graph.rollback(token)
+            continue
+        try:
+            graph.remove_edge(2, 3)
+        except JournalCapacityError:
+            assert list(graph.edges()) == [(2, 3)]
+            assert graph.num_edges() == 1
+            assert graph.version == before[2] + 2
+            assert graph.check()
+            graph.rollback(token)
+            assert (list(graph.edges()), graph.num_edges(), graph.version) == before
+            assert graph.check()
+            assert graph.memory()["active"] == 0
+            return
+        graph.rollback(token)
+    pytest.fail("could not construct a two-edit journal-capacity boundary")
+
+
+def test_non_journal_length_errors_remain_memory_errors() -> None:
+    metadata = Packed(4).memory()["metadata"]
+    with pytest.raises(MemoryError, match="vertex metadata") as failure:
+        Packed(4, budget=metadata - 1)
+    assert type(failure.value) is MemoryError
 
 
 @pytest.mark.parametrize("mode", ["basic", "multilevel"])

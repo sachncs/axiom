@@ -102,6 +102,12 @@ struct Undo {
   bool added, indexedU, indexedV;
 };
 
+class JournalCapacityError : public std::length_error {
+public:
+  explicit JournalCapacityError(const char *message)
+      : std::length_error(message) {}
+};
+
 class BlockOwners {
   uint64_t count;
   std::vector<uint64_t> words;
@@ -214,14 +220,16 @@ public:
     uint64_t maximum = (budget - allocated()) / sizeof(Undo);
     uint64_t needed = undo.size() + 1;
     if (needed > maximum)
-      throw std::length_error("transaction journal peak exceeds native budget");
+      throw JournalCapacityError(
+          "transaction journal peak exceeds native budget");
     uint64_t target = std::min(
         maximum,
         std::max(needed, std::max(uint64_t(8), uint64_t(undo.capacity()) * 2)));
     std::vector<Undo> candidate;
     candidate.reserve(static_cast<size_t>(target));
     if (allocated() + sizeof(Undo) * uint64_t(candidate.capacity()) > budget)
-      throw std::length_error("journal allocator peak exceeds native budget");
+      throw JournalCapacityError(
+          "journal allocator peak exceeds native budget");
     candidate.assign(undo.begin(), undo.end());
     undo.swap(candidate);
   }

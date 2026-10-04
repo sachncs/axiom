@@ -17,6 +17,7 @@
 namespace {
 using axiom::Block;
 using axiom::defaultBudget;
+using axiom::JournalCapacityError;
 using axiom::none;
 using axiom::Slot;
 using axiom::Store;
@@ -43,6 +44,17 @@ struct State {
 PyObject *error() {
   try {
     throw;
+  } catch (const JournalCapacityError &e) {
+    PyObject *module = PyImport_ImportModule("axiom.capacity");
+    if (!module)
+      return nullptr;
+    PyObject *type = PyObject_GetAttrString(module, "JournalCapacityError");
+    Py_DECREF(module);
+    if (!type)
+      return nullptr;
+    PyErr_SetString(type, e.what());
+    Py_DECREF(type);
+    return nullptr;
   } catch (const std::bad_alloc &) {
     return PyErr_NoMemory();
   } catch (const std::length_error &e) {

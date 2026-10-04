@@ -22,15 +22,21 @@ pressure.
 ## Decision
 
 Paper component journals raise the shared `JournalCapacityError` subtype of
-`MemoryError` when their configured cell bound is reached. Durable retries only
-that type. Other allocation failures propagate through the ordinary atomic
-failure path and restore the last committed paper state; they are not silently
-retried under a different batch shape.
+`MemoryError` when their configured cell bound is reached. Native graph storage
+uses that same Python exception when its configured memory budget cannot admit
+another undo record. Durable retries only that type. A native allocator failure
+(`std::bad_alloc`) remains an ordinary `MemoryError`; it is not treated as
+retryable journal pressure. Other allocation failures propagate through the
+ordinary atomic failure path and restore the last committed paper state; they
+are not silently retried under a different batch shape.
 
 ## Consequences
 
 - Capacity retry is explicit and independent of human-readable error wording.
 - Existing callers catching `MemoryError` remain compatible with the subtype.
+- Native undo-budget exhaustion can use the same bounded smaller-slice retry
+  policy as Python paper journals without weakening the configured budget or
+  confusing allocator exhaustion with journal admission.
 - The finite per-component journal limits remain in place; an intrinsically
   oversized single update can still fail atomically and must not be described
   as automatically scalable.
@@ -42,6 +48,10 @@ retried under a different batch shape.
 
 Both Basic and Multilevel tests inject typed capacity pressure and verify
 smaller-slice retry, cross-slice rollback, exact reopen state, and retryability.
+Native storage tests verify that undo-budget refusal has the exact shared
+exception type, does not mutate the rejected edit, and still rolls back prior
+edits exactly; other native allocation/capacity failures retain their existing
+classification.
 A new negative regression injects an unrelated `MemoryError` whose message
 contains the former retry phrase; Durable makes exactly one attempt, restores
 the committed state, and remains usable.
