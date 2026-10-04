@@ -8,6 +8,15 @@ transactions retain shallow attribute roots and enlist owner-specific journals.
 That removes recursive copy allocation; it does not establish durable paper
 state, billion-vertex support, or zero state-proportional work in every journal.
 
+Recent hot-path work reuses each changed endpoint's sorted neighbor row across
+all hierarchy levels during Multilevel certification, rather than sorting it
+once per level. `Spectrum.modify()` also no longer repeats pre-mutation
+certificates inside its journal scope, and its post-flip fan repair uses the
+per-vertex fan index instead of snapshotting all fans. Full independent entry
+and exit certificates remain, so neither change eliminates state-sized audit
+work. See [ADR 0111](adrs/0111-localize-modify-types-fan-repair.md) and
+[ADR 0112](adrs/0112-reuse-hierarchy-endpoint-neighbor-rows.md).
+
 ## Coupled state inventory
 
 | Owner | State that must survive rollback and recovery |

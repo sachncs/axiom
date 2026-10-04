@@ -34,7 +34,10 @@ pass required to establish the next level's bounds.
   bound; the release gate requires the complete dynamic hierarchy repair
   pipeline before making that claim.
 - Vertex labels are dense integers in `[0, n)`.
-- Instances are not thread-safe and must be externally synchronized.
+- Direct `Matcher`, graph, `System`, and `Hierarchy` instances are not
+  thread-safe and require caller synchronization. `Durable` serializes access
+  through its owner lock; `Service` provides the bounded threaded owner and is
+  the supported concurrent API.
 - Removed mode names, legacy imports, and deprecated compatibility aliases fail
   instead of being silently translated.
 

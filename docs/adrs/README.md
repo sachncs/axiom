@@ -163,6 +163,8 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Combine retained class roots and undo cells under one fixed 65,536-cell ceiling | Bound class undo by the exact retained membership universe, with a 65,536 floor (0108) | 65,537-cell rollback and cross-chunk atomic-retry regressions pass; Basic/Multilevel million-vertex smoke replays exactly, while original failure-trace and throughput qualification remain open |
 | Broadcast every deletion to all configured color classes, including empty ones | Maintain a rollback-aware sparse set of nonempty classes and visit only those (0109) | Empty-class call-count regression and exact index rollback pass; class-root admission and dense-class workloads remain unqualified |
 | Build the unique class-root registry, then make a second root-size pass | Build the registry and exact capacity bound in one pass (0110) | Existing alias/capacity/rollback tests pass; performance impact and production qualification remain pending |
+| Revalidate coloring/fans before and again inside a transaction, then sweep all fans after local path flips | Keep independent entry/exit certificates and repair only fans indexed at changed endpoints (0111) | 128-fan no-global-mutation-sweep regression passes; full boundary audits and end-to-end fan-density qualification remain |
+| Sort each changed endpoint's neighbor row once per hierarchy level | Reuse two sorted endpoint rows across the full hierarchy certificate (0112) | Three-level degree-63 hub proves one row read per endpoint; full durable performance qualification remains |
 
 ## What is not being abandoned
 
