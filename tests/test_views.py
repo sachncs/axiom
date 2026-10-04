@@ -369,15 +369,15 @@ def test_boolean_and_float_candidate_labels_cannot_pass_integer_equality(corrupt
     assert matcher.partner(0) == 1 and type(matcher.partner(0)) is int
 
 
-def test_changed_partner_boolean_rejects_before_using_it_as_a_vertex():
+def test_partner_index_rejects_boolean_before_journaled_mutation():
     graph = Packed(8)
     graph.add_edge(0, 1)
     matcher = Matcher(8, graph=graph)
     journal = Views(matcher)
     journal.record(0, 1)
-    matcher.partner_map[0] = True
-    with pytest.raises(RuntimeError, match="partner value type"):
-        journal.validate()
+    with pytest.raises(TypeError, match="partner must be an integer"):
+        matcher.partner_map[0] = True
+    assert matcher.partner_map[0] == 1
     journal.rollback()
     assert type(matcher.partner(0)) is int
 

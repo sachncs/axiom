@@ -23,6 +23,7 @@ from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.paper_coloring import Fan, Fans, Paper, Partial
+from axiom.partners import Partners
 from axiom.rebuild import Basic, Multilevel
 from axiom.storage import Packed
 from axiom.system import System
@@ -113,6 +114,7 @@ class Witness:
         Basic: frozenset(),
         Multilevel: frozenset(),
         Clocks: frozenset(),
+        Partners: frozenset(),
     }
 
     def __init__(
@@ -218,6 +220,10 @@ class Witness:
             if not value.check():
                 raise ValueError("invalid compact vertex partition")
             content = self.encode({"n": value.n, "members": sorted(value)}, depth + 1)
+        elif kind is Partners:
+            content = self.encode(
+                {"n": value.n, "entries": list(value.items())}, depth + 1
+            )
         else:
             attributes = vars(value)
             if attributes.keys() != self.schema[kind]:

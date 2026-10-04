@@ -52,6 +52,7 @@ from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import partners
 from axiom.paper_coloring import Paper
+from axiom.partners import Partners
 from axiom.rebuild import Basic, Multilevel
 from axiom.storage import Packed, publish
 from axiom.system import System
@@ -183,7 +184,7 @@ class Matcher:
         )
         self.matched_edges: Matching = set()
         self.matched_vertices = Vertices(n)
-        self.partner_map: dict[Vertex, Vertex] = {}
+        self.partner_map = Partners(n)
         self.views: Views | None = None
         self.classes: Classes | None = None
         self.systems: Systems | None = None
@@ -703,7 +704,12 @@ class Matcher:
 
         matching: Matching = set()
         matched = self.matched_vertices
-        if not isinstance(matched, Vertices) or len(matched) or self.views is not None:
+        if (
+            not isinstance(matched, Vertices)
+            or len(matched)
+            or self.update_count != 0
+            or self.views is not None
+        ):
             matched = Vertices(self.n)
         # The seed is supplied by the edge-colouring phase and must already
         # be a matching.  Silently dropping conflicting edges would change
@@ -735,7 +741,9 @@ class Matcher:
 
         self.matched_edges = matching
         self.matched_vertices = matched
-        result: dict[Vertex, Vertex] = {}
+        result = self.partner_map
+        if len(result) or self.update_count != 0 or self.views is not None:
+            result = Partners(self.n)
         for u, v in self.matched_edges:
             result[u] = v
             result[v] = u

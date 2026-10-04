@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from axiom.capacity import JournalCapacityError
 from axiom.matching import is_maximal_matching
+from axiom.partners import Partners
 from axiom.vertices import Vertices
 
 if TYPE_CHECKING:
@@ -39,11 +40,12 @@ class Views:
         if (
             type(self.edges) is not set
             or type(self.vertices) not in (set, Vertices)
-            or type(self.partners) is not dict
+            or not isinstance(self.partners, dict)
+            and type(self.partners) is not Partners
         ):
             raise TypeError(
-                "matching views require plain sets for edges, a plain dictionary, "
-                "and a plain set or compact vertex set"
+                "matching views require a plain edge set, a dictionary or compact "
+                "partner map, and a plain set or compact vertex set"
             )
         if id(self.edges) == id(self.vertices):
             raise ValueError("matching views cannot share a container")
