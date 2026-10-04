@@ -39,5 +39,10 @@ chunk-halving/replay path.
 Tests edit and exactly roll back a 65,536-entry row under the default journal
 limit, verify the original list identity, exercise shared aliases and repeated
 inverse operations, and force capacity failure before a delta mutates the row.
-Full Basic/Multilevel durable suites and the million-vertex hub profile remain
-required before making a scale or throughput claim.
+The Basic/Multilevel durable suites pass. One million-vertex run in each mode
+crossed the former 65,536-cell boundary and recovered exactly after 65,792
+operations. Basic measured 1,470 updates/s and 280 s recovery; Multilevel
+measured 215 updates/s and 951 s recovery with 1.96 GB peak RSS. These single
+runs confirm the capacity fix but are negative performance evidence, not
+repeatability or deployment qualification. Raw records are in
+[`benchmarks/results/durable`](../../benchmarks/results/durable/README.md).

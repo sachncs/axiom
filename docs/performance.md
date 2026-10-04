@@ -153,3 +153,7 @@ preloaded hub; it does not exercise burst admission, concurrent network load,
 hard quotas, or long-duration deployment behavior. Treat it as workload
 qualification evidence only after publishing all raw runs and independently
 reviewing throughput, tail latency, memory, SQLite growth, and recovery.
+The current one-run-per-mode records are in the
+[durable diagnostics](../benchmarks/results/durable/README.md). Both runs
+recovered exactly after the former journal boundary, but neither approaches
+10k updates/s and Multilevel recovery took nearly 16 minutes.

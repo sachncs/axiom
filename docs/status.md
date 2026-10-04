@@ -68,10 +68,13 @@ The one-million-vertex Basic hub-churn diagnostic exposed a separate fixed
 System-journal limit: a 65,280-entry sorted cache row could not be snapshotted
 within 65,536 journal cells. `Systems` now journals individual sorted-row
 edits and reverses them on rollback, retaining the aliased list identity
-without a row-sized copy. This fixes the admission failure mechanism; the first
-diagnostic was interrupted during committed-prefix recovery, so the same
-million-vertex skew profile must be rerun before claiming the fix qualified.
-See [ADR 0119](adrs/0119-delta-journal-system-rows.md).
+without a row-sized copy. Post-fix million-vertex runs in both modes crossed the
+old limit and recovered exactly, confirming the capacity fix. They are not
+qualification: Basic delivered 1,470 updates/s with 280 s replay; Multilevel
+delivered 215/s with 951 s replay and 1.96 GB peak RSS. Repeatability, compute
+cost and recovery time remain major open gates. See [ADR
+0119](adrs/0119-delta-journal-system-rows.md) and the
+[raw hub results](../benchmarks/results/durable/README.md).
 
 Durable hot-hub churn now has repeatable intermediate-restart coverage in both
 paper modes: every bounded prefix checks full graph/matching answers, the
