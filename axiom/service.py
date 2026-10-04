@@ -14,18 +14,22 @@ from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
 from typing import Generic, TypeVar, cast
+from uuid import UUID
 
 from axiom.durable import (
     MAX_READS,
     BusyError,
     CapacityError,
     Durable,
+    ExternalRequest,
+    ExternalSnapshot,
     HistoryPage,
     Outcome,
     ReadSnapshot,
     Request,
     UnavailableError,
 )
+from axiom.identifier import Identifier
 
 _T = TypeVar("_T")
 _MAX = (1 << 63) - 1
@@ -114,6 +118,8 @@ class _Work:
     receipts: list[Receipt[object]]
     request: Request | None = None
     requests: tuple[Request, ...] | None = None
+    external: ExternalRequest | None = None
+    externals: tuple[ExternalRequest, ...] | None = None
     action: Callable[[Durable], object] | None = None
     started_ns: int = 0
     finished: bool = False
@@ -386,6 +392,190 @@ class Service:
             self._accepted_one()
             return receipt
 
+    def register_identifier(self, value: str | int | UUID) -> Receipt[int]:
+        """Durably allocate an external identity in update admission order."""
+        Identifier.encode(value)
+        with self._condition:
+            self._admission(update=True)
+            receipt: Receipt[int] = Receipt()
+            work = _Work(
+                [cast(Receipt[object], receipt)],
+                action=lambda owner: owner.register_identifier(value),
+                explicit=True,
+            )
+            self._updates.append(work)
+            self._accepted_one()
+            return receipt
+
+    def submit_external(self, request: ExternalRequest) -> Receipt[Outcome]:
+        """Admit one durable update addressed by stable external identifiers."""
+        request = request.normalize()
+        # Mappings are immutable. Resolve before allocating a sequence so an
+        # invalid ID cannot leave an admission gap while later work is queued.
+        self._owner.resolve_identifier(request.u)
+        self._owner.resolve_identifier(request.v)
+        with self._condition:
+            self._admission(update=True)
+            if request.sequence > self._next_sequence:
+                raise ValueError(
+                    "new request sequences must be contiguous in admission order"
+                )
+            pending = self._pending.get(request.sequence)
+            if pending is not None and pending.external != request:
+                raise ValueError(
+                    "pending retry payload differs from its accepted request"
+                )
+            if pending is None and request.sequence == self._next_sequence:
+                if request.sequence > self._max_operations:
+                    raise CapacityError("durable operation history is exhausted")
+            receipt: Receipt[Outcome] = Receipt()
+            if pending is not None:
+                pending.receipts.append(cast(Receipt[object], receipt))
+            elif request.sequence == self._next_sequence:
+                work = _Work(
+                    [cast(Receipt[object], receipt)],
+                    external=request,
+                    action=lambda owner: owner.apply_external([request])[0],
+                    explicit=True,
+                )
+                self._pending[request.sequence] = work
+                try:
+                    self._updates.append(work)
+                except BaseException:
+                    del self._pending[request.sequence]
+                    raise
+                self._next_sequence += 1
+            else:
+                self._reads.append(
+                    _Work(
+                        [cast(Receipt[object], receipt)],
+                        external=request,
+                        action=lambda owner: owner.apply_external([request])[0],
+                    )
+                )
+            self._accepted_one()
+            return receipt
+
+    def submit_external_batch(
+        self, requests: Sequence[ExternalRequest]
+    ) -> Receipt[tuple[Outcome, ...]]:
+        """Admit one bounded atomic batch whose edges use external IDs."""
+        if type(requests) not in (list, tuple) or not requests:
+            raise ValueError("batch must be a nonempty list or tuple of requests")
+        if len(requests) > self._batch:
+            raise ValueError("batch exceeds configured durable batch limit")
+        batch = tuple(request.normalize() for request in requests)
+        if any(
+            right.sequence != left.sequence + 1
+            for left, right in zip(batch, batch[1:], strict=False)
+        ):
+            raise ValueError("batch request sequences must be contiguous")
+        for request in batch:
+            self._owner.resolve_identifier(request.u)
+            self._owner.resolve_identifier(request.v)
+
+        with self._condition:
+            self._admission(update=True)
+            first, last = batch[0].sequence, batch[-1].sequence
+            overlapping = [
+                self._pending.get(sequence) for sequence in range(first, last + 1)
+            ]
+            if any(work is not None for work in overlapping):
+                pending = overlapping[0]
+                if (
+                    pending is not None
+                    and pending.explicit
+                    and pending.action is not None
+                    and pending.externals == batch
+                    and all(work is pending for work in overlapping)
+                ):
+                    receipt: Receipt[tuple[Outcome, ...]] = Receipt()
+                    pending.receipts.append(cast(Receipt[object], receipt))
+                    self._accepted_one()
+                    return receipt
+                raise ValueError(
+                    "batch overlaps admitted work with different bounds or payload"
+                )
+            if last < self._next_sequence:
+                receipt = Receipt()
+                self._reads.append(
+                    _Work(
+                        [cast(Receipt[object], receipt)],
+                        externals=batch,
+                        action=lambda owner: owner.apply_external(batch),
+                        explicit=True,
+                    )
+                )
+            elif first == self._next_sequence:
+                if last > self._max_operations:
+                    raise CapacityError("durable operation history is exhausted")
+                receipt = Receipt()
+                work = _Work(
+                    [cast(Receipt[object], receipt)],
+                    externals=batch,
+                    action=lambda owner: owner.apply_external(batch),
+                    explicit=True,
+                )
+                try:
+                    for request in batch:
+                        self._pending[request.sequence] = work
+                    self._updates.append(work)
+                except BaseException:
+                    for request in batch:
+                        self._pending.pop(request.sequence, None)
+                    raise
+                self._next_sequence += len(batch)
+            else:
+                raise ValueError("new batch must begin at the next admission sequence")
+            self._accepted_one()
+            return receipt
+
+    def partner_external(
+        self, value: str | int | UUID
+    ) -> Receipt[tuple[int, str | int | UUID | None]]:
+        """Queue a partner query returning only stable external identifiers."""
+        Identifier.encode(value)
+        return self._read(lambda owner: owner.partner_external(value))
+
+    def has_edge_external(
+        self, left: str | int | UUID, right: str | int | UUID
+    ) -> Receipt[tuple[int, bool]]:
+        """Queue one versioned edge query by stable external identifiers."""
+        Identifier.encode(left)
+        Identifier.encode(right)
+        return self._read(lambda owner: owner.has_edge_external(left, right))
+
+    def read_snapshot_external(
+        self,
+        vertices: Sequence[str | int | UUID],
+        edges: Sequence[tuple[str | int | UUID, str | int | UUID]],
+        *,
+        expected_version: int | None = None,
+    ) -> Receipt[ExternalSnapshot]:
+        """Read a bounded set of external IDs at one committed version."""
+        if type(vertices) not in (list, tuple) or type(edges) not in (list, tuple):
+            raise ValueError("vertices and edges must be lists or tuples")
+        if len(vertices) + len(edges) > MAX_READS:
+            raise ValueError("read snapshot exceeds 4096 total queries")
+        if expected_version is not None:
+            _integer(expected_version, 0, _MAX, "expected_version")
+        for vertex in vertices:
+            Identifier.encode(vertex)
+        saved_edges: list[tuple[str | int | UUID, str | int | UUID]] = []
+        for edge in edges:
+            if type(edge) not in (list, tuple) or len(edge) != 2:
+                raise ValueError("each edge query must be a pair")
+            Identifier.encode(edge[0])
+            Identifier.encode(edge[1])
+            saved_edges.append((edge[0], edge[1]))
+        saved_vertices = tuple(vertices)
+        stable_edges = tuple(saved_edges)
+        return self._read(
+            lambda owner: owner.read_snapshot_external(
+                saved_vertices, stable_edges, expected_version=expected_version
+            )
+        )
+
     def partner(self, vertex: int) -> Receipt[tuple[int, int | None]]:
         """Queue a partner read on the serialized owner stream."""
         _integer(vertex, 0, self._vertices - 1, "vertex")
@@ -566,6 +756,11 @@ class Service:
                     self._pending.pop(request.sequence, None)
             elif work.request is not None:
                 self._pending.pop(work.request.sequence, None)
+            elif work.externals is not None:
+                for external_request in work.externals:
+                    self._pending.pop(external_request.sequence, None)
+            elif work.external is not None:
+                self._pending.pop(work.external.sequence, None)
 
     def _fail(self, error: BaseException, current: deque[_Work]) -> None:
         with self._condition:
@@ -625,7 +820,12 @@ class Service:
                             )
                         except UnavailableError:
                             raise
-                        except (ValueError, RuntimeError, MemoryError) as error:
+                        except (
+                            KeyError,
+                            ValueError,
+                            RuntimeError,
+                            MemoryError,
+                        ) as error:
                             # Reuse only a healthy, nonmutating rejection.
                             self._owner.status()
                             self._finish(work, None, error)

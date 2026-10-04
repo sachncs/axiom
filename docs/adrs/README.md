@@ -165,6 +165,7 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Build the unique class-root registry, then make a second root-size pass | Build the registry and exact capacity bound in one pass (0110) | Existing alias/capacity/rollback tests pass; performance impact and production qualification remain pending |
 | Revalidate coloring/fans before and again inside a transaction, then sweep all fans after local path flips | Keep independent entry/exit certificates and repair only fans indexed at changed endpoints (0111) | 128-fan no-global-mutation-sweep regression passes; full boundary audits and end-to-end fan-density qualification remain |
 | Sort each changed endpoint's neighbor row once per hierarchy level | Reuse two sorted endpoint rows across the full hierarchy certificate (0112) | Three-level degree-63 hub proves one row read per endpoint; full durable performance qualification remains |
+| Keep external identity mapping in process memory | Persist typed immutable IDs and monotonic fixed-universe slots in SQLite (0113) | Implementation underway; Service behavior and format migration are being tested; dynamic vertices and release qualification remain open |
 
 ## What is not being abandoned
 

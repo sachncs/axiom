@@ -22,9 +22,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from uuid import UUID
 
 from axiom.backup import copy as copy_backup
 from axiom.core import Matcher
+from axiom.identifier import Identifier
 from axiom.storage import Packed
 
 
@@ -59,6 +61,31 @@ class Request:
 
 
 @dataclass(frozen=True)
+class ExternalRequest:
+    """One sequenced edge update addressed by stable external identifiers."""
+
+    sequence: int
+    operation: Literal["insert", "delete"]
+    u: str | int | UUID
+    v: str | int | UUID
+
+    def normalize(self) -> ExternalRequest:
+        """Validate this request and canonicalize its undirected edge order."""
+        if (
+            type(self) is not ExternalRequest
+            or type(self.operation) is not str
+            or self.operation not in ("insert", "delete")
+        ):
+            raise ValueError("require a typed external insert/delete Request")
+        _integer(self.sequence, 1, _MAX, "sequence")
+        left = Identifier.encode(self.u)
+        right = Identifier.encode(self.v)
+        if right < left:
+            return ExternalRequest(self.sequence, self.operation, self.v, self.u)
+        return self
+
+
+@dataclass(frozen=True)
 class Outcome:
     """A durable request result and the graph version it produced."""
 
@@ -73,6 +100,15 @@ class ReadSnapshot:
 
     version: int
     partners: tuple[int | None, ...]
+    has_edges: tuple[bool, ...]
+
+
+@dataclass(frozen=True)
+class ExternalSnapshot:
+    """Version-coherent snapshot whose partner answers use external IDs."""
+
+    version: int
+    partners: tuple[str | int | UUID | None, ...]
     has_edges: tuple[bool, ...]
 
 
@@ -106,9 +142,12 @@ MAX_BATCH = 4096
 # component reports that its bounded undo journal is full. The Durable lock
 # and one SQLite transaction preserve caller-group atomicity across retries.
 PAPER_CHUNK = 8
-_FORMAT = "axiom-paper-sqlite-replay-v1"
+_FORMAT = "axiom-paper-sqlite-replay-v2"
+_LEGACY_FORMAT = "axiom-paper-sqlite-replay-v1"
+_IDENTIFIER_FORMAT = "typed-external-id-v1"
 _BACKENDS = {"basic": "paper-basic-v1", "multilevel": "paper-multilevel-v1"}
 _RECORD = struct.Struct("<QBII?Q")
+_IDENTITY_VERTEX = struct.Struct("<Q")
 _MAX = (1 << 63) - 1
 
 
@@ -282,6 +321,7 @@ class Durable:
                 "width": initial_width,
                 "max_batch": self._max_batch,
                 "max_operations": self._max_operations,
+                "identifier_codec": _IDENTIFIER_FORMAT,
             }
             self._metadata = json.dumps(config, sort_keys=True, separators=(",", ":"))
             self._tail = hashlib.sha256(self._metadata.encode()).digest()
@@ -299,6 +339,15 @@ class Durable:
                     "digest BLOB NOT NULL)"
                 )
                 database.execute(
+                    "CREATE TABLE identifiers (encoded BLOB PRIMARY KEY, "
+                    "vertex INTEGER NOT NULL UNIQUE, digest BLOB NOT NULL)"
+                )
+                database.execute(
+                    "CREATE TABLE identity_control ("
+                    "id INTEGER PRIMARY KEY CHECK(id=1), next_vertex INTEGER NOT NULL)"
+                )
+                database.execute("INSERT INTO identity_control VALUES(1, 0)")
+                database.execute(
                     "INSERT INTO control VALUES(1, ?, 0, ?, ?)",
                     (self._metadata, self._version, self._tail),
                 )
@@ -309,7 +358,14 @@ class Durable:
                 raise
             return
 
-        if tables != [("control",), ("operations",)]:
+        legacy = tables == [("control",), ("operations",)]
+        current = tables == [
+            ("control",),
+            ("identifiers",),
+            ("identity_control",),
+            ("operations",),
+        ]
+        if not legacy and not current:
             raise RecoveryError("unsupported database format; no compatibility reader")
         row = database.execute(
             "SELECT metadata,sequence,version,digest FROM control WHERE id=1"
@@ -329,19 +385,33 @@ class Durable:
                 )
             if (
                 type(config) is not dict
-                or config.get("format") != _FORMAT
+                or config.get("format") != (_LEGACY_FORMAT if legacy else _FORMAT)
                 or config.get("mode") != self._mode
                 or config.get("backend") != _BACKENDS[self._mode]
                 or set(config)
-                != {
-                    "format",
-                    "backend",
-                    "mode",
-                    "n",
-                    "width",
-                    "max_batch",
-                    "max_operations",
-                }
+                != (
+                    {
+                        "format",
+                        "backend",
+                        "mode",
+                        "n",
+                        "width",
+                        "max_batch",
+                        "max_operations",
+                    }
+                    if legacy
+                    else {
+                        "format",
+                        "backend",
+                        "mode",
+                        "n",
+                        "width",
+                        "max_batch",
+                        "max_operations",
+                        "identifier_codec",
+                    }
+                )
+                or (not legacy and config.get("identifier_codec") != _IDENTIFIER_FORMAT)
             ):
                 raise ValueError("unsupported format or mode")
             n = _integer(config["n"], 0, 0xFFFFFFFF, "stored n")
@@ -420,6 +490,326 @@ class Durable:
         ):
             raise RecoveryError("paper recovery disagrees with durable control state")
         self._count, self._version, self._tail = sequence, version, tail
+        if legacy:
+            self._upgrade_legacy(config)
+        else:
+            self._validate_identifiers()
+
+    def _upgrade_legacy(self, config: dict[str, object]) -> None:
+        """Upgrade a verified v1 operation log and re-root its digest chain."""
+        database = self._db()
+        upgraded = dict(config)
+        upgraded["format"] = _FORMAT
+        upgraded["identifier_codec"] = _IDENTIFIER_FORMAT
+        metadata = json.dumps(upgraded, sort_keys=True, separators=(",", ":"))
+        tail = hashlib.sha256(metadata.encode()).digest()
+        database.execute("BEGIN IMMEDIATE")
+        try:
+            database.execute(
+                "CREATE TABLE identifiers (encoded BLOB PRIMARY KEY, "
+                "vertex INTEGER NOT NULL UNIQUE, digest BLOB NOT NULL)"
+            )
+            database.execute(
+                "CREATE TABLE identity_control (id INTEGER PRIMARY KEY CHECK(id=1), "
+                "next_vertex INTEGER NOT NULL)"
+            )
+            database.execute("INSERT INTO identity_control VALUES(1, 0)")
+            database.execute("ALTER TABLE operations RENAME TO operations_v1")
+            database.execute(
+                "CREATE TABLE operations (sequence INTEGER PRIMARY KEY, "
+                "adding INTEGER NOT NULL, u INTEGER NOT NULL, v INTEGER NOT NULL, "
+                "changed INTEGER NOT NULL, version INTEGER NOT NULL, "
+                "digest BLOB NOT NULL)"
+            )
+            # V1 addressed vertices by integer slot. Preserve every slot ever
+            # referenced in retained history before allocating new typed IDs.
+            used = database.execute(
+                "SELECT u FROM operations_v1 UNION SELECT v FROM operations_v1"
+            ).fetchall()
+            next_vertex = 0
+            for (vertex,) in used:
+                encoded = Identifier.encode(vertex)
+                database.execute(
+                    "INSERT INTO identifiers VALUES(?, ?, ?)",
+                    (encoded, vertex, self._identity_digest(encoded, vertex)),
+                )
+                next_vertex = max(next_vertex, vertex + 1)
+            database.execute(
+                "UPDATE identity_control SET next_vertex=? WHERE id=1",
+                (next_vertex,),
+            )
+            rows = database.execute(
+                "SELECT sequence,adding,u,v,changed,version FROM operations_v1 "
+                "ORDER BY sequence"
+            )
+            for sequence, adding, left, right, changed, version in rows:
+                tail = _digest(
+                    tail, sequence, adding, left, right, bool(changed), version
+                )
+                database.execute(
+                    "INSERT INTO operations VALUES(?, ?, ?, ?, ?, ?, ?)",
+                    (sequence, adding, left, right, changed, version, tail),
+                )
+            database.execute("DROP TABLE operations_v1")
+            changed = database.execute(
+                "UPDATE control SET metadata=?,digest=? WHERE id=1 AND sequence=? "
+                "AND version=?",
+                (metadata, tail, self._count, self._version),
+            )
+            if changed.rowcount != 1:
+                raise RecoveryError("legacy control changed during upgrade")
+            database.execute("COMMIT")
+        except BaseException:
+            if database.in_transaction:
+                database.execute("ROLLBACK")
+            raise
+        self._metadata, self._tail = metadata, tail
+
+    @staticmethod
+    def _identity_digest(encoded: bytes, vertex: int) -> bytes:
+        """Bind a typed external ID to one monotonic internal vertex slot."""
+        return hashlib.sha256(
+            b"axiom-identifier-v1" + encoded + _IDENTITY_VERTEX.pack(vertex)
+        ).digest()
+
+    def _validate_identifiers(self) -> None:
+        """Audit the monotonic ID allocation and every persisted mapping."""
+        database = self._db()
+        control = database.execute(
+            "SELECT next_vertex FROM identity_control WHERE id=1"
+        ).fetchone()
+        if (
+            control is None
+            or database.execute("SELECT count(*) FROM identity_control").fetchone()[0]
+            != 1
+        ):
+            raise RecoveryError("invalid identifier allocation control")
+        try:
+            next_vertex = _integer(control[0], 0, self._n, "next identifier vertex")
+        except ValueError as error:
+            raise RecoveryError("invalid next identifier vertex") from error
+        previous = -1
+        for encoded, vertex, digest in database.execute(
+            "SELECT encoded,vertex,digest FROM identifiers ORDER BY vertex"
+        ):
+            try:
+                _integer(vertex, previous + 1, self._n - 1, "identifier vertex")
+                if type(encoded) is not bytes or type(digest) is not bytes:
+                    raise ValueError("identifier row types disagree")
+                decoded = Identifier.decode(encoded)
+                if Identifier.encode(decoded) != encoded:
+                    raise ValueError("identifier encoding is not canonical")
+                if digest != self._identity_digest(encoded, vertex):
+                    raise ValueError("identifier mapping digest disagrees")
+            except (TypeError, ValueError, struct.error) as error:
+                raise RecoveryError("invalid durable identifier mapping") from error
+            previous = vertex
+        if previous >= next_vertex:
+            raise RecoveryError("identifier allocation cursor disagrees with mappings")
+
+    def _resolve_identifier(self, value: str | int | UUID) -> int:
+        """Resolve one immutable mapping while the Durable lock is held."""
+        encoded = Identifier.encode(value)
+        row = (
+            self._db()
+            .execute(
+                "SELECT vertex,digest FROM identifiers WHERE encoded=?", (encoded,)
+            )
+            .fetchone()
+        )
+        if row is None:
+            raise KeyError("external identifier is not registered")
+        vertex, digest = row
+        try:
+            _integer(vertex, 0, self._n - 1, "identifier vertex")
+        except ValueError as error:
+            raise RecoveryError("identifier vertex is outside the graph") from error
+        if digest != self._identity_digest(encoded, vertex):
+            raise RecoveryError("identifier mapping digest disagrees")
+        if type(vertex) is not int:
+            raise RecoveryError("identifier vertex is not an integer")
+        return vertex
+
+    def register_identifier(self, value: str | int | UUID) -> int:
+        """Durably allocate the next never-reused fixed-universe vertex slot.
+
+        Registration is idempotent for an existing ID. Slots are assigned in
+        registration order and are not exposed by external update/query APIs.
+        The fixed internal universe remains bounded by ``n``.
+        """
+        encoded = Identifier.encode(value)
+        with self._exclusive():
+            database = self._db()
+            database.execute("BEGIN IMMEDIATE")
+            try:
+                existing = database.execute(
+                    "SELECT vertex,digest FROM identifiers WHERE encoded=?",
+                    (encoded,),
+                ).fetchone()
+                if existing is not None:
+                    vertex, digest = existing
+                    if (
+                        type(vertex) is not int
+                        or digest != self._identity_digest(encoded, vertex)
+                        or not 0 <= vertex < self._n
+                    ):
+                        raise RecoveryError("identifier mapping digest disagrees")
+                    database.execute("COMMIT")
+                    return vertex
+
+                row = database.execute(
+                    "SELECT next_vertex FROM identity_control WHERE id=1"
+                ).fetchone()
+                if row is None:
+                    raise RecoveryError("identifier allocation control is missing")
+                vertex = _integer(row[0], 0, self._n, "next identifier vertex")
+                if vertex >= self._n:
+                    raise CapacityError(
+                        "fixed vertex universe has no free identifier slots"
+                    )
+                database.execute(
+                    "INSERT INTO identifiers VALUES(?, ?, ?)",
+                    (encoded, vertex, self._identity_digest(encoded, vertex)),
+                )
+                changed = database.execute(
+                    "UPDATE identity_control SET next_vertex=? "
+                    "WHERE id=1 AND next_vertex=?",
+                    (vertex + 1, vertex),
+                )
+                if changed.rowcount != 1:
+                    raise RecoveryError("identifier allocation cursor changed")
+                database.execute("COMMIT")
+                return vertex
+            except BaseException:
+                if database.in_transaction:
+                    database.execute("ROLLBACK")
+                raise
+
+    def resolve_identifier(self, value: str | int | UUID) -> int:
+        """Return the permanent internal slot for one registered external ID."""
+        with self._exclusive():
+            return self._resolve_identifier(value)
+
+    def external_identifier(self, vertex: int) -> str | int | UUID | None:
+        """Return the external ID for a slot, or None when it is unregistered."""
+        with self._exclusive():
+            _integer(vertex, 0, self._n - 1, "vertex")
+            return self._external_identifier(vertex)
+
+    def _external_identifier(self, vertex: int) -> str | int | UUID | None:
+        """Return a reverse mapping with the Durable lock already held."""
+        row = (
+            self._db()
+            .execute("SELECT encoded,digest FROM identifiers WHERE vertex=?", (vertex,))
+            .fetchone()
+        )
+        if row is None:
+            return None
+        encoded, digest = row
+        if type(encoded) is not bytes or digest != self._identity_digest(
+            encoded, vertex
+        ):
+            raise RecoveryError("identifier mapping digest disagrees")
+        try:
+            return Identifier.decode(encoded)
+        except (TypeError, ValueError) as error:
+            raise RecoveryError("identifier mapping is malformed") from error
+
+    def apply_external(
+        self, requests: Sequence[ExternalRequest]
+    ) -> tuple[Outcome, ...]:
+        """Resolve stable IDs and durably apply their bounded edge update group."""
+        if type(requests) not in (list, tuple) or len(requests) > self._max_batch:
+            raise CapacityError("require a list/tuple no larger than max_batch")
+        normalized: list[Request] = []
+        for request in requests:
+            if (
+                type(request) is not ExternalRequest
+                or type(request.operation) is not str
+                or request.operation not in ("insert", "delete")
+            ):
+                raise ValueError("require typed external insert/delete requests")
+            _integer(request.sequence, 1, _MAX, "sequence")
+            left = self.resolve_identifier(request.u)
+            right = self.resolve_identifier(request.v)
+            normalized.append(
+                Request(
+                    request.sequence,
+                    request.operation,
+                    min(left, right),
+                    max(left, right),
+                )
+            )
+        return self.apply(normalized)
+
+    def partner_external(
+        self, value: str | int | UUID
+    ) -> tuple[int, str | int | UUID | None]:
+        """Return a version-coherent partner using external identity values."""
+        with self._exclusive():
+            vertex = self._resolve_identifier(value)
+            partner = self._matcher.partner(vertex)
+            external = None if partner is None else self._external_identifier(partner)
+            if partner is not None and external is None:
+                raise RecoveryError("matched partner has no registered external ID")
+            return self._version, external
+
+    def has_edge_external(
+        self, left: str | int | UUID, right: str | int | UUID
+    ) -> tuple[int, bool]:
+        """Query topology by external IDs at the committed graph version."""
+        with self._exclusive():
+            u = self._resolve_identifier(left)
+            v = self._resolve_identifier(right)
+            return self._version, self._matcher.graph.has_edge(u, v)
+
+    def read_snapshot_external(
+        self,
+        vertices: Sequence[str | int | UUID],
+        edges: Sequence[tuple[str | int | UUID, str | int | UUID]],
+        *,
+        expected_version: int | None = None,
+    ) -> ExternalSnapshot:
+        """Resolve and answer a bounded external-ID snapshot under one lock."""
+        if type(vertices) not in (list, tuple) or type(edges) not in (list, tuple):
+            raise ValueError("vertices and edges must be lists or tuples")
+        if len(vertices) + len(edges) > MAX_READS:
+            raise ValueError("read snapshot exceeds 4096 total queries")
+        if expected_version is not None:
+            _integer(expected_version, 0, _MAX, "expected_version")
+        with self._exclusive():
+            if expected_version is not None and expected_version != self._version:
+                raise RuntimeError("stale snapshot version")
+            resolved_vertices = tuple(
+                self._resolve_identifier(value) for value in vertices
+            )
+            resolved_edges = tuple(
+                (
+                    self._resolve_identifier(left),
+                    self._resolve_identifier(right),
+                )
+                for left, right in edges
+            )
+            partners = tuple(
+                self._matcher.partner(vertex) for vertex in resolved_vertices
+            )
+            externalpartners = tuple(
+                None if partner is None else self._external_identifier(partner)
+                for partner in partners
+            )
+            if any(
+                partner is not None and external is None
+                for partner, external in zip(partners, externalpartners, strict=True)
+            ):
+                raise RecoveryError("matched partner has no registered external ID")
+            return ExternalSnapshot(
+                self._version,
+                externalpartners,
+                tuple(
+                    self._matcher.graph.has_edge(left, right)
+                    for left, right in resolved_edges
+                ),
+            )
 
     def _transition(self, adding: bool, left: int, right: int) -> bool:
         existed = self._matcher.graph.has_edge(left, right)

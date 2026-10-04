@@ -41,8 +41,10 @@ from axiom.color import (
     recolor,
 )
 from axiom.core import Matcher
+from axiom.durable import ExternalRequest, ExternalSnapshot
 from axiom.graph import Adjacency
 from axiom.hierarchy import Hierarchy, build_hierarchy
+from axiom.identifier import Identifier
 from axiom.ledger import Ledger
 from axiom.matching import greedy, partner_in, partners
 from axiom.paper_coloring import Paper
@@ -66,6 +68,9 @@ __version__ = "0.6.0.dev0"
 
 __all__ = [
     "Matcher",
+    "ExternalRequest",
+    "ExternalSnapshot",
+    "Identifier",
     "Adjacency",
     "Packed",
     "Greedy",

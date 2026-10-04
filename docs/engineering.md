@@ -30,10 +30,11 @@ is graph storage, not a matcher. See [ADR
 and global work; qualify Basic and Multilevel independently for repeatability,
 skew, adversarial updates, sustained performance, recovery cost, and service
 resource limits. Durable recovery currently replays operation history; there
-is no paper-state decoder/checkpoint. **Deferred:** physical hardware power-loss
-qualification is deferred for this version. Arbitrary external IDs, dynamic
-vertices, network transport, and billion-vertex support are not implemented or
-claimed.
+is no paper-state decoder/checkpoint. Typed immutable external IDs now have a
+SQLite mapping and Service API within the fixed vertex universe; dynamic vertex
+lifecycle remains unimplemented. **Deferred:** physical hardware power-loss
+qualification is deferred for this version. Network transport and
+billion-vertex support are not implemented or claimed.
 
 Historical native-engine rates and deployment measurements preserved below are
 provenance only, not qualification of current paper modes. Any older statement

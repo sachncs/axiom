@@ -23,6 +23,32 @@ with Service("graph.db", n=128, mode="basic", queue_capacity=256) as graph:
 
 ## Admission, ordering, and durability
 
+Applications can register exact strings, signed 64-bit integers, or UUIDs with
+`register_identifier(value)`. Its receipt completes after the mapping is
+durable; retain and use the external ID in application code.
+`submit_external()` and `submit_external_batch()` accept `ExternalRequest`
+values, while `partner_external()`, `has_edge_external()`, and
+`read_snapshot_external()` return external identities at a coherent committed
+version. Register every endpoint before submitting updates. An unknown ID
+rejects that request without stopping a healthy Service. Mappings are
+immutable and never reused, but registration is limited by the configured
+fixed vertex count: dynamic vertex growth and deletion are not supported. A
+verified SQLite v1 operation log is transactionally migrated to v2 on open.
+
+```python
+from uuid import uuid4
+
+from axiom.durable import ExternalRequest
+from axiom.service import Service
+
+worker, job = uuid4(), uuid4()
+with Service("graph.db", n=128) as graph:
+    graph.register_identifier(worker).result(timeout=5)
+    graph.register_identifier(job).result(timeout=5)
+    graph.submit_external(ExternalRequest(1, "insert", worker, job)).result(timeout=5)
+    print(graph.partner_external(worker).result(timeout=5))
+```
+
 `submit()` admits one request. The application assigns one contiguous sequence
 stream and coordinates IDs with admission order across client threads. Nearby
 individual requests may share one SQLite transaction. `submit_batch()` reserves
