@@ -1,6 +1,6 @@
 # 0023: Integrate paper algorithms into durable production
 
-Date: 2026-10-03. Status: **implementation underway; independent qualification pending**.
+Date: 2026-10-03. Status: **implemented; independent qualification pending**.
 
 ## Context
 
@@ -25,10 +25,12 @@ shared lifecycle contract and mode-specific implementations for mutation,
 validation, publication, rollback and recovery. Persist algorithm identity and
 construction parameters. Opening a store with incompatible parameters must
 reject, never reinterpret its history. New production stores default to `basic`;
-selecting `multilevel` is explicit. Existing native-format stores must remain
-read or migrate native-format stores. No native compatibility reader, matcher,
-or migration-only service mode remains. Old stores are unsupported and must fail
-closed with a direct format error, never silently open as Basic or Multilevel.
+selecting `multilevel` is explicit. Stores written by the removed native matcher
+are unsupported and fail closed with a direct format error. No native
+compatibility reader, matcher, or migration-only service mode remains; such a
+store is never silently opened as Basic or Multilevel. This rejection is
+distinct from migration of the former paper v1 operation-log schema, which
+retains its own explicit schema migration path.
 
 Paper recovery must reproduce the exact accepted graph, matching,
 coloring/fans, hierarchy and accounting—not merely any valid matching with the
@@ -62,10 +64,12 @@ remove all remaining graph-sized paper-state work or establish every storage,
 package, deployment, or workload qualification. The former native format is
 intentionally unsupported and fails closed; no compatibility shim remains.
 
-Implemented prerequisite: the bounded full-state `Witness` diagnostic compares
-paper replay prefixes and failure rollback, including aliases and redundant
-indexes. See the [state inventory and exclusions](../paper-state.md). It has no
-decoder and does not make paper modes durable or remove their snapshots.
+The bounded full-state `Witness` diagnostic compares paper replay prefixes and
+failure rollback, including aliases and redundant indexes. It is a test oracle,
+not a decoder or production persistence format. Durable Basic/Multilevel are
+implemented through operation-log replay; Witness neither provides a compact
+paper-state codec nor removes remaining update-time snapshots. See the
+[state inventory and exclusions](../paper-state.md).
 
 - Both paper modes through the same admission/query/update/reopen workflow.
 - Failure before repair, during fan collisions/chain flips, hierarchy rebuilds,
