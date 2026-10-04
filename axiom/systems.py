@@ -14,7 +14,7 @@ from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
 from axiom.capacity import JournalCapacityError
-from axiom.storage import Packed
+from axiom.graph import packed_backed
 from axiom.types import Edge, Graph, Vertex
 from axiom.vertices import Vertices
 
@@ -82,6 +82,7 @@ class Systems:
                 "M",
                 "lambda_lists",
                 "L_lists",
+                "implicit_all_u_neighbors",
                 "journal",
             }:
                 raise TypeError("unsupported System fields")
@@ -91,6 +92,15 @@ class Systems:
                     for name in ("A", "B", "U")
                 )
                 or type(attributes["M"]) is not set
+                or type(attributes["implicit_all_u_neighbors"]) is not bool
+                or (
+                    attributes["implicit_all_u_neighbors"]
+                    and (
+                        attributes["A"]
+                        or attributes["B"]
+                        or len(attributes["U"]) != owner.n
+                    )
+                )
                 or any(
                     type(attributes[name]) is Vertices and attributes[name].n != owner.n
                     for name in ("A", "B", "U")
@@ -106,7 +116,7 @@ class Systems:
                 container = attributes[name]
                 if type(container) is not dict:
                     raise TypeError("System caches require plain maps")
-                packed = type(system.graph) is Packed
+                packed = packed_backed(system.graph)
                 compact = self.mapcompact.get(id(container))
                 if compact is not None and compact != packed:
                     raise TypeError("shared cache maps require matching graph backends")
@@ -117,7 +127,10 @@ class Systems:
                 ):
                     raise TypeError("System caches require backend-compatible rows")
                 self.maps[id(container)] = container
-            self.reserve(len(attributes))
+            # The derived implicit-row marker is constant metadata and does
+            # not consume a journal cell; preserve the existing admission
+            # budget when that implementation detail is present.
+            self.reserve(len(attributes) - 1)
             self.roots[id(system)] = system, dict(attributes)
         for entry in self.roots.values():
             object.__setattr__(entry[0], "journal", self)
@@ -254,6 +267,7 @@ class Systems:
                 "M",
                 "lambda_lists",
                 "L_lists",
+                "implicit_all_u_neighbors",
                 "journal",
             }:
                 raise TypeError("unsupported System candidate fields")
@@ -263,6 +277,11 @@ class Systems:
                     for name in ("A", "B", "U")
                 )
                 or type(system.M) is not set
+                or type(system.implicit_all_u_neighbors) is not bool
+                or (
+                    system.implicit_all_u_neighbors
+                    and (system.A or system.B or len(system.U) != self.owner.n)
+                )
             ):
                 raise TypeError("System candidate requires bounded set storage")
             for name in ("A", "B", "U"):
@@ -282,7 +301,7 @@ class Systems:
                 container = getattr(system, name)
                 if type(container) is not dict:
                     raise TypeError("System candidate requires plain maps")
-                packed = type(system.graph) is Packed
+                packed = packed_backed(system.graph)
                 compact = self.mapcompact.get(id(container))
                 if compact is not None and compact != packed:
                     raise TypeError("shared cache maps require matching graph backends")

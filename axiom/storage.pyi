@@ -1,9 +1,28 @@
 """Typed interface to native, bounded segmented graph storage."""
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 
 def publish(participants: list[tuple[Packed, int]]) -> None:
     """Validate every journal before an allocation-free group commit."""
+    ...
+
+def isolated_class_roots(
+    owner_list: Sequence[object],
+    slots: Sequence[object],
+    seed: object,
+    registry: Mapping[int, object],
+) -> bool:
+    """Check exact color-root ownership and reject untracked strong aliases."""
+    ...
+
+def class_root_registry(
+    slots: Sequence[object], seed: object
+) -> tuple[dict[int, object], int]:
+    """Build unique class roots and count retained membership cells."""
+    ...
+
+def plain_set_list(values: Sequence[object]) -> bool:
+    """Return whether every list member is an exact built-in set."""
     ...
 
 class Packed:
@@ -29,6 +48,10 @@ class Packed:
 
     def remove_edge(self, u: int, v: int, *, strict: bool = False) -> None:
         """Remove an edge atomically without allocating undo state."""
+        ...
+
+    def edit_certified(self, u: int, v: int, adding: bool) -> None:
+        """Apply one edit and validate its version, count, degrees and membership."""
         ...
 
     def has_edge(self, u: int, v: int) -> bool:

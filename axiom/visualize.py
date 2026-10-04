@@ -73,7 +73,7 @@ def visualize_system(system: System, width: int = 60) -> str:
     if system.lambda_lists:
         lines.append("\nΛ(u) LISTS (for u ∈ U):")
         for u in sorted(system.U):
-            neighbors = system.lambda_lists.get(u, [])
+            neighbors = system.lambda_neighbors(u)
             lines.append(f"  Λ({u}) = {neighbors}")
 
     if system.L_lists:

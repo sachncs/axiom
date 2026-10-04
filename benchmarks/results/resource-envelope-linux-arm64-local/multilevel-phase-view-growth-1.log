@@ -1,0 +1,119 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=9.571
+resource query-worker secondary failure=RuntimeError('partner-query load failed; owner_failure=MemoryError()')
+Traceback (most recent call last):
+  File "/workspace/axiom/graph.py", line 370, in neighbors
+    row = set(self.root.neighbors(v))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/axiom/profiling.py", line 50, in profile_stage
+    yield
+  File "/workspace/axiom/system.py", line 468, in index
+    values = sorted(
+             ^^^^^^^
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/axiom/rebuild.py", line 56, in copy
+    copied.index()
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/axiom/durable.py", line 311, in _new_matcher
+    return Matcher(n, mode=self._mode, graph=graph)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/core.py", line 256, in __init__
+    self._rebuild()
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/axiom/durable.py", line 1134, in _apply_inner
+    self._restore_committed_matcher()
+  File "/workspace/axiom/durable.py", line 963, in _restore_committed_matcher
+    ) = self._replay_operations(self._n, self._width, self._metadata)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MemoryError
+
+The above exception was the direct cause of the following exception:
+
+axiom.durable.UnavailableError: aborted group could not restore committed paper state
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1093, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 973, in run
+    update_seconds, queries = self.update(service)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 895, in update
+    outcomes = service.submit_batch(requests).result(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/service.py", line 127, in result
+    raise self._error
+  File "/workspace/axiom/service.py", line 860, in _run
+    outcomes = self._owner.apply(
+               ^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 1022, in apply
+    return self._apply_inner(requests)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MemoryError
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1095, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1063, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '1000000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

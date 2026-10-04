@@ -8,6 +8,63 @@ transactions retain shallow attribute roots and enlist owner-specific journals.
 That removes recursive copy allocation; it does not establish durable paper
 state, billion-vertex support, or zero state-proportional work in every journal.
 
+## Operation memory and profiling contract
+
+Run `benchmarks/profile_paper_memory.py` in a fresh process for each mode to
+record startup `system.index` and `matching.construct` stages. Set
+`AXIOM_PROFILE_STAGES=1` when running `benchmarks/durable.py` to also record
+durable apply, matcher atomic batches, durable replay, and recovery. Records
+include elapsed time, RSS before and after each stage (current resident pages
+on Linux; process high-water RSS on macOS), and Python allocation current/peak
+values. The startup diagnostic also records vertex/edge counts, graph storage,
+partitions, and cache row/entry counts. Tracemalloc changes memory and runtime,
+so profiled measurements are diagnostic and must not be compared with the
+untraced 512 MiB resource-envelope run. Qualification RSS comes from the
+constrained worker; traced Python peaks explain Python-owned allocation and do
+not include native graph capacity.
+
+For a large `Packed` graph whose degree cap proves the all-U partition,
+`System` stores no duplicate Lambda rows: Lambda reads use the graph's sorted
+neighbor rows directly, and graph updates keep that view current. The
+representation is enabled at 65,536 vertices to keep small-graph cache and
+journal behavior unchanged. Other partitions retain materialized Lambda/L
+indexes and their full certificates. Immutable Multilevel phase-base systems
+also omit mutable cache rows; child refinement copies only structural roots
+and constructs its working indexes as needed.
+
+| Operation | Work bound | Additional allocation budget |
+| --- | --- | --- |
+| Insert or delete | Local repair proportional to the incident rows and matching/hierarchy work actually visited; a phase boundary may trigger a full rebuild | Transaction journals scale with touched cells and are subject to each owner's configured capacity; no complete Matcher snapshot |
+| Batch | Sum of its accepted operation work, with one atomic publication boundary | Bounded by the configured operation count and the enlisted journals' capacities; rollback retains only their before-images |
+| Basic rebuild | `O(n + m)` construction and certification | One active graph plus required partition, matching, and cache state; temporary state must be reported by stage and may not hide another graph-sized copy |
+| Multilevel rebuild | `O(k(n + m))` worst-case across `k` hierarchy levels, with refinement costs measured separately | Shared unchanged roots; detached graph roots are created only at ownership boundaries and counted in the stage report |
+| Rollback | Proportional to journaled writes and inverse graph deltas | Write-set before-images only, bounded by journal admission; rollback must restore exact logical state and root aliases |
+| Recovery | `O(h + rebuild)` for `h` retained operations and the mode's reconstruction work | One active Matcher plus a bounded replay slice; failed candidates are released before retry or reopen |
+
+The replay and durable update slices are capped at 256 operations per Matcher
+transaction (`PAPER_CHUNK`); an externally atomic Durable group may contain at
+most 4,096 requests. Retry after journal-capacity pressure halves the private
+slice and starts from the committed state. These configured limits are the
+hard transient-work bounds; the per-component journal admission limits cap
+their before-images. On the current macOS/Python diagnostic host, three traced
+one-million-vertex startup samples measured Python allocation peaks of
+58,182,751–58,187,708 bytes for Basic and 64,443,695–64,448,947 bytes for
+Multilevel, with process peak RSS of 191,283,200–191,332,352 and
+245,612,544–254,705,664 bytes respectively. Treat these as measured startup
+baselines, not Linux address-space budgets; update/recovery transient peaks
+must be compared against the same stage fields in traced durable runs.
+
+These are engineering budgets, not new latency SLAs. Reports must include retained
+graph/cache bytes and transient stage peaks so measured values can be compared
+with these bounds. Keep native graph capacity, Python traced allocation, and
+process RSS as separate quantities.
+
+Three one-million-vertex macOS traced startup repeats per mode are retained in
+the [memory profile summary](../benchmarks/results/paper/memory-profile-macos-2026-10-04-summary.json)
+with individual stage records. These current measurements do not establish the
+constrained Linux gate.
+See [ADR 0144](adrs/0144-implicit-all-u-neighbor-rows.md).
+
 Recent hot-path work reuses each changed endpoint's sorted neighbor row across
 all hierarchy levels during Multilevel certification, rather than sorting it
 once per level. `Spectrum.modify()` also no longer repeats pre-mutation

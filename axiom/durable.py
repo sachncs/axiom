@@ -29,6 +29,7 @@ from axiom.backup import copy as copy_backup
 from axiom.capacity import JournalCapacityError
 from axiom.core import Matcher
 from axiom.identifier import Identifier
+from axiom.profiling import profile_stage
 from axiom.storage import Packed
 
 
@@ -242,7 +243,10 @@ class Durable:
                 self._path, isolation_level=None, timeout=0, check_same_thread=False
             )
             self._configure(max_database_bytes)
-            self._recover(n, width)
+            with profile_stage(
+                "durable.recovery",
+            ):
+                self._recover(n, width)
             directory = os.open(self._path.parent, os.O_RDONLY | os.O_DIRECTORY)
             try:
                 os.fsync(directory)
@@ -307,6 +311,21 @@ class Durable:
         return Matcher(n, mode=self._mode, graph=graph)
 
     def _replay_operations(
+        self, n: int, width: int, metadata: str
+    ) -> tuple[Matcher, int, int, int, bytes]:
+        """Profile and reconstruct the committed operation prefix."""
+        history_operations = (
+            self._db().execute("SELECT count(*) FROM operations").fetchone()[0]
+        )
+        with profile_stage(
+            "durable.replay",
+            vertices=n,
+            base_edges=width * n,
+            history_operations=history_operations,
+        ):
+            return self._replay_operations_inner(n, width, metadata)
+
+    def _replay_operations_inner(
         self, n: int, width: int, metadata: str
     ) -> tuple[Matcher, int, int, int, bytes]:
         """Reconstruct one exact operation prefix in bounded atomic slices."""
@@ -983,43 +1002,77 @@ class Durable:
             _integer(request.u, 0, self._matcher.n - 1, "u")
             _integer(request.v, 0, self._matcher.n - 1, "v")
             result.append(
-                Request(
+                request
+                if request.u <= request.v
+                else Request(
                     request.sequence,
                     request.operation,
-                    min(request.u, request.v),
-                    max(request.u, request.v),
+                    request.v,
+                    request.u,
                 )
             )
         return tuple(result)
 
     def apply(self, requests: Sequence[Request]) -> tuple[Outcome, ...]:
+        """Profile and durably publish one bounded update group atomically."""
+        with profile_stage(
+            "durable.apply",
+            vertices=self._n,
+            edges=self._matcher.graph.num_edges(),
+            requests=len(requests) if isinstance(requests, (list, tuple)) else -1,
+        ):
+            return self._apply_inner(requests)
+
+    def _apply_inner(self, requests: Sequence[Request]) -> tuple[Outcome, ...]:
         """Durably publish one contiguous bounded update group atomically."""
         with self._exclusive():
             requests = self._validate(requests)
-            plans: dict[int, Request] = {}
-            outcomes: dict[int, Outcome] = {}
-            next_sequence = self._count + 1
-            for request in requests:
-                previous = plans.get(request.sequence)
-                if previous is not None:
-                    if previous != request:
-                        raise ValueError("conflicting payload for duplicate sequence")
-                elif request.sequence <= self._count:
-                    outcomes[request.sequence] = self._retry(request)
-                    plans[request.sequence] = request
-                elif request.sequence == next_sequence:
-                    plans[request.sequence] = request
-                    next_sequence += 1
-                else:
-                    raise ValueError("new operation sequences must be contiguous")
-
-            fresh = tuple(
-                request for seq, request in plans.items() if seq > self._count
+            contiguous_fresh = (
+                bool(requests) and requests[0].sequence == self._count + 1
             )
+            if contiguous_fresh:
+                for offset, request in enumerate(requests):
+                    if request.sequence != self._count + offset + 1:
+                        contiguous_fresh = False
+                        break
+            if contiguous_fresh:
+                # The service's steady-state path sends one ordered, new
+                # sequence range. Keep retries, duplicates and reordering on
+                # the general path, while avoiding two per-batch hash maps for
+                # the common contiguous commit.
+                fresh = requests
+                outcomes_by_sequence: dict[int, Outcome] | None = None
+                fresh_outcomes: list[Outcome] = []
+            else:
+                plans: dict[int, Request] = {}
+                outcomes_by_sequence = {}
+                next_sequence = self._count + 1
+                for request in requests:
+                    previous = plans.get(request.sequence)
+                    if previous is not None:
+                        if previous != request:
+                            raise ValueError(
+                                "conflicting payload for duplicate sequence"
+                            )
+                    elif request.sequence <= self._count:
+                        outcomes_by_sequence[request.sequence] = self._retry(request)
+                        plans[request.sequence] = request
+                    elif request.sequence == next_sequence:
+                        plans[request.sequence] = request
+                        next_sequence += 1
+                    else:
+                        raise ValueError("new operation sequences must be contiguous")
+                fresh = tuple(
+                    request for seq, request in plans.items() if seq > self._count
+                )
+                fresh_outcomes = []
             if self._count + len(fresh) > self._max_operations:
                 raise CapacityError("bounded operation history is full")
             if not fresh:
-                return tuple(outcomes[request.sequence] for request in requests)
+                assert outcomes_by_sequence is not None
+                return tuple(
+                    outcomes_by_sequence[request.sequence] for request in requests
+                )
             if self._version + len(fresh) > _MAX:
                 raise CapacityError("graph version exhausted")
 
@@ -1039,15 +1092,16 @@ class Durable:
                     rows.clear()
                     tail = self._tail
                     version = self._version
-                    for request in fresh:
-                        outcomes.pop(request.sequence, None)
+                    if outcomes_by_sequence is None:
+                        fresh_outcomes.clear()
+                    else:
+                        for request in fresh:
+                            outcomes_by_sequence.pop(request.sequence, None)
                     try:
-                        chunks = tuple(
-                            fresh[offset : offset + chunk_size]
-                            for offset in range(0, len(fresh), chunk_size)
-                        )
-                        for index, chunk in enumerate(chunks):
-                            final = index + 1 == len(chunks)
+                        offset = 0
+                        while offset < len(fresh):
+                            chunk = fresh[offset : offset + chunk_size]
+                            final = offset + len(chunk) == len(fresh)
                             with self._matcher.batch(
                                 max_operations=len(chunk),
                                 before_publish=persist if final else None,
@@ -1078,9 +1132,14 @@ class Durable:
                                             tail,
                                         )
                                     )
-                                    outcomes[request.sequence] = Outcome(
+                                    outcome = Outcome(
                                         request.sequence, changed, version
                                     )
+                                    if outcomes_by_sequence is None:
+                                        fresh_outcomes.append(outcome)
+                                    else:
+                                        outcomes_by_sequence[request.sequence] = outcome
+                            offset += len(chunk)
                         break
                     except JournalCapacityError as capacity_error:
                         self._clear_error_frames(capacity_error)
@@ -1091,7 +1150,11 @@ class Durable:
                 self._count += len(fresh)
                 self._version = version
                 self._tail = tail
-                return tuple(outcomes[request.sequence] for request in requests)
+                if outcomes_by_sequence is None:
+                    return tuple(fresh_outcomes)
+                return tuple(
+                    outcomes_by_sequence[request.sequence] for request in requests
+                )
             except BaseException as group_error:
                 try:
                     if self._db().in_transaction:

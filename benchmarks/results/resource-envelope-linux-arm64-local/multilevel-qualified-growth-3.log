@@ -1,0 +1,196 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=5.651
+resource updates=100096 update_seconds=4.678 query_count=403 groups=391 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 100096, "inserted_incident_rows": 200192, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 160448512, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 313204736}
+resource updates=200192 update_seconds=9.486 query_count=806 groups=782 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 200192, "inserted_incident_rows": 400384, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 217141248, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 335224832}
+resource updates=300032 update_seconds=14.386 query_count=1207 groups=1172 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 300032, "inserted_incident_rows": 600064, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 244391936, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 358293504}
+resource updates=400128 update_seconds=19.439 query_count=1616 groups=1563 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 400128, "inserted_incident_rows": 800256, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 313655296, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 423309312}
+resource updates=500224 update_seconds=24.664 query_count=2018 groups=1954 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 499776, "inserted_incident_rows": 999552, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 340905984, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 445329408}
+resource updates=600064 update_seconds=28.712 query_count=2419 groups=2344 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 399936, "inserted_incident_rows": 799872, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 340905984, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 445329408}
+resource updates=700160 update_seconds=32.707 query_count=2821 groups=2735 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 299840, "inserted_incident_rows": 599680, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 340905984, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 445329408}
+resource updates=800000 update_seconds=36.641 query_count=3222 groups=3125 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 200000, "inserted_incident_rows": 400000, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 340905984, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 445329408}
+resource updates=900096 update_seconds=40.557 query_count=3625 groups=3516 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 99904, "inserted_incident_rows": 199808, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 340905984, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 445329408}
+resource updates=1000000 update_seconds=51.502 query_count=4025 groups=3907 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 292446208, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 394993664}
+resource phase=service-updates-complete seconds=51.502589923000414 query_count=4025
+resource phase=backup-start
+resource phase=backup-complete seconds=62.003
+resource phase=Memory-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=3.944
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=3.905
+resource phase=Memory-complete seconds=83.625
+resource phase=Disk-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=3.948
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=3.945
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=3.952
+resource phase=Disk-complete seconds=125.515
+{
+  "scope": "installed Linux resource exhaustion and exact recovery; NOT performance/power-loss qualification",
+  "python": "3.12.15",
+  "platform": "Linux-6.8.0-117-generic-aarch64-with-glibc2.41",
+  "vertices": 1000000,
+  "paper_mode": "multilevel",
+  "sequence": 1000000,
+  "update_seconds": 51.502589923000414,
+  "updates_per_second": 19416.49927693078,
+  "cycle": 1000000,
+  "limits": {
+    "address": [
+      536870912,
+      536870912
+    ],
+    "filesystem": 182907904
+  },
+  "peak": 442093568,
+  "working": 342564864,
+  "state": {
+    "version": 1000001,
+    "sequence": 1000000,
+    "vertices": 1000000,
+    "edges": 2000000,
+    "matching": 500000,
+    "graph_bytes": 61003336,
+    "mode": "multilevel",
+    "sqlite": "3.46.1",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 1000000,
+    "max_batch": 256,
+    "history_operations": 1000000
+  },
+  "metrics": {
+    "state": "open",
+    "capacity": 4096,
+    "query_reserve": 1,
+    "update_admission_limit": 4095,
+    "maintenance_capacity": 1,
+    "maintenance_outstanding": 0,
+    "outstanding": 0,
+    "peak_outstanding": 2,
+    "accepted": 7936,
+    "completed": 7936,
+    "failed_work": 0,
+    "groups": 3907,
+    "largest_group": 256,
+    "batch_limit": 256,
+    "batch_wait_ns": 1000000,
+    "next_admission_sequence": 1000001,
+    "update_latency_le_100000_ns": 0,
+    "update_latency_le_500000_ns": 0,
+    "update_latency_le_1000000_ns": 0,
+    "update_latency_le_5000000_ns": 0,
+    "update_latency_le_10000000_ns": 1813,
+    "update_latency_le_50000000_ns": 3903,
+    "update_latency_le_100000000_ns": 3906,
+    "update_latency_le_500000000_ns": 3906,
+    "update_latency_le_1000000000_ns": 3906,
+    "update_latency_le_5000000000_ns": 3906,
+    "update_latency_le_30000000000_ns": 3907,
+    "read_latency_le_100000_ns": 121,
+    "read_latency_le_500000_ns": 123,
+    "read_latency_le_1000000_ns": 345,
+    "read_latency_le_5000000_ns": 801,
+    "read_latency_le_10000000_ns": 3103,
+    "read_latency_le_50000000_ns": 4024,
+    "read_latency_le_100000000_ns": 4025,
+    "read_latency_le_500000000_ns": 4025,
+    "read_latency_le_1000000000_ns": 4025,
+    "read_latency_le_5000000000_ns": 4025,
+    "read_latency_le_30000000000_ns": 4026,
+    "maintenance_latency_le_100000_ns": 0,
+    "maintenance_latency_le_500000_ns": 0,
+    "maintenance_latency_le_1000000_ns": 0,
+    "maintenance_latency_le_5000000_ns": 1,
+    "maintenance_latency_le_10000000_ns": 1,
+    "maintenance_latency_le_50000000_ns": 1,
+    "maintenance_latency_le_100000000_ns": 1,
+    "maintenance_latency_le_500000000_ns": 1,
+    "maintenance_latency_le_1000000000_ns": 1,
+    "maintenance_latency_le_5000000000_ns": 3,
+    "maintenance_latency_le_30000000000_ns": 3,
+    "update_latency_le_infinity_ns": 3907,
+    "read_latency_le_infinity_ns": 4026,
+    "maintenance_latency_le_infinity_ns": 3,
+    "update_latency_sum_ns": 49888870312,
+    "read_latency_sum_ns": 39764528839,
+    "maintenance_latency_sum_ns": 4848436079
+  },
+  "partner_queries": {
+    "count": 4025,
+    "latency_ms": {
+      "minimum": 0.039917,
+      "mean": 9.975880806211181,
+      "maximum": 7054.611122,
+      "p50_upper_bound": 10,
+      "p95_upper_bound": 25,
+      "p99_upper_bound": 25,
+      "p999_upper_bound": 50,
+      "buckets_ms_upper_bounds": [
+        0.1,
+        0.25,
+        0.5,
+        1,
+        2,
+        5,
+        10,
+        25,
+        50,
+        100,
+        250,
+        500,
+        1000,
+        null
+      ],
+      "bucket_counts": [
+        109,
+        0,
+        1,
+        164,
+        152,
+        361,
+        2120,
+        1081,
+        35,
+        1,
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  "backup": 55414784,
+  "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+  "pressure": {
+    "Memory": {
+      "allocated": 241762304,
+      "failure": "MemoryError",
+      "failed_group": 4096,
+      "pressure_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "rollback_verified": true,
+      "verified": true
+    },
+    "Disk": {
+      "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "checkpoint": {
+        "written": 67862528,
+        "failed": true,
+        "result": null,
+        "complete": false,
+        "digest": "005612a17673f8fa7dc769cc3272024d40b3f59191b06c3cd7d3f577b7cd4cfe",
+        "verified": true
+      },
+      "update": {
+        "update_written": 67821568,
+        "update_sequence": 3,
+        "update_outcome": "acknowledged-or-retried-exactly",
+        "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+        "verified": true
+      }
+    }
+  },
+  "verified": true
+}

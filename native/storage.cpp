@@ -9,6 +9,7 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -200,6 +201,40 @@ PyObject *add(Packed *self, PyObject *args, PyObject *kwargs) {
 }
 PyObject *remove(Packed *self, PyObject *args, PyObject *kwargs) {
   return edit(self, args, kwargs, false);
+}
+PyObject *editCertified(Packed *self, PyObject *arguments) {
+  if (!guard(self))
+    return nullptr;
+  PyObject *left;
+  PyObject *right;
+  int adding = 0;
+  if (!PyArg_ParseTuple(arguments, "OOp:edit_certified", &left, &right,
+                        &adding))
+    return nullptr;
+  uint32_t u, v;
+  if (!vertex(self, left, u) || !vertex(self, right, v))
+    return nullptr;
+  Store &graph = *self->graph;
+  const uint64_t version = graph.version;
+  const uint64_t count = graph.count;
+  const uint32_t leftDegree = graph.degrees[u];
+  const uint32_t rightDegree = graph.degrees[v];
+  try {
+    const bool changed = adding ? graph.add(u, v) : graph.remove(u, v);
+    const uint64_t delta = adding ? 1 : uint64_t(-1);
+    if (!changed || graph.version != version + 1 ||
+        graph.count != count + delta ||
+        graph.degrees[u] != leftDegree + (adding ? 1 : uint32_t(-1)) ||
+        graph.degrees[v] != rightDegree + (adding ? 1 : uint32_t(-1)) ||
+        graph.has(u, v) != bool(adding) || graph.has(v, u) != bool(adding)) {
+      PyErr_SetString(PyExc_RuntimeError,
+                      "native edge mutation failed its local certificate");
+      return nullptr;
+    }
+  } catch (...) {
+    return error();
+  }
+  Py_RETURN_NONE;
 }
 PyObject *has(Packed *self, PyObject *args) {
   PyObject *left, *right;
@@ -449,6 +484,8 @@ PyMethodDef methods[] = {
     {"remove_edge", reinterpret_cast<PyCFunction>(remove),
      METH_VARARGS | METH_KEYWORDS,
      "Remove both endpoints after journal reservation."},
+    {"edit_certified", reinterpret_cast<PyCFunction>(editCertified), METH_VARARGS,
+     "Mutate a graph edge and check the exact local certificate in native code."},
     {"has_edge", reinterpret_cast<PyCFunction>(has), METH_VARARGS,
      "Test edge membership."},
     {"degree", reinterpret_cast<PyCFunction>(degree), METH_O,
@@ -556,9 +593,142 @@ PyObject *publish(PyObject *module, PyObject *participants) {
   }
   Py_RETURN_NONE;
 }
+PyObject *isolatedClassRoots(PyObject *, PyObject *arguments) {
+  PyObject *ownerList;
+  PyObject *slots;
+  PyObject *seed;
+  PyObject *registry;
+  if (!PyArg_ParseTuple(arguments, "OOOO:isolated_class_roots", &ownerList,
+                        &slots, &seed, &registry))
+    return nullptr;
+  if (!PyList_CheckExact(ownerList) || !PyTuple_CheckExact(slots) ||
+      !PySet_CheckExact(seed) || !PyDict_CheckExact(registry) ||
+      PyList_GET_SIZE(ownerList) != PyTuple_GET_SIZE(slots)) {
+    Py_RETURN_FALSE;
+  }
+
+  try {
+    std::unordered_map<PyObject *, Py_ssize_t> occurrences;
+    occurrences.reserve(static_cast<size_t>(PyTuple_GET_SIZE(slots)) + 1);
+    for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(slots); ++index) {
+      PyObject *matching = PyTuple_GET_ITEM(slots, index);
+      if (!PySet_CheckExact(matching) ||
+          PyList_GET_ITEM(ownerList, index) != matching) {
+        Py_RETURN_FALSE;
+      }
+      ++occurrences[matching];
+    }
+    occurrences.try_emplace(seed, 0);
+    if (static_cast<Py_ssize_t>(occurrences.size()) !=
+        PyDict_GET_SIZE(registry)) {
+      Py_RETURN_FALSE;
+    }
+
+    Py_ssize_t position = 0;
+    PyObject *key;
+    PyObject *matching;
+    while (PyDict_Next(registry, &position, &key, &matching)) {
+      if (!PyLong_Check(key) || !PySet_CheckExact(matching))
+        Py_RETURN_FALSE;
+      void *identity = PyLong_AsVoidPtr(key);
+      if (PyErr_Occurred())
+        return nullptr;
+      auto found = occurrences.find(matching);
+      if (identity != matching || found == occurrences.end())
+        Py_RETURN_FALSE;
+      const Py_ssize_t expected = 2 * found->second + 1 + 4 * (matching == seed);
+      if (Py_REFCNT(matching) != expected)
+        Py_RETURN_FALSE;
+    }
+  } catch (const std::bad_alloc &) {
+    return PyErr_NoMemory();
+  } catch (const std::exception &exception) {
+    PyErr_SetString(PyExc_RuntimeError, exception.what());
+    return nullptr;
+  }
+  Py_RETURN_TRUE;
+}
+PyObject *plainSetList(PyObject *, PyObject *object) {
+  if (!PyList_CheckExact(object))
+    Py_RETURN_FALSE;
+  for (Py_ssize_t index = 0; index < PyList_GET_SIZE(object); ++index) {
+    if (!PySet_CheckExact(PyList_GET_ITEM(object, index)))
+      Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+PyObject *classRootRegistry(PyObject *, PyObject *arguments) {
+  PyObject *slots;
+  PyObject *seed;
+  if (!PyArg_ParseTuple(arguments, "OO:class_root_registry", &slots, &seed))
+    return nullptr;
+  if (!PyTuple_CheckExact(slots) || !PySet_CheckExact(seed)) {
+    PyErr_SetString(PyExc_TypeError,
+                    "class roots require a tuple and exact seed set");
+    return nullptr;
+  }
+  PyObject *registry = PyDict_New();
+  if (!registry)
+    return nullptr;
+  Py_ssize_t retained = 0;
+  const Py_ssize_t count = PyTuple_GET_SIZE(slots);
+  for (Py_ssize_t index = 0; index <= count; ++index) {
+    PyObject *matching = index == count ? seed : PyTuple_GET_ITEM(slots, index);
+    if (!PySet_CheckExact(matching)) {
+      Py_DECREF(registry);
+      PyErr_SetString(PyExc_TypeError, "color classes require plain sets");
+      return nullptr;
+    }
+    PyObject *key = PyLong_FromVoidPtr(matching);
+    if (!key) {
+      Py_DECREF(registry);
+      return nullptr;
+    }
+    const int present = PyDict_Contains(registry, key);
+    if (present < 0) {
+      Py_DECREF(key);
+      Py_DECREF(registry);
+      return nullptr;
+    }
+    if (!present) {
+      const Py_ssize_t size = PySet_GET_SIZE(matching);
+      if (size > PY_SSIZE_T_MAX - retained) {
+        Py_DECREF(key);
+        Py_DECREF(registry);
+        PyErr_SetString(PyExc_OverflowError,
+                        "color class membership count exceeds platform size");
+        return nullptr;
+      }
+      retained += size;
+      if (PyDict_SetItem(registry, key, matching) < 0) {
+        Py_DECREF(key);
+        Py_DECREF(registry);
+        return nullptr;
+      }
+    }
+    Py_DECREF(key);
+  }
+  PyObject *result = PyTuple_New(2);
+  PyObject *countObject = PyLong_FromSsize_t(retained);
+  if (!result || !countObject) {
+    Py_XDECREF(result);
+    Py_XDECREF(countObject);
+    Py_DECREF(registry);
+    return nullptr;
+  }
+  PyTuple_SET_ITEM(result, 0, registry);
+  PyTuple_SET_ITEM(result, 1, countObject);
+  return result;
+}
 PyMethodDef moduleMethods[] = {
     {"publish", publish, METH_O,
      "Validate all participants, then commit without allocation."},
+    {"isolated_class_roots", isolatedClassRoots, METH_VARARGS,
+     "Prove journal class roots have no untracked strong aliases."},
+    {"plain_set_list", plainSetList, METH_O,
+     "Check that a list contains only exact built-in sets."},
+    {"class_root_registry", classRootRegistry, METH_VARARGS,
+     "Build the unique color-root registry and count retained memberships."},
     {nullptr, nullptr, 0, nullptr}};
 int execute(PyObject *module) {
   auto *s = reinterpret_cast<State *>(PyModule_GetState(module));

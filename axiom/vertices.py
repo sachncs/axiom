@@ -124,7 +124,11 @@ class Vertices:
 
     def copy(self) -> Vertices:
         """Return an independent compact copy, preserving member order."""
-        copied = Vertices(self.n)
+        # Bypass __init__: constructing an empty position table first would
+        # retain an unnecessary second 4-byte-per-vertex allocation while
+        # cloning a dense partition under a tight recovery memory limit.
+        copied = object.__new__(Vertices)
+        copied.n = self.n
         copied.positions = array(self.positions.typecode, self.positions)
         copied.members = array(self.members.typecode, self.members)
         copied.size = self.size

@@ -1,0 +1,42 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=4.994
+resource updates=100096 update_seconds=3.932 query_count=400 groups=391 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 100096, "inserted_incident_rows": 200192, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": {"active": 0, "allocated": 38166088, "budget": 67108864}, "resident_bytes": 222388224, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 357806080}
+resource updates=200192 update_seconds=7.930 query_count=798 groups=782 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 200192, "inserted_incident_rows": 400384, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": {"active": 0, "allocated": 38166088, "budget": 67108864}, "resident_bytes": 280334336, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 457420800}
+resource updates=300032 update_seconds=11.917 query_count=1191 groups=1172 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 300032, "inserted_incident_rows": 600064, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": {"active": 0, "allocated": 38166088, "budget": 67108864}, "resident_bytes": 317198336, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 489926656}
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 65, in run
+    read = self.service.partner(vertex).result(self.timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/service.py", line 127, in result
+    raise self._error
+axiom.durable.UnavailableError: owner failed; close/recover and retry original request IDs
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1081, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1075, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 955, in run
+    update_seconds, queries = self.update(service)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 923, in update
+    queries = worker.stop()
+              ^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 116, in stop
+    self.check()
+  File "/workspace/scripts/verify_resource_envelope.py", line 108, in check
+    raise RuntimeError("partner-query load failed") from self.error
+RuntimeError: partner-query load failed
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1081, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1077, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1045, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '1000000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

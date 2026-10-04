@@ -1,0 +1,39 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=9.533
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 65, in run
+    read = self.service.partner(vertex).result(self.timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/service.py", line 127, in result
+    raise self._error
+axiom.durable.UnavailableError: owner failed; close/recover and retry original request IDs
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1011, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1005, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 885, in run
+    update_seconds, queries = self.update(service)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 853, in update
+    queries = worker.stop()
+              ^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 116, in stop
+    self.check()
+  File "/workspace/scripts/verify_resource_envelope.py", line 108, in check
+    raise RuntimeError("partner-query load failed") from self.error
+RuntimeError: partner-query load failed
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1011, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1007, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 975, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '1000000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

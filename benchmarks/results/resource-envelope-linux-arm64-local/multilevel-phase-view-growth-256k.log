@@ -1,0 +1,108 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=2.398
+resource updates=100096 update_seconds=3.960 query_count=401 groups=391 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 256000}]}, "inserted_edges": 100096, "inserted_incident_rows": 200192, "live_graph": {"active": 0, "allocated": 15619336, "budget": 134217728}, "matched_edges": 128000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 189734912, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 256000, "lambda_entries": 1024000, "lambda_rows": 256000}, "virtual_bytes": 335654912}
+resource updates=200192 update_seconds=7.834 query_count=800 groups=782 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 256000}]}, "inserted_edges": 55808, "inserted_incident_rows": 111616, "live_graph": {"active": 0, "allocated": 15619336, "budget": 134217728}, "matched_edges": 128000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 197353472, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 256000, "lambda_entries": 1024000, "lambda_rows": 256000}, "virtual_bytes": 341946368}
+resource updates=296000 update_seconds=15.344 query_count=1185 groups=1157 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 256000}]}, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 15619336, "budget": 134217728}, "matched_edges": 128000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 176840704, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 256000, "lambda_entries": 1024000, "lambda_rows": 256000}, "virtual_bytes": 294752256}
+resource phase=service-updates-complete seconds=15.348078600999543 query_count=1186
+resource phase=backup-start
+resource phase=backup-complete seconds=19.908
+resource phase=Memory-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=1.480
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=1.489
+resource phase=Memory-complete seconds=28.816
+resource phase=Disk-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=1.484
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=1.456
+Traceback (most recent call last):
+  File "/workspace/axiom/profiling.py", line 50, in profile_stage
+    yield
+  File "/workspace/axiom/core.py", line 266, in _rebuild
+    self.policy.rebuild(self)
+  File "/workspace/axiom/rebuild.py", line 431, in rebuild
+    working_system = copy(
+                     ^^^^^
+  File "/workspace/axiom/rebuild.py", line 56, in copy
+    copied.index()
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/axiom/core.py", line 256, in __init__
+    self._rebuild()
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/axiom/durable.py", line 249, in __init__
+    self._recover(n, width)
+  File "/workspace/axiom/durable.py", line 584, in _recover
+    ) = self._replay_operations(n, saved_width, metadata)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1093, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 1003, in run
+    results[type(pressure).__name__] = pressure.apply()
+                                       ^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 716, in apply
+    update = self.update(update_database, update_digest, update_audit)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 787, in update
+    with Durable(database, mode=self.mode, budget=128 << 20) as owner:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MemoryError
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1095, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1063, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '256000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

@@ -9,7 +9,7 @@ import pytest
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.storage import Packed
-from axiom.system import System
+from axiom.system import System, build
 from axiom.systems import Systems
 from axiom.witness import Witness
 
@@ -64,6 +64,23 @@ def test_system_update_validates_only_first_write_rows(monkeypatch):
     assert 0 < checked < rows
     assert matcher.system is not None
     assert matcher.system.check()
+
+
+def test_large_all_u_packed_system_uses_live_graph_neighbor_rows():
+    graph = Packed(1 << 16)
+    graph.ring(2)
+    system = build(graph, 8)
+
+    assert system.implicit_all_u_neighbors
+    assert not system.lambda_lists
+    assert list(system.lambda_neighbors(0)) == [1, 2, (1 << 16) - 2, (1 << 16) - 1]
+    assert system.check()
+
+    graph.add_edge(0, 3)
+    system.update(0, 3, True)
+
+    assert list(system.lambda_neighbors(0)) == [1, 2, 3, (1 << 16) - 2, (1 << 16) - 1]
+    assert system.check()
 
 
 def test_local_cache_row_corruption_fails_and_restores_exact_state():

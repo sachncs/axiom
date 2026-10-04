@@ -1,0 +1,53 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=4.957
+resource updates=100096 update_seconds=3.946 query_count=395 groups=391 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 100096, "inserted_incident_rows": 200192, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": {"active": 0, "allocated": 38166088, "budget": 67108864}, "resident_bytes": 221257728, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 356786176}
+resource updates=200192 update_seconds=7.971 query_count=790 groups=782 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 200192, "inserted_incident_rows": 400384, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": {"active": 0, "allocated": 38166088, "budget": 67108864}, "resident_bytes": 279207936, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 456400896}
+resource updates=300032 update_seconds=11.993 query_count=1191 groups=1172 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 300032, "inserted_incident_rows": 600064, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": {"active": 0, "allocated": 38166088, "budget": 67108864}, "resident_bytes": 316067840, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 487858176}
+resource query-worker secondary failure=RuntimeError('partner-query load failed; owner_failure=MemoryError()')
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1097, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1091, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 971, in run
+    update_seconds, queries = self.update(service)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 895, in update
+    outcomes = service.submit_batch(requests).result(30)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/service.py", line 127, in result
+    raise self._error
+  File "/workspace/axiom/service.py", line 860, in _run
+    outcomes = self._owner.apply(
+               ^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 1022, in apply
+    return self._apply_inner(requests)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 1086, in _apply_inner
+    changed = self._transition(
+              ^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 920, in _transition
+    self._matcher.insert(left, right)
+  File "/workspace/axiom/core.py", line 981, in insert
+    self.__add_inserted_edge(edge)
+  File "/workspace/axiom/core.py", line 580, in __add_inserted_edge
+    incident_add(self.inserted_incident_edges, left, edge, self.auxiliary)
+  File "/workspace/axiom/auxiliary.py", line 21, in incident_add
+    journal.add(container, key, item)
+  File "/workspace/axiom/auxiliary.py", line 197, in add
+    self.assign(container, key, values)
+  File "/workspace/axiom/auxiliary.py", line 165, in assign
+    container[key] = value
+    ~~~~~~~~~^^^^^
+MemoryError
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1097, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1093, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1061, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '1000000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

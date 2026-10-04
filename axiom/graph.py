@@ -29,9 +29,17 @@ Thread-safety:
 from __future__ import annotations
 
 from collections.abc import Iterator
+from heapq import merge
 
 from axiom.storage import Packed
 from axiom.types import Edge, Graph, Vertex
+
+
+def packed_backed(graph: Graph) -> bool:
+    """Return whether a graph yields ordered rows from native Packed storage."""
+    return type(graph) is Packed or (
+        type(graph) is PhaseBaseGraph and type(graph.root) is Packed
+    )
 
 
 def empty(graph: Graph) -> Graph:
@@ -41,7 +49,17 @@ def empty(graph: Graph) -> Graph:
     mutators need not be suitable for internal phase/coloring construction.
     Native graphs retain their universe and per-container allocation budget.
     """
-    return graph.empty() if isinstance(graph, Packed) else Adjacency(graph.n)
+    if isinstance(graph, Packed):
+        return graph.empty()
+    if isinstance(graph, PhaseBaseGraph) and isinstance(graph.root, Packed):
+        memory = graph.root.memory()
+        # The live graph and phase graph are both retained. Reserving the
+        # live graph's full growth budget a second time consumes virtual
+        # address space even when those pages are untouched. Keep 20 MiB over
+        # the current allocation for the bounded phase projection.
+        budget = min(memory["budget"], max(64 << 20, memory["allocated"] + (20 << 20)))
+        return Packed(graph.root.n, budget=budget)
+    return Adjacency(graph.n)
 
 
 class Adjacency:
@@ -290,3 +308,100 @@ class Adjacency:
             g.adj[u] = set(self.adj[u])
         g.edge_count = self.edge_count
         return g
+
+
+class PhaseBaseGraph:
+    """Read-only phase-start topology projected from live graph plus deltas.
+
+    ``inserted`` contains live edges absent from the phase base; ``deleted``
+    contains phase-base edges absent from the live graph. Per-vertex incidence
+    maps make neighbor reads proportional to the row and its local overlay.
+    The owner journals all four roots, so this view follows updates and exact
+    rollback without retaining another graph-sized snapshot.
+    """
+
+    __slots__ = ("root", "inserted", "deleted", "inserted_at", "deleted_at")
+
+    def __init__(
+        self,
+        root: Graph,
+        inserted: set[Edge],
+        deleted: set[Edge],
+        inserted_at: dict[Vertex, set[Edge] | list[Edge] | tuple[Edge, ...]],
+        deleted_at: dict[Vertex, set[Edge] | list[Edge] | tuple[Edge, ...]],
+    ) -> None:
+        """Bind the authoritative live graph and its journaled phase deltas."""
+        self.root = root
+        self.inserted = inserted
+        self.deleted = deleted
+        self.inserted_at = inserted_at
+        self.deleted_at = deleted_at
+
+    @property
+    def n(self) -> int:
+        """Return the fixed vertex universe."""
+        return self.root.n
+
+    @property
+    def version(self) -> int:
+        """Expose the live root's journal version for rollback diagnostics."""
+        return getattr(self.root, "version", 0)
+
+    def add_edge(self, u: Vertex, v: Vertex) -> None:
+        """Reject mutation; phase-base topology is owned by its live overlays."""
+        raise RuntimeError("phase-base graph views are read-only")
+
+    def remove_edge(self, u: Vertex, v: Vertex) -> None:
+        """Reject mutation; phase-base topology is owned by its live overlays."""
+        raise RuntimeError("phase-base graph views are read-only")
+
+    def has_edge(self, u: Vertex, v: Vertex) -> bool:
+        """Test the phase-start edge relation in constant expected time."""
+        if not 0 <= u < self.n or not 0 <= v < self.n or u == v:
+            return False
+        edge = (min(u, v), max(u, v))
+        return edge in self.deleted or (
+            edge not in self.inserted and self.root.has_edge(u, v)
+        )
+
+    def degree(self, v: Vertex) -> int:
+        """Return a row degree after applying endpoint-local phase deltas."""
+        return sum(1 for _ in self.neighbors(v))
+
+    def neighbors(self, v: Vertex) -> Iterator[Vertex]:
+        """Yield sorted phase-base neighbors with local deltas applied."""
+        if type(v) is not int or not 0 <= v < self.n:
+            raise ValueError("vertex outside phase-base graph universe")
+        inserted_row = self.inserted_at.get(v, ())
+        deleted_row = self.deleted_at.get(v, ())
+        if not inserted_row and not deleted_row:
+            # The million-vertex startup and most sparse rows have no phase
+            # deltas. Preserve the native backend's ordered iterator and avoid
+            # allocating Python merge/filter generators per vertex.
+            yield from self.root.neighbors(v)
+            return
+        base = self.root.neighbors(v)
+        if not isinstance(self.root, Packed):
+            base = iter(sorted(base))
+
+        def visible_base() -> Iterator[Vertex]:
+            for neighbor in base:
+                edge = (min(v, neighbor), max(v, neighbor))
+                if edge not in self.inserted:
+                    yield neighbor
+
+        restored = sorted(right if left == v else left for left, right in deleted_row)
+        previous = -1
+        for neighbor in merge(visible_base(), iter(restored)):
+            if neighbor != previous:
+                yield neighbor
+                previous = neighbor
+
+    def edges(self) -> Iterator[Edge]:
+        """Stream sorted phase-base edges without materializing the graph."""
+        live = (edge for edge in self.root.edges() if edge not in self.inserted)
+        yield from merge(live, iter(sorted(self.deleted)))
+
+    def num_edges(self) -> int:
+        """Return phase-base edge count from the live count and overlay sizes."""
+        return self.root.num_edges() - len(self.inserted) + len(self.deleted)

@@ -46,16 +46,19 @@ from __future__ import annotations
 from array import array
 from bisect import bisect_left
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeAlias, Union
 
-from axiom.graph import Adjacency
+from axiom.graph import Adjacency, PhaseBaseGraph, packed_backed
+from axiom.profiling import profile_stage
 from axiom.storage import Packed
 from axiom.types import Edge, Graph, Matching, Vertex, canonical
 from axiom.vertices import Vertices
 
 CacheRow: TypeAlias = Union[list[Vertex], "array[int]"]
+IMPLICIT_NEIGHBOR_MIN_VERTICES = 1 << 16
+
 
 if TYPE_CHECKING:
     from axiom.systems import Systems
@@ -107,6 +110,7 @@ class System:
     M: set[Edge] = field(default_factory=set)
     lambda_lists: dict[Vertex, CacheRow] = field(default_factory=dict)
     L_lists: dict[Vertex, CacheRow] = field(default_factory=dict)
+    implicit_all_u_neighbors: bool = field(default=False, repr=False)
     journal: Systems | None = field(
         default_factory=lambda: None, init=False, repr=False, compare=False
     )
@@ -331,6 +335,13 @@ class System:
             :math:`O(n + m)` dominated by the recomputation of the
             expected lists.
         """
+        if self.implicit_all_u_neighbors:
+            return (
+                not self.A
+                and not self.B
+                and len(self.U) == self.graph.n
+                and not self.lambda_lists
+            )
         if (
             type(self.lambda_lists) is not dict
             or any(vertex not in self.U for vertex in self.lambda_lists)
@@ -360,6 +371,8 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        if self.implicit_all_u_neighbors:
+            return not self.A and not self.L_lists
         if (
             type(self.L_lists) is not dict
             or any(vertex not in self.A for vertex in self.L_lists)
@@ -390,6 +403,15 @@ class System:
         Complexity:
             :math:`O(n + m)`.
         """
+        return self.check_structure() and self.check_lambda() and self.check_L()
+
+    def check_structure(self) -> bool:
+        """Check graph, matching, partition, and degree invariants only.
+
+        Immutable phase-base systems do not use Lambda/L caches during child
+        refinement. This check lets those roots omit cache allocation while
+        retaining the structural certificates required at rebuild boundaries.
+        """
         return (
             self.check_edges()
             and self.check_no_u_u_edges()
@@ -398,8 +420,6 @@ class System:
             and self.check_u()
             and self.check_p1()
             and self.check_p2()
-            and self.check_lambda()
-            and self.check_L()
         )
 
     def index(self) -> None:
@@ -414,50 +434,73 @@ class System:
             :math:`O(n + m)`.  The list is sorted to make
             maximality-equality checks deterministic.
         """
-        self.lambda_lists = {}
-        if type(self.graph) is Packed:
-            # Packed.neighbors() already yields sorted labels. Build each final
-            # compact row directly: constructing a Python list and then copying
-            # it into an array temporarily doubles cache-row storage during
-            # large recovery/rebuilds under a fixed address-space limit.
-            for u in self.U:
-                compact_values = array("I")
-                for w in self.graph.neighbors(u):
-                    if w in self.B or w in self.U:
-                        compact_values.append(w)
-                if compact_values:
-                    self.lambda_lists[u] = compact_values
-        else:
-            for u in self.U:
-                values = sorted(
-                    w for w in self.graph.neighbors(u) if w in self.B or w in self.U
-                )
-                if values:
-                    self.lambda_lists[u] = values
-        self.L_lists = {}
-        if type(self.graph) is Packed:
-            for a in self.A:
-                compact_values = array("I")
-                for w in self.graph.neighbors(a):
-                    if w in self.U:
-                        compact_values.append(w)
-                if compact_values:
-                    self.L_lists[a] = compact_values
-        else:
-            for a in self.A:
-                values = sorted(w for w in self.graph.neighbors(a) if w in self.U)
-                if values:
-                    self.L_lists[a] = values
+        with profile_stage(
+            "system.index",
+            vertices=self.graph.n,
+            edges=self.graph.num_edges(),
+            upper_rows=len(self.U),
+            saturated_rows=len(self.A),
+        ):
+            self.lambda_lists = {}
+            self.L_lists = {}
+            can_use_implicit_rows = self.implicit_all_u_neighbors or (
+                packed_backed(self.graph)
+                and self.graph.n >= IMPLICIT_NEIGHBOR_MIN_VERTICES
+            )
+            self.implicit_all_u_neighbors = can_use_implicit_rows and (
+                not self.A and not self.B and len(self.U) == self.graph.n
+            )
+            if self.implicit_all_u_neighbors:
+                return
+            if packed_backed(self.graph):
+                # Packed.neighbors() already yields sorted labels. Build each final
+                # compact row directly: constructing a Python list and then copying
+                # it into an array temporarily doubles cache-row storage during
+                # large recovery/rebuilds under a fixed address-space limit.
+                for u in self.U:
+                    compact_values = array("I")
+                    for w in self.graph.neighbors(u):
+                        if w in self.B or w in self.U:
+                            compact_values.append(w)
+                    if compact_values:
+                        self.lambda_lists[u] = compact_values
+            else:
+                for u in self.U:
+                    values = sorted(
+                        w for w in self.graph.neighbors(u) if w in self.B or w in self.U
+                    )
+                    if values:
+                        self.lambda_lists[u] = values
+            if packed_backed(self.graph):
+                for a in self.A:
+                    compact_values = array("I")
+                    for w in self.graph.neighbors(a):
+                        if w in self.U:
+                            compact_values.append(w)
+                    if compact_values:
+                        self.L_lists[a] = compact_values
+            else:
+                for a in self.A:
+                    values = sorted(w for w in self.graph.neighbors(a) if w in self.U)
+                    if values:
+                        self.L_lists[a] = values
+
+    def lambda_neighbors(self, vertex: Vertex) -> Iterable[Vertex]:
+        """Return the current Lambda row, using graph adjacency for all-U state."""
+        if self.implicit_all_u_neighbors:
+            neighbors = self.graph.neighbors(vertex)
+            return neighbors if packed_backed(self.graph) else sorted(neighbors)
+        return self.lambda_lists.get(vertex, ())
 
     def cache_row(self, values: list[Vertex]) -> CacheRow:
         """Choose compact fixed-width rows only for the owned Packed backend."""
-        if type(self.graph) is Packed:
+        if packed_backed(self.graph):
             return array("I", values)
         return values
 
     def valid_cache_row(self, values: object) -> bool:
         """Require backend-appropriate mutable row storage and 32-bit labels."""
-        if type(self.graph) is Packed:
+        if packed_backed(self.graph):
             return (
                 type(values) is array
                 and values.typecode == "I"
@@ -501,7 +544,11 @@ class System:
         if self.graph.has_edge(left, right) != added:
             raise ValueError("system graph delta must precede cache update")
         for source, target in ((left, right), (right, left)):
-            if source in self.U and (target in self.B or target in self.U):
+            if (
+                not self.implicit_all_u_neighbors
+                and source in self.U
+                and (target in self.B or target in self.U)
+            ):
                 if self.journal is None:
                     values = self.lambda_lists.get(source)
                     if values is None and added:
@@ -839,7 +886,7 @@ def promote(
     return False
 
 
-def build(graph: Graph, z: int) -> System:
+def build(graph: Graph, z: int, *, indexed: bool = True) -> System:
     r"""Build a :math:`z`-subgraph system from scratch.
 
     Implements the two-step deterministic construction from Section 5.2
@@ -867,6 +914,8 @@ def build(graph: Graph, z: int) -> System:
     Args:
         graph: The host graph.
         z: The degree parameter (``z >= 1``).
+        indexed: Whether to retain mutable Lambda/L cache rows. Set false only
+            for immutable phase-base roots used as structural refinement input.
 
     Returns:
         A :class:`System` satisfying every invariant checked
@@ -885,15 +934,21 @@ def build(graph: Graph, z: int) -> System:
     # greedy edge. Construct that exact final state directly instead of
     # transiently retaining all graph edges in a Python set and scanning a
     # million unchanged U vertices in the promotion loop.
-    if type(graph) in (Adjacency, Packed) and all(
+    if type(graph) in (Adjacency, Packed, PhaseBaseGraph) and all(
         graph.degree(vertex) < z for vertex in range(graph.n)
     ):
         system = System(
             graph=graph,
             z=z,
             U=Vertices(graph.n, range(graph.n)),
+            implicit_all_u_neighbors=(
+                not indexed
+                and packed_backed(graph)
+                and graph.n >= IMPLICIT_NEIGHBOR_MIN_VERTICES
+            ),
         )
-        system.index()
+        if indexed:
+            system.index()
         return system
     # --- Step 1: greedy maximal M with degree cap z ---
     M: set[Edge] = set()

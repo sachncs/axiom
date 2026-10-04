@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from heapq import merge
 from itertools import chain, groupby, pairwise
 
-from axiom.graph import Adjacency, empty
+from axiom.graph import Adjacency, PhaseBaseGraph, empty
 from axiom.hierarchies import Hierarchies
 from axiom.paper_coloring import Paper
 from axiom.storage import Packed
@@ -250,7 +250,7 @@ class Hierarchy:
             return
 
         phase_graph = empty(graph)
-        if isinstance(graph, (Adjacency, Packed)):
+        if isinstance(graph, (Adjacency, Packed, PhaseBaseGraph)):
             deferred_edges = iter(
                 sorted(edge for edge in self.deferred_deletions if edge not in excluded)
             )
@@ -306,15 +306,30 @@ class Hierarchy:
                 return f"level {index} graph reference differs"
             for vertex, neighbors in endpoints:
                 if vertex in level.U:
+                    if level.implicit_all_u_neighbors and (
+                        level.A
+                        or level.B
+                        or len(level.U) != self.graph.n
+                        or level.lambda_lists
+                    ):
+                        return f"level {index} implicit Lambda state is invalid"
                     lambda_row = [
                         neighbor
                         for neighbor in neighbors
                         if neighbor in level.B or neighbor in level.U
                     ]
                     lambda_value = level.lambda_lists.get(vertex)
-                    if lambda_row and list(lambda_value or ()) != lambda_row:
+                    if (
+                        not level.implicit_all_u_neighbors
+                        and lambda_row
+                        and list(lambda_value or ()) != lambda_row
+                    ):
                         return f"level {index} Lambda row differs at {vertex}"
-                    if not lambda_row and lambda_value is not None:
+                    if (
+                        not level.implicit_all_u_neighbors
+                        and not lambda_row
+                        and lambda_value is not None
+                    ):
                         return f"level {index} has empty Lambda row at {vertex}"
                     if index == len(self.levels) - 1:
                         u_degree = sum(neighbor in level.U for neighbor in neighbors)
@@ -536,20 +551,10 @@ class Hierarchy:
                 return False
             if right in self.A1 and left not in self.A1 and left not in self.N1:
                 return False
-        if any(
-            not self.R_levels[index + 1] <= self.R_levels[index]
+        return all(
+            self.R_levels[index + 1] <= self.R_levels[index]
             for index in range(self.k - 1)
-        ):
-            return False
-        for vertex in system.U:
-            expected = sorted(
-                neighbor
-                for neighbor in self.graph.neighbors(vertex)
-                if neighbor in system.B or neighbor in system.U
-            )
-            if list(system.lambda_lists.get(vertex, [])) != expected:
-                return False
-        return True
+        )
 
     def check_i3(self, matching: Matching, r: int, z: int) -> bool:
         r"""Check multi-level invariant (I3).
@@ -867,7 +872,7 @@ def refine_hierarchy(
             or edge in deferred_deleted
         )
     }
-    if isinstance(hierarchy.graph, (Adjacency, Packed)):
+    if isinstance(hierarchy.graph, (Adjacency, Packed, PhaseBaseGraph)):
         phase_edges = (
             edge
             for edge in hierarchy.graph.edges()

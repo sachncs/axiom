@@ -176,7 +176,7 @@ def test_full_audit_rejects_auxiliary_index_corruption(
         else:
             assert matcher.inserted_incident_edges
             vertex = next(iter(matcher.inserted_incident_edges))
-            matcher.inserted_incident_edges[vertex].clear()
+            matcher.inserted_incident_edges[vertex] = ()
 
         assert matcher.maximal()
         assert not store.check()

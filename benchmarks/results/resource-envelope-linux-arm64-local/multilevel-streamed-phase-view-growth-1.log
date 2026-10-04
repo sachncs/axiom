@@ -1,0 +1,54 @@
+resource phase=service-updates-start
+{"elapsed_ns": 2773680514, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 434876416, "rss_before_bytes": 98852864, "rss_measurement": "resident", "sizes": {"edges": 2000000, "saturated_rows": 0, "upper_rows": 1000000, "vertices": 1000000}, "stage": "system.index"}
+{"elapsed_ns": 717697574, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 435101696, "rss_before_bytes": 435101696, "rss_measurement": "resident", "sizes": {"edges": 2000000, "seed_edges": 0, "vertices": 1000000}, "stage": "matching.construct"}
+{"elapsed_ns": 20285726625, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 435154944, "rss_before_bytes": 82841600, "rss_measurement": "resident", "sizes": {"edges": 2000000, "mode_edges": 0, "vertices": 1000000}, "stage": "matcher.rebuild"}
+{"elapsed_ns": 20339841624, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 435183616, "rss_before_bytes": 29827072, "rss_measurement": "resident", "sizes": {}, "stage": "durable.recovery"}
+resource phase=service-ready initialization_seconds=20.350
+{"elapsed_ns": 63542, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 436146176, "rss_before_bytes": 436146176, "rss_measurement": "resident", "sizes": {"edges": 2000000, "graph_journals": 1, "graph_snapshots": 0, "vertices": 1000000}, "stage": "matcher.rollback"}
+{"elapsed_ns": 1542471, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 436097024, "rss_before_bytes": 435462144, "rss_measurement": "resident", "sizes": {"edges": 2000000, "max_operations": 256, "vertices": 1000000}, "stage": "matcher.atomic_batch"}
+{"elapsed_ns": 2825052708, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 432287744, "rss_before_bytes": 139730944, "rss_measurement": "resident", "sizes": {"edges": 2000000, "saturated_rows": 0, "upper_rows": 1000000, "vertices": 1000000}, "stage": "system.index"}
+{"elapsed_ns": 727736923, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 436502528, "rss_before_bytes": 432500736, "rss_measurement": "resident", "sizes": {"edges": 2000000, "seed_edges": 0, "vertices": 1000000}, "stage": "matching.construct"}
+{"elapsed_ns": 20037017510, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 436506624, "rss_before_bytes": 123727872, "rss_measurement": "resident", "sizes": {"edges": 2000000, "mode_edges": 0, "vertices": 1000000}, "stage": "matcher.rebuild"}
+{"elapsed_ns": 20069063923, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 436506624, "rss_before_bytes": 69730304, "rss_measurement": "resident", "sizes": {"base_edges": 2000000, "history_operations": 0, "vertices": 1000000}, "stage": "durable.replay"}
+{"elapsed_ns": 27827857303, "python_current_bytes": null, "python_peak_bytes": null, "rss_after_bytes": 436506624, "rss_before_bytes": 435417088, "rss_measurement": "resident", "sizes": {"edges": 2000000, "requests": 256, "vertices": 1000000}, "stage": "durable.apply"}
+resource query-worker secondary failure=RuntimeError('partner-query load failed; owner_failure=MemoryError()')
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1093, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 973, in run
+    update_seconds, queries = self.update(service)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 895, in update
+    outcomes = service.submit_batch(requests).result(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/service.py", line 127, in result
+    raise self._error
+  File "/workspace/axiom/service.py", line 860, in _run
+    outcomes = self._owner.apply(
+               ^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 1022, in apply
+    return self._apply_inner(requests)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 1086, in _apply_inner
+    changed = self._transition(
+              ^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 920, in _transition
+    self._matcher.insert(left, right)
+  File "/workspace/axiom/core.py", line 977, in insert
+    self.__edit(u, v, added=True)
+  File "/workspace/axiom/core.py", line 1149, in __edit
+    mutate(u, v)
+MemoryError
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1095, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1063, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '1000000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

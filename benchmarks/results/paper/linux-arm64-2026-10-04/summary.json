@@ -1,0 +1,86 @@
+{
+  "edges": 2000000,
+  "modes": {
+    "basic": {
+      "peak_rss_bytes_max": 96776192,
+      "peak_rss_bytes_min": 96440320,
+      "python_peak_bytes_max": 32174131,
+      "python_peak_bytes_min": 32136992,
+      "stages": {
+        "matcher.rebuild": {
+          "elapsed_seconds_max": 28.177864554,
+          "elapsed_seconds_min": 28.055632478,
+          "python_peak_bytes_max": 32174131,
+          "python_peak_bytes_min": 32136992,
+          "rss_after_bytes_max": 96530432,
+          "rss_after_bytes_min": 96227328
+        },
+        "matching.construct": {
+          "elapsed_seconds_max": 9.282968481,
+          "elapsed_seconds_min": 9.148944893,
+          "python_peak_bytes_max": 32164034,
+          "python_peak_bytes_min": 32126895,
+          "rss_after_bytes_max": 96530432,
+          "rss_after_bytes_min": 96227328
+        },
+        "system.index": {
+          "elapsed_seconds_max": 0.000153626,
+          "elapsed_seconds_min": 0.00012621,
+          "python_peak_bytes_max": 25836484,
+          "python_peak_bytes_min": 25791929,
+          "rss_after_bytes_max": 89288704,
+          "rss_after_bytes_min": 88793088
+        }
+      },
+      "startup_seconds_max": 28.198938679,
+      "startup_seconds_min": 28.076755061
+    },
+    "multilevel": {
+      "peak_rss_bytes_max": 102113280,
+      "peak_rss_bytes_min": 102109184,
+      "python_peak_bytes_max": 39109582,
+      "python_peak_bytes_min": 39108894,
+      "stages": {
+        "matcher.rebuild": {
+          "elapsed_seconds_max": 57.094773442,
+          "elapsed_seconds_min": 57.021250351,
+          "python_peak_bytes_max": 39109582,
+          "python_peak_bytes_min": 39108894,
+          "rss_after_bytes_max": 102125568,
+          "rss_after_bytes_min": 102113280
+        },
+        "matching.construct": {
+          "elapsed_seconds_max": 9.170709687,
+          "elapsed_seconds_min": 9.136956353,
+          "python_peak_bytes_max": 38109414,
+          "python_peak_bytes_min": 38108771,
+          "rss_after_bytes_max": 101117952,
+          "rss_after_bytes_min": 101109760
+        },
+        "system.index": {
+          "elapsed_seconds_max": 0.000196001,
+          "elapsed_seconds_min": 0.000119209,
+          "python_peak_bytes_max": 33793700,
+          "python_peak_bytes_min": 33793057,
+          "rss_after_bytes_max": 96804864,
+          "rss_after_bytes_min": 96796672
+        }
+      },
+      "startup_seconds_max": 57.115833691,
+      "startup_seconds_min": 57.042385557
+    }
+  },
+  "platform": "Linux ARM64",
+  "python": "3.12.15",
+  "samples": [
+    "basic-1.json and basic-1-stages.jsonl",
+    "basic-2.json and basic-2-stages.jsonl",
+    "basic-3.json and basic-3-stages.jsonl",
+    "multilevel-1.json and multilevel-1-stages.jsonl",
+    "multilevel-2.json and multilevel-2-stages.jsonl",
+    "multilevel-3.json and multilevel-3-stages.jsonl"
+  ],
+  "samples_per_mode": 3,
+  "scope": "three repeated startup and full matcher rebuild profiles per mode with tracemalloc; diagnostic only, not the 512 MiB qualification",
+  "vertices": 1000000
+}

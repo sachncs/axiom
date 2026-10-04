@@ -20,7 +20,7 @@ import axiom.rebuild as rebuild_module
 from axiom.augment import augment
 from axiom.color import Greedy, Vizing
 from axiom.core import Matcher
-from axiom.graph import Adjacency
+from axiom.graph import Adjacency, PhaseBaseGraph
 from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
 from axiom.ledger import Ledger
 from axiom.matching import greedy, is_maximal_matching, partner_in, partners
@@ -963,7 +963,7 @@ class TestMatcher:
         # The finest phase has rebuilt, but its parent phase is still live.
         assert algo.update_count == 0
         assert algo.inserted_edges == set(inserted[:4])
-        assert algo.inserted_incident_edges[0] == set(inserted[:4])
+        assert set(algo.inserted_incident_edges[0]) == set(inserted[:4])
         assert algo._Matcher__check_auxiliary_indexes()
 
         for edge in inserted[4:]:
@@ -1002,6 +1002,9 @@ class TestMatcher:
 
         for edge in edges[182:262]:
             matcher.graph.add_edge(*edge)
+            matcher.inserted_edges.add(edge)
+            for vertex in edge:
+                matcher.inserted_incident_edges.setdefault(vertex, []).append(edge)
         matcher.level_phase_updates = [1] * len(matcher.level_phase_lengths)
 
         child_schedule, _, _ = Multilevel.schedule(matcher)
@@ -1045,6 +1048,8 @@ class TestMatcher:
         monkeypatch.setattr(rebuild_module, "copy", recordcopy)
         algo.graph.remove_edge(*edge)
         algo.deleted_edges.add(edge)
+        for vertex in edge:
+            algo.deleted_incident_edges.setdefault(vertex, set()).add(edge)
         algo.policy.rebuild(algo)
 
         assert algo.multi is not None
@@ -1054,7 +1059,7 @@ class TestMatcher:
         assert algo.phase_base_graph is base_graph
         assert algo.phase_base_system is base_system
         assert set(base_graph.edges()) == base_edges
-        assert base_system.M == base_matching and base_system.check()
+        assert base_system.M == base_matching and base_system.check_structure()
         assert all(
             current is original
             for current, original in zip(
@@ -1152,14 +1157,14 @@ class TestMatcher:
         assert len(algo.level_zs) > 1
         assert len(snapshotcalls) == 1
         assert len(copycalls) == 1
-        assert copycalls[0][0] is algo.phase_base_system
-        assert copycalls[0][1] is algo.phase_base_graph
+        assert copycalls[0][0].check_structure()
+        assert copycalls[0][0].graph is snapshotcalls[0][0]
+        assert copycalls[0][1] is snapshotcalls[0][1]
         assert copycalls[0][2] is False
-        assert snapshotcalls[0][0] is algo.graph
-        assert algo.phase_base_graph is snapshotcalls[0][1]
+        assert algo.phase_base_graph is algo.multi.graph
         assert algo.phase_base_system is not None
         assert algo.phase_base_system.graph is algo.phase_base_graph
-        assert algo.phase_base_system.check()
+        assert algo.phase_base_system.check_structure()
         assert algo.multi is not None and algo.multi.check()
 
     def test_child_parent_boundary_reuses_synchronized_phase_graph(self, monkeypatch):
@@ -1175,6 +1180,8 @@ class TestMatcher:
         removed = next(iter(algo.graph.edges()))
         algo.graph.remove_edge(*removed)
         algo.deleted_edges.add(removed)
+        for vertex in removed:
+            algo.deleted_incident_edges.setdefault(vertex, set()).add(removed)
         algo.update_count = 1
         algo.level_phase_updates = [0, *([1] * (len(algo.level_zs) - 1))]
 
@@ -1190,14 +1197,14 @@ class TestMatcher:
         algo.policy.rebuild(algo)
 
         assert algo.multi is not None and algo.multi.check()
-        assert snapshots == []
+        assert len(snapshots) == 1
         assert algo.phase_graph is algo.multi.graph
         assert algo.phase_base_graph is algo.multi.graph
         assert algo.phase_base_graph is not algo.graph
         assert set(algo.phase_base_graph.edges()) == set(algo.graph.edges())
         assert algo.phase_base_system is not None
         assert algo.phase_base_system.graph is algo.phase_base_graph
-        assert algo.phase_base_system.check()
+        assert algo.phase_base_system.check_structure()
         assert algo.maximal()
 
         phase_root = algo.phase_graph
@@ -1225,7 +1232,7 @@ class TestMatcher:
         assert set(phase_root.edges()) == phase_edges
         assert algo.matching() == matching
         assert hierarchy_root.check()
-        assert base_system_root.check()
+        assert base_system_root.check_structure()
 
     def test_removed_mode_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="basic.*multilevel"):
@@ -2176,7 +2183,7 @@ class TestMatcher:
                 strict=True,
             )
         )
-        assert basesystem.check()
+        assert basesystem.check_structure()
         assert algo.multi.check()
 
     @pytest.mark.parametrize("backend", [Adjacency, Packed])
@@ -2191,7 +2198,10 @@ class TestMatcher:
         basegraph = algo.phase_base_graph
         basesystem = algo.phase_base_system
         edge = next(edge for edge in basegraph.edges() if edge not in basesystem.M)
-        basegraph.remove_edge(*edge)
+        missing_graph = (
+            basegraph.root if isinstance(basegraph, PhaseBaseGraph) else basegraph
+        )
+        missing_graph.remove_edge(*edge)
         basesystem.index()
         assert basesystem.check()
         snapshotcalls = []
@@ -2210,7 +2220,7 @@ class TestMatcher:
         assert snapshotcalls == []
         assert algo.phase_base_graph is basegraph
         assert algo.phase_base_system is basesystem
-        assert not basegraph.has_edge(*edge)
+        assert basegraph.has_edge(*edge)
         assert algo.multi is not None and algo.multi.check()
 
 
@@ -2950,14 +2960,14 @@ class TestPerformance:
 
         algo.insert(0, 1)
         algo.insert(0, 2)
-        assert algo.inserted_incident_edges[0] == {(0, 1), (0, 2)}
-        assert algo.inserted_incident_edges[1] == {(0, 1)}
-        assert algo.inserted_incident_edges[2] == {(0, 2)}
+        assert set(algo.inserted_incident_edges[0]) == {(0, 1), (0, 2)}
+        assert set(algo.inserted_incident_edges[1]) == {(0, 1)}
+        assert set(algo.inserted_incident_edges[2]) == {(0, 2)}
 
         algo.delete(0, 1)
-        assert algo.inserted_incident_edges[0] == {(0, 2)}
+        assert list(algo.inserted_incident_edges[0]) == [(0, 2)]
         assert 1 not in algo.inserted_incident_edges
-        assert algo.inserted_incident_edges[2] == {(0, 2)}
+        assert list(algo.inserted_incident_edges[2]) == [(0, 2)]
         assert algo._Matcher__check_auxiliary_indexes()
 
     def test_auxiliary_validator_detects_inserted_incident_index_corruption(
@@ -2966,7 +2976,7 @@ class TestPerformance:
         algo = Matcher(8, mode="multilevel")
         algo.insert(0, 1)
 
-        algo.inserted_incident_edges[0].clear()
+        algo.inserted_incident_edges[0] = ()
 
         assert not algo._Matcher__check_auxiliary_indexes()
 

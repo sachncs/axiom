@@ -25,7 +25,8 @@ def test_old_map_and_nested_set_cells_restore_with_original_roots():
     matcher.H_reverse[1] = bucket
     matcher.inserted_incident_edges[0] = {(0, 1)}
     roots = {
-        name: getattr(matcher, name) for name in (*Auxiliary.maps, *Auxiliary.sets)
+        name: getattr(matcher, name)
+        for name in (*Auxiliary.maps, *Auxiliary.sets, *Auxiliary.arrays)
     }
     before = Witness().capture(matcher)
     journal = Auxiliary(matcher)
@@ -61,18 +62,42 @@ def test_missing_map_keys_and_repeated_bucket_edits_rollback():
     journal.discard(matcher.inserted_incident_edges, 2, edge)
     journal.discard(matcher.inserted_incident_edges, 2, (2, 10), empty=True)
     assert matcher.inserted_incident_edges == {}
-    assert values == set()
+    assert values == (edge,)
     journal.rollback()
 
     assert matcher.inserted_incident_edges == {}
     assert Witness().capture(matcher) == before
 
 
+def test_incident_bucket_promotion_and_demotion_restore_original_bucket() -> None:
+    matcher = populated(mode="basic")
+    root = matcher.inserted_incident_edges
+    bucket = [(0, vertex) for vertex in range(1, 5)]
+    root[0] = list(bucket)
+    original = root[0]
+    journal = Auxiliary(matcher)
+
+    journal.add(root, 0, (0, 5))
+    assert isinstance(root[0], set)
+    for vertex in (1, 2):
+        journal.discard(root, 0, (0, vertex))
+    assert isinstance(root[0], list)
+    assert set(root[0]) == {(0, 3), (0, 4), (0, 5)}
+
+    journal.rollback()
+    assert matcher.inserted_incident_edges is root
+    assert root[0] is original
+    assert root[0] == bucket
+
+
 def test_clear_capacity_failure_precedes_map_mutation():
     matcher = populated(mode="basic")
     matcher.H.update({0: {1}, 2: {3}})
     before = Witness().capture(matcher)
-    journal = Auxiliary(matcher, capacity=len(Auxiliary.maps) + len(Auxiliary.sets))
+    journal = Auxiliary(
+        matcher,
+        capacity=len(Auxiliary.maps) + len(Auxiliary.sets) + len(Auxiliary.arrays),
+    )
 
     with pytest.raises(MemoryError, match="capacity exceeded"):
         journal.clear(matcher.H)
@@ -90,7 +115,8 @@ def test_failed_real_update_restores_all_auxiliary_state_and_retries(
     if stage == "rebuild":
         matcher.phase_length = 1
     roots = {
-        name: getattr(matcher, name) for name in (*Auxiliary.maps, *Auxiliary.sets)
+        name: getattr(matcher, name)
+        for name in (*Auxiliary.maps, *Auxiliary.sets, *Auxiliary.arrays)
     }
     before = Witness().capture(matcher)
     advance = Matcher._Matcher__advance_update_counter
@@ -150,7 +176,10 @@ def test_affected_edge_certificate_rejects_missing_incident_delta_and_rolls_back
         add(journal, container, key, item)
 
     monkeypatch.setattr(Auxiliary, "add", omit_incident)
-    with pytest.raises(RuntimeError, match="auxiliary index delta certificate"):
+    with pytest.raises(
+        RuntimeError,
+        match="auxiliary index delta certificate|hierarchy endpoint certificate",
+    ):
         matcher.insert(0, 1)
 
     assert Witness().capture(matcher) == before

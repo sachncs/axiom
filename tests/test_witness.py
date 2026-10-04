@@ -7,6 +7,7 @@ import pytest
 from axiom.core import Matcher
 from axiom.graph import Adjacency
 from axiom.paper_coloring import Fan, Fans, Partial
+from axiom.rebuild import snapshot
 from axiom.storage import Packed
 from axiom.witness import Witness
 
@@ -134,7 +135,7 @@ def test_native_versions_and_hierarchy_graph_aliases_are_observable():
     assert matcher.system is matcher.multi.levels[-1]
     before = witness.capture(matcher)
     original = matcher.system.graph
-    matcher.system.graph = original.copy()
+    matcher.system.graph = snapshot(original)
     assert list(matcher.system.graph.edges()) == list(original.edges())
     assert matcher.system.graph.version == original.version
     assert witness.capture(matcher) != before

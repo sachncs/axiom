@@ -42,11 +42,11 @@ from typing import TypedDict
 from weakref import WeakKeyDictionary
 
 from axiom.augment import augment as augment
-from axiom.auxiliary import Auxiliary
+from axiom.auxiliary import Auxiliary, incident_add, incident_discard
 from axiom.classes import Classes
 from axiom.clocks import Clocks
 from axiom.color import Vizing
-from axiom.graph import Adjacency, empty
+from axiom.graph import Adjacency, PhaseBaseGraph, empty
 from axiom.hierarchies import Hierarchies
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
@@ -54,6 +54,7 @@ from axiom.matching import partners
 from axiom.matching_index import MatchingIndex
 from axiom.paper_coloring import Paper
 from axiom.partners import Partners
+from axiom.profiling import profile_stage
 from axiom.rebuild import Basic, Multilevel
 from axiom.storage import Packed, publish
 from axiom.system import System
@@ -186,7 +187,9 @@ class Matcher:
         matching_budget = (
             self.graph.memory()["budget"] if isinstance(self.graph, Packed) else budget
         )
-        self.matched_edges: Matching = MatchingIndex(n, budget=matching_budget)
+        matching_index = MatchingIndex(n, budget=matching_budget)
+        matching_index.enable_disjoint()
+        self.matched_edges: Matching = matching_index
         self.matched_vertices = Vertices(n)
         self.partner_map = Partners(n)
         self.views: Views | None = None
@@ -226,9 +229,18 @@ class Matcher:
         self.inserted_edges: set[tuple[int, int]] = set()
         # E_I is typically a small parent-phase overlay. Allocate buckets only
         # for its live endpoints, never an empty Python set for every vertex.
-        self.inserted_incident_edges: dict[Vertex, set[tuple[int, int]]] = {}
+        self.inserted_incident_edges: dict[
+            Vertex,
+            set[tuple[int, int]] | list[tuple[int, int]] | tuple[tuple[int, int], ...],
+        ] = {}
         self.deleted_edges: set[tuple[int, int]] = set()
-        self.inserted_incident_counts: dict[Vertex, int] = {}
+        self.deleted_incident_edges: dict[
+            Vertex,
+            set[tuple[int, int]] | list[tuple[int, int]] | tuple[tuple[int, int], ...],
+        ] = {}
+        # Dense fixed-width counters avoid a second sparse hash table keyed by
+        # the same vertices as the incidence index (four bytes per vertex).
+        self.inserted_incident_counts = array("I", [0]) * n
         self.bad_vertices: set[Vertex] = set()
         self.H: dict[Vertex, set[Vertex]] = {}
         self.H_reverse: dict[Vertex, set[Vertex]] = {}
@@ -241,7 +253,17 @@ class Matcher:
 
         self.policy = Basic() if mode == "basic" else Multilevel()
         self.policy.configure(self)
-        self.policy.rebuild(self)
+        self._rebuild()
+
+    def _rebuild(self) -> None:
+        """Run a measured full paper-mode rebuild without changing its policy."""
+        with profile_stage(
+            "matcher.rebuild",
+            vertices=self.n,
+            edges=self.graph.num_edges(),
+            mode_edges=self.system.graph.num_edges() if self.system is not None else 0,
+        ):
+            self.policy.rebuild(self)
 
     @staticmethod
     def __validate_graph(graph: Graph, n: int) -> None:
@@ -426,7 +448,7 @@ class Matcher:
             if u in self.matched_vertices:
                 continue
             neighbours = None
-            for v in self.system.lambda_lists.get(u, []):
+            for v in self.system.lambda_neighbors(u):
                 if self.graph.has_edge(u, v):
                     if neighbours is None:
                         neighbours = set()
@@ -468,7 +490,7 @@ class Matcher:
                 self.__remove_h_source(vertex)
                 targets = {
                     target
-                    for target in self.system.lambda_lists.get(vertex, [])
+                    for target in self.system.lambda_neighbors(vertex)
                     if self.graph.has_edge(vertex, target)
                 }
                 if targets:
@@ -556,11 +578,11 @@ class Matcher:
             self.auxiliary.member(self.inserted_edges, edge, True)
         left, right = edge
         if self.auxiliary is None:
-            self.inserted_incident_edges.setdefault(left, set()).add(edge)
-            self.inserted_incident_edges.setdefault(right, set()).add(edge)
+            incident_add(self.inserted_incident_edges, left, edge)
+            incident_add(self.inserted_incident_edges, right, edge)
         else:
-            self.auxiliary.add(self.inserted_incident_edges, left, edge)
-            self.auxiliary.add(self.inserted_incident_edges, right, edge)
+            incident_add(self.inserted_incident_edges, left, edge, self.auxiliary)
+            incident_add(self.inserted_incident_edges, right, edge, self.auxiliary)
 
     def __remove_inserted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
         """Remove an ``E_I`` edge from its two incident index buckets."""
@@ -571,18 +593,39 @@ class Matcher:
         left, right = edge
         for vertex in (left, right):
             if self.auxiliary is None:
-                values = self.inserted_incident_edges[vertex]
-                values.discard(edge)
-                if not values:
-                    del self.inserted_incident_edges[vertex]
+                incident_discard(self.inserted_incident_edges, vertex, edge)
             else:
-                self.auxiliary.discard(
-                    self.inserted_incident_edges, vertex, edge, empty=True
+                incident_discard(
+                    self.inserted_incident_edges, vertex, edge, self.auxiliary
                 )
 
     def __inserted_edges_at(self, vertex: Vertex) -> list[tuple[Vertex, Vertex]]:
         """Return incident inserted edges in deterministic order."""
         return sorted(self.inserted_incident_edges.get(vertex, ()))
+
+    def __add_deleted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
+        """Record a removed phase-base edge in the local restoration index."""
+        if self.auxiliary is None:
+            self.deleted_edges.add(edge)
+        else:
+            self.auxiliary.member(self.deleted_edges, edge, True)
+        left, right = edge
+        if self.auxiliary is None:
+            incident_add(self.deleted_incident_edges, left, edge)
+            incident_add(self.deleted_incident_edges, right, edge)
+        else:
+            incident_add(self.deleted_incident_edges, left, edge, self.auxiliary)
+            incident_add(self.deleted_incident_edges, right, edge, self.auxiliary)
+
+    def __remove_deleted_edge(self, edge: tuple[Vertex, Vertex]) -> None:
+        """Remove a restored edge from the phase-base delta and row index."""
+        if self.auxiliary is None:
+            self.deleted_edges.discard(edge)
+        else:
+            self.auxiliary.member(self.deleted_edges, edge, False)
+        left, right = edge
+        for vertex in (left, right):
+            incident_discard(self.deleted_incident_edges, vertex, edge, self.auxiliary)
 
     def __check_auxiliary_indexes(self) -> bool:
         """Validate H, reverse-H, H-tilde, and S-hat against live state."""
@@ -730,6 +773,7 @@ class Matcher:
             or self.views is not None
         ):
             matching = MatchingIndex(self.n, budget=matching_budget)
+            matching.enable_disjoint()
         matched = self.matched_vertices
         if (
             not isinstance(matched, Vertices)
@@ -741,30 +785,36 @@ class Matcher:
         # The seed is supplied by the edge-colouring phase and must already
         # be a matching.  Silently dropping conflicting edges would change
         # the algorithm and hide a broken colouring invariant.
-        for e in self.seed_matching:
-            u, v = e
-            if not self.graph.has_edge(u, v):
-                # A refined hierarchy may retain an ED' edge in its
-                # auxiliary system.  Such an edge cannot enter the live
-                # maximal matching until it is present in the host graph.
-                continue
-            if u in matched or v in matched:
-                raise RuntimeError(
-                    f"seed matching invariant violated: conflicting edge {e}"
-                )
-            matching.add(e)
-            matched.add(u)
-            matched.add(v)
+        with profile_stage(
+            "matching.construct",
+            vertices=self.n,
+            edges=self.graph.num_edges(),
+            seed_edges=len(self.seed_matching),
+        ):
+            for e in self.seed_matching:
+                u, v = e
+                if not self.graph.has_edge(u, v):
+                    # A refined hierarchy may retain an ED' edge in its
+                    # auxiliary system. Such an edge cannot enter the live
+                    # matching until it is present in the host graph.
+                    continue
+                if u in matched or v in matched:
+                    raise RuntimeError(
+                        f"seed matching invariant violated: conflicting edge {e}"
+                    )
+                matching.add(e)
+                matched.add(u)
+                matched.add(v)
 
-        for u in range(self.n):
-            if u in matched:
-                continue
-            for v in sorted(self.graph.neighbors(u)):
-                if v not in matched:
-                    matching.add(canonical(u, v))
-                    matched.add(u)
-                    matched.add(v)
-                    break
+            for u in range(self.n):
+                if u in matched:
+                    continue
+                for v in sorted(self.graph.neighbors(u)):
+                    if v not in matched:
+                        matching.add(canonical(u, v))
+                        matched.add(u)
+                        matched.add(v)
+                        break
 
         self.matched_edges = matching
         self.matched_vertices = matched
@@ -931,16 +981,14 @@ class Matcher:
                 restores_phase_edge = was_deferred or edge in self.deleted_edges
                 if not restores_phase_edge:
                     self.__add_inserted_edge(edge)
-                if self.auxiliary is None:
-                    self.deleted_edges.discard(edge)
-                else:
-                    self.auxiliary.member(self.deleted_edges, edge, False)
+                if edge in self.deleted_edges:
+                    self.__remove_deleted_edge(edge)
                 if self.multi is not None:
                     self.multi.undefer(edge)
                 newly_bad: list[Vertex] = []
                 if not was_deferred:
                     for vertex in edge:
-                        count = self.inserted_incident_counts.get(vertex, 0) + 1
+                        count = self.inserted_incident_counts[vertex] + 1
                         if self.auxiliary is None:
                             self.inserted_incident_counts[vertex] = count
                         else:
@@ -1040,10 +1088,7 @@ class Matcher:
                     if self.multi is not None:
                         self.multi.undefer(edge)
                 else:
-                    if self.auxiliary is None:
-                        self.deleted_edges.add(edge)
-                    else:
-                        self.auxiliary.member(self.deleted_edges, edge, True)
+                    self.__add_deleted_edge(edge)
                     if self.multi is not None:
                         # Keep adversarially deleted phase edges in the
                         # decremental snapshot until the next recursive
@@ -1095,15 +1140,16 @@ class Matcher:
             self.views.affect(v)
         if self.auxiliary is not None:
             self.auxiliary.affect(u, v)
-        if isinstance(graph, Packed) or type(graph) is Adjacency:
-            version = graph.version if isinstance(graph, Packed) else 0
+        if isinstance(graph, Packed):
+            graph.edit_certified(u, v, added)
+            return
+        if type(graph) is Adjacency:
             count = graph.num_edges()
             left, right = graph.degree(u), graph.degree(v)
             mutate(u, v)
             change = 1 if added else -1
             if (
-                (isinstance(graph, Packed) and graph.version != version + 1)
-                or graph.num_edges() != count + change
+                graph.num_edges() != count + change
                 or graph.degree(u) != left + change
                 or graph.degree(v) != right + change
                 or graph.has_edge(u, v) != added
@@ -1126,6 +1172,24 @@ class Matcher:
 
     @contextmanager
     def batch(
+        self,
+        max_operations: int = 256,
+        before_publish: Callable[[], None] | None = None,
+    ) -> Iterator[Matcher]:
+        """Run one measured atomic matcher batch when profiling is enabled."""
+        with (
+            profile_stage(
+                "matcher.atomic_batch",
+                vertices=self.n,
+                edges=self.graph.num_edges(),
+                max_operations=max_operations,
+            ),
+            self._batch_transaction(max_operations, before_publish) as matcher,
+        ):
+            yield matcher
+
+    @contextmanager
+    def _batch_transaction(
         self,
         max_operations: int = 256,
         before_publish: Callable[[], None] | None = None,
@@ -1246,6 +1310,8 @@ class Matcher:
             auxiliary = Auxiliary(self)
             clocks = Clocks(self)
             for graph in managed.values():
+                if isinstance(graph, PhaseBaseGraph):
+                    continue
                 if isinstance(graph, Packed) or type(graph) is Adjacency:
                     token = graph.begin()
                     try:
@@ -1311,51 +1377,58 @@ class Matcher:
                 raise RuntimeError(
                     "publication cleanup failed; discard matcher"
                 ) from error
-            try:
-                for native, token in reversed(journals):
-                    native.rollback(token)
-                for graph, token in reversed(adjlogs):
-                    graph.rollback(token)
-                if accounting is not None:
-                    accountant.rollback(accounting)
-                if systems is not None:
-                    systems.rollback()
-                if hierarchies is not None:
-                    hierarchies.rollback()
-                if auxiliary is not None:
-                    auxiliary.rollback()
-                if clocks is not None:
-                    clocks.rollback()
-                if classes is not None:
-                    classes.rollback()
-                if views is not None:
-                    views.rollback()
-                # Restore every graph object in place.  Multilevel rebuilds can
-                # mutate a phase graph or an inherited level graph before a later
-                # invariant check fails; restoring only ``self.graph`` would leave
-                # those same-identity objects observably split from the snapshot.
-                for graph, expected_edges in graph_snapshots:
-                    current_edges = set(graph.edges())
-                    for left, right in current_edges - expected_edges:
-                        graph.remove_edge(left, right)
-                    for left, right in expected_edges - current_edges:
-                        graph.add_edge(left, right)
-                    if set(graph.edges()) != expected_edges:
-                        raise RuntimeError(
-                            "atomic rollback could not restore a managed graph"
-                        )
-                if snapshot is not None:
-                    self.__dict__.update(snapshot)
-            except BaseException as failure:
-                self.failed = True
-                raise RuntimeError("rollback failed; discard matcher") from failure
-            if durable_callback_completed:
-                self.failed = True
-                raise RuntimeError(
-                    "durable callback completed but graph publication failed; "
-                    "discard matcher"
-                ) from error
-            raise
+            with profile_stage(
+                "matcher.rollback",
+                vertices=self.n,
+                edges=self.graph.num_edges(),
+                graph_journals=len(journals) + len(adjlogs),
+                graph_snapshots=len(graph_snapshots),
+            ):
+                try:
+                    for native, token in reversed(journals):
+                        native.rollback(token)
+                    for graph, token in reversed(adjlogs):
+                        graph.rollback(token)
+                    if accounting is not None:
+                        accountant.rollback(accounting)
+                    if systems is not None:
+                        systems.rollback()
+                    if hierarchies is not None:
+                        hierarchies.rollback()
+                    if auxiliary is not None:
+                        auxiliary.rollback()
+                    if clocks is not None:
+                        clocks.rollback()
+                    if classes is not None:
+                        classes.rollback()
+                    if views is not None:
+                        views.rollback()
+                    # Restore every graph object in place.  Multilevel rebuilds can
+                    # mutate a phase graph or an inherited level graph before a later
+                    # invariant check fails; restoring only ``self.graph`` would leave
+                    # those same-identity objects observably split from the snapshot.
+                    for graph, expected_edges in graph_snapshots:
+                        current_edges = set(graph.edges())
+                        for left, right in current_edges - expected_edges:
+                            graph.remove_edge(left, right)
+                        for left, right in expected_edges - current_edges:
+                            graph.add_edge(left, right)
+                        if set(graph.edges()) != expected_edges:
+                            raise RuntimeError(
+                                "atomic rollback could not restore a managed graph"
+                            )
+                    if snapshot is not None:
+                        self.__dict__.update(snapshot)
+                except BaseException as failure:
+                    self.failed = True
+                    raise RuntimeError("rollback failed; discard matcher") from failure
+                if durable_callback_completed:
+                    self.failed = True
+                    raise RuntimeError(
+                        "durable callback completed but graph publication failed; "
+                        "discard matcher"
+                    ) from error
+                raise
 
     def __handle_insertion(self, u: Vertex, v: Vertex) -> None:
         if self.system is not None and self.__try_fast_insert(u, v):
@@ -1715,7 +1788,7 @@ class Matcher:
                 )
 
         if self.update_count >= self.phase_length:
-            self.policy.rebuild(self)
+            self._rebuild()
 
     def matching(self) -> Matching:
         """Return a copy of the current maximal matching.

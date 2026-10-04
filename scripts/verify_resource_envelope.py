@@ -94,6 +94,10 @@ class QueryWorker:
                     len(QUERY_BUCKETS),
                 )
                 self.buckets[bucket] += 1
+                # Keep coherent partner reads active without unbounded client
+                # receipt churn starving the address-space-limited update
+                # workload. This caps the diagnostic query stream at 1,000/s.
+                self.stopping.wait(0.001)
         except BaseException as error:
             self.error = error
             self.stopping.set()
@@ -101,7 +105,10 @@ class QueryWorker:
     def check(self) -> None:
         """Fail promptly if the query worker has encountered an error."""
         if self.error is not None:
-            raise RuntimeError("partner-query load failed") from self.error
+            owner_failure = getattr(self.service, "_failure", None)
+            raise RuntimeError(
+                f"partner-query load failed; owner_failure={owner_failure!r}"
+            ) from self.error
 
     def stop(self) -> dict[str, object]:
         """Stop and drain the one outstanding read, then return bounded metrics."""
@@ -800,6 +807,75 @@ class Envelope:
     audit: Audit
     mode: str = "basic"
 
+    @staticmethod
+    def matcher_resources(service: Any) -> dict[str, object]:
+        """Capture bounded structural sizes without traversing edge contents."""
+        owner = getattr(service, "_owner", None)
+        matcher = getattr(owner, "_matcher", None)
+        if matcher is None:
+            return {}
+
+        def graph_memory(graph: Any) -> dict[str, int] | None:
+            memory = getattr(graph, "memory", None)
+            if memory is None:
+                return None
+            result = memory()
+            return {
+                key: int(result[key])
+                for key in ("active", "allocated", "budget")
+                if key in result
+            }
+
+        system = matcher.system
+        hierarchy = matcher.multi
+        sizes: dict[str, object] = {
+            "live_graph": graph_memory(matcher.graph),
+            "phase_graph": graph_memory(matcher.phase_graph),
+            "inserted_edges": len(matcher.inserted_edges),
+            "deleted_edges": len(matcher.deleted_edges),
+            "inserted_incident_rows": len(matcher.inserted_incident_edges),
+            "deleted_incident_rows": len(matcher.deleted_incident_edges),
+            "matched_edges": len(matcher.matched_edges),
+            "matching_overflow": len(getattr(matcher.matched_edges, "values", ())),
+            "H_edges": sum(map(len, matcher.H.values())),
+            "H_reverse_edges": sum(map(len, matcher.H_reverse.values())),
+            "H_tilde_edges": len(matcher.H_tilde),
+            "color_matching_edges": sum(map(len, matcher.matchings)),
+            "system": None,
+            "hierarchy": None,
+            "virtual_bytes": None,
+            "resident_bytes": None,
+        }
+        if system is not None:
+            sizes["system"] = {
+                "A": len(system.A),
+                "B": len(system.B),
+                "U": len(system.U),
+                "lambda_rows": len(system.lambda_lists),
+                "lambda_entries": sum(map(len, system.lambda_lists.values())),
+                "L_rows": len(system.L_lists),
+                "L_entries": sum(map(len, system.L_lists.values())),
+            }
+        if hierarchy is not None:
+            sizes["hierarchy"] = {
+                "levels": len(hierarchy.levels),
+                "deferred_edges": len(hierarchy.deferred_deletions),
+                "partitions": [
+                    {"A": len(level.A), "B": len(level.B), "U": len(level.U)}
+                    for level in hierarchy.levels
+                ],
+            }
+        try:
+            with open("/proc/self/status", encoding="ascii") as status:
+                for line in status:
+                    if line.startswith("VmSize:"):
+                        sizes["virtual_bytes"] = int(line.split()[1]) * 1024
+                    elif line.startswith("VmRSS:"):
+                        sizes["resident_bytes"] = int(line.split()[1]) * 1024
+        except OSError:
+            pass
+        return sizes
+
     def update(self, service: Any) -> tuple[float, dict[str, object]]:
         """Qualify durable updates while a bounded partner-read thread is active."""
         from axiom.durable import Outcome, Request
@@ -808,19 +884,30 @@ class Envelope:
         worker.start()
         updates_started = time.perf_counter()
         update_seconds = 0.0
+        update_error: BaseException | None = None
         try:
             for first in range(1, self.audit.sequence + 1, RESOURCE_BATCH):
                 end = min(first + RESOURCE_BATCH, self.audit.sequence + 1)
-                receipts = [
-                    service.submit(Request(seq, *self.audit.operation(seq)))
+                requests = tuple(
+                    Request(seq, *self.audit.operation(seq))
                     for seq in range(first, end)
-                ]
-                for seq, receipt in zip(range(first, end), receipts, strict=True):
-                    if receipt.result(30) != Outcome(seq, True, seq + 1):
-                        raise RuntimeError(
-                            "resource envelope acknowledged a wrong update"
-                        )
+                )
+                outcomes = service.submit_batch(requests).result(RESOURCE_AUDIT_TIMEOUT)
                 worker.check()
+                if len(outcomes) != len(requests) or any(
+                    type(outcome) is not Outcome
+                    or outcome.sequence != sequence
+                    or not outcome.changed
+                    or outcome.version != sequence + 1
+                    for sequence, outcome in zip(
+                        range(first, end), outcomes, strict=True
+                    )
+                ):
+                    raise RuntimeError("resource envelope acknowledged a wrong update")
+                # Release the completed group before constructing its
+                # successor; under RLIMIT_AS even a bounded duplicate batch
+                # can fail when the process is at its virtual mapping ceiling.
+                del requests, outcomes
                 crossed_progress_mark = (end - 1) // 100000 > (first - 1) // 100000
                 if crossed_progress_mark or end == self.audit.sequence + 1:
                     metrics = service.metrics()
@@ -829,12 +916,24 @@ class Envelope:
                         f"update_seconds={time.perf_counter() - updates_started:.3f} "
                         f"query_count={worker.count} "
                         f"groups={metrics['groups']} "
-                        f"largest_group={metrics['largest_group']}",
+                        f"largest_group={metrics['largest_group']} "
+                        f"state={json.dumps(self.matcher_resources(service), sort_keys=True)}",
                         flush=True,
                     )
             update_seconds = time.perf_counter() - updates_started
+        except BaseException as error:
+            update_error = error
+            raise
         finally:
-            queries = worker.stop()
+            try:
+                queries = worker.stop()
+            except BaseException as query_error:
+                if update_error is None:
+                    raise
+                print(
+                    f"resource query-worker secondary failure={query_error!r}",
+                    flush=True,
+                )
         return update_seconds, queries
 
     def run(self) -> dict[str, object]:
@@ -845,7 +944,6 @@ class Envelope:
             raise ValueError("mode must be 'basic' or 'multilevel'")
         limit = 512 << 20
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-        from axiom.durable import Durable
         from axiom.service import Service
 
         database = self.volume.path / "graph.db"
@@ -904,8 +1002,37 @@ class Envelope:
             )
         restored = self.volume.path / "restored.db"
         shutil.copyfile(backup, restored)  # The backup master stays immutable.
-        with Durable(restored, mode=self.mode, budget=128 << 20) as owner:
-            digest = self.audit.verify(owner)
+        # Verify the full backup in a fresh process. The pressure drills above
+        # intentionally drive this worker's allocator to RLIMIT_AS; although
+        # their temporary graphs have been collected, libc may retain freed
+        # arenas as virtual mappings. A fresh recovery process exercises the
+        # same 512 MiB limit without inheriting those unrelated allocator
+        # reservations, as a real crash/restart would.
+        recovery = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                str(Path(__file__).resolve()),
+                "--directory",
+                str(self.volume.path),
+                "--vertices",
+                str(self.audit.vertices),
+                "--mode",
+                self.mode,
+                "--recovery-check",
+                "--sequence",
+                str(self.audit.sequence),
+                *(["--growth"] if isinstance(self.audit, Cycle) else []),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        # The million-update qualification uses Cycle's growth/drain reference;
+        # its sequence is intentionally larger than the small balanced Audit
+        # traces used by the pressure fixtures.
+        digest = json.loads(recovery.stdout.strip().splitlines()[-1])["digest"]
         if any(
             "digest" in result and result["digest"] != digest
             for result in results.values()
@@ -972,6 +1099,10 @@ class Envelope:
             "--growth", action="store_true", help="include a full growth/drain cycle"
         )
         parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+        parser.add_argument(
+            "--recovery-check", action="store_true", help=argparse.SUPPRESS
+        )
+        parser.add_argument("--sequence", type=int, help=argparse.SUPPRESS)
         parser.add_argument("--mode", choices=("basic", "multilevel"), default="basic")
         args = parser.parse_args()
         if args.vertices not in (256000, 1000000):
@@ -985,7 +1116,20 @@ class Envelope:
             else Audit(args.vertices)
         )
         envelope = cls(Volume(args.directory), audit, args.mode)
-        if args.worker:
+        if args.recovery_check:
+            if args.sequence is None:
+                parser.error("--recovery-check requires --sequence")
+            from axiom.durable import Durable
+
+            database = envelope.volume.path / "restored.db"
+            recovery_audit = (
+                Cycle(args.vertices, args.sequence)
+                if args.growth
+                else Audit(args.vertices, args.sequence)
+            )
+            with Durable(database, mode=args.mode, budget=128 << 20) as owner:
+                print(json.dumps({"digest": recovery_audit.verify(owner)}))
+        elif args.worker:
             print(json.dumps(envelope.run(), indent=2))
         else:
             envelope.launch()

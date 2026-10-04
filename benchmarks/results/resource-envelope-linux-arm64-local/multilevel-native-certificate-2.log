@@ -1,0 +1,82 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=5.890
+resource updates=100096 update_seconds=5.043 query_count=405 groups=391 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 100096, "inserted_incident_rows": 200192, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 161779712, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 314511360}
+resource updates=200192 update_seconds=9.990 query_count=815 groups=782 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 200192, "inserted_incident_rows": 400384, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 218472448, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 336531456}
+resource updates=300032 update_seconds=14.950 query_count=1217 groups=1172 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 300032, "inserted_incident_rows": 600064, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 245723136, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 359600128}
+resource updates=400128 update_seconds=20.260 query_count=1620 groups=1563 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 400128, "inserted_incident_rows": 800256, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 314986496, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 424615936}
+resource updates=500224 update_seconds=25.831 query_count=2032 groups=1954 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 499776, "inserted_incident_rows": 999552, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 342249472, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 446636032}
+resource updates=600064 update_seconds=29.669 query_count=2430 groups=2344 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 399936, "inserted_incident_rows": 799872, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 342249472, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 446636032}
+resource updates=700160 update_seconds=33.451 query_count=2830 groups=2735 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 299840, "inserted_incident_rows": 599680, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 342253568, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 446636032}
+resource updates=800000 update_seconds=37.172 query_count=3226 groups=3125 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 200000, "inserted_incident_rows": 400000, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 342253568, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 446636032}
+resource updates=900096 update_seconds=40.916 query_count=3630 groups=3516 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 99904, "inserted_incident_rows": 199808, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 342253568, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 446636032}
+resource updates=1000000 update_seconds=51.615 query_count=4031 groups=3907 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": {"deferred_edges": 0, "levels": 1, "partitions": [{"A": 0, "B": 0, "U": 1000000}]}, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 291663872, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 394203136}
+resource phase=service-updates-complete seconds=51.614925623998715 query_count=4031
+resource phase=backup-start
+resource phase=backup-complete seconds=62.313
+resource phase=Memory-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=3.954
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=3.923
+resource phase=Memory-complete seconds=91.487
+resource phase=Disk-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=3.897
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=3.902
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1139, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1133, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 997, in run
+    results[type(pressure).__name__] = pressure.apply()
+                                       ^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 716, in apply
+    update = self.update(update_database, update_digest, update_audit)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 787, in update
+    with Durable(database, mode=self.mode, budget=128 << 20) as owner:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 249, in __init__
+    self._recover(n, width)
+  File "/workspace/axiom/durable.py", line 584, in _recover
+    ) = self._replay_operations(n, saved_width, metadata)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 326, in _replay_operations
+    return self._replay_operations_inner(n, width, metadata)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 340, in _replay_operations_inner
+    matcher = self._new_matcher(n, width)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 311, in _new_matcher
+    return Matcher(n, mode=self._mode, graph=graph)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/core.py", line 256, in __init__
+    self._rebuild()
+  File "/workspace/axiom/core.py", line 266, in _rebuild
+    self.policy.rebuild(self)
+  File "/workspace/axiom/rebuild.py", line 431, in rebuild
+    working_system = copy(
+                     ^^^^^
+  File "/workspace/axiom/rebuild.py", line 51, in copy
+    U=system.U.copy(),
+      ^^^^^^^^^^^^^^^
+  File "/workspace/axiom/vertices.py", line 127, in copy
+    copied = Vertices(self.n)
+             ^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/vertices.py", line 37, in __init__
+    self.positions = array("I", [self.empty]) * n
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+MemoryError
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1139, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1135, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1086, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '1000000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

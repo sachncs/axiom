@@ -1,0 +1,34 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=5.062
+resource updates=100096 update_seconds=3.931 query_count=16330 groups=391 largest_group=256
+resource updates=200192 update_seconds=7.931 query_count=32526 groups=782 largest_group=256
+resource updates=300032 update_seconds=12.414 query_count=48527 groups=1172 largest_group=256
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1003, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 997, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 877, in run
+    update_seconds, queries = self.update(service)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 814, in update
+    requests = tuple(
+               ^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 815, in <genexpr>
+    Request(seq, *self.audit.operation(seq))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 378, in operation
+    vertex = (sequence - 1) % half
+             ~~~~~~~~~~~~~~~^~~~~~
+MemoryError
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1003, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 999, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 967, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '1000000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

@@ -164,6 +164,15 @@ moderate-skew trace is short and one-seed; it does not qualify the more extreme
 65,536-degree hub or a production workload mix. See the
 [hub repeatability result](../benchmarks/results/repeatability/million-hub4096-599.json).
 
+After the large all-U Lambda cache change, two fresh-process one-million-vertex
+startup and Durable recovery samples per mode are retained in the
+[Phase 01 local diagnostic](../benchmarks/results/repeatability/million-implicit-all-u-macos/summary.json).
+A separate two-repeat, 256-update run is in the
+[longer trace](../benchmarks/results/repeatability/million-implicit-all-u-128-macos/summary.json):
+Multilevel reached 11.31–11.42k/s and Basic 8.32–9.94k/s on this macOS host.
+These short single-seed diagnostics verify exact replay and record resources;
+they do not qualify the 512 MiB Linux pressure phases or a sustained workload.
+
 For controlled fresh-process repeats, use `benchmarks/repeatability.py`. It runs
 samples sequentially, gives every sample a separate database and interpreter,
 stores each raw benchmark result, verifies exact trace/matching digests across
@@ -188,8 +197,59 @@ qualification. The same-seed digest check detects nondeterminism; it does not
 imply that different seeds must select different maximal matchings.
 The current one-run-per-mode records are in the
 [durable diagnostics](../benchmarks/results/durable/README.md). Both runs
-recovered exactly after the former journal boundary, but neither approaches
-10k updates/s. Bounded-slice operation-log replay later reduced recovery on the
-same retained databases from 280 s to 47.6 s for Basic and from 951 s to 152.8 s
-for Multilevel. These are single reopen timings, not repeatability evidence;
-both recovery times remain substantial.
+recovered exactly after the former journal boundary, but neither approached
+the earlier 100k updates/s aspiration. Bounded-slice operation-log replay later
+reduced recovery on the same retained databases from 280 s to 47.6 s for Basic
+and from 951 s to 152.8 s for Multilevel. These are single reopen timings, not
+repeatability evidence; both recovery times remain substantial.
+
+## Phase 01 resource and operation budgets
+
+The latest startup trace is a three-repeat Linux ARM64 diagnostic at one
+million vertices and two million edges, with `tracemalloc` enabled. Basic peak
+RSS was 96.4–96.8 MB (Python peak 32.1 MB); Multilevel peak RSS was 102.1 MB
+(Python peak 39.1 MB). System indexing remained below 0.2 ms in these samples;
+matching construction took 9.15–9.28 s under tracing. The full constructor
+rebuild took 28.1–28.2 s for Basic and 57.0–57.1 s for Multilevel. The one-
+million-entry proper matching uses a four-byte partner array (4 MB payload),
+while non-matching or overlapping edge sets retain the sparse-set fallback.
+See the [Linux three-repeat profile](../benchmarks/results/paper/linux-arm64-2026-10-04/summary.json)
+and per-stage JSONL records beside it. The earlier macOS profile remains in
+the [macOS three-repeat profile](../benchmarks/results/paper/memory-profile-macos-2026-10-04-summary.json).
+
+| Operation | Work bound | Additional retained or transient state |
+| --- | --- | --- |
+| Insert/delete | Endpoint graph operations plus paper repair, coloring, and hierarchy maintenance; worst case may scan a touched high-degree row | Four-byte matching partner entry per vertex when matching edges are disjoint; incidence counter array adds 4 bytes per vertex; deltas and undo scale with touched edges/endpoints |
+| Batch of `k` updates | Sum of individual update work plus one batch publication/validation; Durable admission is capped at 256 in qualification | `O(k)` requests/receipts and journal before-images proportional to touched cells; no whole-Matcher snapshot |
+| Rebuild | `O(n + m)` construction and certificates plus hierarchy refinement work | Packed graph storage plus mode state; all-U cache rows are implicit, Multilevel type-1 phase-base reads the stable graph through an overlay view |
+| Rollback | Proportional to journaled mutations | Before-images proportional to touched cells; array counter cells and native graph changes use first-write journals; high-degree repair can enlarge the touched set |
+| Recovery | Operation-log history times update cost, replayed in bounded batches | Reconstructs complete graph/paper state; does not retain all operation rows; final full-backup recovery is performed in a fresh process under the cap |
+
+Multilevel phase incidence buckets use immutable tuples through degree four and
+promote to sets for higher-degree rows. This avoids a mutable list allocation
+and spare capacity for the common singleton endpoint while keeping lookup
+proportional to the local row. Cumulative inserted-incidence counts use a
+four-byte-per-vertex array (4 MB at one million vertices); an active update
+journal stores only the first before-image of each touched counter. A clear at
+a phase boundary records the original nonzero cells before zeroing them, so
+rollback remains exact. These are retained-state bounds; Python dictionary
+entries and journal cells still add workload-dependent overhead.
+
+The update and batch rows are structural budgets, not universal byte limits;
+high-degree rows and recursive rebuild boundaries dominate their transient
+cost. Two Linux ARM64 one-million-update growth/drain runs per mode completed
+startup, all updates, backup, memory-pressure rollback, disk-pressure recovery,
+and exact fresh-process backup recovery at `RLIMIT_AS=512 MiB`. Basic measured
+39.3–39.6k updates/s with 442.4–442.6 MB process peak RSS; Multilevel measured
+20.2–20.3k/s with 454.0–454.2 MB peak RSS. All four runs produced the same
+matching digest. Full results and repeat distributions are in the
+[`resource-envelope-linux-arm64-local` report](../benchmarks/results/resource-envelope-linux-arm64-local/summary.json).
+Both modes exceed the existing 10k/s durable-throughput target and pass the
+memory/recovery gate. The 100k/s aspiration remains future optimization work,
+not a Phase 01 acceptance criterion.
+An instrumented 4,096-update Matcher profile points to a repeated class-root
+admission scan as a major Basic-mode cost (about 10,000 class-root checks per
+update in this trace, versus about 1,000 for Multilevel). Its timings are
+instrumented diagnostics, not throughput evidence. See the
+[profile call table](../benchmarks/results/paper/update-costs-macos-2026-10-04.json)
+for the complete function breakdown.

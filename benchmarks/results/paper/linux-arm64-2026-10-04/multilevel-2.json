@@ -1,0 +1,32 @@
+{
+  "constructor_certified": true,
+  "edges": 2000000,
+  "graph_memory": {
+    "active": 0,
+    "allocated": 37000264,
+    "arena": 24000000,
+    "budget": 1073741824,
+    "freeblocks": 0,
+    "index": 0,
+    "journal": 0,
+    "liveblocks": 1000000,
+    "metadata": 13000264
+  },
+  "mode": "multilevel",
+  "platform": "Linux-6.8.0-117-generic-aarch64-with-glibc2.41",
+  "process_peak_rss_bytes": 102113280,
+  "python": "3.12.15",
+  "python_current_bytes": 38107512,
+  "python_peak_bytes": 39109582,
+  "startup_elapsed_ns": 57057837110,
+  "system": {
+    "A": 0,
+    "B": 0,
+    "L_entries": 0,
+    "L_rows": 0,
+    "U": 1000000,
+    "lambda_entries": 0,
+    "lambda_rows": 0
+  },
+  "vertices": 1000000
+}

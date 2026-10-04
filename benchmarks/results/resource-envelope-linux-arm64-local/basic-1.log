@@ -1,0 +1,199 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=2.891
+resource updates=100096 update_seconds=3.464 query_count=1553 groups=391 largest_group=256
+resource updates=200192 update_seconds=6.973 query_count=3080 groups=782 largest_group=256
+resource updates=300032 update_seconds=10.428 query_count=4615 groups=1172 largest_group=256
+resource updates=400128 update_seconds=13.907 query_count=5982 groups=1563 largest_group=256
+resource updates=500224 update_seconds=17.377 query_count=7497 groups=1954 largest_group=256
+resource updates=600064 update_seconds=20.954 query_count=8948 groups=2344 largest_group=256
+resource updates=700160 update_seconds=24.518 query_count=10500 groups=2735 largest_group=256
+resource updates=800000 update_seconds=28.067 query_count=12094 groups=3125 largest_group=256
+resource updates=900096 update_seconds=31.655 query_count=13465 groups=3516 largest_group=256
+resource updates=1000000 update_seconds=35.228 query_count=14815 groups=3907 largest_group=256
+resource phase=service-updates-complete seconds=35.22842923600001 query_count=14819
+resource phase=backup-start
+resource phase=backup-complete seconds=39.365
+resource phase=Memory-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=2.162
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=2.155
+resource phase=Memory-complete seconds=50.090
+resource phase=Disk-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=2.145
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=2.149
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=2.145
+resource phase=Disk-complete seconds=69.903
+resource audit=start sequence=1000000
+resource audit=complete sequence=1000000 seconds=2.140
+{
+  "scope": "installed Linux resource exhaustion and exact recovery; NOT performance/power-loss qualification",
+  "python": "3.12.15",
+  "platform": "Linux-6.8.0-117-generic-aarch64-with-glibc2.41",
+  "vertices": 1000000,
+  "paper_mode": "basic",
+  "sequence": 1000000,
+  "update_seconds": 35.22842923600001,
+  "updates_per_second": 28386.16485852562,
+  "cycle": 1000000,
+  "limits": {
+    "address": [
+      536870912,
+      536870912
+    ],
+    "filesystem": 182907904
+  },
+  "peak": 442257408,
+  "working": 127619072,
+  "state": {
+    "version": 1000001,
+    "sequence": 1000000,
+    "vertices": 1000000,
+    "edges": 2000000,
+    "matching": 500000,
+    "graph_bytes": 61003336,
+    "mode": "basic",
+    "sqlite": "3.46.1",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 1000000,
+    "max_batch": 256,
+    "history_operations": 1000000
+  },
+  "metrics": {
+    "state": "open",
+    "capacity": 4096,
+    "query_reserve": 1,
+    "update_admission_limit": 4095,
+    "maintenance_capacity": 1,
+    "maintenance_outstanding": 0,
+    "outstanding": 0,
+    "peak_outstanding": 257,
+    "accepted": 1014823,
+    "completed": 1014823,
+    "failed_work": 0,
+    "groups": 3907,
+    "largest_group": 256,
+    "batch_limit": 256,
+    "batch_wait_ns": 1000000,
+    "next_admission_sequence": 1000001,
+    "update_latency_le_100000_ns": 0,
+    "update_latency_le_500000_ns": 0,
+    "update_latency_le_1000000_ns": 0,
+    "update_latency_le_5000000_ns": 0,
+    "update_latency_le_10000000_ns": 980942,
+    "update_latency_le_50000000_ns": 1000000,
+    "update_latency_le_100000000_ns": 1000000,
+    "update_latency_le_500000000_ns": 1000000,
+    "update_latency_le_1000000000_ns": 1000000,
+    "update_latency_le_5000000000_ns": 1000000,
+    "update_latency_le_30000000000_ns": 1000000,
+    "read_latency_le_100000_ns": 10911,
+    "read_latency_le_500000_ns": 10913,
+    "read_latency_le_1000000_ns": 10913,
+    "read_latency_le_5000000_ns": 10915,
+    "read_latency_le_10000000_ns": 14776,
+    "read_latency_le_50000000_ns": 14820,
+    "read_latency_le_100000000_ns": 14820,
+    "read_latency_le_500000000_ns": 14820,
+    "read_latency_le_1000000000_ns": 14820,
+    "read_latency_le_5000000000_ns": 14820,
+    "read_latency_le_30000000000_ns": 14820,
+    "maintenance_latency_le_100000_ns": 0,
+    "maintenance_latency_le_500000_ns": 0,
+    "maintenance_latency_le_1000000_ns": 0,
+    "maintenance_latency_le_5000000_ns": 1,
+    "maintenance_latency_le_10000000_ns": 1,
+    "maintenance_latency_le_50000000_ns": 1,
+    "maintenance_latency_le_100000000_ns": 1,
+    "maintenance_latency_le_500000000_ns": 1,
+    "maintenance_latency_le_1000000000_ns": 3,
+    "maintenance_latency_le_5000000000_ns": 3,
+    "maintenance_latency_le_30000000000_ns": 3,
+    "update_latency_le_infinity_ns": 1000000,
+    "read_latency_le_infinity_ns": 14820,
+    "maintenance_latency_le_infinity_ns": 3,
+    "update_latency_sum_ns": 7916896651453,
+    "read_latency_sum_ns": 30137594584,
+    "maintenance_latency_sum_ns": 1244472927
+  },
+  "partner_queries": {
+    "count": 14819,
+    "latency_ms": {
+      "minimum": 0.022125,
+      "mean": 2.375076127673932,
+      "maximum": 40.452011,
+      "p50_upper_bound": 2,
+      "p95_upper_bound": 10,
+      "p99_upper_bound": 10,
+      "p999_upper_bound": 25,
+      "buckets_ms_upper_bounds": [
+        0.1,
+        0.25,
+        0.5,
+        1,
+        2,
+        5,
+        10,
+        25,
+        50,
+        100,
+        250,
+        500,
+        1000,
+        null
+      ],
+      "bucket_counts": [
+        7332,
+        2,
+        3,
+        1,
+        3458,
+        117,
+        3845,
+        58,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "backup": 55414784,
+  "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+  "pressure": {
+    "Memory": {
+      "allocated": 346947584,
+      "failure": "MemoryError",
+      "failed_group": 4096,
+      "pressure_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "rollback_verified": true,
+      "verified": true
+    },
+    "Disk": {
+      "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "checkpoint": {
+        "written": 67862528,
+        "failed": true,
+        "result": null,
+        "complete": false,
+        "digest": "005612a17673f8fa7dc769cc3272024d40b3f59191b06c3cd7d3f577b7cd4cfe",
+        "verified": true
+      },
+      "update": {
+        "update_written": 67821568,
+        "update_sequence": 3,
+        "update_outcome": "acknowledged-or-retried-exactly",
+        "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+        "verified": true
+      }
+    }
+  },
+  "verified": true
+}
+QUALIFICATION_PASS mode=basic repeat=1

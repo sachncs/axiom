@@ -47,6 +47,28 @@ def test_overlapping_edges_are_stored_without_matching_constraints() -> None:
     assert set(index) == {(0, 1), (0, 2), (0, 3)}
 
 
+def test_disjoint_backend_uses_compact_partner_rows_and_enforces_matching() -> None:
+    index = MatchingIndex(1_000_000, budget=8_000_000, disjoint=True)
+    assert index.memory()["allocated"] <= 4_000_000 + 512
+    index.add((5, 1))
+    index.add((8, 9))
+    index.add((1, 5))
+    assert len(index) == 2
+    assert set(index) == {(1, 5), (8, 9)}
+    assert (5, 1) in index
+    index.add((1, 8))
+    assert set(index) == {(1, 5), (1, 8), (8, 9)}
+    index.discard((5, 1))
+    assert set(index) == {(1, 8), (8, 9)}
+    index.clear()
+    assert not index
+
+
+def test_disjoint_backend_rejects_array_allocation_over_budget() -> None:
+    with pytest.raises(JournalCapacityError, match="partner index"):
+        MatchingIndex(100, budget=399, disjoint=True)
+
+
 def test_full_small_universe_contains_every_simple_edge() -> None:
     index = MatchingIndex(7)
     expected = {(left, right) for left in range(7) for right in range(left + 1, 7)}

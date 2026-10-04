@@ -17,9 +17,10 @@ Single responsibility:
 from __future__ import annotations
 
 import math
+from array import array
 from typing import TYPE_CHECKING, Protocol
 
-from axiom.graph import empty
+from axiom.graph import PhaseBaseGraph, empty
 from axiom.hierarchy import Hierarchy, build_hierarchy, refine_hierarchy
 from axiom.paper_coloring import Paper
 from axiom.storage import Packed
@@ -49,6 +50,7 @@ def copy(system: System, graph: Graph, *, indexed: bool = True) -> System:
         B=system.B.copy(),
         U=system.U.copy(),
         M=set(system.M),
+        implicit_all_u_neighbors=system.implicit_all_u_neighbors,
     )
     if indexed:
         copied.index()
@@ -300,6 +302,30 @@ class Multilevel:
         phase_base_graph: Graph
         phase_base_system: System
         child_rebuild = False
+        if parent_boundary:
+            # Close the parent phase before constructing its replacement
+            # snapshot. The overlay view must remain logically fixed after
+            # the new Systems have indexed it.
+            if matcher.auxiliary is None:
+                matcher.inserted_edges.clear()
+                matcher.inserted_incident_edges.clear()
+                matcher.deleted_edges.clear()
+                matcher.deleted_incident_edges.clear()
+                matcher.inserted_incident_counts = array("I", [0]) * matcher.n
+                matcher.bad_vertices.clear()
+            else:
+                for values in (
+                    matcher.inserted_edges,
+                    matcher.inserted_incident_edges,
+                    matcher.deleted_edges,
+                    matcher.deleted_incident_edges,
+                    matcher.bad_vertices,
+                ):
+                    matcher.auxiliary.clear(values)
+                # The transaction already retains original root references.
+                # Swap the fixed-width counter table as one journaled root
+                # instead of creating one undo cell per nonzero vertex.
+                matcher.inserted_incident_counts = array("I", [0]) * matcher.n
         if not isinstance(matcher.colorer, Paper):
             raise RuntimeError("multilevel rebuild requires the deterministic Paper")
         recursive_colorer = matcher.colorer
@@ -309,6 +335,7 @@ class Multilevel:
             and previous_level_zs == matcher.level_zs
             and len(matcher.level_zs) > 1
             and (matcher.inserted_edges or matcher.deleted_edges)
+            and not parent_boundary
         ):
             child_rebuild = True
             if (
@@ -324,7 +351,7 @@ class Multilevel:
             # refinement graph/System need detached storage below.
             old_graph = matcher.phase_base_graph
             base_system = matcher.phase_base_system
-            if not base_system.check():
+            if not base_system.check_structure():
                 raise RuntimeError(
                     "phase snapshot cannot inherit the previous level-1 system: "
                     "its partition or matching is no longer valid"
@@ -377,13 +404,26 @@ class Multilevel:
             # graph have distinct ownership: E_I updates change the live graph
             # but remain excluded from the hierarchy, while child refinement
             # reads the unchanged phase base.
-            phase_base_graph = snapshot(matcher.graph)
-            initial_phase_graph = snapshot(matcher.graph) if initial_rebuild else None
-            phase_base_system = build(phase_base_graph, matcher.level_zs[0])
+            phase_base_graph = PhaseBaseGraph(
+                matcher.graph,
+                matcher.inserted_edges,
+                matcher.deleted_edges,
+                matcher.inserted_incident_edges,
+                matcher.deleted_incident_edges,
+            )
+            phase_base_system = build(
+                phase_base_graph, matcher.level_zs[0], indexed=False
+            )
+            # Type-1 phases keep the exact phase-start topology in the
+            # journaled PhaseBaseGraph overlay. Insertions remain excluded
+            # and adversarial deletions remain deferred, so that view is
+            # stable across updates and can back the active one-level
+            # hierarchy directly. Avoid allocating a second packed graph for
+            # the common million-vertex, degree-four recovery path.
             working_graph = (
-                initial_phase_graph
-                if initial_phase_graph is not None
-                else phase_base_graph
+                phase_base_graph
+                if len(matcher.level_zs) == 1
+                else snapshot(phase_base_graph)
             )
             # A recursive level immediately rebuilds these caches on its
             # projected graph. Preserve eager indexing only when the
@@ -405,27 +445,7 @@ class Multilevel:
         # E_D/E_I span child phases until their parent phase closes.
         if matcher.multi is None:
             raise RuntimeError("multilevel rebuild did not produce an active hierarchy")
-        if parent_boundary:
-            # The parent phase has closed: consume deferred deletions and
-            # establish a new level-1 root over the current live graph.
-            matcher.multi.clear()
-            matcher.multi.sync_graph(matcher.graph)
-            if matcher.auxiliary is None:
-                matcher.inserted_edges.clear()
-                matcher.inserted_incident_edges.clear()
-                matcher.deleted_edges.clear()
-                matcher.inserted_incident_counts.clear()
-                matcher.bad_vertices.clear()
-            else:
-                for values in (
-                    matcher.inserted_edges,
-                    matcher.inserted_incident_edges,
-                    matcher.deleted_edges,
-                    matcher.inserted_incident_counts,
-                    matcher.bad_vertices,
-                ):
-                    matcher.auxiliary.clear(values)
-        elif not initial_rebuild:
+        if not parent_boundary and not initial_rebuild:
             # A child phase rebuild keeps the inherited parent snapshot and
             # cumulative update sets.  Insertions remain outside the phase
             # graph until the parent boundary, exactly as E_I requires.
@@ -472,29 +492,31 @@ class Multilevel:
         # Matcher transaction setup deduplicates graph identities before
         # opening their journals.
         matcher.phase_graph = matcher.multi.graph
-        if parent_boundary and child_rebuild:
+        if parent_boundary:
             # At a parent boundary ``sync_graph`` has just materialized the
             # exact current live topology as the hierarchy's detached phase
             # graph. Reuse that root as the next immutable phase base instead
-            # of cloning the same |E|-sized graph a second time.
+            # of cloning the same |E|-sized graph a second time. The boundary
+            # also clears the overlay roots, so bind the new System after that
+            # clear to keep its graph and indexes on the same topology.
             next_base_graph = matcher.multi.graph
-            next_base_system = build(next_base_graph, matcher.level_zs[0])
+            next_base_system = build(
+                next_base_graph, matcher.level_zs[0], indexed=False
+            )
+        elif child_rebuild:
+            next_base_graph = phase_base_graph
+            next_base_system = phase_base_system
         else:
-            if initial_rebuild:
-                # The immutable root was allocated before construction to
-                # avoid a graph-copy peak on top of retained hierarchy state.
-                # Its topology equals the live graph at this initial boundary.
-                next_base_graph = phase_base_graph
-                phase_base_system.graph = next_base_graph
-            else:
-                # During later full rebuilds, an older hierarchy may alias a
-                # graph touched by boundary cleanup. Retain the pre-build
-                # snapshot rather than changing that established ownership.
-                next_base_graph = phase_base_graph
+            # The synchronized hierarchy graph is the immutable parent-phase
+            # topology: E_I remains excluded and E_D remains deferred. Reuse
+            # its root for the inherited base instead of retaining a second
+            # graph-sized phase snapshot.
+            next_base_graph = matcher.multi.graph
+            phase_base_system.graph = next_base_graph
             next_base_system = phase_base_system
         matcher.phase_base_graph = next_base_graph
         matcher.phase_base_system = next_base_system
-        if not next_base_system.check():
+        if not next_base_system.check_structure():
             raise RuntimeError(
                 "multilevel rebuild produced an invalid inherited phase base"
             )

@@ -1,0 +1,38 @@
+resource phase=service-updates-start
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1093, in cli
+    print(json.dumps(envelope.run(), indent=2))
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scripts/verify_resource_envelope.py", line 959, in run
+    with Service(
+         ^^^^^^^^
+  File "/workspace/axiom/service.py", line 209, in __init__
+    self._owner = Durable(
+                  ^^^^^^^^
+  File "/workspace/axiom/durable.py", line 249, in __init__
+    self._recover(n, width)
+  File "/workspace/axiom/durable.py", line 444, in _recover
+    self._matcher = self._new_matcher(requested, initial_width)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/durable.py", line 311, in _new_matcher
+    return Matcher(n, mode=self._mode, graph=graph)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/axiom/core.py", line 256, in __init__
+    self._rebuild()
+  File "/workspace/axiom/core.py", line 266, in _rebuild
+    self.policy.rebuild(self)
+  File "/workspace/axiom/rebuild.py", line 477, in rebuild
+    raise RuntimeError(
+RuntimeError: multilevel rebuild produced an invalid hierarchy; refusing to continue with stale recursive state
+Traceback (most recent call last):
+  File "/workspace/scripts/verify_resource_envelope.py", line 1099, in <module>
+    Envelope.cli()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1095, in cli
+    envelope.launch()
+  File "/workspace/scripts/verify_resource_envelope.py", line 1063, in launch
+    subprocess.run(
+  File "/usr/local/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/usr/local/bin/python', '-I', '/workspace/scripts/verify_resource_envelope.py', '--directory', '/tmp/vol', '--vertices', '256000', '--mode', 'multilevel', '--worker', '--growth']' returned non-zero exit status 1.

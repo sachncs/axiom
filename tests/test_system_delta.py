@@ -4,8 +4,8 @@ import pytest
 
 from axiom.core import Matcher
 from axiom.graph import Adjacency
+from axiom.hierarchy import Hierarchy, update
 from axiom.hierarchy import build_hierarchy as hierarchy
-from axiom.hierarchy import update
 from axiom.storage import Packed
 from axiom.system import System, switch
 from axiom.systems import Systems
@@ -351,16 +351,21 @@ def test_endpoint_cache_failure_restores_full_state_before_retry(
 
     with monkeypatch.context() as patch:
         patch.setattr(System, "update", reject)
-        # Basic edits its live caches. The multilevel case is deliberately a
-        # malformed tombstone pointing at a non-phase edge, forcing the phase
-        # visibility/cache path; it is fault recovery, not valid-workload evidence.
+        # Basic edits its live caches. The type-1 hierarchy reads a stable
+        # phase view, so inject failure immediately after its endpoint
+        # certificate rather than expecting an active System cache edit.
         if mode == "basic":
             with pytest.raises(RuntimeError, match="cache delta"):
                 matcher.insert(0, 2)
         else:
-            matcher.deleted_edges.add((0, 2))
-            before = Witness().capture(matcher)
-            with pytest.raises(RuntimeError, match="cache delta"):
+            certify = Hierarchy.certify
+
+            def reject_after_certificate(owner, left, right):
+                assert certify(owner, left, right)
+                raise RuntimeError("after hierarchy certificate")
+
+            patch.setattr(Hierarchy, "certify", reject_after_certificate)
+            with pytest.raises(RuntimeError, match="hierarchy certificate"):
                 matcher.insert(0, 2)
     assert Witness().capture(matcher) == before
     matcher.insert(0, 2)

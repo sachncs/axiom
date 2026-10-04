@@ -792,6 +792,7 @@ def test_service_update_qualification_reports_concurrent_partner_reads():
             self.value = result
 
         def result(self, timeout=None):
+            assert timeout == module.RESOURCE_AUDIT_TIMEOUT
             return self.value
 
     class Service:
@@ -806,11 +807,16 @@ def test_service_update_qualification_reports_concurrent_partner_reads():
             result.set_result((self.query_count, (vertex + 1) % 8))
             return result
 
-        def submit(self, request):
+        def submit_batch(self, requests):
             from axiom.durable import Outcome
 
             assert self.queried.wait(5), "partner queries did not overlap updates"
-            return Receipt(Outcome(request.sequence, True, request.sequence + 1))
+            return Receipt(
+                tuple(
+                    Outcome(request.sequence, True, request.sequence + 1)
+                    for request in requests
+                )
+            )
 
         def metrics(self):
             return {"groups": 1, "largest_group": 1}
@@ -850,6 +856,7 @@ def test_service_update_qualification_stops_query_worker_after_failure(
 
     class Receipt:
         def result(self, timeout=None):
+            assert timeout == module.RESOURCE_AUDIT_TIMEOUT
             if failure == "update":
                 raise OSError("durable update failed")
             from axiom.durable import Outcome
@@ -869,7 +876,7 @@ def test_service_update_qualification_stops_query_worker_after_failure(
                 result.set_result((0, (vertex + 1) % 8))
             return result
 
-        def submit(self, request):
+        def submit_batch(self, requests):
             assert self.queried.wait(5), "partner query did not start"
             return Receipt()
 

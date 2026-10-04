@@ -10,7 +10,7 @@ from hypothesis import strategies as st
 
 from axiom.capacity import JournalCapacityError
 from axiom.core import Matcher
-from axiom.graph import Adjacency
+from axiom.graph import Adjacency, PhaseBaseGraph
 from axiom.paper_coloring import Paper
 from axiom.storage import Packed, publish
 from axiom.types import Graph
@@ -23,7 +23,7 @@ def test_phase_overlay_allocates_only_live_incident_buckets(
 ) -> None:
     matcher = Matcher(64, graph=backend(64), mode=mode)
     assert matcher.inserted_incident_edges == {}
-    assert matcher.inserted_incident_counts == {}
+    assert not any(matcher.inserted_incident_counts)
     rng = random.Random(599)
     for _ in range(160):
         u, v = rng.sample(range(64), 2)
@@ -34,16 +34,13 @@ def test_phase_overlay_allocates_only_live_incident_buckets(
         endpoints = {vertex for edge in matcher.inserted_edges for vertex in edge}
         assert set(matcher.inserted_incident_edges) == endpoints
         assert all(matcher.inserted_incident_edges.values())
-        assert all(count > 0 for count in matcher.inserted_incident_counts.values())
+        assert all(count > 0 for count in matcher.inserted_incident_counts if count)
         assert len(matcher.inserted_incident_edges) <= 2 * len(matcher.inserted_edges)
         assert matcher._Matcher__check_auxiliary_indexes()
         assert matcher.maximal()
         if mode == "basic":
-            assert (
-                matcher.inserted_incident_edges
-                == matcher.inserted_incident_counts
-                == {}
-            )
+            assert matcher.inserted_incident_edges == {}
+            assert not any(matcher.inserted_incident_counts)
 
 
 def test_sparse_overlay_validator_rejects_empty_and_extraneous_buckets() -> None:
@@ -136,7 +133,10 @@ def test_journal_admission_failure_closes_native_journals(
     with pytest.raises(MemoryError, match="injected clock"):
         matcher.insert(0, 4)
     assert (list(graph.edges()), graph.version) == before
+    assert matcher.phase_base_graph is not None
     for part in (graph, matcher.phase_graph, matcher.phase_base_graph):
+        if isinstance(part, PhaseBaseGraph):
+            part = part.root
         assert isinstance(part, Packed)
         assert part.memory()["active"] == 0 and part.check()
 
@@ -290,7 +290,7 @@ def test_matcher_native_rollback_restores_version_and_remains_usable(
     originals = [
         (part, list(part.edges()), part.version) for part in managed if part is not None
     ]
-    assert all(isinstance(part, Packed) for part, _, _ in originals)
+    assert all(isinstance(part, (Packed, PhaseBaseGraph)) for part, _, _ in originals)
     before = (
         list(graph.edges()),
         graph.version,
@@ -321,7 +321,8 @@ def test_matcher_native_rollback_restores_version_and_remains_usable(
     for part, edges, version in originals:
         assert list(part.edges()) == edges
         assert part.version == version
-        assert part.check() and part.memory()["active"] == 0
+        native = part.root if isinstance(part, PhaseBaseGraph) else part
+        assert native.check() and native.memory()["active"] == 0
     monkeypatch.setattr(matcher, method, original)
     update(*edge)
     assert graph.version == before[1] + 1
@@ -595,6 +596,21 @@ def test_native_construction_and_strict_noops_are_safe() -> None:
     with pytest.raises(RuntimeError, match="reinitialized"):
         graph.__init__(8)
     assert graph.n == 4
+    assert graph.check()
+
+
+def test_native_certified_edits_check_before_rollback_restores_exact_state() -> None:
+    graph = Packed(8)
+    token = graph.begin()
+    graph.edit_certified(0, 1, True)
+    assert graph.version == 1 and graph.num_edges() == 1
+    assert graph.degree(0) == graph.degree(1) == 1
+    with pytest.raises(RuntimeError, match="local certificate"):
+        graph.edit_certified(0, 1, True)
+    assert graph.version == 1 and graph.num_edges() == 1
+    graph.rollback(token)
+    assert graph.version == 0 and graph.num_edges() == 0
+    assert all(graph.degree(vertex) == 0 for vertex in range(graph.n))
     assert graph.check()
 
 

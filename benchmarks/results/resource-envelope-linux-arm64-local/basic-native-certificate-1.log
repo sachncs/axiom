@@ -1,0 +1,196 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=2.893
+resource updates=100096 update_seconds=2.514 query_count=407 groups=391 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 113426432, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=200192 update_seconds=4.959 query_count=810 groups=782 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 118251520, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=300032 update_seconds=7.390 query_count=1214 groups=1172 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 123043840, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=400128 update_seconds=9.849 query_count=1611 groups=1563 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 127848448, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=500224 update_seconds=12.304 query_count=2012 groups=1954 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 132640768, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=600064 update_seconds=14.883 query_count=2419 groups=2344 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 132640768, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=700160 update_seconds=17.470 query_count=2821 groups=2735 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 132640768, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=800000 update_seconds=20.043 query_count=3225 groups=3125 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 132644864, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=900096 update_seconds=22.656 query_count=3637 groups=3516 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 132644864, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource updates=1000000 update_seconds=25.243 query_count=4037 groups=3907 largest_group=256 state={"H_edges": 0, "H_reverse_edges": 0, "H_tilde_edges": 0, "color_matching_edges": 0, "deleted_edges": 0, "deleted_incident_rows": 0, "hierarchy": null, "inserted_edges": 0, "inserted_incident_rows": 0, "live_graph": {"active": 0, "allocated": 61003336, "budget": 134217728}, "matched_edges": 500000, "matching_overflow": 0, "phase_graph": null, "resident_bytes": 132644864, "system": {"A": 0, "B": 0, "L_entries": 0, "L_rows": 0, "U": 1000000, "lambda_entries": 0, "lambda_rows": 0}, "virtual_bytes": 288374784}
+resource phase=service-updates-complete seconds=25.24351883700001 query_count=4037
+resource phase=backup-start
+resource phase=backup-complete seconds=29.379
+resource phase=Memory-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=2.149
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=2.150
+resource phase=Memory-complete seconds=41.879
+resource phase=Disk-start
+resource audit=start sequence=2
+resource audit=complete sequence=2 seconds=2.163
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=2.144
+resource audit=start sequence=3
+resource audit=complete sequence=3 seconds=2.149
+resource phase=Disk-complete seconds=61.613
+{
+  "scope": "installed Linux resource exhaustion and exact recovery; NOT performance/power-loss qualification",
+  "python": "3.12.15",
+  "platform": "Linux-6.8.0-117-generic-aarch64-with-glibc2.41",
+  "vertices": 1000000,
+  "paper_mode": "basic",
+  "sequence": 1000000,
+  "update_seconds": 25.24351883700001,
+  "updates_per_second": 39614.12853957099,
+  "cycle": 1000000,
+  "limits": {
+    "address": [
+      536870912,
+      536870912
+    ],
+    "filesystem": 182907904
+  },
+  "peak": 442556416,
+  "working": 136019968,
+  "state": {
+    "version": 1000001,
+    "sequence": 1000000,
+    "vertices": 1000000,
+    "edges": 2000000,
+    "matching": 500000,
+    "graph_bytes": 61003336,
+    "mode": "basic",
+    "sqlite": "3.46.1",
+    "synchronous": "FULL",
+    "fullfsync": 1,
+    "max_operations": 1000000,
+    "max_batch": 256,
+    "history_operations": 1000000
+  },
+  "metrics": {
+    "state": "open",
+    "capacity": 4096,
+    "query_reserve": 1,
+    "update_admission_limit": 4095,
+    "maintenance_capacity": 1,
+    "maintenance_outstanding": 0,
+    "outstanding": 0,
+    "peak_outstanding": 2,
+    "accepted": 7948,
+    "completed": 7948,
+    "failed_work": 0,
+    "groups": 3907,
+    "largest_group": 256,
+    "batch_limit": 256,
+    "batch_wait_ns": 1000000,
+    "next_admission_sequence": 1000001,
+    "update_latency_le_100000_ns": 0,
+    "update_latency_le_500000_ns": 0,
+    "update_latency_le_1000000_ns": 0,
+    "update_latency_le_5000000_ns": 1,
+    "update_latency_le_10000000_ns": 3902,
+    "update_latency_le_50000000_ns": 3907,
+    "update_latency_le_100000000_ns": 3907,
+    "update_latency_le_500000000_ns": 3907,
+    "update_latency_le_1000000000_ns": 3907,
+    "update_latency_le_5000000000_ns": 3907,
+    "update_latency_le_30000000000_ns": 3907,
+    "read_latency_le_100000_ns": 135,
+    "read_latency_le_500000_ns": 136,
+    "read_latency_le_1000000_ns": 730,
+    "read_latency_le_5000000_ns": 3817,
+    "read_latency_le_10000000_ns": 4035,
+    "read_latency_le_50000000_ns": 4038,
+    "read_latency_le_100000000_ns": 4038,
+    "read_latency_le_500000000_ns": 4038,
+    "read_latency_le_1000000000_ns": 4038,
+    "read_latency_le_5000000000_ns": 4038,
+    "read_latency_le_30000000000_ns": 4038,
+    "maintenance_latency_le_100000_ns": 0,
+    "maintenance_latency_le_500000_ns": 0,
+    "maintenance_latency_le_1000000_ns": 0,
+    "maintenance_latency_le_5000000_ns": 1,
+    "maintenance_latency_le_10000000_ns": 1,
+    "maintenance_latency_le_50000000_ns": 1,
+    "maintenance_latency_le_100000000_ns": 1,
+    "maintenance_latency_le_500000000_ns": 1,
+    "maintenance_latency_le_1000000000_ns": 3,
+    "maintenance_latency_le_5000000000_ns": 3,
+    "maintenance_latency_le_30000000000_ns": 3,
+    "update_latency_le_infinity_ns": 3907,
+    "read_latency_le_infinity_ns": 4038,
+    "maintenance_latency_le_infinity_ns": 3,
+    "update_latency_sum_ns": 23730071686,
+    "read_latency_sum_ns": 16138247767,
+    "maintenance_latency_sum_ns": 1242050604
+  },
+  "partner_queries": {
+    "count": 4037,
+    "latency_ms": {
+      "minimum": 0.033666,
+      "mean": 4.0659838808521185,
+      "maximum": 29.859738,
+      "p50_upper_bound": 5,
+      "p95_upper_bound": 10,
+      "p99_upper_bound": 10,
+      "p999_upper_bound": 10,
+      "buckets_ms_upper_bounds": [
+        0.1,
+        0.25,
+        0.5,
+        1,
+        2,
+        5,
+        10,
+        25,
+        50,
+        100,
+        250,
+        500,
+        1000,
+        null
+      ],
+      "bucket_counts": [
+        129,
+        0,
+        0,
+        536,
+        77,
+        2857,
+        435,
+        2,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "backup": 55414784,
+  "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+  "pressure": {
+    "Memory": {
+      "allocated": 342753280,
+      "failure": "UnavailableError",
+      "failed_group": 4096,
+      "pressure_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "rollback_verified": true,
+      "verified": true
+    },
+    "Disk": {
+      "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+      "checkpoint": {
+        "written": 67862528,
+        "failed": true,
+        "result": null,
+        "complete": false,
+        "digest": "005612a17673f8fa7dc769cc3272024d40b3f59191b06c3cd7d3f577b7cd4cfe",
+        "verified": true
+      },
+      "update": {
+        "update_written": 67821568,
+        "update_sequence": 3,
+        "update_outcome": "acknowledged-or-retried-exactly",
+        "digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+        "verified": true
+      }
+    }
+  },
+  "verified": true
+}

@@ -10,9 +10,10 @@ from __future__ import annotations
 import sys
 import sysconfig
 from threading import get_ident
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from axiom.capacity import JournalCapacityError
+from axiom.storage import class_root_registry, isolated_class_roots, plain_set_list
 from axiom.types import Edge, Matching
 
 if TYPE_CHECKING:
@@ -37,8 +38,6 @@ class Classes:
             raise RuntimeError("class transaction is already active")
         if type(owner.matchings) is not list or type(owner.seed_matching) is not set:
             raise TypeError("classes require a plain list and seed set")
-        if any(type(value) is not set for value in owner.matchings):
-            raise TypeError("color classes require plain sets")
         self.owner = owner
         self.thread = get_ident()
         self.active = True
@@ -50,14 +49,13 @@ class Classes:
         self.colorentries: dict[int, bool] = {}
         self.rootchanged = False
         self.slots = tuple(self.list)
-        self.sets: dict[int, Matching] = {}
-        retained = 0
-        for matching in (*self.slots, self.seed):
-            address = id(matching)
-            if address not in self.sets:
-                self.sets[address] = matching
-                retained += len(matching)
-        del matching
+        roots = class_root_registry(self.slots, self.seed)
+        if type(roots) is not tuple or len(roots) != 2:
+            raise RuntimeError("native class-root registry returned invalid state")
+        self.sets = cast(dict[int, Matching], roots[0])
+        retained = roots[1]
+        if type(self.sets) is not dict or type(retained) is not int:
+            raise RuntimeError("native class-root registry returned invalid types")
         minimum = len(self.sets) + retained
         self.capacity = max(65536, minimum) if capacity is None else capacity
         if len(self.sets) > self.capacity:
@@ -82,18 +80,14 @@ class Classes:
             and not sysconfig.get_config_var("Py_GIL_DISABLED")
             and sys.getrefcount(self.list) == 3
         ):
-            counts: dict[int, int] = {}
-            for address in map(id, self.slots):
-                counts[address] = counts.get(address, 0) + 1
-            # Each class occurrence is retained by the original list and slots.
-            # Every set also has one registry and one getrefcount argument ref;
-            # the seed has two more (owner.seed_matching and self.seed).
-            if all(
-                sys.getrefcount(self.sets[address])
-                == 2
-                + 2 * counts.get(address, 0)
-                + 2 * (self.sets[address] is self.seed)
-                for address in self.sets
+            # Preserve the exact CPython strong-reference proof while doing
+            # its per-root refcount loop in native code. Basic colorings can
+            # have ten thousand classes, so a Python-level scan at every
+            # single-edge transaction dominates otherwise local updates.
+            if (
+                self.owner.matchings is self.list
+                and self.owner.seed_matching is self.seed
+                and isolated_class_roots(self.list, self.slots, self.seed, self.sets)
             ):
                 return
         pending = [
@@ -182,7 +176,7 @@ class Classes:
             type(self.owner.matchings) is not list
             or type(self.owner.seed_matching) is not set
             or type(self.owner.activecolors) is not set
-            or any(type(value) is not set for value in self.owner.matchings)
+            or not plain_set_list(self.owner.matchings)
         ):
             raise TypeError("color class candidate requires plain containers")
         if self.rootchanged:

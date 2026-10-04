@@ -1,0 +1,77 @@
+{
+  "address_limit_bytes": 536870912,
+  "average_degree": 4,
+  "modes": {
+    "basic": {
+      "all_verified": true,
+      "peak_rss_bytes_max": 442556416,
+      "peak_rss_bytes_min": 442380288,
+      "runs": [
+        {
+          "backup_bytes": 55414784,
+          "backup_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+          "exact_recovery": true,
+          "file": "basic-native-certificate-1.log",
+          "peak_rss_bytes": 442556416,
+          "pressure_rollback": true,
+          "startup_seconds": 2.893,
+          "update_seconds": 25.24351883700001,
+          "updates_per_second": 39614.12853957099,
+          "working_rss_bytes": 136019968
+        },
+        {
+          "backup_bytes": 55414784,
+          "backup_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+          "exact_recovery": true,
+          "file": "basic-vertices-copy-optimized-1.log",
+          "peak_rss_bytes": 442380288,
+          "pressure_rollback": true,
+          "startup_seconds": 2.891,
+          "update_seconds": 25.464315450999493,
+          "updates_per_second": 39270.641377510474,
+          "working_rss_bytes": 130875392
+        }
+      ],
+      "updates_per_second_max": 39614.12853957099,
+      "updates_per_second_min": 39270.641377510474
+    },
+    "multilevel": {
+      "all_verified": true,
+      "peak_rss_bytes_max": 454156288,
+      "peak_rss_bytes_min": 454012928,
+      "runs": [
+        {
+          "backup_bytes": 55414784,
+          "backup_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+          "exact_recovery": true,
+          "file": "multilevel-native-certificate-1.log",
+          "peak_rss_bytes": 454156288,
+          "pressure_rollback": true,
+          "startup_seconds": 5.658,
+          "update_seconds": 49.32201027699921,
+          "updates_per_second": 20274.923799412518,
+          "working_rss_bytes": 340406272
+        },
+        {
+          "backup_bytes": 55414784,
+          "backup_digest": "32801381edc449f9f0c1b760b9fbd73cabd1aa7fb737bbe808b431103305c44a",
+          "exact_recovery": true,
+          "file": "multilevel-vertices-copy-optimized-1.log",
+          "peak_rss_bytes": 454012928,
+          "pressure_rollback": true,
+          "startup_seconds": 5.626,
+          "update_seconds": 49.54448256399883,
+          "updates_per_second": 20183.882205415208,
+          "working_rss_bytes": 345927680
+        }
+      ],
+      "updates_per_second_max": 20274.923799412518,
+      "updates_per_second_min": 20183.882205415208
+    }
+  },
+  "platform": "Linux ARM64",
+  "python": "3.12.15",
+  "samples_per_mode": 2,
+  "scope": "two repeated full one-million-update Linux ARM64 resource and exact-recovery qualification runs per mode; 512 MiB RLIMIT_AS",
+  "vertices": 1000000
+}

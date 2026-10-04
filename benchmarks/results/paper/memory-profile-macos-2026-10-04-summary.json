@@ -1,0 +1,50 @@
+{
+  "scope": "diagnostic only; tracemalloc enabled; not 512 MiB Linux qualification",
+  "platform": "macOS 26.7.1 arm64",
+  "python": "3.11.16",
+  "vertices": 1000000,
+  "edges": 2000000,
+  "samples_per_mode": 3,
+  "modes": {
+    "basic": {
+      "startup_elapsed_ns_min": 19773270084,
+      "startup_elapsed_ns_max": 19905394417,
+      "process_peak_rss_bytes_min": 191283200,
+      "process_peak_rss_bytes_max": 191332352,
+      "python_peak_bytes_min": 58182751,
+      "python_peak_bytes_max": 58187708,
+      "system_index_elapsed_ns_min": 32041,
+      "system_index_elapsed_ns_max": 76417,
+      "matching_construct_elapsed_ns_min": 7727854500,
+      "matching_construct_elapsed_ns_max": 7759695750,
+      "matcher_rebuild_third_elapsed_ns": 19756053208
+    },
+    "multilevel": {
+      "startup_elapsed_ns_min": 26168036208,
+      "startup_elapsed_ns_max": 26689692375,
+      "process_peak_rss_bytes_min": 245612544,
+      "process_peak_rss_bytes_max": 254705664,
+      "python_peak_bytes_min": 64443695,
+      "python_peak_bytes_max": 64448947,
+      "system_index_elapsed_ns_min": 39458,
+      "system_index_elapsed_ns_max": 94167,
+      "matching_construct_elapsed_ns_min": 7670390916,
+      "matching_construct_elapsed_ns_max": 7936139416,
+      "matcher_rebuild_third_elapsed_ns": 26395881208
+    }
+  },
+  "samples": [
+    "memory-profile-macos-2026-10-04-basic-1.json",
+    "memory-profile-macos-2026-10-04-basic-1-stages.jsonl",
+    "memory-profile-macos-2026-10-04-basic-2.json",
+    "memory-profile-macos-2026-10-04-basic-2-stages.jsonl",
+    "memory-profile-macos-2026-10-04-basic-3.json",
+    "memory-profile-macos-2026-10-04-basic-3-stages.jsonl",
+    "memory-profile-macos-2026-10-04-multilevel-1.json",
+    "memory-profile-macos-2026-10-04-multilevel-1-stages.jsonl",
+    "memory-profile-macos-2026-10-04-multilevel-2.json",
+    "memory-profile-macos-2026-10-04-multilevel-2-stages.jsonl",
+    "memory-profile-macos-2026-10-04-multilevel-3.json",
+    "memory-profile-macos-2026-10-04-multilevel-3-stages.jsonl"
+  ]
+}

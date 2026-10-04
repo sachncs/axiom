@@ -1,0 +1,2 @@
+{"elapsed_ns": 94167, "python_current_bytes": 26348071, "python_peak_bytes": 26348135, "rss_after_bytes": 167444480, "rss_before_bytes": 167444480, "sizes": {"edges": 2000000, "saturated_rows": 0, "upper_rows": 1000000, "vertices": 1000000}, "stage": "system.index"}
+{"elapsed_ns": 7670390916, "python_current_bytes": 63443130, "python_peak_bytes": 64325650, "rss_after_bytes": 253919232, "rss_before_bytes": 167706624, "sizes": {"edges": 2000000, "seed_edges": 0, "vertices": 1000000}, "stage": "matching.construct"}

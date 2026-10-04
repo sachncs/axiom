@@ -1,0 +1,4 @@
+resource phase=service-updates-start
+resource phase=service-ready initialization_seconds=4.149
+resource updates=100096 update_seconds=4.622 query_count=2438 groups=403 largest_group=256
+resource updates=200192 update_seconds=9.852 query_count=5982 groups=802 largest_group=256

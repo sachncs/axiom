@@ -26,43 +26,43 @@ def populated():
     return Matcher(16, graph=graph, mode="multilevel")
 
 
-def test_initial_multilevel_snapshot_precedes_recursive_index_construction(
+def test_initial_type1_multilevel_reuses_phase_base_overlay_without_snapshot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = Packed(16)
     for vertex in range(16):
         graph.add_edge(vertex, (vertex + 1) % 16)
 
-    state = {"hierarchy_built": False, "snapshot_built": False}
+    state = {"hierarchy_built": False, "snapshot_calls": 0}
     original_build = rebuild_module.build_hierarchy
     original_snapshot = rebuild_module.snapshot
 
     def build(*args, **kwargs):
-        assert state["snapshot_built"]
         result = original_build(*args, **kwargs)
         state["hierarchy_built"] = True
         return result
 
     def snapshot(source):
-        assert not state["hierarchy_built"], (
-            "phase-base graph was copied after graph-sized indexes were built"
-        )
-        result = original_snapshot(source)
-        state["snapshot_built"] = True
-        return result
+        state["snapshot_calls"] += 1
+        return original_snapshot(source)
 
     monkeypatch.setattr(rebuild_module, "build_hierarchy", build)
     monkeypatch.setattr(rebuild_module, "snapshot", snapshot)
     matcher = Matcher(16, graph=graph, mode="multilevel")
 
+    assert state["snapshot_calls"] == 0
+    assert state["hierarchy_built"]
     assert matcher.phase_base_graph is not matcher.graph
     assert matcher.multi is not None
     assert matcher.phase_graph is matcher.multi.graph
+    assert matcher.phase_graph is matcher.phase_base_graph
     assert matcher.phase_graph is not matcher.graph
     assert matcher.phase_base_system.graph is matcher.phase_base_graph
     assert tuple(matcher.phase_base_graph.edges()) == tuple(matcher.graph.edges())
+
     matcher.insert(0, 8)
     assert not matcher.phase_base_graph.has_edge(0, 8)
+    assert matcher.multi.check()
 
 
 @pytest.mark.parametrize("backend", [Adjacency, Packed])

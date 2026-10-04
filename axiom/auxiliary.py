@@ -2,10 +2,83 @@
 
 from __future__ import annotations
 
+from array import array
 from threading import get_ident
 from typing import TYPE_CHECKING, Any
 
 from axiom.capacity import JournalCapacityError
+
+INCIDENT_LIST_LIMIT = 4
+
+
+def incident_add(
+    container: dict[int, set[Any] | list[Any] | tuple[Any, ...]],
+    key: int,
+    item: Any,
+    journal: Auxiliary | None = None,
+) -> None:
+    """Add one endpoint incidence using compact small buckets and hashed hubs."""
+    if journal is not None:
+        journal.add(container, key, item)
+        return
+    values = container.get(key)
+    if values is None:
+        container[key] = (item,)
+    elif type(values) is tuple:
+        if item not in values:
+            if len(values) < INCIDENT_LIST_LIMIT:
+                container[key] = values + (item,)
+            else:
+                container[key] = {*values, item}
+    elif type(values) is list:
+        if item in values:
+            return
+        if len(values) < INCIDENT_LIST_LIMIT:
+            values.append(item)
+        else:
+            container[key] = {*values, item}
+    elif type(values) is set:
+        values.add(item)
+    else:
+        raise TypeError("incident bucket must be a plain set, list, or tuple")
+
+
+def incident_discard(
+    container: dict[int, set[Any] | list[Any] | tuple[Any, ...]],
+    key: int,
+    item: Any,
+    journal: Auxiliary | None = None,
+) -> None:
+    """Remove an incidence, demoting small hash buckets after sparse edits."""
+    if journal is not None:
+        journal.discard(container, key, item, empty=True)
+        return
+    values = container.get(key)
+    if values is None:
+        return
+    if type(values) is tuple:
+        if item not in values:
+            return
+        replacement = tuple(value for value in values if value != item)
+        if replacement:
+            container[key] = replacement
+        else:
+            del container[key]
+        return
+    if type(values) is list:
+        try:
+            values.remove(item)
+        except ValueError:
+            return
+    elif type(values) is set:
+        values.discard(item)
+        if len(values) <= INCIDENT_LIST_LIMIT:
+            container[key] = tuple(values)
+    else:
+        raise TypeError("incident bucket must be a plain set, list, or tuple")
+    if not values:
+        del container[key]
+
 
 if TYPE_CHECKING:
     from axiom.core import Matcher
@@ -16,13 +89,14 @@ class Auxiliary:
 
     maps = (
         "inserted_incident_edges",
-        "inserted_incident_counts",
+        "deleted_incident_edges",
         "H",
         "H_reverse",
         "Htildeoutgoing",
         "H_tilde_reverse",
     )
     sets = ("inserted_edges", "deleted_edges", "bad_vertices", "H_tilde", "S_hat")
+    arrays = ("inserted_incident_counts",)
 
     def __init__(self, owner: Matcher, capacity: int = 65536) -> None:
         """Admit exact builtin containers without traversing their contents."""
@@ -35,12 +109,18 @@ class Auxiliary:
         self.thread = get_ident()
         self.active = True
         self.roots = {name: getattr(owner, name) for name in (*self.maps, *self.sets)}
+        self.roots.update({name: getattr(owner, name) for name in self.arrays})
         if any(type(self.roots[name]) is not dict for name in self.maps):
             raise TypeError("auxiliary indexes require plain dictionaries")
         if any(type(self.roots[name]) is not set for name in self.sets):
             raise TypeError("auxiliary indexes require plain sets")
+        if any(type(self.roots[name]) is not array for name in self.arrays):
+            raise TypeError("auxiliary counters require fixed-width arrays")
         self.mapsbyid = {id(self.roots[name]): self.roots[name] for name in self.maps}
         self.setsbyid = {id(self.roots[name]): self.roots[name] for name in self.sets}
+        self.arraysbyid = {
+            id(self.roots[name]): self.roots[name] for name in self.arrays
+        }
         self.mapnames = {id(self.roots[name]): name for name in self.maps}
         self.setnames = {id(self.roots[name]): name for name in self.sets}
         self.members: dict[tuple[int, Any], bool] = {}
@@ -49,6 +129,8 @@ class Auxiliary:
         self.changedinserted: set[Any] = set()
         self.changedtilde: set[Any] = set()
         self.changedkeys: dict[str, set[Any]] = {}
+        self.bucket_edits: list[tuple[list[Any], bool, int, Any]] = []
+        self.array_cells: dict[tuple[int, int], int] = {}
         self.system = owner.system
         self.size = len(self.roots)
         if self.size > capacity:
@@ -91,9 +173,33 @@ class Auxiliary:
         else:
             values.discard(item)
 
-    def assign(self, container: dict[Any, Any], key: Any, value: Any) -> None:
+    def assign(
+        self, container: dict[Any, Any] | array[int], key: Any, value: Any
+    ) -> None:
         """Set one key while retaining its original presence and value."""
         self.check()
+        if type(container) is array:
+            address = id(container)
+            if (
+                address not in self.arraysbyid
+                and self.owner.inserted_incident_counts is container
+            ):
+                # A phase reset swaps the counter root while this transaction
+                # is active. The original root is still retained in ``roots``
+                # for rollback; track writes to the replacement as well.
+                self.arraysbyid[address] = container
+            if address not in self.arraysbyid or type(key) is not int:
+                raise TypeError("auxiliary counter edit requires an admitted array")
+            if not 0 <= key < len(container):
+                raise IndexError("auxiliary counter index is out of range")
+            cell = address, key
+            if cell not in self.array_cells:
+                self.reserve()
+                self.array_cells[cell] = container[key]
+            if type(value) is not int or not 0 <= value <= 0xFFFFFFFF:
+                raise ValueError("auxiliary counter value is outside uint32 range")
+            container[key] = value
+            return
         if type(container) is not dict:
             raise TypeError("auxiliary key edit requires a plain dictionary")
         address = id(container)
@@ -121,7 +227,7 @@ class Auxiliary:
             self.keys[cell] = key in container, container.get(key)
         container.pop(key, None)
 
-    def add(self, container: dict[Any, set[Any]], key: Any, item: Any) -> None:
+    def add(self, container: dict[Any, Any], key: Any, item: Any) -> None:
         """Add to an indexed edge bucket, journaling bucket and key separately."""
         self.check()
         if type(container) is not dict:
@@ -132,10 +238,53 @@ class Auxiliary:
             self.changedkeys.setdefault(rootname, set()).add(key)
         values = container.get(key)
         if values is None:
-            values = set()
+            values = (
+                ()
+                if rootname
+                in (
+                    "inserted_incident_edges",
+                    "deleted_incident_edges",
+                )
+                else set()
+            )
             self.assign(container, key, values)
-        elif type(values) is not set:
+        elif (
+            type(values) not in (set, list, tuple)
+            or type(values) is list
+            and rootname not in ("inserted_incident_edges", "deleted_incident_edges")
+        ):
             raise TypeError("auxiliary edge bucket requires a plain set")
+        if type(values) is tuple:
+            if item in values:
+                return
+            if len(values) < INCIDENT_LIST_LIMIT:
+                self.assign(container, key, values + (item,))
+            else:
+                self.assign(container, key, {*values, item})
+            return
+        if type(values) is list:
+            if item in values:
+                return
+            if len(values) < INCIDENT_LIST_LIMIT:
+                self.reserve()
+                self.bucket_edits.append((values, True, len(values), item))
+                values.append(item)
+            else:
+                replacement = {*values, item}
+                self.assign(container, key, replacement)
+            return
+        if type(values) is not set:
+            raise TypeError("auxiliary edge bucket requires a plain set")
+        if (
+            rootname in ("inserted_incident_edges", "deleted_incident_edges")
+            and len(values) < INCIDENT_LIST_LIMIT
+        ):
+            if item in values:
+                return
+            compact = list(values)
+            compact.append(item)
+            self.assign(container, key, compact)
+            return
         else:
             cell = address, key
             if cell in self.keys:
@@ -152,7 +301,7 @@ class Auxiliary:
 
     def discard(
         self,
-        container: dict[Any, set[Any]],
+        container: dict[Any, Any],
         key: Any,
         item: Any,
         empty: bool = False,
@@ -164,6 +313,32 @@ class Auxiliary:
             self.changedkeys.setdefault(rootname, set()).add(key)
         values = container.get(key)
         if values is None:
+            return
+        incident_bucket = rootname in (
+            "inserted_incident_edges",
+            "deleted_incident_edges",
+        )
+        if type(values) is tuple:
+            if item not in values:
+                return
+            replacement = tuple(value for value in values if value != item)
+            if empty and not replacement:
+                self.remove(container, key)
+            else:
+                self.assign(container, key, replacement)
+            return
+        if type(values) is list:
+            if not incident_bucket:
+                raise TypeError("auxiliary edge bucket requires a plain set")
+            try:
+                index = values.index(item)
+            except ValueError:
+                return
+            self.reserve()
+            self.bucket_edits.append((values, False, index, item))
+            values.pop(index)
+            if empty and not values:
+                self.remove(container, key)
             return
         if type(values) is not set:
             raise TypeError("auxiliary edge bucket requires a plain set")
@@ -178,14 +353,36 @@ class Auxiliary:
             )
         if owned:
             self.setsbyid[id(values)] = values
+        if incident_bucket and item in values and len(values) <= INCIDENT_LIST_LIMIT:
+            compact: list[Any] = list(values)
+            compact.remove(item)
+            self.assign(container, key, compact)
+            if empty and not compact:
+                self.remove(container, key)
+            return
         self.member(values, item, False)
         if empty and not values:
             self.remove(container, key)
 
-    def clear(self, container: dict[Any, Any] | set[Any]) -> None:
+    def clear(self, container: dict[Any, Any] | set[Any] | array[int]) -> None:
         """Journal every original entry before clearing a root container."""
         self.check()
         address = id(container)
+        if type(container) is array:
+            if address not in self.arraysbyid:
+                raise TypeError("auxiliary clear requires an admitted counter array")
+            changed = [
+                (index, value)
+                for index, value in enumerate(container)
+                if value and (address, index) not in self.array_cells
+            ]
+            for index, value in changed:
+                self.reserve()
+                self.array_cells[address, index] = value
+            for index, value in enumerate(container):
+                if value:
+                    container[index] = 0
+            return
         if type(container) is dict:
             if address in self.mapsbyid:
                 for key, value in container.items():
@@ -204,7 +401,7 @@ class Auxiliary:
                         self.members[key] = True
             container.clear()
             return
-        raise TypeError("auxiliary clear requires a plain map or set")
+        raise TypeError("auxiliary clear requires an admitted map, set, or array")
 
     def validate(self) -> None:
         """Certify local auxiliary deltas or fully audit a rebuilt candidate."""
@@ -213,6 +410,8 @@ class Auxiliary:
             raise TypeError("auxiliary candidate requires plain dictionaries")
         if any(type(getattr(self.owner, name)) is not set for name in self.sets):
             raise TypeError("auxiliary candidate requires plain sets")
+        if any(type(getattr(self.owner, name)) is not array for name in self.arrays):
+            raise TypeError("auxiliary candidate requires fixed-width arrays")
         if not self.certify():
             raise RuntimeError("auxiliary index delta certificate failed")
 
@@ -248,14 +447,14 @@ class Auxiliary:
             present = edge in owner.inserted_edges
             for vertex in (left, right):
                 bucketrow = owner.inserted_incident_edges.get(vertex)
-                if bucketrow is not None and type(bucketrow) is not set:
+                if bucketrow is not None and type(bucketrow) not in (set, list, tuple):
                     return False
                 if (bucketrow is not None and edge in bucketrow) != present:
                     return False
         for vertex in self.affected:
             incident = owner.inserted_incident_edges.get(vertex)
             if incident is not None and (
-                type(incident) is not set
+                type(incident) not in (set, list, tuple)
                 or not incident
                 or any(
                     edge not in owner.inserted_edges or vertex not in edge
@@ -292,7 +491,7 @@ class Auxiliary:
             else:
                 expected = {
                     target
-                    for target in system.lambda_lists.get(source, ())
+                    for target in system.lambda_neighbors(source)
                     if owner.graph.has_edge(source, target)
                 }
             actual = owner.H.get(source, set())
@@ -366,13 +565,23 @@ class Auxiliary:
     @staticmethod
     def complete(owner: Matcher) -> bool:
         """Independently reconstruct and compare all auxiliary indexes."""
-        expected_inserted: dict[int, set[Any]] = {}
-        for edge in owner.inserted_edges:
-            left, right = edge
-            expected_inserted.setdefault(left, set()).add(edge)
-            expected_inserted.setdefault(right, set()).add(edge)
-        if owner.inserted_incident_edges != expected_inserted:
-            return False
+        for edges, incident in (
+            (owner.inserted_edges, owner.inserted_incident_edges),
+            (owner.deleted_edges, owner.deleted_incident_edges),
+        ):
+            if sum(map(len, incident.values())) != 2 * len(edges):
+                return False
+            for edge in edges:
+                left, right = edge
+                if edge not in incident.get(left, ()) or edge not in incident.get(
+                    right, ()
+                ):
+                    return False
+            for vertex, row in incident.items():
+                if not row or any(
+                    edge not in edges or vertex not in edge for edge in row
+                ):
+                    return False
         if owner.system is None:
             return not (
                 owner.H
@@ -396,7 +605,7 @@ class Auxiliary:
                 continue
             targets = {
                 target
-                for target in system.lambda_lists.get(source, ())
+                for target in system.lambda_neighbors(source)
                 if owner.graph.has_edge(source, target)
             }
             if targets:
@@ -431,6 +640,13 @@ class Auxiliary:
     def restore(self) -> None:
         """Restore set cells, map keys and original root references in place."""
         self.check()
+        for values, added, index, item in reversed(self.bucket_edits):
+            if added:
+                values.pop(index)
+            else:
+                values.insert(index, item)
+        for (address, index), value in self.array_cells.items():
+            self.arraysbyid[address][index] = value
         for (address, item), present in self.members.items():
             values = self.setsbyid[address]
             if present:
@@ -451,6 +667,8 @@ class Auxiliary:
         self.check()
         self.members.clear()
         self.keys.clear()
+        self.bucket_edits.clear()
+        self.array_cells.clear()
         self.affected.clear()
         self.changedinserted.clear()
         self.changedtilde.clear()
@@ -458,6 +676,7 @@ class Auxiliary:
         self.roots.clear()
         self.mapsbyid.clear()
         self.setsbyid.clear()
+        self.arraysbyid.clear()
         self.active = False
         object.__setattr__(self.owner, "auxiliary", None)
 
@@ -466,6 +685,8 @@ class Auxiliary:
         self.restore()
         self.members.clear()
         self.keys.clear()
+        self.bucket_edits.clear()
+        self.array_cells.clear()
         self.affected.clear()
         self.changedinserted.clear()
         self.changedtilde.clear()
@@ -473,5 +694,6 @@ class Auxiliary:
         self.roots.clear()
         self.mapsbyid.clear()
         self.setsbyid.clear()
+        self.arraysbyid.clear()
         self.active = False
         object.__setattr__(self.owner, "auxiliary", None)

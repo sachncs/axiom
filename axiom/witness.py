@@ -19,7 +19,7 @@ from typing import Any
 from axiom.clocks import Clocks
 from axiom.color import Greedy, Vizing
 from axiom.core import Matcher
-from axiom.graph import Adjacency
+from axiom.graph import Adjacency, PhaseBaseGraph
 from axiom.hierarchy import Hierarchy
 from axiom.ledger import Ledger
 from axiom.matching_index import MatchingIndex
@@ -57,6 +57,7 @@ class Witness:
                 "clocks",
                 "classes",
                 "deleted_edges",
+                "deleted_incident_edges",
                 "eta",
                 "failed",
                 "graph",
@@ -93,6 +94,9 @@ class Witness:
             ]
         ),
         Adjacency: frozenset({"n", "adj", "edge_count", "journal", "token"}),
+        PhaseBaseGraph: frozenset(
+            {"root", "inserted", "deleted", "inserted_at", "deleted_at"}
+        ),
         Vertices: frozenset({"n", "positions", "members", "size"}),
         System: frozenset(field.name for field in fields(System)),
         Hierarchy: frozenset(field.name for field in fields(Hierarchy)),
@@ -228,6 +232,11 @@ class Witness:
             )
         elif kind is MatchingIndex:
             content = self.encode({"n": value.n, "values": value.values}, depth + 1)
+        elif kind is PhaseBaseGraph:
+            content = [
+                [name, self.encode(getattr(value, name), depth + 1)]
+                for name in sorted(self.schema[kind])
+            ]
         else:
             attributes = vars(value)
             if attributes.keys() != self.schema[kind]:

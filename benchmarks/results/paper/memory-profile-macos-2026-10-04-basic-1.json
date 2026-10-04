@@ -1,0 +1,32 @@
+{
+  "constructor_certified": true,
+  "edges": 2000000,
+  "graph_memory": {
+    "active": 0,
+    "allocated": 37000264,
+    "arena": 24000000,
+    "budget": 1073741824,
+    "freeblocks": 0,
+    "index": 0,
+    "journal": 0,
+    "liveblocks": 1000000,
+    "metadata": 13000264
+  },
+  "mode": "basic",
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "process_peak_rss_bytes": 191283200,
+  "python": "3.11.16",
+  "python_current_bytes": 57299525,
+  "python_peak_bytes": 58182885,
+  "startup_elapsed_ns": 19849972333,
+  "system": {
+    "A": 0,
+    "B": 0,
+    "L_entries": 0,
+    "L_rows": 0,
+    "U": 1000000,
+    "lambda_entries": 0,
+    "lambda_rows": 0
+  },
+  "vertices": 1000000
+}
