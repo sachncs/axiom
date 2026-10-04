@@ -192,6 +192,8 @@ than silently changing an accepted contract or declaring an unfinished goal done
 | Rebuild H by sorting all of U and rescan maximality at every subphase even when M1 is unchanged | Skip subphase synchronization only when no seed edge was deleted and no augmenting path changed the seed (0137) | Regression forces the boundary and rejects global rebuild/maximality calls; hosted million-vertex effect is pending |
 | Run a million-vertex growth/drain cycle plus 40,000 updates against a one-million-operation durable history limit | Cap the optional resource-test tail at the configured history limit and permit the exact full cycle (0138) | Regression covers the exact million-update cycle; hosted constrained rerun is pending |
 | Require a nonexistent `checkpoint_generation` in Service status after resource updates | Check committed history, actual PASSIVE WAL checkpoint statistics, and full graph audit independently (0139) | Service contract is covered locally; hosted resource rerun is pending |
+| Reopen/replay the million-operation database for memory pressure while retaining the just-closed Service's Matcher | Release and collect the Service owner before pressure replay (0140) | Retained-owner cause was confirmed by the hosted traceback; constrained memory/recovery rerun is pending |
+| Run the constrained million-update Service trace in groups of 256 while sustained acknowledgments remain below 10k/s | Test 512-request resource-only atomic groups; retain 256-operation paper journal slices and production defaults (0141) | Rate/latency and recovery qualification pending; no benefit claimed from the sub-1% local receipt bookkeeping sample |
 
 ## What is not being abandoned
 

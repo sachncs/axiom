@@ -883,12 +883,17 @@ def test_failure_during_acknowledgment_cannot_overwrite_already_delivered_outcom
     path = tmp_path / "graph.db"
     service = create(path)
     entered, release = threading.Event(), threading.Event()
-    original = service._finish
+    original = Receipt._finish
     injected = False
 
-    def interrupt(work: object, value: object, error: object) -> None:
+    def interrupt(
+        receipt: Receipt[object],
+        value: object,
+        error: BaseException | None,
+        started: int,
+    ) -> None:
         nonlocal injected
-        original(work, value, error)
+        original(receipt, value, error, started)
         if isinstance(value, Outcome) and not injected:
             injected = True
             entered.set()
@@ -896,20 +901,27 @@ def test_failure_during_acknowledgment_cannot_overwrite_already_delivered_outcom
                 raise RuntimeError("test acknowledgment release timed out")
             raise OSError("injected response delivery failure")
 
-    monkeypatch.setattr(service, "_finish", interrupt)
+    monkeypatch.setattr(Receipt, "_finish", interrupt)
     receipts = [service.submit(r) for r in edits(1, 4)]
+    clients = ThreadPoolExecutor(max_workers=1)
     try:
         assert entered.wait(5)
         first = receipts[0].result(5)
         assert first == Outcome(1, True, 1)
-        queued = service.submit(edits(5, 1)[0])
+        queued = clients.submit(service.submit, edits(5, 1)[0])
     finally:
         release.set()
     for receipt in receipts[1:]:
         with pytest.raises(OSError, match="response delivery"):
             receipt.result(5)
-    with pytest.raises(UnavailableError):
-        queued.result(5)
+    try:
+        queued_receipt = queued.result(5)
+    except UnavailableError:
+        pass
+    else:
+        with pytest.raises(UnavailableError):
+            queued_receipt.result(5)
+    clients.shutdown()
     service.close(5)
     assert receipts[0].result(0) == first  # Previously delivered success stays success.
     assert service.metrics()["outstanding"] == 0

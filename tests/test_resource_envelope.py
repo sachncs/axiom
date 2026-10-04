@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from axiom.durable import Durable, Request
+from axiom.durable import MAX_BATCH, Durable, Request
 from scripts import verify_resource_envelope as module
 from scripts.verify_resource_envelope import (
     Audit,
@@ -327,6 +327,7 @@ def test_million_vertex_cycle_fits_the_durable_history_limit():
     from axiom.durable import MAX_OPERATIONS
 
     assert module.RESOURCE_HISTORY_LIMIT == MAX_OPERATIONS
+    assert module.RESOURCE_BATCH <= MAX_BATCH
     reference = Cycle(1_000_000, 1_000_000)
     reference.inspect()
 

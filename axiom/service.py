@@ -741,26 +741,40 @@ class Service:
                     self._condition.wait()
 
     def _finish(self, work: _Work, value: object, error: BaseException | None) -> None:
+        self.complete((work,), (value,), error)
+
+    def complete(
+        self,
+        works: Sequence[_Work],
+        values: Sequence[object],
+        error: BaseException | None,
+    ) -> None:
+        """Publish work results and counters under one condition-lock acquisition."""
+        if len(works) != len(values):
+            raise ValueError("each completed work item needs one result")
         with self._condition:
-            if work.finished:
-                return
-            outstanding = self._outstanding - len(work.receipts)
-            completed = self._completed + len(work.receipts)
-            for receipt in work.receipts:
-                receipt._finish(value, error, work.started_ns or time.perf_counter_ns())
-            self._outstanding, self._completed = outstanding, completed
-            self._maintenance -= work.maintenance
-            work.finished = True
-            if work.requests is not None:
-                for request in work.requests:
-                    self._pending.pop(request.sequence, None)
-            elif work.request is not None:
-                self._pending.pop(work.request.sequence, None)
-            elif work.externals is not None:
-                for external_request in work.externals:
-                    self._pending.pop(external_request.sequence, None)
-            elif work.external is not None:
-                self._pending.pop(work.external.sequence, None)
+            for work, value in zip(works, values, strict=True):
+                if work.finished:
+                    continue
+                outstanding = self._outstanding - len(work.receipts)
+                completed = self._completed + len(work.receipts)
+                for receipt in work.receipts:
+                    receipt._finish(
+                        value, error, work.started_ns or time.perf_counter_ns()
+                    )
+                self._outstanding, self._completed = outstanding, completed
+                self._maintenance -= work.maintenance
+                work.finished = True
+                if work.requests is not None:
+                    for request in work.requests:
+                        self._pending.pop(request.sequence, None)
+                elif work.request is not None:
+                    self._pending.pop(work.request.sequence, None)
+                elif work.externals is not None:
+                    for external_request in work.externals:
+                        self._pending.pop(external_request.sequence, None)
+                elif work.external is not None:
+                    self._pending.pop(work.external.sequence, None)
 
     def _fail(self, error: BaseException, current: deque[_Work]) -> None:
         with self._condition:
@@ -804,12 +818,8 @@ class Service:
                     with self._condition:
                         self._groups += 1
                         self._largest_group = max(self._largest_group, len(current))
-                    offset = 0
-                    while current:
-                        work = current[0]
-                        self._finish(work, outcomes[offset], None)
-                        current.popleft()
-                        offset += 1
+                    self.complete(current, outcomes, None)
+                    current.clear()
                 else:
                     while current:
                         work = current[0]

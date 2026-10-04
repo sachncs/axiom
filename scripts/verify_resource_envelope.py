@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import errno
+import gc
 import hashlib
 import json
 import os
@@ -27,6 +28,7 @@ from typing import Any, Literal, cast
 
 SQLITEFULL = 13
 RESOURCE_HISTORY_LIMIT = 1_000_000
+RESOURCE_BATCH = 512
 
 
 @dataclass
@@ -513,6 +515,7 @@ class Envelope:
             n=self.audit.vertices,
             mode=self.mode,
             budget=128 << 20,
+            max_batch=RESOURCE_BATCH,
             queue_capacity=4096,
         ) as service:
             updates_started = time.perf_counter()
@@ -521,8 +524,8 @@ class Envelope:
                 f"initialization_seconds={updates_started - started:.3f}",
                 flush=True,
             )
-            for first in range(1, self.audit.sequence + 1, 256):
-                end = min(first + 256, self.audit.sequence + 1)
+            for first in range(1, self.audit.sequence + 1, RESOURCE_BATCH):
+                end = min(first + RESOURCE_BATCH, self.audit.sequence + 1)
                 receipts = [
                     service.submit(Request(seq, *self.audit.operation(seq)))
                     for seq in range(first, end)
@@ -532,7 +535,8 @@ class Envelope:
                         raise RuntimeError(
                             "resource envelope acknowledged a wrong update"
                         )
-                if end % 100000 < 256 or end == self.audit.sequence + 1:
+                crossed_progress_mark = (end - 1) // 100000 > (first - 1) // 100000
+                if crossed_progress_mark or end == self.audit.sequence + 1:
                     metrics = service.metrics()
                     print(
                         f"resource updates={end - 1} "
@@ -556,6 +560,13 @@ class Envelope:
                 flush=True,
             )
             metrics = service.metrics()
+
+        # Service.close drains work and closes the Durable owner, but the
+        # Service object still retains its Matcher until it is released. The
+        # pressure phases reopen/replay the graph and must not overlap that
+        # million-vertex in-memory state.
+        del service
+        gc.collect()
 
         working = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
         results = {}
