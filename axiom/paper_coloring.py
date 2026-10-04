@@ -655,7 +655,13 @@ class ColorJournal:
         """Bind a local before-image to its owner and optional enclosing journal."""
         self.coloring = coloring
         self.parent = parent
+        self.admitted: bool = parent.admitted if parent is not None else False
         self.before: dict[Edge, Color | None] = {}
+
+    def admit(self) -> None:
+        """Establish a fully audited baseline for journaled local certificates."""
+        self.coloring.validate()
+        self.admitted = True
 
     def capture(self, edges: Iterable[Edge]) -> None:
         """Capture each edge's original color once, including uncolored edges."""
@@ -1760,8 +1766,11 @@ class Pruning:
     ) -> tuple[Spoke, ...]:
         """Run pruning atomically, including the caller-owned fan collection."""
         colorjournal = ColorJournal(coloring, journal)
+        admitted = colorjournal.admitted
         createdfans: list[Fan] = []
         try:
+            if not admitted:
+                coloring.validate()
             if not uedges:
                 return ()
             alpha = uedges[0].alpha
@@ -1869,6 +1878,8 @@ class Pruning:
             refreshed = cls.renew(
                 coloring, [item for item, ignored in active] + deferred
             )
+            if admitted:
+                coloring.certify(colorjournal.before)
             fans.validate()
             fans.compatible(coloring)
             return tuple(refreshed)
@@ -1897,7 +1908,10 @@ class Pruning:
         Collision resolution is transactional and never substitutes a different
         coloring algorithm when its paper preconditions are not met.
         """
-        coloring.validate()
+        colorjournal = ColorJournal(coloring, journal)
+        admitted = colorjournal.admitted
+        if not admitted:
+            coloring.validate()
         fans.validate()
         fans.compatible(coloring)
         extended = 0
@@ -1922,8 +1936,8 @@ class Pruning:
                 collisionchains = event.collision
                 if journal is not None:
                     for chain in collisionchains:
-                        journal.capture(chain.edges)
-                        journal.capture(
+                        colorjournal.capture(chain.edges)
+                        colorjournal.capture(
                             canonical(chain.spoke.center, leaf) for leaf in chain.leaves
                         )
                 resolved, added = cls.vizing.resolve(coloring, fans, collisionchains)
@@ -1961,8 +1975,8 @@ class Pruning:
                 if item not in active or item.edge in coloring:
                     continue
                 if journal is not None:
-                    journal.capture(chain.edges)
-                    journal.capture(
+                    colorjournal.capture(chain.edges)
+                    colorjournal.capture(
                         canonical(chain.spoke.center, leaf) for leaf in chain.leaves
                     )
                 cls.vizing.activate(coloring, chain)
@@ -1977,7 +1991,10 @@ class Pruning:
             coloring.certify(changededges)
             fans.certify(changedvertices)
             fans.compatible(coloring, changedvertices)
-        coloring.validate()
+        if admitted:
+            coloring.certify(colorjournal.before)
+        else:
+            coloring.validate()
         fans.validate()
         fans.compatible(coloring)
         return extended
@@ -1997,10 +2014,11 @@ class Pruning:
         collection contains only u-fans that survived reduction; every seeded
         u-edge is either colored or represented by that collection.
         """
-        coloring.validate()
         if not uncolorededges:
+            coloring.validate()
             return Fans()
         colorjournal = ColorJournal(coloring, journal)
+        colorjournal.admit()
         try:
             seeded = cls.seed(coloring, uncolorededges)
             result = Fans()
@@ -2030,6 +2048,10 @@ class Pruning:
             colorjournal.rollback()
             coloring.validate()
             raise
+        finally:
+            # Admission is valid only inside this construction transaction.
+            # The caller-owned parent journal must never inherit that trust.
+            colorjournal.admitted = False
 
 
 class Construction:

@@ -69,6 +69,22 @@ class Cases:
             coloring.assign(edge, color)
         return coloring, pending
 
+    @staticmethod
+    def multialpha() -> tuple[Partial, set[tuple[int, int]]]:
+        """Build two independent uncolored edges with distinct seed colors."""
+        graph = Adjacency(8)
+        for edge in ((0, 1), (0, 2), (0, 3), (4, 5), (4, 6), (4, 7)):
+            graph.add_edge(*edge)
+        coloring = Partial(graph, 3)
+        for edge, color in (
+            ((0, 2), 0),
+            ((0, 3), 1),
+            ((4, 6), 0),
+            ((4, 7), 2),
+        ):
+            coloring.assign(edge, color)
+        return coloring, {(0, 1), (4, 5)}
+
 
 @pytest.mark.parametrize("count", [2, 3, 8])
 def test_routing_prunes_multiple_groups_and_performs_chain_flips(count: int) -> None:
@@ -106,6 +122,117 @@ def test_routing_prunes_multiple_groups_and_performs_chain_flips(count: int) -> 
     completed = Paper.complete(coloring, set(coloring.graph.edges()), 3)
     Paper.certify(coloring.graph, 3, set(coloring.graph.edges()), completed)
     assert not fans
+
+
+def test_construct_uses_one_admission_and_one_final_full_coloring_audit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    coloring, pending = Cases.multialpha()
+    assert len({item.alpha for item in Pruning.seed(coloring, pending)}) == 2
+    originalvalidate = Partial.validate
+    originalcertify = Partial.certify
+    audits = 0
+    certificates = []
+
+    def count_audit(candidate: Partial) -> None:
+        nonlocal audits
+        audits += 1
+        originalvalidate(candidate)
+
+    def count_certificate(candidate: Partial, edges) -> None:
+        certificates.append(tuple(sorted(edges)))
+        originalcertify(candidate, certificates[-1])
+
+    monkeypatch.setattr(Partial, "validate", count_audit)
+    monkeypatch.setattr(Partial, "certify", count_certificate)
+    fans = Pruning.construct(coloring, pending)
+
+    assert audits == 2
+    assert certificates
+    assert pending <= set(coloring.assignments) | fans.spokes
+    originalvalidate(coloring)
+    fans.validate()
+    fans.compatible(coloring)
+
+    repeated, repeatedpending = Cases.multialpha()
+    repeatedfans = Pruning.construct(repeated, repeatedpending)
+    assert dict(coloring.items()) == dict(repeated.items())
+    assert tuple(fans) == tuple(repeatedfans)
+
+
+def test_unadmitted_reduction_keeps_both_full_coloring_audits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    coloring, pending = Cases.multialpha()
+    journal = ColorJournal(coloring)
+    originalvalidate = Partial.validate
+    audits = 0
+
+    def count_audit(candidate: Partial) -> None:
+        nonlocal audits
+        audits += 1
+        originalvalidate(candidate)
+
+    monkeypatch.setattr(Partial, "validate", count_audit)
+    fans = Fans()
+    Pruning.reduce(coloring, fans, Pruning.seed(coloring, pending), journal=journal)
+
+    assert audits == 2
+    assert pending <= set(coloring.assignments)
+    originalvalidate(coloring)
+
+
+def test_construct_does_not_leak_admission_to_caller_journal() -> None:
+    coloring, pending = Cases.multialpha()
+    journal = ColorJournal(coloring)
+    Pruning.construct(coloring, pending, journal=journal)
+
+    assert not journal.admitted
+    edge, color = next(iter(coloring.items()))
+    coloring.index.pop((edge[0], color), None)
+    with pytest.raises(AssertionError, match="stale|certificate"):
+        Pruning.reduce(coloring, Fans(), (), journal=journal)
+
+
+def test_admitted_local_certificate_failure_rolls_back_coloring_exactly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    coloring, pending = Cases.multialpha()
+    witness = Witness()
+    before = witness.capture(coloring)
+    roots = (coloring.assignments, coloring.incident, coloring.index)
+    originalcertify = Partial.certify
+    rejected = False
+
+    def reject_corrupt_touched_cell(candidate: Partial, edges) -> None:
+        nonlocal rejected
+        if not rejected:
+            for edge in edges:
+                color = candidate.assignments.get(edge)
+                if color is not None:
+                    candidate.index.pop((edge[0], color), None)
+                    rejected = True
+                    break
+        originalcertify(candidate, edges)
+
+    monkeypatch.setattr(Partial, "certify", reject_corrupt_touched_cell)
+    with pytest.raises(
+        AssertionError, match="coloring edge certificate failed|local index is stale"
+    ):
+        Pruning.construct(coloring, pending)
+
+    assert rejected
+    assert witness.capture(coloring) == before
+    assert all(
+        current is original
+        for current, original in zip(
+            (coloring.assignments, coloring.incident, coloring.index),
+            roots,
+            strict=True,
+        )
+    )
+    originalcertify(coloring, pending)
+    coloring.validate()
 
 
 def test_partial_replace_cycles_colors_and_rolls_back_failed_certification(
